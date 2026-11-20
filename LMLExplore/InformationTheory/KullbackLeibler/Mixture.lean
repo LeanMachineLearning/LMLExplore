@@ -92,7 +92,7 @@ theorem klInf_mixture_of_mutuallySingular {μ : Measure 𝓧} [IsProbabilityMeas
   have hkl (P : Measure 𝓧) (hP : P ∈ S) : klIntegral μ P = ENNReal.log ε⁻¹ := by
     obtain ⟨ν, hν, hνμ, rfl⟩ := h P hP
     have : IsProbabilityMeasure ((1 - ε) • ν + ε • μ) := ⟨by simp [tsub_add_cancel_of_le hε]⟩
-    rw [klIntegral_eq_klDiv (by simp [tsub_add_cancel_of_le hε]),
+    rw [klIntegral_eq_klDiv (measure_univ.trans measure_univ.symm),
       klDiv_mixture_of_mutuallySingular hνμ hε]
   rw [klInf_def, biInf_congr hkl, biInf_const hS]
 

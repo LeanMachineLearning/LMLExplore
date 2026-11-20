@@ -182,9 +182,10 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
       calc c * (Measure.pi fun _ : Fin n ↦ P) (pairwiseIrrational n)
       _ ≤ c * (n * ε ^ (n - 1)) := by gcongr; exact measure_pi_pairwiseIrrational_le hPC hC hn
       _ ≤ 1 := ENNReal.inv_mul_le_one _
-  rw [maxLogGrowth_def, maxEPower_def]
-  exact (logUtility.eintegral_comp_indicator_const (volume_pi_compl_pairwiseIrrational n)
-    c).symm.trans_le (hX.eintegral_le_maxUtility _ logUtility)
+  rw [maxLogGrowth_def]
+  refine le_of_eq_of_le ?_ (hX.eintegral_log_le_maxEPower _)
+  simpa [Function.comp_def, logUtility_apply] using
+    (logUtility.eintegral_comp_indicator_const (volume_pi_compl_pairwiseIrrational n) c).symm
 
 /-! ### The cosets -/
 

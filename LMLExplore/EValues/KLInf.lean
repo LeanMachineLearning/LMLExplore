@@ -7,6 +7,7 @@ module
 
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
+import LMLExplore.EValues.DPI
 import Mathlib.InformationTheory.KullbackLeibler.DataProcessing
 import Statlib.ForMathlib.InformationTheory.KullbackLeibler.EIntegral
 import TauCeti.Data.EReal.Operations
@@ -56,6 +57,8 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
   `klDiv Q P` for a probability measure `P`.
 * `ProbabilityTheory.maxEPower_eq_eintegral_numeraire`: the numeraire attains the largest e-power.
 * `ProbabilityTheory.maxEPower_prod_eq_add`: additivity of `maxEPower` on products of nulls.
+* `ProbabilityTheory.maxEPower_map_le` and `MeasurableEmbedding.maxEPower_map_eq`: data processing
+  for `maxEPower` along a measurable map, with equality along a measurable embedding.
 * `ProbabilityTheory.coe_klDiv_smul_right_self_lt_maxEPower`: `klDiv` cannot replace `klIntegral` in
   the duality.
 
@@ -242,6 +245,11 @@ theorem maxEPower_empty [NeZero Q] : maxEPower Q ∅ = ⊤ := by
   rw [maxEPower_def, maxUtility_empty, logUtility_apply, ENNReal.log_top]
   exact EReal.top_mul_of_pos (by simpa using NeZero.ne (Q univ))
 
+/-- The largest e-power under the zero measure vanishes. This is `maxUtility_zero_measure`. -/
+@[simp]
+theorem maxEPower_zero_measure (S : Set (Measure Ω)) : maxEPower 0 S = 0 :=
+  maxUtility_zero_measure S logUtility
+
 /-- `maxEPower` is antitone in the null. -/
 @[gcongr]
 theorem maxEPower_anti (hST : S ⊆ T) : maxEPower Q T ≤ maxEPower Q S :=
@@ -303,6 +311,7 @@ theorem maxEPower_singleton [IsProbabilityMeasure Q] (hP : P univ ≤ 1) :
 
 /-- **The simple null**, for probability measures: the largest e-power of `{P}` is the relative
 entropy `klDiv Q P`. This is Statlib's `maxUtility_singleton_eq_klDiv`. -/
+@[simp]
 theorem maxEPower_singleton_eq_klDiv (Q P : Measure Ω) [IsProbabilityMeasure Q]
     [IsProbabilityMeasure P] : maxEPower Q {P} = klDiv Q P :=
   maxUtility_singleton_eq_klDiv Q P
@@ -315,6 +324,19 @@ theorem maxEPower_prod_eq_add {Q₁ : Measure Ω} {Q₂ : Measure Ω'} [IsProbab
     (hS₁ : ∀ P ∈ S₁, P univ ≤ 1) (hS₂ : ∀ P ∈ S₂, P univ ≤ 1) :
     maxEPower (Q₁.prod Q₂) (image2 Measure.prod S₁ S₂) = maxEPower Q₁ S₁ + maxEPower Q₂ S₂ :=
   maxUtility_prod_eq_add Q₁ Q₂ hS₁ hS₂
+
+/-- **Data processing** along a measurable map: pushing the measure and the null forward along `φ`
+does not increase the largest e-power. This is Statlib's `maxUtility_map_le`. -/
+theorem maxEPower_map_le (Q : Measure Ω) {φ : Ω → Ω'} (hφ : Measurable φ) :
+    maxEPower (Q.map φ) {P.map φ | P ∈ S} ≤ maxEPower Q S :=
+  maxUtility_map_le Q hφ
+
+/-- Pushing the measure and the null forward along a measurable embedding preserves the largest
+e-power. This is Statlib's `MeasurableEmbedding.maxUtility_map_eq`. -/
+theorem _root_.MeasurableEmbedding.maxEPower_map_eq [Nonempty Ω] {φ : Ω → Ω'}
+    (hφ : MeasurableEmbedding φ) (Q : Measure Ω) (S : Set (Measure Ω)) :
+    maxEPower (Q.map φ) {P.map φ | P ∈ S} = maxEPower Q S :=
+  MeasurableEmbedding.maxUtility_map_eq φ hφ Q S
 
 /-! ### `klDiv` cannot replace `klIntegral` -/
 

@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.Subadditive
-public import LMLExplore.EValues.DPI
 public import LMLExplore.EValues.KLInf
 public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
@@ -141,15 +140,15 @@ lemma maxLogGrowth_anti (h : S₁ ⊆ T₁) : maxLogGrowth Q₁ T₁ n ≤ maxLo
 @[simp]
 lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
     maxLogGrowth Q₁ S₁ 1 = maxEPower Q₁ S₁ := by
-  rw [maxLogGrowth_def, maxEPower_def, maxEPower_def]
+  rw [maxLogGrowth_def]
   rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
   · -- on an empty space every measure is `0`, and both sides vanish
     rw [Measure.eq_zero_of_isEmpty (Measure.pi fun _ : Fin 1 ↦ Q₁),
-      Measure.eq_zero_of_isEmpty Q₁, maxUtility_zero_measure, maxUtility_zero_measure]
+      Measure.eq_zero_of_isEmpty Q₁, maxEPower_zero_measure, maxEPower_zero_measure]
   set e := (MeasurableEquiv.funUnique (Fin 1) 𝓧).symm
   have h_map (P : Measure 𝓧) : P.map e = Measure.pi fun _ : Fin 1 ↦ P :=
     (measurePreserving_funUnique P (Fin 1)).symm.map_eq
-  rw [← e.measurableEmbedding.maxUtility_map_eq, h_map]
+  rw [← e.measurableEmbedding.maxEPower_map_eq, h_map]
   congr 1
   ext μ
   simp only [Set.mem_image, Set.mem_ofPred_eq, h_map]
@@ -184,8 +183,8 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
     exact ⟨_, ⟨P, hP, rfl⟩, _, ⟨P, hP, rfl⟩, (h_map P).symm⟩
   _ ≤ maxLogGrowth Q₁ S₁ (m + n) := by
-    rw [maxLogGrowth_def, maxEPower_def, maxEPower_def]
-    exact maxUtility_map_le _ e.measurable
+    rw [maxLogGrowth_def]
+    exact maxEPower_map_le _ e.measurable
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is at most `n` times the bipolar
 rate, for `n ≠ 0`. -/
