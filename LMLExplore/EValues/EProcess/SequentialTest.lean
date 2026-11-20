@@ -21,18 +21,21 @@ Together with e-processes, these are the instruments of anytime-valid sequential
 [RRLK, §4.1], and this file proves the reductions between them [RRLK, Propositions 11, 12 and 14;
 RW, Proposition 7.8].
 
-Through the events `{p n ≤ α}` read at stopping times
-(`MeasureTheory.measure_iUnion_eq_iSup_isStoppingTime`), validity of a p-process at every
-stopping time is the same as validity uniformly in time, `P {ω | ∃ n, p n ω ≤ α} ≤ α`, and the
-running infimum of a p-process is a p-process. A sequential test likewise rejects at every
-stopping time with probability at most `α` [RRLK, §4.1]. The inverse `E⁻¹` of an e-process is a
-p-process, by Markov's inequality at each stopping time, so its running infimum
-`(⨆ k ≤ n, E k)⁻¹` is one as well; thresholding a p-process at `α`, or an e-process at `α⁻¹`, is a
-level-`α` sequential test, which is Ville's inequality for e-processes; every level-`α` sequential
-test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`; and a p-to-e calibrator applied to a
-p-process gives an e-process.
-Since validity uniformly in time does not mention the filtration, a p-process or a sequential
-test for a filtration `𝒢` is one for every finer filtration [CR26, Theorem 1].
+A p-process is the same as time-uniformly valid events `{p n ≤ α}` at every level `α`, and a
+sequential test is a `{0, 1}`-valued process whose events of rejection are time-uniformly valid
+(`ProbabilityTheory.IsTimeUniform`). The equivalence lemma for time-uniform validity
+(`ProbabilityTheory.isTimeUniform_iff_forall_isStoppingTime`) then makes validity of a p-process
+at every stopping time the same as validity uniformly in time, `P {ω | ∃ n, p n ω ≤ α} ≤ α`, and
+a sequential test likewise rejects at every stopping time with probability at most `α`
+[RRLK, §4.1 and Lemma 2]. The running infimum of a p-process is a p-process. The inverse `E⁻¹`
+of an e-process is a p-process, by Markov's inequality at each stopping time, so its running
+infimum `(⨆ k ≤ n, E k)⁻¹` is one as well; thresholding a p-process at `α`, or an e-process at
+`α⁻¹`, is a level-`α` sequential test, which is Ville's inequality for e-processes; every
+level-`α` sequential test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`; and a p-to-e
+calibrator applied to a p-process gives an e-process.
+Since time-uniform validity does not mention the filtration
+(`ProbabilityTheory.IsTimeUniform.mono_filtration`), a p-process or a sequential test for a
+filtration `𝒢` is one for every finer filtration [CR26, Theorem 1].
 
 The null is an arbitrary set of measures, with no dominating measure, the filtration is
 arbitrary, and p-processes and sequential tests are validated at the stopping times with values in
@@ -143,32 +146,6 @@ theorem isPProcess_iff_forall_singleton :
     fun ⟨hp, h⟩ ↦ ⟨hp, fun τ hτ ↦ ⟨hp.measurable_apply_stoppingTime hτ, fun P hP α ↦ ?_⟩⟩⟩
   exact ((h P hP).isPVar_stoppedValue τ hτ).measure_le_le P (mem_singleton P) α
 
-/-- **P-processes are valid uniformly in time** [RRLK, §4.1]. An adapted process is a p-process
-exactly when, for every level `α` and every member `P` of the null, the probability that it is
-ever at most `α` is at most `α`. -/
-theorem isPProcess_iff_measure_exists_le_le :
-    IsPProcess p ℱ S ↔ Adapted ℱ p ∧ ∀ P ∈ S, ∀ α : ℝ≥0∞, P {ω | ∃ n, p n ω ≤ α} ≤ α := by
-  refine ⟨fun hp ↦ ⟨hp.adapted, fun P hP α ↦ ?_⟩, fun ⟨hp, h⟩ ↦ ⟨hp, fun τ hτ ↦
-    ⟨hp.measurable_apply_stoppingTime hτ, fun P hP α ↦
-      (h P hP α).trans' (measure_mono fun ω (hω : p (τ ω) ω ≤ α) ↦ ⟨τ ω, hω⟩)⟩⟩⟩
-  -- read the adapted events `{p n ≤ α}` at stopping times
-  have h_union : {ω | ∃ n, p n ω ≤ α} = ⋃ n, p n ⁻¹' Iic α := by ext; simp
-  rw [h_union, measure_iUnion_eq_iSup_isStoppingTime fun n ↦ hp.adapted n measurableSet_Iic]
-  exact iSup₂_le fun τ hτ ↦ (hp.isPVar_stoppedValue τ hτ).measure_le_le P hP α
-
-/-- **Ville's inequality for p-processes** [RRLK, §4.1]. Under every member of the null, the
-probability that a p-process is ever at most `α` is at most `α`. -/
-theorem IsPProcess.measure_exists_le_le (hp : IsPProcess p ℱ S) (hP : P ∈ S) (α : ℝ≥0∞) :
-    P {ω | ∃ n, p n ω ≤ α} ≤ α :=
-  (isPProcess_iff_measure_exists_le_le.1 hp).2 P hP α
-
-/-- **P-processes are valid at random times** [RRLK, Lemma 2]. Under every member of the null, a
-p-process read at a random time `τ` with values in `ℕ`, not necessarily a stopping time, is at most
-`α` with probability at most `α`. -/
-theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → ℕ) (hP : P ∈ S) (α : ℝ≥0∞) :
-    P {ω | p (τ ω) ω ≤ α} ≤ α :=
-  (hp.measure_exists_le_le hP α).trans' (measure_mono fun ω (hω : p (τ ω) ω ≤ α) ↦ ⟨τ ω, hω⟩)
-
 /-- **P-processes are time-uniformly valid** [RRLK, §4.1 and Lemma 2]. A process is a p-process
 exactly when, at every level `α`, the events `{p n ≤ α}` are time-uniformly valid at level `α`. -/
 theorem isPProcess_iff_forall_isTimeUniform :
@@ -185,13 +162,36 @@ theorem IsPProcess.isTimeUniform (hp : IsPProcess p ℱ S) (α : ℝ≥0∞) :
     IsTimeUniform (fun n ↦ {ω | p n ω ≤ α}) ℱ S α :=
   isPProcess_iff_forall_isTimeUniform.1 hp α
 
+/-- **P-processes are valid uniformly in time** [RRLK, §4.1]. An adapted process is a p-process
+exactly when, for every level `α` and every member `P` of the null, the probability that it is
+ever at most `α` is at most `α`: the events `{p n ≤ α}` are time-uniformly valid. -/
+theorem isPProcess_iff_measure_exists_le_le :
+    IsPProcess p ℱ S ↔ Adapted ℱ p ∧ ∀ P ∈ S, ∀ α : ℝ≥0∞, P {ω | ∃ n, p n ω ≤ α} ≤ α := by
+  have h_union (α : ℝ≥0∞) : {ω | ∃ n, p n ω ≤ α} = ⋃ n, {ω | p n ω ≤ α} := by ext; simp
+  simp only [isPProcess_iff_forall_isTimeUniform, h_union]
+  exact ⟨fun h ↦ ⟨fun n ↦ measurable_of_Iic fun α ↦ (h α).measurableSet n,
+      fun P hP α ↦ (h α).measure_iUnion_le P hP⟩,
+    fun ⟨hp, h⟩ α ↦ ⟨fun n ↦ hp n measurableSet_Iic, fun P hP ↦ h P hP α⟩⟩
+
+/-- **Ville's inequality for p-processes** [RRLK, §4.1]. Under every member of the null, the
+probability that a p-process is ever at most `α` is at most `α`. -/
+theorem IsPProcess.measure_exists_le_le (hp : IsPProcess p ℱ S) (hP : P ∈ S) (α : ℝ≥0∞) :
+    P {ω | ∃ n, p n ω ≤ α} ≤ α :=
+  (isPProcess_iff_measure_exists_le_le.1 hp).2 P hP α
+
+/-- **P-processes are valid at random times** [RRLK, Lemma 2]. Under every member of the null, a
+p-process read at a random time `τ` with values in `ℕ`, not necessarily a stopping time, is at most
+`α` with probability at most `α`. -/
+theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → ℕ) (hP : P ∈ S) (α : ℝ≥0∞) :
+    P {ω | p (τ ω) ω ≤ α} ≤ α :=
+  (hp.isTimeUniform α).measure_le τ hP
+
 /-- **p-lifting** [CR26, Theorem 1]. A p-process for a filtration `𝒢` is a p-process for every
-finer filtration `ℱ`, with no calibration: validity uniformly in time does not mention the
+finer filtration `ℱ`, with no calibration: time-uniform validity does not mention the
 filtration. -/
 theorem IsPProcess.mono_filtration (hp : IsPProcess p 𝒢 S) (h𝒢ℱ : 𝒢 ≤ ℱ) :
     IsPProcess p ℱ S :=
-  isPProcess_iff_measure_exists_le_le.2
-    ⟨fun n ↦ (hp.adapted n).mono (h𝒢ℱ n) le_rfl, fun _ hP α ↦ hp.measure_exists_le_le hP α⟩
+  isPProcess_iff_forall_isTimeUniform.2 fun α ↦ (hp.isTimeUniform α).mono_filtration h𝒢ℱ
 
 /-- **The running infimum of a p-process** [RRLK, §4.1]. The running infimum
 `fun n ω ↦ ⨅ k ≤ n, p k ω` of an adapted process is a p-process exactly when the process is one:
@@ -276,13 +276,6 @@ theorem anti_set (hST : S ⊆ T) (hφ : IsSequentialTest φ ℱ T α) : IsSequen
 theorem mono (hφ : IsSequentialTest φ ℱ S α) (hαβ : α ≤ β) : IsSequentialTest φ ℱ S β :=
   ⟨hφ.adapted, hφ.eq_zero_or_eq_one, fun P hP ↦ (hφ.measure_exists_eq_one_le P hP).trans hαβ⟩
 
-/-- A level-`α` sequential test for a filtration `𝒢` is a level-`α` sequential test for every
-finer filtration `ℱ` [CR26, §3.1]. -/
-theorem mono_filtration (hφ : IsSequentialTest φ 𝒢 S α) (h𝒢ℱ : 𝒢 ≤ ℱ) :
-    IsSequentialTest φ ℱ S α :=
-  ⟨fun n ↦ (hφ.adapted n).mono (h𝒢ℱ n) le_rfl, hφ.eq_zero_or_eq_one,
-    hφ.measure_exists_eq_one_le⟩
-
 end IsSequentialTest
 
 /-- **Sequential tests are time-uniformly valid** [RRLK, §4.1 and Lemma 2]. A process is a
@@ -302,19 +295,25 @@ theorem IsSequentialTest.isTimeUniform (hφ : IsSequentialTest φ ℱ S α) :
     IsTimeUniform (fun n ↦ {ω | φ n ω = 1}) ℱ S α :=
   (isSequentialTest_iff_isTimeUniform.1 hφ).2.2
 
+/-- A level-`α` sequential test for a filtration `𝒢` is a level-`α` sequential test for every
+finer filtration `ℱ` [CR26, §3.1]: time-uniform validity does not mention the filtration. -/
+theorem IsSequentialTest.mono_filtration (hφ : IsSequentialTest φ 𝒢 S α) (h𝒢ℱ : 𝒢 ≤ ℱ) :
+    IsSequentialTest φ ℱ S α :=
+  isSequentialTest_iff_isTimeUniform.2 ⟨fun n ↦ (hφ.adapted n).mono (h𝒢ℱ n) le_rfl,
+    hφ.eq_zero_or_eq_one, hφ.isTimeUniform.mono_filtration h𝒢ℱ⟩
+
 /-- **Sequential tests are valid at stopping times** [RRLK, §4.1]. A `{0, 1}`-valued adapted
 process is a level-`α` sequential test exactly when, under every member of the null, it rejects
-at every stopping time with values in `ℕ` with probability at most `α`. -/
+at every stopping time with values in `ℕ` with probability at most `α`: the time-uniform validity
+of its events of rejection, read at stopping times. -/
 theorem isSequentialTest_iff_forall_isStoppingTime :
     IsSequentialTest φ ℱ S α ↔ Adapted ℱ φ ∧ (∀ n ω, φ n ω = 0 ∨ φ n ω = 1) ∧
       ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
         ∀ P ∈ S, P {ω | φ (τ ω) ω = 1} ≤ α := by
-  refine ⟨fun hφ ↦ ⟨hφ.adapted, hφ.eq_zero_or_eq_one, fun τ _ P hP ↦ hφ.measure_eq_one_le τ hP⟩,
-    fun ⟨hφ, h01, h⟩ ↦ ⟨hφ, h01, fun P hP ↦ ?_⟩⟩
-  -- read the adapted events `{φ n = 1}` at stopping times
-  have h_union : {ω | ∃ n, φ n ω = 1} = ⋃ n, φ n ⁻¹' {1} := by ext; simp
-  rw [h_union, measure_iUnion_eq_iSup_isStoppingTime fun n ↦ hφ n (measurableSet_singleton 1)]
-  exact iSup₂_le fun τ hτ ↦ h τ hτ P hP
+  rw [isSequentialTest_iff_isTimeUniform, isTimeUniform_iff_forall_isStoppingTime]
+  exact ⟨fun ⟨hφ, h01, _, h⟩ ↦ ⟨hφ, h01, fun τ hτ P hP ↦ h P hP τ hτ⟩,
+    fun ⟨hφ, h01, h⟩ ↦ ⟨hφ, h01, fun n ↦ hφ n (measurableSet_singleton 1),
+      fun P hP τ hτ ↦ h τ hτ P hP⟩⟩
 
 /-- **Thresholding a p-process** [RRLK, Proposition 11 (1)]. Rejecting the null at the times at
 which a p-process is at most `α` is a level-`α` sequential test. -/
