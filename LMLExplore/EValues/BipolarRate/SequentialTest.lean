@@ -157,7 +157,7 @@ private lemma exists_bounded_bet (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
     fun P hP hPp ↦ ?_, ?_⟩
   · -- the bet `exp v` is at most `W`, whose expectation under the null is at most `1`
     have hY1 : ∫⁻ x, Y x ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1 := by
-      simpa using hYe.lintegral_le_measure_univ (Measure.pi fun _ : Fin m ↦ P) ⟨P, hP, rfl⟩
+      exact hYe.lintegral_le_one ⟨P, hP, rfl⟩
     have hexp (x : Fin m → 𝓧) : ENNReal.ofReal (Real.exp (v x)) ≤ W x := by
       rw [← ENNReal.log_le_log_iff, ENNReal.log_ofReal_exp, hv x]
       exact min_le_left _ _

@@ -18,8 +18,8 @@ that is, if `⨅ P ∈ S₁, klDiv Q₁ P ≤ maxLogGrowth Q₁ S₁ 1`, the thr
 `n ≠ 0`, `n` observations are worth exactly `n` times one, and the bipolar rate is the smallest
 relative entropy [EVR26, Note 11, Theorem 9]. No semicontinuity, convexity or compactness of the
 null is assumed. The weaker hypothesis `bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1` already gives
-`bipolarRate Q₁ S₁ = maxLogGrowth Q₁ S₁ 1` for any null and, for a null of finite measures,
-`maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1` for `n ≠ 0`.
+`bipolarRate Q₁ S₁ = maxLogGrowth Q₁ S₁ 1` for any null and, for a null of measures of mass at
+most `1`, `maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1` for `n ≠ 0`.
 
 For a weakly compact convex null the hypothesis holds [RR26, Proposition 4.5].
 
@@ -60,7 +60,7 @@ theorem bipolarRate_eq_maxLogGrowth_one_of_le (h : bipolarRate Q₁ S₁ ≤ max
 /-- If the bipolar rate is at most the maximal expected logarithm of a one-observation
 e-variable, then for `n ≠ 0`, `n` observations are worth `n` times one. -/
 theorem maxLogGrowth_eq_mul_of_bipolarRate_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (h : bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1)
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (h : bipolarRate Q₁ S₁ ≤ maxLogGrowth Q₁ S₁ 1)
     (hn : n ≠ 0) : maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1 :=
   le_antisymm ((maxLogGrowth_le_mul_bipolarRate Q₁ S₁ hn).trans (by gcongr))
     (mul_maxLogGrowth_one_le Q₁ hS₁ n)
@@ -90,7 +90,7 @@ theorem maxLogGrowth_eq_mul_of_iInf_klDiv_le_maxLogGrowth_one (Q₁ : Measure �
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     (h : ((⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) : EReal) ≤ maxLogGrowth Q₁ S₁ 1) (hn : n ≠ 0) :
     maxLogGrowth Q₁ S₁ n = n * maxLogGrowth Q₁ S₁ 1 :=
-  maxLogGrowth_eq_mul_of_bipolarRate_le Q₁ (fun P hP ↦ have := hS₁ P hP; inferInstance)
+  maxLogGrowth_eq_mul_of_bipolarRate_le Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le)
     ((bipolarRate_le_iInf_klDiv Q₁ hS₁).trans h) hn
 
 end ProbabilityTheory

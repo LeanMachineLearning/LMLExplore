@@ -162,10 +162,15 @@ private lemma descFactorial_mul_lintegral_le [IsProbabilityMeasure Q] (hε : ε 
     rw [lintegral_congr hexp, lintegral_finsetSum _ fun σ _ ↦ (hI σ).const_mul c]
     exact Finset.sum_congr rfl fun σ _ ↦ (lintegral_const_mul c (hI σ)).symm
   _ ≤ ∫⁻ _, 1 ∂(Measure.pi fun _ : Fin m ↦ Q) := by
-    refine lintegral_mono fun y ↦ ?_
-    have := hP y
-    exact (hE.lintegral_le_measure_univ _ ⟨_, hS y, rfl⟩).trans_eq measure_univ
+    exact lintegral_mono fun y ↦ hE.lintegral_le_one ⟨_, hS y, rfl⟩
   _ = 1 := by simp
+
+/-- The mixtures `(1 - ε) F + ε Q` of probability measures, for `ε ≤ 1`, have mass `1`. -/
+private lemma measure_univ_mixture_le_one [IsProbabilityMeasure Q] (hε : ε ≤ 1) :
+    ∀ P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
+      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}, P Set.univ ≤ 1 := by
+  rintro _ ⟨F, hF, -, rfl⟩
+  simp [tsub_add_cancel_of_le hε]
 
 variable [MeasurableSingletonClass 𝓧]
 
@@ -205,8 +210,9 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
     simp [div_eq_mul_inv, ENNReal.ofReal_mul, ENNReal.ofReal_inv_of_pos, ENNReal.ofReal_pow,
       Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
-  refine maxUtility_eq_zero_of_mem_effectiveSet fun E hE ↦
-    ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
+  refine maxUtility_eq_zero_of_mem_effectiveSet
+    (measure_univ_le_one_of_mem_image_pi (measure_univ_mixture_le_one hε) n) fun E hE ↦
+      ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
   obtain ⟨m, ham, hm⟩ := ((hlim.eventually (lt_mem_nhds ha)).and (eventually_ne_atTop 0)).exists
   exact (mul_le_mul_left ham.le _).trans
     (descFactorial_mul_lintegral_le hε hm (sum_resample_mem hm) hE)
@@ -218,7 +224,8 @@ theorem bipolarRate_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPro
     bipolarRate Q {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
       (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)} = 0 :=
   le_antisymm (bipolarRate_le_iff.2 fun n _ ↦ by
-    rw [maxLogGrowth_finitelySupported_mixtures_eq_zero Q hε n, mul_zero]) (bipolarRate_nonneg _ _)
+    rw [maxLogGrowth_finitelySupported_mixtures_eq_zero Q hε n, mul_zero])
+    (bipolarRate_nonneg _ (measure_univ_mixture_le_one hε))
 
 /-- For a probability measure `Q` without atoms, the smallest relative entropy from `Q` to the
 mixtures `(1 - ε) F + ε Q` of the probability measures `F` carried by a finite set with `Q` is

@@ -186,14 +186,16 @@ private lemma exists_withDensity_inv_mul_ofReal_div_add_sum_smul_dirac_mem_const
     by_contra h
     rw [not_nonempty_iff_eq_empty] at h
     simp [h] at hQY
-  have hEinv : ∫⁻ x, (E x)⁻¹ ∂Q ≤ 1 := by simpa using hEF 1 (isEVar_one _)
+  have h1 : IsEVar 1 (constraintNull (range g)) :=
+    isEVar_one fun _ hν ↦ (isProbabilityMeasure_of_mem_constraintNull hν).measure_univ.le
+  have hEinv : ∫⁻ x, (E x)⁻¹ ∂Q ≤ 1 := by simpa using hEF 1 h1
   set μ := Q.withDensity (dampedDensity E g δ ε)
   have hμE : ∀ F, IsEVar F (constraintNull (range g)) →
       ∫⁻ x, F x ∂μ ≤ ENNReal.ofReal (1 - ε) := fun F hF ↦
     (lintegral_withDensity_inv_mul_ofReal_div_le hE hF.measurable hg hδ.le hε1.le).trans
       (mul_le_of_le_one_right' (hEF F hF))
   have : IsFiniteMeasure μ :=
-    ⟨by simpa using (hμE 1 (isEVar_one _)).trans_lt ENNReal.ofReal_lt_top⟩
+    ⟨by simpa using (hμE 1 h1).trans_lt ENNReal.ofReal_lt_top⟩
   obtain ⟨α, _, x, w, -, hP⟩ := exists_add_sum_smul_dirac_mem_constraintNull hg hY hYμ hYne
     (withDensity_absolutelyContinuous Q _ hQY)
     (integrable_withDensity_inv_mul_ofReal_div hE hg (hEinv.trans_lt ENNReal.one_lt_top).ne hδ
@@ -217,15 +219,15 @@ private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurabl
     ⨅ P ∈ constraintNull (range g), ((klDiv Q P : ℝ≥0∞) : EReal) ≤
       maxUtility Q (constraintNull (range g)) logUtility +
         ((∫ x, Real.log (1 + δ * ∑ i, |g i x|) ∂Q - Real.log (1 - ε) : ℝ) : EReal) := by
-  have hS : ∀ μ ∈ constraintNull (range g), IsFiniteMeasure μ :=
-    fun _ ↦ isFiniteMeasure_of_mem_constraintNull
+  have hS : ∀ μ ∈ constraintNull (range g), μ univ ≤ 1 :=
+    fun _ hμ ↦ (isProbabilityMeasure_of_mem_constraintNull hμ).measure_univ.le
   set s := maxUtility Q (constraintNull (range g)) logUtility with hs_def
   set E := numeraire Q (constraintNull (range g)) with hE_def
   have hEnum := isNumeraire_numeraire Q hS
   have hEm : Measurable E := hEnum.isEVar.measurable
   have hsE : s = ∫ᵉ x, ENNReal.log (E x) ∂Q := maxUtility_eq_eintegral_numeraire Q hS
   have hE_top : ∀ᵐ x ∂Q, E x ≠ ∞ := by
-    have := ae_ne_top_of_eintegral_ne_top (by fun_prop) hEnum.eintegrable_log (hsE ▸ hs)
+    have := ae_ne_top_of_eintegral_ne_top (by fun_prop) (hEnum.eintegrable_log hS) (hsE ▸ hs)
     filter_upwards [this] with x hx
     simpa using hx
   -- the damped and scaled reverse information projection, and its completion into a member `P`
@@ -242,8 +244,7 @@ private lemma iInf_klDiv_constraintNull_le_maxUtility_add (hg : ∀ i, Measurabl
   rw [← maxUtility_singleton_eq_klDiv Q P]
   have hμeff : μ ∈ effectiveSet {P} := fun X hX ↦
     calc ∫⁻ x, X x ∂μ ≤ ∫⁻ x, X x ∂P := lintegral_mono' hμP le_rfl
-      _ ≤ P univ := hX.lintegral_le_measure_univ P rfl
-      _ = 1 := measure_univ
+      _ ≤ 1 := hX.lintegral_le_one rfl
   have hac : Q ≪ μ := withDensity_absolutelyContinuous'
     (measurable_dampedDensity hEm hg δ ε).aemeasurable
     (by filter_upwards [hE_top] with x hx using dampedDensity_ne_zero hδ.le hε1 hx)
@@ -279,15 +280,15 @@ theorem iInf_klDiv_constraintNull_le_maxUtility_of_noArbitrageOn (hg : ∀ i, Me
     (hQ : Integrable (fun x ↦ Real.log (1 + ∑ i, |g i x|)) Q) :
     ⨅ P ∈ constraintNull (range g), ((klDiv Q P : ℝ≥0∞) : EReal) ≤
       maxUtility Q (constraintNull (range g)) logUtility := by
-  have hS : ∀ μ ∈ constraintNull (range g), IsFiniteMeasure μ :=
-    fun _ ↦ isFiniteMeasure_of_mem_constraintNull
+  have hS : ∀ μ ∈ constraintNull (range g), μ univ ≤ 1 :=
+    fun _ hμ ↦ (isProbabilityMeasure_of_mem_constraintNull hμ).measure_univ.le
   set s := maxUtility Q (constraintNull (range g)) logUtility with hs_def
   rcases eq_or_ne s ⊤ with hs | hs
   · rw [hs]
     exact le_top
   have hsE : s = ∫ᵉ x, ENNReal.log (numeraire Q (constraintNull (range g)) x) ∂Q :=
     maxUtility_eq_eintegral_numeraire Q hS
-  have hs0 : (0 : EReal) ≤ s := hsE ▸ (isNumeraire_numeraire Q hS).eintegral_log_nonneg
+  have hs0 : (0 : EReal) ≤ s := hsE ▸ (isNumeraire_numeraire Q hS).eintegral_log_nonneg hS
   have hs_bot : s ≠ ⊥ := ne_bot_of_le_ne_bot (by simp) hs0
   have hδ1 : ∀ n : ℕ, 1 / ((n : ℝ) + 1) ≤ 1 := fun n ↦ div_le_one_of_le₀ (by simp) (by positivity)
   -- the damping tends to zero, by dominated convergence

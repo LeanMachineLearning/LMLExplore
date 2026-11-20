@@ -105,10 +105,10 @@ observations, where `W n` is Statlib's `numeraire` of the `n`-sample null under 
 `∫ Q' ^ n ν(dQ')` [EVR26, Note 14]. The ratio `M n / W n` has mean at most `ν univ` under the
 mixture, so it is eventually at most `exp (n ε)`, since functions of bounded mean under the
 mixtures grow subexponentially (`ProbabilityTheory.ae_eventually_le_exp_of_lintegral_bind_le`,
-Barron's argument [Bar88], [BSW99]). The members of `S₁` need only be finite measures. If `Q₁` is
+Barron's argument [Bar88], [BSW99]). The members of `S₁` need only have mass at most `1`. If `Q₁` is
 not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
 theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (ν : Measure (Measure 𝓧)) [IsFiniteMeasure ν]
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (ν : Measure (Measure 𝓧)) [IsFiniteMeasure ν]
     (hν : ∀ᵐ Q' ∂ν, IsProbabilityMeasure Q')
     (hν_supp : ∀ ε : ℝ≥0∞, 0 < ε → ν {Q' | klDiv Q₁ Q' ≤ ε} ≠ 0)
     {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
@@ -126,7 +126,8 @@ theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
       ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) x
         ∂(ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') ≤ ν .univ := by
     calc _ ≤ (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') .univ :=
-          lintegral_div_numeraire_le_measure_univ _ (isFiniteMeasure_of_mem_image_pi hS₁ n) (hM n)
+          lintegral_div_numeraire_le_measure_univ _ (measure_univ_le_one_of_mem_image_pi hS₁ n)
+            (hM n)
     _ = ν .univ := by
       rw [Measure.bind_apply .univ
         (Measure.aemeasurable_pi_self (hν.mono fun _ _ ↦ inferInstance)), ← lintegral_one]
@@ -162,7 +163,8 @@ theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   have := nonempty_of_isProbabilityMeasure Q₁
-  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _ _,
+  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
+      (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))
@@ -170,7 +172,7 @@ theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
         choose G hG hFG using fun n ↦
           exists_isEVar_eq_comp_initSeg hS₁ (hF n) (hFn n) fun P hP ↦ h_null P hP n
         filter_upwards [ae_eventually_log_le_log_numeraire_bind_add Q₁
-          (fun P hP ↦ have := hS₁ P hP; inferInstance) ν hν hν_supp hG hε] with ω hω
+          (fun P hP ↦ (hS₁ P hP).measure_univ.le) ν hν hν_supp hG hε] with ω hω
         filter_upwards [hω] with n hn
         rw [hFG n]
         exact hn]

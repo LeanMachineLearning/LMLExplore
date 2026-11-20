@@ -41,7 +41,7 @@ a conditional e-variable.
 * `ProbabilityTheory.isCondEVar_iff_condLExp_le`,
   `ProbabilityTheory.isExactCondEVar_iff_condLExp_eq`: for σ-finite restrictions to `m`, the
   bounds `P⁻[X|m] ≤ 1` and `P⁻[X|m] = 1` on the conditional expectation.
-* `ProbabilityTheory.isCondEVar_bot_iff`: for a null of finite measures, the conditional
+* `ProbabilityTheory.isCondEVar_bot_iff`: for a null of probability measures, the conditional
   e-variables given `⊥` are Statlib's e-variables.
 * `ProbabilityTheory.IsCondEVar.setLIntegral_mul_le`: an `m`-measurable factor can be pulled out.
 * `ProbabilityTheory.isCondEVar_sum_mul`, `ProbabilityTheory.isExactCondEVar_sum_mul`:
@@ -184,22 +184,24 @@ theorem isExactCondEVar_iff_condLExp_eq (hm : m ≤ mΩ) (hS : ∀ P ∈ S, Sigm
   · rw [← setLIntegral_condLExp hm P X hs, lintegral_congr_ae (ae_restrict_of_ae (hX.2 P hP))]
     simp
 
-/-- For a null of finite measures, the conditional e-variables given the trivial σ-algebra are
-exactly the e-variables. -/
-theorem isCondEVar_bot_iff (hS : ∀ P ∈ S, IsFiniteMeasure P) :
+/-- For a null of probability measures, the conditional e-variables given the trivial σ-algebra
+are exactly the e-variables. -/
+theorem isCondEVar_bot_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
     IsCondEVar X ⊥ S ↔ IsEVar X S := by
-  refine ⟨fun hX ↦ IsEVar.of_lintegral_le_measure_univ hS hX.measurable fun P hP ↦ ?_,
-    fun hX ↦ ⟨hX.measurable, fun P hP s hs ↦ ?_⟩⟩
-  · simpa using hX.setLIntegral_le P hP univ MeasurableSet.univ
+  refine ⟨fun hX ↦ ⟨hX.measurable, fun P hP ↦ ?_⟩, fun hX ↦ ⟨hX.measurable, fun P hP s hs ↦ ?_⟩⟩
+  · have := hS P hP
+    simpa using hX.setLIntegral_le P hP univ MeasurableSet.univ
   · rcases MeasurableSpace.measurableSet_bot_iff.1 hs with rfl | rfl
     · simp
-    · simpa using hX.lintegral_le_measure_univ P hP
+    · have := hS P hP
+      simpa using hX.lintegral_le_one hP
 
-/-- A conditional e-variable given any σ-algebra is an e-variable for a null of finite
-measures. -/
-theorem IsCondEVar.isEVar (hS : ∀ P ∈ S, IsFiniteMeasure P) (hX : IsCondEVar X m S) :
+/-- A conditional e-variable given any σ-algebra is an e-variable for a null of measures of mass
+at most one. -/
+theorem IsCondEVar.isEVar (hS : ∀ P ∈ S, P univ ≤ 1) (hX : IsCondEVar X m S) :
     IsEVar X S :=
-  (isCondEVar_bot_iff hS).1 (hX.of_le bot_le)
+  ⟨hX.measurable, fun P hP ↦ by
+    simpa using (hX.setLIntegral_le P hP univ MeasurableSet.univ).trans (hS P hP)⟩
 
 /-! ### Pulling out a known factor -/
 

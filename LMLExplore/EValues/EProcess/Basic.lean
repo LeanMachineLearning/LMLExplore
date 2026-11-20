@@ -48,20 +48,21 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
 
 * `ProbabilityTheory.IsEProcess.isEVar`: the value of an e-process at every fixed time is an
   e-variable.
-* `ProbabilityTheory.IsEProcess.lintegral_le_one`: under every probability measure of the null, an
-  e-process has expectation at most `1` at every stopping time with values in `ℕ`.
+* `ProbabilityTheory.IsEProcess.lintegral_le_one`: under every member of the null, an e-process has
+  expectation at most `1` at every stopping time with values in `ℕ`.
 * `ProbabilityTheory.isEProcess_iff_lintegral_le_one`,
-  `ProbabilityTheory.IsEProcess.of_lintegral_le_one`: for a null of probability measures, an
-  adapted process is an e-process exactly when it has expectation at most `1` at every stopping
-  time with values in `ℕ`, under every member of the null.
+  `ProbabilityTheory.IsEProcess.of_lintegral_le_one`: an adapted process is an e-process exactly
+  when it has expectation at most `1` at every stopping time with values in `ℕ`, under every
+  member of the null.
 * `ProbabilityTheory.IsEProcess.anti_set`, `ProbabilityTheory.isEProcess_iff_forall_singleton`: an
   e-process for `S` is one for every subset of `S`, and an adapted process is an e-process for `S`
   exactly when it is one for each simple null `{P}` with `P ∈ S`.
-* `ProbabilityTheory.IsEProcess.mono_ae`, `ProbabilityTheory.IsEProcess.mono`: for a null of
-  finite measures, an adapted process dominated by an e-process, almost surely under every member
-  of the null or pointwise, is an e-process.
+* `ProbabilityTheory.IsEProcess.mono_ae`, `ProbabilityTheory.IsEProcess.mono`: an adapted process
+  dominated by an e-process, almost surely under every member of the null or pointwise, is an
+  e-process.
 * `ProbabilityTheory.isEProcess_one`, `ProbabilityTheory.convex_isEProcess`: the constant process
-  `1` is an e-process, and the e-processes for a null form a convex set.
+  `1` is an e-process for a null of measures of mass at most `1`, and the e-processes for a null
+  form a convex set.
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
   probability measures is an e-process [RW, Fact 7.5].
 * `ProbabilityTheory.isEProcess_tfae`: the characterization of e-processes [RRLK, Lemma 6].
@@ -122,10 +123,10 @@ theorem measurable (hE : IsEProcess E ℱ S) (n : ℕ) : Measurable (E n) :=
 theorem isEVar (hE : IsEProcess E ℱ S) (n : ℕ) : IsEVar (E n) S :=
   hE.isEVar_stoppedValue (fun _ ↦ n) (isStoppingTime_natCast n)
 
-/-- Under every probability measure of the null, an e-process has expectation at most `1` at every
-stopping time with values in `ℕ`. -/
+/-- Under every member of the null, an e-process has expectation at most `1` at every stopping
+time with values in `ℕ`. -/
 theorem lintegral_le_one (hE : IsEProcess E ℱ S)
-    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) (hP : P ∈ S) [IsProbabilityMeasure P] :
+    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) (hP : P ∈ S) :
     ∫⁻ ω, E (τ ω) ω ∂P ≤ 1 :=
   (hE.isEVar_stoppedValue τ hτ).lintegral_le_one hP
 
@@ -135,13 +136,13 @@ theorem measurable_stoppedValue (hE : IsEProcess E ℱ S)
     (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) : Measurable fun ω ↦ E (τ ω) ω :=
   hE.adapted.measurable_apply_stoppingTime hτ
 
-/-- For a null of probability measures, an adapted process with expectation at most `1` at every
-stopping time with values in `ℕ`, under every member of the null, is an e-process. -/
-theorem of_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted ℱ E)
+/-- An adapted process with expectation at most `1` at every stopping time with values in `ℕ`,
+under every member of the null, is an e-process. -/
+theorem of_lintegral_le_one (hE : Adapted ℱ E)
     (h : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
       ∀ P ∈ S, ∫⁻ ω, E (τ ω) ω ∂P ≤ 1) :
     IsEProcess E ℱ S :=
-  ⟨hE, fun τ hτ ↦ IsEVar.of_lintegral_le_one hS (hE.measurable_apply_stoppingTime hτ) (h τ hτ)⟩
+  ⟨hE, fun τ hτ ↦ ⟨hE.measurable_apply_stoppingTime hτ, h τ hτ⟩⟩
 
 /-- An e-process for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcess E ℱ T) : IsEProcess E ℱ S :=
@@ -154,47 +155,40 @@ theorem congr (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hEF : ∀ P ∈ S,
   ⟨hF, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).congr (hF.measurable_apply_stoppingTime hτ)
     fun P hP ↦ by filter_upwards [ae_all_iff.2 (hEF P hP)] with ω hω using hω (τ ω)⟩
 
-/-- **Domination.** For a null of finite measures, an adapted process that is almost surely at most
-an e-process at every time, under every member of the null, is an e-process. -/
-theorem mono_ae (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F)
-    (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) : IsEProcess F ℱ S := by
-  refine ⟨hF, fun τ hτ ↦ IsEVar.of_lintegral_le_measure_univ hS
-    (hF.measurable_apply_stoppingTime hτ) fun P hP ↦ ?_⟩
-  refine (lintegral_mono_ae ?_).trans
-    ((hE.isEVar_stoppedValue τ hτ).lintegral_le_measure_univ P hP)
+/-- **Domination.** An adapted process that is almost surely at most an e-process at every time,
+under every member of the null, is an e-process. -/
+theorem mono_ae (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) :
+    IsEProcess F ℱ S := by
+  refine ⟨hF, fun τ hτ ↦ ⟨hF.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_⟩⟩
+  refine (lintegral_mono_ae ?_).trans ((hE.isEVar_stoppedValue τ hτ).lintegral_le_one hP)
   filter_upwards [ae_all_iff.2 (hFE P hP)] with ω hω using hω (τ ω)
 
-/-- **Domination.** For a null of finite measures, an adapted process that is at most an e-process
-is an e-process. -/
-theorem mono (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F)
-    (hFE : F ≤ E) : IsEProcess F ℱ S :=
-  hE.mono_ae hS hF fun _ _ n ↦ ae_of_all _ (hFE n)
+/-- **Domination.** An adapted process that is at most an e-process is an e-process. -/
+theorem mono (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hFE : F ≤ E) : IsEProcess F ℱ S :=
+  hE.mono_ae hF fun _ _ n ↦ ae_of_all _ (hFE n)
 
 end IsEProcess
 
-/-- For a null of probability measures, a process is an e-process exactly when it is adapted and has
-expectation at most `1` at every stopping time with values in `ℕ`, under every member of the null.
--/
-theorem isEProcess_iff_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
+/-- A process is an e-process exactly when it is adapted and has expectation at most `1` at every
+stopping time with values in `ℕ`, under every member of the null. -/
+theorem isEProcess_iff_lintegral_le_one :
     IsEProcess E ℱ S ↔ Adapted ℱ E ∧ ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-      ∀ P ∈ S, ∫⁻ ω, E (τ ω) ω ∂P ≤ 1 := by
-  refine ⟨fun hE ↦ ⟨hE.adapted, fun τ hτ P hP ↦ ?_⟩, fun h ↦ .of_lintegral_le_one hS h.1 h.2⟩
-  have := hS P hP
-  exact hE.lintegral_le_one hτ hP
+      ∀ P ∈ S, ∫⁻ ω, E (τ ω) ω ∂P ≤ 1 :=
+  ⟨fun hE ↦ ⟨hE.adapted, fun _ hτ _ hP ↦ hE.lintegral_le_one hτ hP⟩,
+    fun h ↦ .of_lintegral_le_one h.1 h.2⟩
 
 /-- A process is an e-process for `S` exactly when it is adapted and an e-process for each simple
 null `{P}` with `P ∈ S`. Adaptedness is needed only when `S` is empty. -/
 theorem isEProcess_iff_forall_singleton :
     IsEProcess E ℱ S ↔ Adapted ℱ E ∧ ∀ P ∈ S, IsEProcess E ℱ {P} := by
   refine ⟨fun hE ↦ ⟨hE.adapted, fun P hP ↦ hE.anti_set (singleton_subset_iff.2 hP)⟩,
-    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨hE.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_,
-      fun P hP ↦ ?_⟩⟩⟩
-  · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_ne_bot P (mem_singleton P)
-  · exact ((h P hP).isEVar_stoppedValue τ hτ).eintegral_nonpos P (mem_singleton P)
+    fun ⟨hE, h⟩ ↦ ⟨hE, fun τ hτ ↦ ⟨hE.measurable_apply_stoppingTime hτ, fun P hP ↦
+      ((h P hP).isEVar_stoppedValue τ hτ).lintegral_le_one (mem_singleton P)⟩⟩⟩
 
-/-- The constant process `1` is an e-process for every null and every filtration. -/
-theorem isEProcess_one (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) : IsEProcess 1 ℱ S :=
-  ⟨fun _ ↦ measurable_const, fun _ _ ↦ isEVar_one S⟩
+/-- The constant process `1` is an e-process for every null of measures of mass at most `1` and
+every filtration. -/
+theorem isEProcess_one (ℱ : Filtration ℕ mΩ) (hS : ∀ P ∈ S, P univ ≤ 1) : IsEProcess 1 ℱ S :=
+  ⟨fun _ ↦ measurable_const, fun _ _ ↦ isEVar_one hS⟩
 
 /-- The e-processes for a null form a convex set: a convex combination `a • E + b • F`, with
 `a + b = 1`, of two e-processes is an e-process. -/
@@ -281,7 +275,7 @@ theorem isEProcess_tfae (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted
         ∫⁻ ω, (if τ ω = ⊤ then liminf (fun n ↦ E n ω) atTop else stoppedValue E τ ω) ∂P ≤ 1,
       ∀ P ∈ S, ∃ M, IsTestSupermartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n,
       ∀ P ∈ S, ∃ M, IsTestMartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n] := by
-  tfae_have 1 → 2 := fun h τ hτ P hP ↦ have := hS P hP
+  tfae_have 1 → 2 := fun h τ hτ P hP ↦
     h.lintegral_le_one (mem_boundedStoppingTimesFrom_iff.1 hτ).1 hP
   tfae_have 2 → 5 := fun h P hP ↦ have := hS P hP
     exists_isTestSupermartingale_ae_le_of_lintegral_le_one hE fun τ hτ ↦ h τ hτ P hP
@@ -301,7 +295,7 @@ theorem isEProcess_tfae (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted
     · rw [ite_eq_left hτω, stoppedValueLimsup_of_eq_top hτω]
       exact liminf_le_limsup
     · rw [ite_eq_right hτω, stoppedValueLimsup_eq_stoppedValue hτω]
-  tfae_have 4 → 1 := fun h ↦ .of_lintegral_le_one hS hE fun τ hτ P hP ↦ by
+  tfae_have 4 → 1 := fun h ↦ .of_lintegral_le_one hE fun τ hτ P hP ↦ by
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h _ hτ P hP)
     -- `↑(τ ω) ≠ ⊤` selects the `stoppedValue` branch, and `stoppedValue E (↑τ) ω` is `E (τ ω) ω`
     -- by definition, since `WithTop.untopA ↑n` reduces to `n` (Mathlib has no simp lemma for it)
@@ -330,10 +324,10 @@ probability measures is an e-variable, with the value `stoppedValueLimsup E τ`,
 theorem IsEProcess.isEVar_stoppedValueLimsup (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     (hE : IsEProcess E ℱ S) {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ) :
     IsEVar (stoppedValueLimsup E τ) S :=
-  IsEVar.of_lintegral_le_one hS (measurable_stoppedValueLimsup hE.measurable hτ.measurable')
+  ⟨measurable_stoppedValueLimsup hE.measurable hτ.measurable',
     fun P hP ↦ by
       have h := ((isEProcess_tfae hS hE.adapted).out 1 3).1 hE
-      exact h τ hτ P hP
+      exact h τ hτ P hP⟩
 
 /-- **Ville's inequality for e-processes**, at level `α` [RW, Fact 7.6]. Under every probability
 measure of the null, the sequential test that rejects as soon as an e-process reaches `α⁻¹` has

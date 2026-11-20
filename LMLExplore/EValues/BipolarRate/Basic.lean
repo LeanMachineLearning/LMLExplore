@@ -26,8 +26,8 @@ optimal growth rate of the evidence against the i.i.d. null, per observation. It
 smallest relative entropy `⨅ P ∈ S₁, klDiv Q₁ P` from `Q₁` to the null, and can be smaller
 (Ram and Ramdas, Proposition 5.4).
 
-The statements assume that `Q₁` is a probability measure and that the members of the null are
-finite measures (probability measures for the comparison with the relative entropy), and nothing
+The statements assume that `Q₁` is a probability measure and that the members of the null have
+mass at most `1` (probability measures for the comparison with the relative entropy), and nothing
 else: no domination, convexity or compactness.
 
 ## Main definitions
@@ -100,11 +100,20 @@ lemma bipolarRate_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
     bipolarRate Q₁ S₁ = ⨆ n : ℕ, maxLogGrowth Q₁ S₁ (n + 1) / ((n + 1 : ℕ) : EReal) :=
   (rfl)
 
-/-- The maximal expected logarithm of an `n`-sample e-variable is nonnegative, as the constant `1`
-is an e-variable. -/
-lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n : ℕ) :
+/-- The `k`-fold products of the members of a set of measures of mass at most `1` have mass at
+most `1`. -/
+lemma measure_univ_le_one_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (k : ℕ) :
+    ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin k ↦ P) '' S₁, μ Set.univ ≤ 1 := by
+  rintro _ ⟨P, hP, rfl⟩
+  have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
+  rw [Measure.pi_univ]
+  exact Finset.prod_le_one fun _ _ ↦ hS₁ P hP
+
+/-- The maximal expected logarithm of an `n`-sample e-variable, for a null of measures of mass at
+most `1`, is nonnegative, as the constant `1` is an e-variable. -/
+lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
     0 ≤ maxLogGrowth Q₁ S₁ n :=
-  maxUtility_nonneg _
+  maxUtility_nonneg _ (measure_univ_le_one_of_mem_image_pi hS₁ n)
 
 /-- The normalized maximal expected logarithm of an `n`-sample e-variable is at most the bipolar
 rate, for `n ≠ 0`. -/
@@ -144,19 +153,12 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
   ext μ
   simp only [Set.mem_image, Set.mem_ofPred_eq, h_map]
 
-/-- The `k`-fold products of the members of a set of finite measures are finite measures. -/
-lemma isFiniteMeasure_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (k : ℕ) :
-    ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin k ↦ P) '' S₁, IsFiniteMeasure μ := by
-  rintro _ ⟨P, hP, rfl⟩
-  have := hS₁ P hP
-  infer_instance
-
 /-- **Superadditivity** of the maximal expected logarithm of e-variables for an i.i.d. null
 [RR26, Lemma 3.2]: the product of an `m`-sample e-variable and an `n`-sample e-variable, on
 disjoint blocks of observations, is an `m + n`-sample e-variable (Statlib's `IsEVar.prod`, through
 `maxUtility_prod_eq_add`). -/
 theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (m n : ℕ) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (m n : ℕ) :
     maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n ≤ maxLogGrowth Q₁ S₁ (m + n) := by
   -- split the first `m + n` observations into the first `m` and the last `n`
   let e : (Fin (m + n) → 𝓧) ≃ᵐ (Fin m → 𝓧) × (Fin n → 𝓧) :=
@@ -172,13 +174,13 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility :=
     by rw [maxLogGrowth_def, maxLogGrowth_def, maxUtility_prod_eq_add _ _
-      (isFiniteMeasure_of_mem_image_pi hS₁ m) (isFiniteMeasure_of_mem_image_pi hS₁ n)]
+      (measure_univ_le_one_of_mem_image_pi hS₁ m) (measure_univ_le_one_of_mem_image_pi hS₁ n)]
   _ ≤ maxUtility ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
       {μ.map e | μ ∈ (fun P ↦ Measure.pi fun _ : Fin (m + n) ↦ P) '' S₁} logUtility := by
     rw [h_map]
     refine maxUtility_anti ?_
     rintro _ ⟨_, ⟨P, hP, rfl⟩, rfl⟩
-    have := hS₁ P hP
+    have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
     exact ⟨_, ⟨P, hP, rfl⟩, _, ⟨P, hP, rfl⟩, (h_map P).symm⟩
   _ ≤ maxLogGrowth Q₁ S₁ (m + n) := by rw [maxLogGrowth_def]; exact maxUtility_map_le _ e.measurable
 
@@ -191,10 +193,10 @@ lemma maxLogGrowth_le_mul_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure
 /-- The maximal expected logarithm of an `n`-sample e-variable is at least `n` times that of one
 observation: superadditivity, iterated. -/
 theorem mul_maxLogGrowth_one_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) (n : ℕ) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
     n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n := by
   cases n with
-  | zero => simpa using maxLogGrowth_nonneg Q₁ S₁ 0
+  | zero => simpa using maxLogGrowth_nonneg Q₁ hS₁ 0
   | succ q =>
     simpa [EReal.nsmul_eq_mul] using
       EReal.nsmul_le_of_superadditive (maxLogGrowth_add_le Q₁ hS₁) 1 q
@@ -205,15 +207,17 @@ theorem maxLogGrowth_one_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measu
     maxLogGrowth Q₁ S₁ 1 ≤ bipolarRate Q₁ S₁ := by
   simpa using maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero
 
-/-- The bipolar rate is nonnegative. -/
-lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) : 0 ≤ bipolarRate Q₁ S₁ :=
-  (EReal.div_nonneg (maxLogGrowth_nonneg _ _ _) (by positivity)).trans
+/-- The bipolar rate of a null of measures of mass at most `1` is nonnegative. -/
+lemma bipolarRate_nonneg (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) :
+    0 ≤ bipolarRate Q₁ S₁ :=
+  (EReal.div_nonneg (maxLogGrowth_nonneg _ hS₁ _) (by positivity)).trans
     (maxLogGrowth_div_le_bipolarRate Q₁ S₁ one_ne_zero)
 
-/-- A finite bipolar rate is the coercion of its real value. -/
-lemma coe_toReal_bipolarRate (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
+/-- A finite bipolar rate, of a null of measures of mass at most `1`, is the coercion of its real
+value. -/
+lemma coe_toReal_bipolarRate (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (hd : bipolarRate Q₁ S₁ ≠ ⊤) :
     ((bipolarRate Q₁ S₁).toReal : EReal) = bipolarRate Q₁ S₁ :=
-  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ S₁))
+  EReal.coe_toReal hd (ne_bot_of_le_ne_bot EReal.zero_ne_bot (bipolarRate_nonneg Q₁ hS₁))
 
 /-- The bipolar rate is antitone in the null. -/
 @[gcongr]
@@ -225,10 +229,10 @@ lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRa
 `maxLogGrowth Q₁ S₁ n / n` tends to its supremum, the bipolar rate [RR26, Lemma 3.2]. The limit
 may be `⊤`. -/
 theorem tendsto_maxLogGrowth_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) :
     Tendsto (fun n : ℕ ↦ maxLogGrowth Q₁ S₁ n / n) atTop (𝓝 (bipolarRate Q₁ S₁)) :=
   bipolarRate_def Q₁ S₁ ▸ EReal.tendsto_div_iSup_of_superadditive
-    (fun _ _ ↦ ne_bot_of_le_ne_bot EReal.zero_ne_bot (maxLogGrowth_nonneg _ _ _))
+    (fun _ _ ↦ ne_bot_of_le_ne_bot EReal.zero_ne_bot (maxLogGrowth_nonneg _ hS₁ _))
     (maxLogGrowth_add_le Q₁ hS₁)
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is at most `n` times the relative
@@ -257,7 +261,8 @@ strict. -/
 theorem bipolarRate_le_iInf_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) :
     bipolarRate Q₁ S₁ ≤ (⨅ P ∈ S₁, klDiv Q₁ P : ℝ≥0∞) := by
-  rw [← EReal.coe_toENNReal (bipolarRate_nonneg Q₁ S₁), EReal.coe_ennreal_le_coe_ennreal_iff]
+  rw [← EReal.coe_toENNReal (bipolarRate_nonneg Q₁ fun P hP ↦ (hS₁ P hP).measure_univ.le),
+    EReal.coe_ennreal_le_coe_ennreal_iff]
   refine le_iInf₂ fun P hP ↦ ?_
   have := hS₁ P hP
   rw [← EReal.toENNReal_coe (x := klDiv Q₁ P)]
@@ -345,10 +350,7 @@ lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbability
   have hXm : Measurable X := measurable_const.add (measurable_const.mul
     (measurable_const.indicator hA))
   have hX : IsEVar X ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S) := by
-    refine IsEVar.of_lintegral_le_one ?_ hXm ?_
-    · rintro _ ⟨P, hP, rfl⟩
-      have := hS P hP
-      infer_instance
+    refine ⟨hXm, ?_⟩
     · rintro _ ⟨P, hPS, rfl⟩
       have := hS P hPS
       calc ∫⁻ x, X x ∂(Measure.pi fun _ : Fin m ↦ P)

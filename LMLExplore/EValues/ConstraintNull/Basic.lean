@@ -178,9 +178,8 @@ theorem sum_ofReal_mul_le_one_of_isEVar (hΦ : ∀ f ∈ Φ, Measurable f)
     ∑ k, ENNReal.ofReal (w k) * E (x k) ≤ 1 := by
   rw [mem_simplex_iff] at hw
   have hμ := (sum_smul_dirac_mem_constraintNull_iff hΦ hw.1).2 ⟨hw.2, hwΦ⟩
-  have := isProbabilityMeasure_of_mem_constraintNull hμ
-  have h1 := hE.lintegral_le_measure_univ _ hμ
-  rw [measure_univ, lintegral_finsetSum_measure] at h1
+  have h1 := hE.lintegral_le_one hμ
+  rw [lintegral_finsetSum_measure] at h1
   simpa [lintegral_smul_measure, lintegral_dirac' _ hE.measurable] using h1
 
 /-! ### Nonnegative combinations of finitely many constraints -/
@@ -286,7 +285,6 @@ theorem lintegral_ofReal_one_add_le_one_of_mem_constraintBets (hπ : π ∈ cons
 theorem isEVar_ofReal_one_add_of_mem_constraintBets (hg : ∀ i, Measurable (g i))
     (hπ : π ∈ constraintBets g) :
     IsEVar (fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x)) (constraintNull (range g)) :=
-  IsEVar.of_lintegral_le_one (fun _ ↦ isProbabilityMeasure_of_mem_constraintNull) (by fun_prop)
-    fun _ hμ ↦ lintegral_ofReal_one_add_le_one_of_mem_constraintBets hπ hμ
+  ⟨by fun_prop, fun _ hμ ↦ lintegral_ofReal_one_add_le_one_of_mem_constraintBets hπ hμ⟩
 
 end ProbabilityTheory

@@ -17,8 +17,7 @@ The effective null of a null hypothesis `S : Set (Measure Ω)` is Statlib's `eff
 measures `μ` under which every e-variable `X` for `S` has `∫⁻ X ∂μ ≤ 1`. It is the set over which
 Statlib's duality `maxUtility_eq_iInf_klIntegral_effectiveSet` minimizes, and it describes the
 alternatives that a null can be tested against: e-variables cannot distinguish `S` from its
-effective null, and, when `S` consists of probability measures, every measure outside its
-effective null is detected by a level-`α` test.
+effective null, and every measure outside its effective null is detected by a level-`α` test.
 
 This file proves the structural properties of the effective null on any measurable space, with no
 dominating measure and no convexity. Unless stated otherwise below, the results hold for any set of
@@ -26,14 +25,11 @@ measures `S`.
 
 ## Main statements
 
-* `ProbabilityTheory.subset_effectiveSet_iff`: `S ⊆ effectiveSet S` exactly when every member of
-  `S` has mass at most `1`.
 * `ProbabilityTheory.comp_mem_effectiveSet`: the effective null contains every mixture `κ ∘ₘ π` of
-  members of the effective null over a measure `π` of mass at most `1`, in particular, for a null
-  of measures of mass at most `1`, every mixture of members of `S` over a probability measure.
+  members of the effective null over a measure `π` of mass at most `1`, in particular every
+  mixture of members of `S` over a probability measure (with Statlib's `subset_effectiveSet`).
 * `ProbabilityTheory.convex_effectiveSet`, `ProbabilityTheory.convexHull_subset_effectiveSet`: the
-  effective null is convex, and, for a null of measures of mass at most `1`, contains the convex
-  hull of `S`.
+  effective null is convex and contains the convex hull of `S`.
 * `ProbabilityTheory.isLowerSet_effectiveSet`: the effective null is solid.
 * `ProbabilityTheory.mem_effectiveSet_of_measure_le_liminf`,
   `ProbabilityTheory.mem_effectiveSet_of_tendsto`: the effective null is closed under setwise
@@ -49,11 +45,12 @@ measures `S`.
   absolutely continuous with respect to `μ`, so is every member of the effective null.
 * `ProbabilityTheory.exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet`: a measure outside the
   effective null of `S` is detected by a bounded e-variable.
-* `ProbabilityTheory.exists_powered_test_iff`: for a null `S` of probability measures,
-  a measure `Q` admits, for some `α ∈ (0, 1)`, a level-`α` test for `S` with power larger than `α`
-  under `Q` exactly when `Q` is not in the effective null of `S` [RW, Theorem 6.10].
-* `ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`: no e-variable for `S` has a
-  positive expected logarithm under a probability measure of the effective null of `S`.
+* `ProbabilityTheory.exists_powered_test_iff`: a measure `Q` admits, for some `α ∈ (0, 1)`, a
+  level-`α` test for `S` with power larger than `α` under `Q` exactly when `Q` is not in the
+  effective null of `S` [RW, Theorem 6.10].
+* `ProbabilityTheory.maxUtility_eq_zero_of_mem_effectiveSet`: for a null of measures of mass at
+  most `1`, no e-variable for `S` has a positive expected logarithm under a probability measure of
+  the effective null of `S`.
 
 ## References
 
@@ -78,20 +75,10 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S T : Set (Measure Ω)} {μ ν
 theorem effectiveSet_mono (hST : S ⊆ T) : effectiveSet S ⊆ effectiveSet T :=
   fun _ hμ X hX ↦ hμ X (hX.anti_set hST)
 
-/-- A null is contained in its effective null exactly when each of its members has mass at
-most `1`; in particular a null of probability measures is contained in its effective null. -/
-theorem subset_effectiveSet_iff : S ⊆ effectiveSet S ↔ ∀ P ∈ S, P univ ≤ 1 :=
-  ⟨fun h _ hP ↦ measure_univ_le_one_of_mem_effectiveSet (h hP),
-    fun hS P hP _ hX ↦ (hX.lintegral_le_measure_univ P hP).trans (hS P hP)⟩
-
-/-- A null of measures of mass at most `1` is contained in its effective null. -/
-theorem subset_effectiveSet (hS : ∀ P ∈ S, P univ ≤ 1) : S ⊆ effectiveSet S :=
-  subset_effectiveSet_iff.mpr hS
-
 /-- The effective null contains every mixture `κ ∘ₘ π` over a measure `π` of mass at most `1` of
 a kernel `κ` whose values are `π`-almost surely in the effective null. With
-`subset_effectiveSet`, this contains every mixture over a probability measure of a kernel with
-values in a null of probability measures [LRR25, Definition 3.1]. -/
+Statlib's `subset_effectiveSet`, this contains every mixture over a probability measure of a kernel
+with values in the null [LRR25, Definition 3.1]. -/
 theorem comp_mem_effectiveSet {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measure Θ}
     {κ : Kernel Θ Ω} (hπ : π univ ≤ 1) (hκ : ∀ᵐ θ ∂π, κ θ ∈ effectiveSet S) :
     κ ∘ₘ π ∈ effectiveSet S := by
@@ -112,10 +99,9 @@ theorem convex_effectiveSet : Convex ℝ≥0∞ (effectiveSet S) := by
   refine comp_mem_effectiveSet (by simp [hab]) (.of_forall fun x ↦ ?_)
   cases x <;> simpa
 
-/-- The effective null of a null of measures of mass at most `1` contains its convex hull. -/
-theorem convexHull_subset_effectiveSet (hS : ∀ P ∈ S, P univ ≤ 1) :
-    convexHull ℝ≥0∞ S ⊆ effectiveSet S :=
-  convexHull_min (subset_effectiveSet hS) convex_effectiveSet
+/-- The effective null contains the convex hull of the null. -/
+theorem convexHull_subset_effectiveSet : convexHull ℝ≥0∞ S ⊆ effectiveSet S :=
+  convexHull_min subset_effectiveSet convex_effectiveSet
 
 /-- The effective null is solid: a measure below a member of the effective null is a member. -/
 theorem isLowerSet_effectiveSet : IsLowerSet (effectiveSet S) :=
@@ -171,15 +157,14 @@ theorem absolutelyContinuous_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S)
 `S`. -/
 theorem IsEVar.effectiveSet_inter {X : Ω → ℝ≥0∞} (hX : IsEVar X S) :
     IsEVar X (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) :=
-  .of_lintegral_le_one (S := effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) (fun _ hμ ↦ hμ.2)
-    hX.measurable fun _ hμ ↦ hμ.1 X hX
+  ⟨hX.measurable, fun _ hμ ↦ hμ.1 X hX⟩
 
 /-- A null of probability measures and the probability measures of its effective null have the
 same e-variables. -/
 theorem isEVar_effectiveSet_inter_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) {X : Ω → ℝ≥0∞} :
     IsEVar X (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) ↔ IsEVar X S := by
   refine ⟨fun hX ↦ hX.anti_set fun P hP ↦ ?_, IsEVar.effectiveSet_inter⟩
-  exact ⟨subset_effectiveSet (fun P hP ↦ (hS P hP).measure_univ.le) hP, hS P hP⟩
+  exact ⟨subset_effectiveSet hP, hS P hP⟩
 
 /-- A null of probability measures and the probability measures of its effective null have the
 same effective null. -/
@@ -188,24 +173,11 @@ theorem effectiveSet_effectiveSet_inter (hS : ∀ P ∈ S, IsProbabilityMeasure 
   ext μ
   simp only [mem_effectiveSet_iff, isEVar_effectiveSet_inter_iff hS]
 
-/-- The truncation `min X c` of an e-variable `X` for `S` at a level `c ≥ 1` is an e-variable for
+/-- The truncation `min X c` of an e-variable `X` for `S` at any level `c` is an e-variable for
 `S`. -/
-theorem IsEVar.min_const {X : Ω → ℝ≥0∞} (hX : IsEVar X S) {c : ℝ≥0∞} (hc : 1 ≤ c) :
-    IsEVar (fun ω ↦ min (X ω) c) S where
-  measurable := hX.measurable.min measurable_const
-  eintegral_ne_bot P hP := by
-    -- The negative part of `y - 1` is `1 - y`, and `1 - min y c = 1 - y` since `1 ≤ c`, so
-    -- `min X c - 1` has the same negative part as `X - 1`.
-    have h_neg (y : ℝ≥0∞) : (-((y : EReal) - 1)).toENNReal = 1 - y := by
-      simpa [EReal.toENNReal_sub, EReal.coe_ennreal_nonneg] using
-        congrArg EReal.toENNReal (EReal.neg_coe_ennreal_sub (u := y) (.inr ENNReal.one_ne_top))
-    have h_min (y : ℝ≥0∞) : 1 - min y c = 1 - y := by
-      rcases le_total y c with h | h
-      · simp [h]
-      · simp [h, tsub_eq_zero_of_le hc, tsub_eq_zero_of_le (hc.trans h)]
-    simpa [eintegral_ne_bot_iff_lintegral_ne_top, h_neg, h_min] using hX.eintegral_ne_bot P hP
-  eintegral_nonpos P hP := (eintegral_mono fun ω ↦
-    EReal.sub_le_sub (mod_cast min_le_left _ _) le_rfl).trans (hX.eintegral_nonpos P hP)
+theorem IsEVar.min_const {X : Ω → ℝ≥0∞} (hX : IsEVar X S) (c : ℝ≥0∞) :
+    IsEVar (fun ω ↦ min (X ω) c) S :=
+  hX.mono (hX.measurable.min measurable_const) fun _ ↦ min_le_left _ _
 
 /-- A measure `Q` outside the effective null of a null `S` is detected by a
 bounded e-variable: some e-variable for `S` bounded by an integer `N ≥ 2` has expectation larger
@@ -224,14 +196,14 @@ theorem exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet (hQ : Q ∉ effecti
     simpa using (tendsto_const_nhds (x := X ω)).min ENNReal.tendsto_nat_nhds_top
   obtain ⟨N, hNQ, hN2⟩ := ((h_tendsto.eventually (lt_mem_nhds hXQ)).and
     (eventually_ge_atTop 2)).exists
-  exact ⟨fun ω ↦ min (X ω) N, N, hN2, hX.min_const (by exact_mod_cast (by omega : 1 ≤ N)),
+  exact ⟨fun ω ↦ min (X ω) N, N, hN2, hX.min_const N,
     fun ω ↦ min_le_right _ _, hNQ⟩
 
-/-- A measure `Q` is outside the effective null of a null `S` of probability measures exactly
-when, for some level `α ∈ (0, 1)`, some level-`α` test `φ` for `S` (a measurable function with
-values in `[0, 1]` and expectation at most `α` under every member of `S`) has expectation larger
-than `α` under `Q` [RW, Theorem 6.10]. -/
-theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : Measure Ω) :
+/-- A measure `Q` is outside the effective null of a null `S` exactly when, for some level
+`α ∈ (0, 1)`, some level-`α` test `φ` for `S` (a measurable function with values in `[0, 1]` and
+expectation at most `α` under every member of `S`) has expectation larger than `α` under `Q`
+[RW, Theorem 6.10, for a null of probability measures]. -/
+theorem exists_powered_test_iff (Q : Measure Ω) :
     (∃ α : ℝ≥0∞, 0 < α ∧ α < 1 ∧ ∃ φ : Ω → ℝ≥0∞, Measurable φ ∧ (∀ ω, φ ω ≤ 1) ∧
       (∀ P ∈ S, ∫⁻ ω, φ ω ∂P ≤ α) ∧ α < ∫⁻ ω, φ ω ∂Q) ↔ Q ∉ effectiveSet S := by
   -- Both directions pass between a level-`α` test `φ` and the `[0, α⁻¹]`-valued e-variable
@@ -240,7 +212,7 @@ theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : 
   · rintro ⟨α, hα0, hα1, φ, hφ, -, hφS, hφQ⟩ hQ
     -- `α⁻¹ * φ` is an e-variable for `S`, so its expectation under `Q` is at most `1`.
     have hX : IsEVar (fun ω ↦ α⁻¹ * φ ω) S := by
-      refine .of_lintegral_le_one hS (measurable_const.mul hφ) fun P hP ↦ ?_
+      refine ⟨measurable_const.mul hφ, fun P hP ↦ ?_⟩
       rw [lintegral_const_mul _ hφ]
       exact ENNReal.inv_mul_le_iff hα0.ne' (hα1.trans ENNReal.one_lt_top).ne |>.mpr <|
         by simpa using hφS P hP
@@ -260,10 +232,9 @@ theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : 
       fun ω ↦ ?_, fun P hP ↦ ?_, ?_⟩
     · calc (N : ℝ≥0∞)⁻¹ * Y ω ≤ (N : ℝ≥0∞)⁻¹ * N := by gcongr; exact hYN ω
       _ = 1 := ENNReal.inv_mul_cancel hN0 hNtop
-    · have := hS P hP
-      rw [lintegral_const_mul _ hYm]
+    · rw [lintegral_const_mul _ hYm]
       calc (N : ℝ≥0∞)⁻¹ * ∫⁻ ω, Y ω ∂P ≤ (N : ℝ≥0∞)⁻¹ * 1 := by
-            gcongr; simpa using hY.lintegral_le_measure_univ P hP
+            gcongr; exact hY.lintegral_le_one hP
       _ = (N : ℝ≥0∞)⁻¹ := mul_one _
     · rw [lintegral_const_mul _ hYm]
       calc (N : ℝ≥0∞)⁻¹ = (N : ℝ≥0∞)⁻¹ * 1 := (mul_one _).symm
@@ -271,15 +242,16 @@ theorem exists_powered_test_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : 
             ENNReal.mul_lt_mul_right (ENNReal.inv_ne_zero.mpr hNtop) (ENNReal.inv_ne_top.mpr hN0)
               hYQ
 
-/-- Under a probability measure `P` of the effective null of `S`, no e-variable for `S` has a
-positive expected logarithm, by Jensen's inequality: the maximal expected logarithm is `0`.
+/-- For a null of measures of mass at most `1`, under a probability measure `P` of its effective
+null, no e-variable for `S` has a positive expected logarithm, by Jensen's inequality: the maximal
+expected logarithm is `0`.
 Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. Adapted from the
 helper `maxUtility_log_nonpos_of_forall_lintegral_le_one` of
 `EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
 `RemyDegenne/evalues_research` (same author). -/
 theorem maxUtility_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
-    (hP : P ∈ effectiveSet S) : maxUtility P S logUtility = 0 := by
-  refine le_antisymm (iSup₂_le fun X hX ↦ ?_) (maxUtility_nonneg P)
+    (hS : ∀ μ ∈ S, μ univ ≤ 1) (hP : P ∈ effectiveSet S) : maxUtility P S logUtility = 0 := by
+  refine le_antisymm (iSup₂_le fun X hX ↦ ?_) (maxUtility_nonneg P hS)
   calc ∫ᵉ ω, (logUtility ∘ X) ω ∂P
   _ ≤ logUtility (∫⁻ ω, X ω ∂P) := Utility.eintegral_le_map logUtility hX.measurable.aemeasurable
   _ ≤ 0 := by rw [logUtility_apply, ENNReal.log_le_zero_iff]; exact hP X hX

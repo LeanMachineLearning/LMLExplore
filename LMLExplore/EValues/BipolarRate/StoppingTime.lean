@@ -199,7 +199,8 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
   have hD (k : ℕ) : (bipolarRate Q₁ S₁).toReal * ∫ ω, ((min (τ ω) k + 1 : ℕ) : ℝ) ∂μ ≤ D := by
     rcases hdm with hd0 | hm
     · simp [D, hd0]
-    refine mul_le_mul_of_nonneg_left ?_ (EReal.toReal_nonneg (bipolarRate_nonneg Q₁ S₁))
+    refine mul_le_mul_of_nonneg_left ?_
+      (EReal.toReal_nonneg (bipolarRate_nonneg Q₁ fun P hP ↦ (hS₁ P hP).measure_univ.le))
     rw [integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)
       ((measurable_from_top.comp ((hτm.min measurable_const).add_const 1)).aestronglyMeasurable)]
     refine ENNReal.toReal_mono hm (lintegral_mono fun ω ↦ ?_)
@@ -250,15 +251,15 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
   by_cases hdtop : bipolarRate Q₁ S₁ = ⊤
   · rw [hdtop, EReal.mul_top_of_pos hm0]
     exact le_top
-  rcases (bipolarRate_nonneg Q₁ S₁).eq_or_lt with hd | hd
+  rcases (bipolarRate_nonneg Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le)).eq_or_lt with hd | hd
   · rw [← hd, mul_zero]
     simpa [← hd] using eintegral_log_stoppedValue_le_toReal_mul Q₁ hS₁ hE hτ hdtop (.inl hd.symm)
   by_cases hm : m = ∞
   · rw [hm, EReal.coe_ennreal_top, EReal.top_mul_of_pos hd]
     exact le_top
   refine (eintegral_log_stoppedValue_le_toReal_mul Q₁ hS₁ hE hτ hdtop (.inr hm)).trans_eq ?_
-  rw [EReal.coe_mul, coe_toReal_bipolarRate hdtop, EReal.coe_ennreal_toReal hm,
-    mul_comm]
+  rw [EReal.coe_mul, coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hdtop,
+    EReal.coe_ennreal_toReal hm, mul_comm]
 
 /-! ### Expected stopping times of sequential tests -/
 
@@ -279,12 +280,9 @@ private lemma isEProcess_add_indicator_le (hS₁ : ∀ P ∈ S₁, IsProbability
   set b := ENNReal.ofReal ((1 - ε) / a)
   have hτtop : MeasurableSet {ω | τ ω ≠ ⊤} :=
     (hτ.measurable_enat (measurableSet_singleton ⊤)).compl
-  refine IsEProcess.of_lintegral_le_one ?_ (fun n ↦
+  refine IsEProcess.of_lintegral_le_one (fun n ↦
     (measurable_const.indicator (hτ.measurableSet_le_natCast n)).const_add _)
     fun σ _ _ hP ↦ ?_
-  · rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    infer_instance
   obtain ⟨P, hP, rfl⟩ := hP
   have := hS₁ P hP
   calc ∫⁻ ω, ENNReal.ofReal ε + {x | τ x ≤ σ ω}.indicator (fun _ ↦ b) ω
@@ -320,7 +318,7 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set m := ∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂μ
   set D := (bipolarRate Q₁ S₁).toReal * m.toReal
-  have hd0 := bipolarRate_nonneg Q₁ S₁
+  have hd0 := bipolarRate_nonneg Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le)
   have hτm := hτ.measurable_enat
   have hτle (k : ℕ) : MeasurableSet {ω | τ ω ≤ k} :=
     Filtration.le _ k _ (hτ.measurableSet_le_natCast k)
@@ -372,7 +370,8 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     have h := hE.eintegral_log_stoppedValue_le_mul_bipolarRate Q₁ hS₁ (hτk k)
     have hmk' : ∫⁻ ω, (τk k ω : ℝ≥0∞) + 1 ∂μ ≠ ∞ := ne_top_of_le_ne_top hm (hmk k)
     rw [eintegral_congr (hlog k), eintegral_eq_integral hg, ← EReal.coe_ennreal_toReal hmk',
-      ← coe_toReal_bipolarRate hd, ← EReal.coe_mul, EReal.coe_le_coe_iff] at h
+      ← coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd, ← EReal.coe_mul,
+      EReal.coe_le_coe_iff] at h
     calc ∫ ω, g k ω ∂μ ≤ _ := h
     _ ≤ m.toReal * (bipolarRate Q₁ S₁).toReal :=
       mul_le_mul_of_nonneg_right (ENNReal.toReal_mono hm (hmk k)) (EReal.toReal_nonneg hd0)

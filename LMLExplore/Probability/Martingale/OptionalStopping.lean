@@ -336,8 +336,8 @@ with values in `WithTop ℕ` is an e-variable. -/
 theorem isEVar_stoppedValueLimsup (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     (hM : IsTestSupermartingale M ℱ S) (hτ : IsStoppingTime ℱ τ) :
     IsEVar (stoppedValueLimsup M τ) S :=
-  IsEVar.of_lintegral_le_one hS (measurable_stoppedValueLimsup hM.measurable hτ.measurable')
-    fun P hP ↦ have := hS P hP; hM.lintegral_stoppedValueLimsup_le_one hP hτ
+  ⟨measurable_stoppedValueLimsup hM.measurable hτ.measurable',
+    fun P hP ↦ have := hS P hP; hM.lintegral_stoppedValueLimsup_le_one hP hτ⟩
 
 end IsTestSupermartingale
 

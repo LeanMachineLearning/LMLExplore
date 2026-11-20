@@ -20,9 +20,8 @@ admissible, an exact e-variable is strongly admissible, for a simple null the ad
 e-variables are the exact ones, which are the likelihood ratios, and products of strongly
 admissible e-variables are strongly admissible for the product null.
 
-Following Statlib, the null is an arbitrary set of measures and e-variables are `ℝ≥0∞`-valued. The
-statements that compare integrals assume that the members of the null are finite measures; exact
-means `∫⁻ E ∂P = P univ`, which is expectation one for a probability measure.
+Following Statlib, the null is an arbitrary set of measures and e-variables are `ℝ≥0∞`-valued;
+exact means `∫⁻ E ∂P = 1`.
 
 ## Main definitions
 
@@ -35,15 +34,15 @@ means `∫⁻ E ∂P = P univ`, which is expectation one for a probability measu
 * `ProbabilityTheory.isAdmissibleEVar_iff_forall_le`: admissibility can be tested on the
   e-variables that dominate `E` everywhere.
 * `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
-  almost surely under a finite member of the null under which `E` is exact is equal to `E`
-  almost surely under that member.
+  almost surely under a member of the null under which `E` is exact is equal to `E` almost surely
+  under that member.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.isAdmissibleEVar`: a strongly admissible e-variable
-  for a null of finite measures is admissible.
+  is admissible.
 * `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: so is an exact e-variable.
-* `ProbabilityTheory.isAdmissibleEVar_singleton_iff`: for a simple null `{P}` with `P` finite,
-  admissible and exact coincide.
+* `ProbabilityTheory.isAdmissibleEVar_singleton_iff`: for a simple null `{P}` with `P` finite and
+  nonzero, admissible and exact coincide.
 * `ProbabilityTheory.isExactEVar_singleton_iff_exists_rnDeriv`: the exact e-variables for `{P}`
-  are the likelihood ratios `Q.rnDeriv P` of the measures `Q ≪ P` with the mass of `P`.
+  are the likelihood ratios `Q.rnDeriv P` of the probability measures `Q ≪ P`.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.prod`: the product of two strongly admissible
   e-variables is strongly admissible for the null of the product measures.
 
@@ -114,12 +113,12 @@ theorem isAdmissibleEVar_iff_forall_le :
 /-! ### Strongly admissible e-variables -/
 
 /-- An e-variable `E` for `S` is **strongly admissible** when every measurable set charged by some
-member of `S` is charged by a member `P` of `S` with `∫⁻ E ∂P = P univ`: the sufficient condition
-for admissibility of [RW, Corollary 2.15 (a)]. -/
+member of `S` is charged by a member `P` of `S` with `∫⁻ E ∂P = 1`: the sufficient condition for
+admissibility of [RW, Corollary 2.15 (a)]. -/
 structure IsStronglyAdmissibleEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)) : Prop
     extends IsEVar E S where
   exists_lintegral_eq : ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
-    ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = P univ
+    ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1
 
 /-- A measurable function equal to a strongly admissible e-variable almost surely under every
 member of the null is a strongly admissible e-variable. -/
@@ -130,43 +129,18 @@ theorem IsStronglyAdmissibleEVar.congr (hE : IsStronglyAdmissibleEVar E S) (hF :
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
     exact ⟨P, hP, hPA, by rw [← lintegral_congr_ae (hEF P hP), hPE]⟩
 
-/-- For a null of probability measures, `E` is a strongly admissible e-variable exactly when it is
-an e-variable such that every measurable set charged by a member of the null is charged by a
-member under which `E` has expectation one. -/
-theorem isStronglyAdmissibleEVar_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    IsStronglyAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
-      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1 := by
-  refine ⟨fun hE ↦ ⟨hE.toIsEVar, fun A hA hSA ↦ ?_⟩, fun ⟨hE, h⟩ ↦ ⟨hE, fun A hA hSA ↦ ?_⟩⟩
-  · obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
-    have := hS P hP
-    exact ⟨P, hP, hPA, by simpa using hPE⟩
-  · obtain ⟨P, hP, hPA, hPE⟩ := h A hA hSA
-    have := hS P hP
-    exact ⟨P, hP, hPA, by simpa using hPE⟩
-
-/-- For a null of probability measures, an e-variable such that every measurable set charged by a
-member of the null is charged by a member under which it has expectation one is strongly
-admissible. -/
-theorem IsStronglyAdmissibleEVar.of_lintegral_eq_one (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEVar E S) (h : ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
-      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1) :
-    IsStronglyAdmissibleEVar E S :=
-  (isStronglyAdmissibleEVar_iff hS).2 ⟨hE, h⟩
-
-/-- If an e-variable `F` dominates `E` almost surely under a finite member `P` of the null under
-which `E` is exact, `∫⁻ E ∂P = P univ`, then `F` is equal to `E` almost surely under `P`: the event
-`E < F` is `P`-null. -/
-theorem IsEVar.measure_lt_eq_zero_of_ae_le [IsFiniteMeasure P] (hF : IsEVar F S) (hP : P ∈ S)
-    (hEF : E ≤ᵐ[P] F) (hE : ∫⁻ ω, E ω ∂P = P univ) : P {ω | E ω < F ω} = 0 := by
-  have h_eq : E =ᵐ[P] F := ae_eq_of_ae_le_of_lintegral_le hEF
-    (by rw [hE]; exact measure_ne_top P univ) hF.measurable.aemeasurable
-    (by rw [hE]; exact hF.lintegral_le_measure_univ P hP)
+/-- If an e-variable `F` dominates `E` almost surely under a member `P` of the null under which `E`
+is exact, `∫⁻ E ∂P = 1`, then `F` is equal to `E` almost surely under `P`: the event `E < F` is
+`P`-null. -/
+theorem IsEVar.measure_lt_eq_zero_of_ae_le (hF : IsEVar F S) (hP : P ∈ S) (hEF : E ≤ᵐ[P] F)
+    (hE : ∫⁻ ω, E ω ∂P = 1) : P {ω | E ω < F ω} = 0 := by
+  have h_eq : E =ᵐ[P] F := ae_eq_of_ae_le_of_lintegral_le hEF (by simp [hE])
+    hF.measurable.aemeasurable (by rw [hE]; exact hF.lintegral_le_one hP)
   exact measure_mono_null (fun ω hω ↦ (hω : E ω < F ω).ne) h_eq
 
-/-- A strongly admissible e-variable for a null of finite measures is admissible
-[RW, Corollary 2.15 (a)]. -/
-theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMeasure P)
-    (hE : IsStronglyAdmissibleEVar E S) : IsAdmissibleEVar E S where
+/-- A strongly admissible e-variable is admissible [RW, Corollary 2.15 (a)]. -/
+theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hE : IsStronglyAdmissibleEVar E S) :
+    IsAdmissibleEVar E S where
   toIsEVar := hE.toIsEVar
   ae_le_of_ae_le F hF hEF P₀ hP₀ := by
     by_contra h_not
@@ -175,37 +149,34 @@ theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMea
       fun h0 ↦ h_not (ae_iff.2 (by simpa only [not_le] using h0))
     -- a member of the null that charges `{E < F}` and under which `E` is exact cannot charge it
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq _ hA ⟨P₀, hP₀, hP₀A⟩
-    have := hS P hP
     exact hPA (hF.measure_lt_eq_zero_of_ae_le hP (hEF P hP) hPE)
 
 /-- An exact e-variable is strongly admissible. -/
 theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
     IsStronglyAdmissibleEVar E S where
   toIsEVar := hE.toIsEVar
-  exists_lintegral_eq _ _ := fun ⟨P, hP, hPA⟩ ↦ ⟨P, hP, hPA, hE.lintegral_eq_measure_univ P hP⟩
+  exists_lintegral_eq _ _ := fun ⟨P, hP, hPA⟩ ↦ ⟨P, hP, hPA, hE.lintegral_eq_one hP⟩
 
-/-- An exact e-variable for a null of finite measures is admissible. -/
-theorem IsExactEVar.isAdmissibleEVar (hS : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsExactEVar E S) :
-    IsAdmissibleEVar E S :=
-  hE.isStronglyAdmissibleEVar.isAdmissibleEVar hS
+/-- An exact e-variable is admissible. -/
+theorem IsExactEVar.isAdmissibleEVar (hE : IsExactEVar E S) : IsAdmissibleEVar E S :=
+  hE.isStronglyAdmissibleEVar.isAdmissibleEVar
 
 /-! ### Simple nulls -/
 
-/-- An admissible e-variable for a simple null `{P}`, with `P` finite, is exact: otherwise adding
-a positive constant gives a larger e-variable [RW, Proposition 2.12]. -/
-theorem IsAdmissibleEVar.isExactEVar_singleton [IsFiniteMeasure P]
+/-- An admissible e-variable for a simple null `{P}`, with `P` finite and nonzero, is exact:
+otherwise adding a positive constant gives a larger e-variable [RW, Proposition 2.12]. -/
+theorem IsAdmissibleEVar.isExactEVar_singleton [IsFiniteMeasure P] [NeZero P]
     (hE : IsAdmissibleEVar E {P}) : IsExactEVar E {P} where
   toIsEVar := hE.toIsEVar
-  lintegral_eq_measure_univ := by
+  lintegral_eq_one := by
     simp only [mem_singleton_iff, forall_eq]
     by_contra h_ne
-    have h_lt : ∫⁻ ω, E ω ∂P < P univ :=
-      lt_of_le_of_ne (hE.toIsEVar.lintegral_le_measure_univ P rfl) h_ne
-    have hP0 : P univ ≠ 0 := (bot_le.trans_lt h_lt).ne'
-    set c : ℝ≥0∞ := (P univ - ∫⁻ ω, E ω ∂P) / P univ with hc
+    have h_lt : ∫⁻ ω, E ω ∂P < 1 := lt_of_le_of_ne (hE.toIsEVar.lintegral_le_one rfl) h_ne
+    have hP0 : P univ ≠ 0 := by simp [NeZero.ne P]
+    set c : ℝ≥0∞ := (1 - ∫⁻ ω, E ω ∂P) / P univ with hc
     have hc0 : c ≠ 0 := (ENNReal.div_pos (tsub_pos_of_lt h_lt).ne' (measure_ne_top P univ)).ne'
     have hF : IsEVar (fun ω ↦ E ω + c) {P} := by
-      refine .of_lintegral_le_measure_univ (by simpa) (hE.measurable.add_const c) ?_
+      refine ⟨hE.measurable.add_const c, ?_⟩
       simp only [mem_singleton_iff, forall_eq]
       rw [lintegral_add_right _ measurable_const, lintegral_const, hc,
         ENNReal.div_mul_cancel hP0 (measure_ne_top P univ), add_tsub_cancel_of_le h_lt.le]
@@ -217,24 +188,24 @@ theorem IsAdmissibleEVar.isExactEVar_singleton [IsFiniteMeasure P]
     have hP : P = 0 := ae_eq_bot.1 (Filter.eventually_false_iff_eq_bot.1 h_false)
     exact hP0 (by simp [hP])
 
-/-- For a simple null `{P}` with `P` finite, the admissible e-variables are the exact ones
-[RW, Proposition 2.12]. -/
-theorem isAdmissibleEVar_singleton_iff [IsFiniteMeasure P] :
+/-- For a simple null `{P}` with `P` finite and nonzero, the admissible e-variables are the exact
+ones [RW, Proposition 2.12]. -/
+theorem isAdmissibleEVar_singleton_iff [IsFiniteMeasure P] [NeZero P] :
     IsAdmissibleEVar E {P} ↔ IsExactEVar E {P} :=
-  ⟨fun h ↦ h.isExactEVar_singleton, fun h ↦ h.isAdmissibleEVar (by simpa)⟩
+  ⟨fun h ↦ h.isExactEVar_singleton, fun h ↦ h.isAdmissibleEVar⟩
 
 /-- The exact e-variables for a simple null `{P}`, with `P` finite, are the likelihood ratios
-`Q.rnDeriv P` of the measures `Q ≪ P` with the total mass of `P`, up to `P`-almost sure equality
+`Q.rnDeriv P` of the probability measures `Q ≪ P`, up to `P`-almost sure equality
 [RW, Proposition 2.12]. -/
 theorem isExactEVar_singleton_iff_exists_rnDeriv [IsFiniteMeasure P] :
     IsExactEVar E {P} ↔
-      Measurable E ∧ ∃ Q : Measure Ω, Q ≪ P ∧ Q univ = P univ ∧ E =ᵐ[P] Q.rnDeriv P := by
+      Measurable E ∧ ∃ Q : Measure Ω, Q ≪ P ∧ Q univ = 1 ∧ E =ᵐ[P] Q.rnDeriv P := by
   refine ⟨fun hE ↦ ⟨hE.measurable, P.withDensity E, withDensity_absolutelyContinuous P E, ?_,
     (Measure.rnDeriv_withDensity P hE.measurable).symm⟩, fun ⟨hE, Q, hQP, hQ, hEQ⟩ ↦ ?_⟩
   · rw [withDensity_apply _ .univ, Measure.restrict_univ]
-    exact hE.lintegral_eq_measure_univ P rfl
-  · have : IsFiniteMeasure Q := ⟨by rw [hQ]; exact measure_lt_top P univ⟩
-    refine (isExactEVar_rnDeriv hQP hQ).congr hE ?_
+    exact hE.lintegral_eq_one rfl
+  · have : IsProbabilityMeasure Q := ⟨hQ⟩
+    refine (isExactEVar_rnDeriv hQP).congr hE ?_
     simp only [mem_singleton_iff, forall_eq]
     exact hEQ.symm
 
@@ -246,7 +217,7 @@ theorem IsStronglyAdmissibleEVar.prod {F : Ω' → ℝ≥0∞} (hE : IsStronglyA
     (hF : IsStronglyAdmissibleEVar F T) (hS : ∀ P ∈ S, IsFiniteMeasure P)
     (hT : ∀ P ∈ T, IsFiniteMeasure P) :
     IsStronglyAdmissibleEVar (fun p : Ω × Ω' ↦ E p.1 * F p.2) (image2 Measure.prod S T) where
-  toIsEVar := hE.toIsEVar.prod hF.toIsEVar hS hT
+  toIsEVar := hE.toIsEVar.prod hF.toIsEVar
   exists_lintegral_eq A hA := by
     rintro ⟨_, ⟨P, hP, P', hP', rfl⟩, hPA⟩
     have := hS P hP
@@ -265,6 +236,6 @@ theorem IsStronglyAdmissibleEVar.prod {F : Ω' → ℝ≥0∞} (hE : IsStronglyA
     refine ⟨P₁.prod P₂, ⟨P₁, hP₁, P₂, hP₂, rfl⟩, ?_, ?_⟩
     · exact (Measure.prod_apply_ne_zero_iff_symm hA).2 hP₂C
     · rw [lintegral_prod_mul hE.measurable.aemeasurable hF.measurable.aemeasurable, hP₁E, hP₂F,
-        ← univ_prod_univ, Measure.prod_prod]
+        mul_one]
 
 end ProbabilityTheory

@@ -14,14 +14,11 @@ public import Statlib.EValues.EVariable
 # Exact e-variables, Markov's inequality and products of independent e-variables
 
 An e-variable for a null hypothesis `S : Set (Measure Ω)` (Statlib's `ProbabilityTheory.IsEVar`)
-is a measurable `E : Ω → ℝ≥0∞` with `∫ᵉ ω, E ω - 1 ∂P ≠ ⊥` and `∫ᵉ ω, E ω - 1 ∂P ≤ 0` for every
-`P ∈ S`. For a null of finite measures this says `∫⁻ E ∂P ≤ P univ` for every `P ∈ S`
-(`ProbabilityTheory.IsEVar.of_lintegral_le_measure_univ`,
-`ProbabilityTheory.IsEVar.lintegral_le_measure_univ`), that is, `E` has expectation at most one
-under every probability measure of `S`. This file develops the first properties of e-variables
-that hypothesis testing uses:
+is a measurable `E : Ω → ℝ≥0∞` with `∫⁻ E ∂P ≤ 1` for every `P ∈ S`
+(`ProbabilityTheory.IsEVar.lintegral_le_one`). This file develops the first properties of
+e-variables that hypothesis testing uses:
 
-* the exact e-variables, with `∫⁻ E ∂P = P univ` for every `P ∈ S`;
+* the exact e-variables, with `∫⁻ E ∂P = 1` for every `P ∈ S`;
 * the e-variable equal to `∞` on a set null for every member of `S`, and the measures under which
   every e-variable for `S` is almost surely finite, which are those absolutely continuous with
   respect to `S`;
@@ -34,17 +31,15 @@ e-variables are `ℝ≥0∞`-valued.
 
 ## Main definitions
 
-* `ProbabilityTheory.IsExactEVar E S`: `E` is an e-variable for `S` with `∫⁻ E ∂P = P univ` for
-  every `P ∈ S`, that is, with expectation exactly one under every probability measure of `S`.
+* `ProbabilityTheory.IsExactEVar E S`: `E` is an e-variable for `S` with `∫⁻ E ∂P = 1` for every
+  `P ∈ S`.
 
 ## Main statements
 
-* `ProbabilityTheory.IsEVar.lintegral_le_one`: an e-variable has expectation at most one under
-  every probability measure of the null.
-* `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: for a null
-  of probability measures, the e-variables and the exact e-variables in terms of `∫⁻`.
-* `ProbabilityTheory.isExactEVar_rnDeriv`: for a finite measure `P`, a likelihood ratio
-  `Q.rnDeriv P` with `Q ≪ P` and `Q univ = P univ` is an exact e-variable for `{P}`.
+* `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: the
+  e-variables and the exact e-variables in terms of `∫⁻`.
+* `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` of a probability
+  measure `Q ≪ P` is an exact e-variable for `{P}`.
 * `ProbabilityTheory.isEVar_div_singleton`: on a countable space, the likelihood ratio
   `x ↦ Q {x} / P {x}` against a probability measure `P` that charges every point is an
   e-variable for `{P}`.
@@ -53,7 +48,7 @@ e-variables are `ℝ≥0∞`-valued.
 * `ProbabilityTheory.isEVar_tsum_mul`: a countable mixture `∑' i, w i * E i` of e-variables, with
   weights of sum at most `1`, is an e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
-  for every member of `S`, and to `1` elsewhere, is an e-variable for `S`.
+  for every member of `S`, and to `0` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
   absolutely continuous with respect to `S` (`MeasureTheory.Measure.AbsolutelyContinuousSet`)
   exactly when every e-variable for `S` is `Q`-almost surely finite [LRR25, Theorem 2.6].
@@ -85,81 +80,59 @@ namespace ProbabilityTheory
 variable {Ω 𝓨 : Type*} {mΩ : MeasurableSpace Ω} {m𝓨 : MeasurableSpace 𝓨}
   {S T : Set (Measure Ω)} {E F : Ω → ℝ≥0∞} {P : Measure Ω}
 
-/-- An e-variable has expectation at most one under every probability measure of the null. -/
-theorem IsEVar.lintegral_le_one (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P] :
-    ∫⁻ ω, E ω ∂P ≤ 1 := by
-  simpa using hE.lintegral_le_measure_univ P hP
-
-/-- For a null of probability measures, `E` is an e-variable exactly when it is measurable and has
-expectation at most one under every member of the null. -/
-theorem isEVar_iff_lintegral_le_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    IsEVar E S ↔ Measurable E ∧ ∀ P ∈ S, ∫⁻ ω, E ω ∂P ≤ 1 := by
-  refine ⟨fun hE ↦ ⟨hE.measurable, fun P hP ↦ ?_⟩,
-    fun h ↦ IsEVar.of_lintegral_le_one hS h.1 h.2⟩
-  have := hS P hP
-  exact hE.lintegral_le_one hP
+/-- `E` is an e-variable exactly when it is measurable and has expectation at most one under every
+member of the null. -/
+theorem isEVar_iff_lintegral_le_one :
+    IsEVar E S ↔ Measurable E ∧ ∀ P ∈ S, ∫⁻ ω, E ω ∂P ≤ 1 :=
+  ⟨fun hE ↦ ⟨hE.measurable, fun _ hP ↦ hE.lintegral_le_one hP⟩, fun h ↦ ⟨h.1, h.2⟩⟩
 
 /-! ### Exact e-variables -/
 
-/-- An e-variable `E` for `S` is **exact** when `∫⁻ E ∂P = P univ` for every `P ∈ S`: for a null of
-probability measures, its expectation is exactly one under every member of the null. The
-normalization by `P univ` matches the one of Statlib's `IsEVar`, which asks
-`∫⁻ E ∂P ≤ P univ` for a finite measure `P`. -/
+/-- An e-variable `E` for `S` is **exact** when `∫⁻ E ∂P = 1` for every `P ∈ S`. -/
 structure IsExactEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)) : Prop extends IsEVar E S where
-  lintegral_eq_measure_univ : ∀ P ∈ S, ∫⁻ ω, E ω ∂P = P univ
+  lintegral_eq_one ⦃P : Measure Ω⦄ (hP : P ∈ S) : ∫⁻ ω, E ω ∂P = 1
 
-/-- An exact e-variable has expectation one under every probability measure of the null. -/
-theorem IsExactEVar.lintegral_eq_one (hE : IsExactEVar E S) (hP : P ∈ S)
-    [IsProbabilityMeasure P] :
-    ∫⁻ ω, E ω ∂P = 1 := by
-  simpa using hE.lintegral_eq_measure_univ P hP
+/-- `E` is an exact e-variable exactly when it is measurable and has expectation one under every
+member of the null. -/
+theorem isExactEVar_iff :
+    IsExactEVar E S ↔ Measurable E ∧ ∀ P ∈ S, ∫⁻ ω, E ω ∂P = 1 :=
+  ⟨fun hE ↦ ⟨hE.measurable, fun _ hP ↦ hE.lintegral_eq_one hP⟩,
+    fun h ↦ ⟨⟨h.1, fun P hP ↦ (h.2 P hP).le⟩, h.2⟩⟩
 
-/-- For a null of probability measures, `E` is an exact e-variable exactly when it is measurable
-and has expectation one under every member of the null. -/
-theorem isExactEVar_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    IsExactEVar E S ↔ Measurable E ∧ ∀ P ∈ S, ∫⁻ ω, E ω ∂P = 1 := by
-  refine ⟨fun hE ↦ ⟨hE.measurable, fun P hP ↦ have := hS P hP; hE.lintegral_eq_one hP⟩,
-    fun h ↦ ⟨IsEVar.of_lintegral_le_one hS h.1 fun P hP ↦ (h.2 P hP).le, fun P hP ↦ ?_⟩⟩
-  have := hS P hP
-  simpa using h.2 P hP
-
-theorem IsExactEVar.of_lintegral_eq_one (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : Measurable E) (h : ∀ P ∈ S, ∫⁻ ω, E ω ∂P = 1) :
+theorem IsExactEVar.of_lintegral_eq_one (hE : Measurable E) (h : ∀ P ∈ S, ∫⁻ ω, E ω ∂P = 1) :
     IsExactEVar E S :=
-  (isExactEVar_iff hS).2 ⟨hE, h⟩
+  isExactEVar_iff.2 ⟨hE, h⟩
 
-/-- The constant `1` is an exact e-variable for every null. -/
-theorem isExactEVar_one (S : Set (Measure Ω)) : IsExactEVar 1 S where
-  toIsEVar := isEVar_one S
-  lintegral_eq_measure_univ P _ := by simp
+/-- The constant `1` is an exact e-variable for every null of probability measures. -/
+theorem isExactEVar_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) : IsExactEVar 1 S :=
+  .of_lintegral_eq_one measurable_one fun P hP ↦ by have := hS P hP; simp
 
 theorem IsExactEVar.anti_set (hST : S ⊆ T) (hE : IsExactEVar E T) : IsExactEVar E S where
   toIsEVar := hE.toIsEVar.anti_set hST
-  lintegral_eq_measure_univ P hP := hE.lintegral_eq_measure_univ P (hST hP)
+  lintegral_eq_one _ hP := hE.lintegral_eq_one (hST hP)
 
 theorem IsExactEVar.congr (hE : IsExactEVar E S) (hF : Measurable F)
     (hEF : ∀ P ∈ S, E =ᵐ[P] F) : IsExactEVar F S where
   toIsEVar := hE.toIsEVar.congr hF hEF
-  lintegral_eq_measure_univ P hP := by
-    rw [← lintegral_congr_ae (hEF P hP), hE.lintegral_eq_measure_univ P hP]
+  lintegral_eq_one P hP := by
+    rw [← lintegral_congr_ae (hEF P hP), hE.lintegral_eq_one hP]
 
 /-- The composition of an exact e-variable with a measurable map is an exact e-variable for the
 null of the measures whose image is in the original null. -/
 theorem IsExactEVar.comp {Y : 𝓨 → ℝ≥0∞} {φ : Ω → 𝓨} (hφ : Measurable φ)
     (h : IsExactEVar Y {P.map φ | P ∈ S}) : IsExactEVar (Y ∘ φ) S where
   toIsEVar := h.toIsEVar.comp hφ
-  lintegral_eq_measure_univ P hP := by
-    have h_eq := h.lintegral_eq_measure_univ (P.map φ) ⟨P, hP, rfl⟩
-    rwa [lintegral_map h.measurable hφ, Measure.map_apply hφ .univ, preimage_univ] at h_eq
+  lintegral_eq_one P hP := by
+    have h_eq := h.lintegral_eq_one ⟨P, hP, rfl⟩
+    rwa [lintegral_map h.measurable hφ] at h_eq
 
-/-- A likelihood ratio `Q.rnDeriv P`, for `Q ≪ P` with the same finite total mass, is an exact
-e-variable for the simple null `{P}`. -/
-theorem isExactEVar_rnDeriv {Q : Measure Ω} [IsFiniteMeasure P] [Q.HaveLebesgueDecomposition P]
-    (hQP : Q ≪ P) (hQ : Q univ = P univ) :
-    IsExactEVar (Q.rnDeriv P) {P} where
-  toIsEVar := .of_lintegral_le_measure_univ (by simpa) (Measure.measurable_rnDeriv Q P)
-    (by simp [Measure.lintegral_rnDeriv hQP, hQ])
-  lintegral_eq_measure_univ := by simp [Measure.lintegral_rnDeriv hQP, hQ]
+/-- A likelihood ratio `Q.rnDeriv P` of a probability measure `Q ≪ P` is an exact e-variable for
+the simple null `{P}`. -/
+theorem isExactEVar_rnDeriv {Q : Measure Ω} [IsProbabilityMeasure Q]
+    [Q.HaveLebesgueDecomposition P] (hQP : Q ≪ P) :
+    IsExactEVar (Q.rnDeriv P) {P} :=
+  .of_lintegral_eq_one (Measure.measurable_rnDeriv Q P) fun _ hP ↦ by
+    rw [Set.mem_singleton_iff.1 hP, Measure.lintegral_rnDeriv hQP, measure_univ]
 
 /-- On a countable space, the likelihood ratio `x ↦ Q {x} / P {x}` of a probability measure `Q`
 against a probability measure `P` that charges every point is an e-variable for `{P}`: its
@@ -167,20 +140,20 @@ expectation under `P` is `1`. -/
 theorem isEVar_div_singleton [MeasurableSingletonClass Ω] [Countable Ω] {Q : Measure Ω}
     [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hP : ∀ ω, P {ω} ≠ 0) :
     IsEVar (fun ω ↦ Q {ω} / P {ω}) {P} := by
-  refine IsEVar.of_lintegral_le_one (by simpa) Measurable.of_discrete fun _ h ↦ ?_
+  refine ⟨Measurable.of_discrete, fun _ h ↦ ?_⟩
   rw [Set.mem_singleton_iff.1 h, lintegral_countable',
     tsum_congr fun ω ↦ ENNReal.div_mul_cancel (hP ω) (measure_ne_top _ _)]
   simpa using (lintegral_countable' (μ := Q) 1).symm.le
 
 /-! ### Mixing with a constant -/
 
-/-- **Mixing with a constant.** For `ε ∈ [0, 1]`, the mixture `(1 - ε) E + ε` of an e-variable
-`E` with the constant `1` is an e-variable. -/
-theorem IsEVar.ofReal_one_sub_mul_add_ofReal (hE : IsEVar E S) {ε : ℝ} (hε0 : 0 ≤ ε)
-    (hε1 : ε ≤ 1) :
+/-- **Mixing with a constant.** For a null of measures of mass at most one and `ε ∈ [0, 1]`, the
+mixture `(1 - ε) E + ε` of an e-variable `E` with the constant `1` is an e-variable. -/
+theorem IsEVar.ofReal_one_sub_mul_add_ofReal (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEVar E S) {ε : ℝ}
+    (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) :
     IsEVar (fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) S := by
   have h : IsEVar (ENNReal.ofReal (1 - ε) • E + ENNReal.ofReal ε • 1) S :=
-    convex_isEVar S hE (isEVar_one S) (zero_le : 0 ≤ ENNReal.ofReal (1 - ε))
+    convex_isEVar S hE (isEVar_one hS) (zero_le : 0 ≤ ENNReal.ofReal (1 - ε))
       (zero_le : 0 ≤ ENNReal.ofReal ε)
       (by rw [← ENNReal.ofReal_add (by linarith) hε0, sub_add_cancel, ENNReal.ofReal_one])
   convert h using 1
@@ -190,10 +163,10 @@ theorem IsEVar.ofReal_one_sub_mul_add_ofReal (hE : IsEVar E S) {ε : ℝ} (hε0 
 /-! ### E-variables and null sets -/
 
 /-- For a measurable set `s` that is null for every member of `S`, the function equal to `∞` on
-`s` and to `1` elsewhere is an e-variable for `S`. -/
+`s` and to `0` elsewhere is an e-variable for `S`. -/
 theorem isEVar_piecewise_top {s : Set Ω} [DecidablePred (· ∈ s)] (hs : MeasurableSet s)
-    (hS : ∀ P ∈ S, P s = 0) : IsEVar (s.piecewise (fun _ ↦ ∞) 1) S :=
-  (isEVar_one S).congr (measurable_const.piecewise hs measurable_const) fun P hP ↦ by
+    (hS : ∀ P ∈ S, P s = 0) : IsEVar (s.piecewise (fun _ ↦ ∞) 0) S :=
+  isEVar_zero.congr (measurable_const.piecewise hs measurable_const) fun P hP ↦ by
     filter_upwards [measure_eq_zero_iff_ae_notMem.mp (hS P hP)] with ω hω
     simp [hω]
 
@@ -219,8 +192,7 @@ theorem absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top {Q : Measure Ω} :
 /-- **Markov's inequality** for e-variables: for every probability measure `P` of the null and
 every level
 `α`, the e-variable reaches `α⁻¹` with probability at most `α`. -/
-theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
-    (α : ℝ≥0∞) :
+theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0∞) :
     P {ω | α⁻¹ ≤ E ω} ≤ α := by
   rcases eq_or_ne α 0 with rfl | hα₀
   · -- at level `0`, the event is `{E = ∞}`, which is null since `E` is almost surely finite
@@ -239,16 +211,14 @@ theorem IsEVar.measure_inv_le_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbability
 
 /-- The test that rejects when an e-variable reaches `α⁻¹` has level `α` under every probability
 measure of the null. -/
-theorem IsEVar.lintegral_indicator_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
-    (α : ℝ≥0∞) :
+theorem IsEVar.lintegral_indicator_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0∞) :
     ∫⁻ ω, {ω | α⁻¹ ≤ E ω}.indicator 1 ω ∂P ≤ α := by
   rw [lintegral_indicator_one (measurableSet_le measurable_const hE.measurable)]
   exact hE.measure_inv_le_le hP α
 
 /-- The randomized test `min (α * E) 1` of an e-variable `E` has expectation at most `α` under
 every probability measure of the null. -/
-theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabilityMeasure P]
-    (α : ℝ≥0∞) :
+theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) (α : ℝ≥0∞) :
     ∫⁻ ω, min (α * E ω) 1 ∂P ≤ α :=
   calc ∫⁻ ω, min (α * E ω) 1 ∂P
   _ ≤ ∫⁻ ω, α * E ω ∂P := lintegral_mono fun _ ↦ min_le_left _ _
@@ -258,22 +228,19 @@ theorem IsEVar.lintegral_min_mul_le (hE : IsEVar E S) (hP : P ∈ S) [IsProbabil
     exact hE.lintegral_le_one hP
   _ = α := mul_one α
 
-/-- **Countable mixtures of e-variables.** For a null of finite measures, a countable family of
-e-variables `E i` and weights `w i` with `∑' i, w i ≤ 1`, the mixture `∑' i, w i * E i` is an
-e-variable. -/
-theorem isEVar_tsum_mul {ι : Type*} [Countable ι] (hS : ∀ P ∈ S, IsFiniteMeasure P)
-    {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, IsEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑' i, w i ≤ 1) :
+/-- **Countable mixtures of e-variables.** For a countable family of e-variables `E i` and weights
+`w i` with `∑' i, w i ≤ 1`, the mixture `∑' i, w i * E i` is an e-variable. -/
+theorem isEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, IsEVar (E i) S)
+    {w : ι → ℝ≥0∞} (hw : ∑' i, w i ≤ 1) :
     IsEVar (fun ω ↦ ∑' i, w i * E i ω) S := by
-  refine .of_lintegral_le_measure_univ hS
-    (Measurable.tsum fun i ↦ (hE i).measurable.const_mul (w i)) fun P hP ↦ ?_
+  refine ⟨Measurable.tsum fun i ↦ (hE i).measurable.const_mul (w i), fun P hP ↦ ?_⟩
   rw [lintegral_tsum fun i ↦ ((hE i).measurable.const_mul (w i)).aemeasurable]
   calc ∑' i, ∫⁻ ω, w i * E i ω ∂P
   _ = ∑' i, w i * ∫⁻ ω, E i ω ∂P := by simp_rw [lintegral_const_mul _ (hE _).measurable]
-  _ ≤ ∑' i, w i * P univ := by
+  _ ≤ ∑' i, w i * 1 := by
     gcongr with i
-    exact (hE i).lintegral_le_measure_univ P hP
-  _ = (∑' i, w i) * P univ := ENNReal.tsum_mul_right
-  _ ≤ P univ := by simpa using mul_le_mul_left hw (P univ)
+    exact (hE i).lintegral_le_one hP
+  _ ≤ 1 := by simpa using hw
 
 /-! ### Products of independent e-variables -/
 
@@ -283,10 +250,8 @@ measures. -/
 theorem isEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsEVar (E i) S) (hind : ∀ P ∈ S, iIndepFun E P) :
     IsEVar (fun ω ↦ ∏ i ∈ s, E i ω) S := by
-  have hS : ∀ P ∈ S, IsProbabilityMeasure P := fun P hP ↦ (hind P hP).isProbabilityMeasure
-  refine .of_lintegral_le_one hS (Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable)
-    fun P hP ↦ ?_
-  have := hS P hP
+  refine ⟨Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable, fun P hP ↦ ?_⟩
+  have := (hind P hP).isProbabilityMeasure
   rw [lintegral_prod_eq_prod_lintegral_of_indepFun' s (hind P hP)
     fun i hi ↦ (hE i hi).measurable]
   exact Finset.prod_le_one fun i hi ↦ (hE i hi).lintegral_le_one hP
@@ -297,10 +262,9 @@ probability measures. -/
 theorem isExactEVar_finsetProd {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsExactEVar (E i) S) (hind : ∀ P ∈ S, iIndepFun E P) :
     IsExactEVar (fun ω ↦ ∏ i ∈ s, E i ω) S := by
-  have hS : ∀ P ∈ S, IsProbabilityMeasure P := fun P hP ↦ (hind P hP).isProbabilityMeasure
-  refine .of_lintegral_eq_one hS (Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable)
+  refine .of_lintegral_eq_one (Finset.measurable_fun_prod s fun i hi ↦ (hE i hi).measurable)
     fun P hP ↦ ?_
-  have := hS P hP
+  have := (hind P hP).isProbabilityMeasure
   rw [lintegral_prod_eq_prod_lintegral_of_indepFun' s (hind P hP)
     fun i hi ↦ (hE i hi).measurable]
   exact Finset.prod_eq_one fun i hi ↦ (hE i hi).lintegral_eq_one hP

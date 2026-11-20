@@ -679,8 +679,8 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
           have := hS₁ P hP
           exact lintegral_restartMixture_le_one hσ hV hσm hVm P (h_null P hP) hr0.le hr1.le N
     _ ≤ N * bipolarRate Q₁ S₁ := maxLogGrowth_le_mul_bipolarRate Q₁ S₁ (by omega)
-  rw [← coe_toReal_bipolarRate hd, ← EReal.coe_natCast, ← EReal.coe_mul,
-    EReal.coe_le_coe_iff] at hle
+  rw [← coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd, ← EReal.coe_natCast,
+    ← EReal.coe_mul, EReal.coe_le_coe_iff] at hle
   exact hle
 
 /-- **The Wald inequality for a round.** Let `σ ≥ 1` be the bounded duration and `V ≥ δ > 0` the
@@ -700,7 +700,7 @@ lemma integral_truncLog_le_bipolarRate_mul (Q₁ : Measure 𝓧) [IsProbabilityM
       (bipolarRate Q₁ S₁).toReal * ∫ ω, (σ ω : ℝ) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set m := ∫ ω, (σ ω : ℝ) ∂μ
-  have hd0 := bipolarRate_nonneg Q₁ S₁
+  have hd0 := bipolarRate_nonneg Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le)
   have hm1 : 1 ≤ m := by
     calc (1 : ℝ) = ∫ _, (1 : ℝ) ∂μ := by simp
     _ ≤ m := integral_mono (integrable_const _) (integrable_natCast_of_le hσm hσK)

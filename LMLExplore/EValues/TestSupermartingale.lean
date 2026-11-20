@@ -226,11 +226,9 @@ theorem lintegral_le_one (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) (n 
     ∫⁻ ω, M n ω ∂P ≤ 1 :=
   (hM.lintegral_le hP n.zero_le).trans (hM.lintegral_zero_le P hP)
 
-/-- Every value of a test supermartingale for a null of probability measures is an
-e-variable. -/
-theorem isEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hM : IsTestSupermartingale M ℱ S)
-    (n : ℕ) : IsEVar (M n) S :=
-  IsEVar.of_lintegral_le_one hS (hM.measurable n) fun _ hP ↦ hM.lintegral_le_one hP n
+/-- Every value of a test supermartingale is an e-variable. -/
+theorem isEVar (hM : IsTestSupermartingale M ℱ S) (n : ℕ) : IsEVar (M n) S :=
+  ⟨hM.measurable n, fun _ hP ↦ hM.lintegral_le_one hP n⟩
 
 /-- A test supermartingale is almost surely finite at every time. -/
 theorem ae_lt_top (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) :

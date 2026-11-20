@@ -296,12 +296,12 @@ theorem IsEProcess.isSequentialTest (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     IsSequentialTest (fun n ↦ {ω | α⁻¹ ≤ E n ω}.indicator 1) ℱ S α := by
   simpa only [ENNReal.inv_le_iff_inv_le] using (hE.isPProcess_inv hS).isSequentialTest α
 
-/-- **Sequential tests are e-processes** [RW, Proposition 7.8]. For a null of probability measures,
-a level-`α` sequential test `φ` gives the e-process `α⁻¹ * φ`, whose expectation at every stopping
-time is `α⁻¹` times the probability of rejection. -/
-theorem IsSequentialTest.isEProcess_inv_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hφ : IsSequentialTest φ ℱ S α) : IsEProcess (fun n ω ↦ α⁻¹ * φ n ω) ℱ S :=
-  .of_lintegral_le_one hS (fun n ↦ (hφ.adapted n).const_mul α⁻¹) fun τ hτ P hP ↦ by
+/-- **Sequential tests are e-processes** [RW, Proposition 7.8]. A level-`α` sequential test `φ`
+gives the e-process `α⁻¹ * φ`, whose expectation at every stopping time is `α⁻¹` times the
+probability of rejection. -/
+theorem IsSequentialTest.isEProcess_inv_mul (hφ : IsSequentialTest φ ℱ S α) :
+    IsEProcess (fun n ω ↦ α⁻¹ * φ n ω) ℱ S :=
+  .of_lintegral_le_one (fun n ↦ (hφ.adapted n).const_mul α⁻¹) fun τ hτ P hP ↦ by
     rw [lintegral_const_mul _ (hφ.adapted.measurable_apply_stoppingTime hτ)]
     calc α⁻¹ * ∫⁻ ω, φ (τ ω) ω ∂P ≤ α⁻¹ * α := by gcongr; exact hφ.lintegral_le τ hP
       _ ≤ 1 := ENNReal.inv_mul_le_one α
@@ -313,7 +313,7 @@ theorem isSequentialTest_iff_exists_isEProcess (hS : ∀ P ∈ S, IsProbabilityM
     (hα : α ≠ ∞) :
     IsSequentialTest φ ℱ S α ↔
       ∃ E, IsEProcess E ℱ S ∧ φ = fun n ↦ {ω | α⁻¹ ≤ E n ω}.indicator 1 := by
-  refine ⟨fun hφ ↦ ⟨_, hφ.isEProcess_inv_mul hS, ?_⟩, fun ⟨E, hE, hφE⟩ ↦
+  refine ⟨fun hφ ↦ ⟨_, hφ.isEProcess_inv_mul, ?_⟩, fun ⟨E, hE, hφE⟩ ↦
     hφE ▸ hE.isSequentialTest hS α⟩
   -- `α⁻¹ * φ n ω` reaches `α⁻¹` exactly where `φ n ω = 1`, since `α⁻¹ ≠ 0`
   ext n ω

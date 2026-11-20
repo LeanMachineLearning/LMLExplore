@@ -233,7 +233,7 @@ theorem IsECollection.of_isEVar {e : Finset ι → Ω → ℝ≥0∞}
   lintegral_le_one P _ := by
     rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
     · simp [hN, he₀]
-    · simpa using (he _ hN).lintegral_le_measure_univ P (by simp)
+    · exact (he _ hN).lintegral_le_one (by simp)
 
 /-- Measurable statistics below those of an e-collection, with `e' ∅ = 0`, form an
 e-collection. -/

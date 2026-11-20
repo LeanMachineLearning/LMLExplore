@@ -174,10 +174,7 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
   have hA := measurableSet_pairwiseIrrational n
   have hX : IsEVar ((pairwiseIrrational n).indicator fun _ ↦ c)
       ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S) := by
-    refine IsEVar.of_lintegral_le_one ?_ (measurable_const.indicator hA) ?_
-    · rintro _ ⟨P, hP, rfl⟩
-      have := hS P hP
-      infer_instance
+    refine ⟨measurable_const.indicator hA, ?_⟩
     · rintro _ ⟨P, hP, rfl⟩
       have := hS P hP
       obtain ⟨C, hPC, hC⟩ := hSC P hP
@@ -246,12 +243,14 @@ theorem maxLogGrowth_one_coset_mixtures_eq_zero (hε : ε ≤ 1) :
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume |
       (x₀ : UnitAddCircle) (N : ℕ)} 1 = 0 := by
   rw [maxLogGrowth_one]
-  refine maxUtility_eq_zero_of_mem_effectiveSet fun X hX ↦ ?_
+  refine maxUtility_eq_zero_of_mem_effectiveSet (by
+    rintro _ ⟨x, N, rfl⟩
+    exact (isProbabilityMeasure_coset_mixture hε x N).measure_univ.le) fun X hX ↦ ?_
   set c := ∫⁻ x, X x ∂(volume : Measure UnitAddCircle)
   -- Lebesgue measure is the average over `x` of the members `(1 - ε) δ_x + ε volume`
   have hx (x : UnitAddCircle) : (1 - ε) * X x + ε * c ≤ 1 := by
     have := isProbabilityMeasure_coset_mixture hε x 1
-    have h := hX.lintegral_le_measure_univ _ ⟨x, 1, rfl⟩
+    have h := hX.lintegral_le_one ⟨x, 1, rfl⟩
     rw [uniformOn_coset_one] at h
     simpa [c, lintegral_add_measure, tsub_add_cancel_of_le hε] using h
   calc c

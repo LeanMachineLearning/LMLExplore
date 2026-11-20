@@ -229,13 +229,12 @@ theorem le_min_mul_iSup_div {α : ℝ≥0∞} (hα : α ∈ Ioo 0 1) {ω : Ω} (
     gcongr
     exact le_iSup₂ (f := fun β _ ↦ φ β ω / β) α hα
 
-/-- For a family of measurable tests nondecreasing in the level and a null of probability
-measures, post-hoc validity says that `⨆ α ∈ Ioo 0 1, φ α / α` is an e-variable. -/
-theorem isPostHocValid_iff_isEVar_iSup (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hφ : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, Measurable (φ α))
+/-- For a family of measurable tests nondecreasing in the level, post-hoc validity says that
+`⨆ α ∈ Ioo 0 1, φ α / α` is an e-variable. -/
+theorem isPostHocValid_iff_isEVar_iSup (hφ : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, Measurable (φ α))
     (hmono : ∀ ω, MonotoneOn (φ · ω) (Ioo 0 1)) :
     IsPostHocValid φ S ↔ IsEVar (fun ω ↦ ⨆ α ∈ Ioo (0 : ℝ≥0∞) 1, φ α ω / α) S := by
-  rw [isEVar_iff_lintegral_le_one hS]
+  rw [isEVar_iff_lintegral_le_one]
   exact ⟨fun h ↦ ⟨measurable_iSup_div hφ hmono, h.lintegral_iSup_div_le_one⟩, fun h ↦ ⟨h.2⟩⟩
 
 /-- **Post-hoc validity is testing with an e-variable.** For a null of probability measures, a
@@ -247,7 +246,7 @@ theorem isPostHocValid_iff_exists_isEVar (hS : ∀ P ∈ S, IsProbabilityMeasure
     (hmono : ∀ ω, MonotoneOn (φ · ω) (Ioo 0 1)) (hφ1 : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, ∀ ω, φ α ω ≤ 1) :
     IsPostHocValid φ S ↔
       ∃ E, IsEVar E S ∧ ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, ∀ ω, φ α ω ≤ min (α * E ω) 1 := by
-  refine ⟨fun h ↦ ⟨_, (isPostHocValid_iff_isEVar_iSup hS hφ hmono).1 h,
+  refine ⟨fun h ↦ ⟨_, (isPostHocValid_iff_isEVar_iSup hφ hmono).1 h,
     fun α hα ω ↦ le_min_mul_iSup_div hα (hφ1 α hα ω)⟩, fun ⟨E, hE, hφE⟩ ↦ ?_⟩
   exact (hE.isPostHocValid_min_mul hS).mono fun P _ ↦ ae_of_all _ fun ω α hα ↦ hφE α hα ω
 
@@ -276,11 +275,9 @@ theorem iSup_indicator_le_div_eq_indicator_inv (p : Ω → ℝ≥0∞) (ω : Ω)
     refine le_antisymm (iSup₂_le fun α hα ↦ ?_) zero_le
     rw [indicator_of_notMem (by exact fun hpα ↦ hp1 (lt_of_le_of_lt hpα hα.2)), ENNReal.zero_div]
 
-/-- **Post-hoc p-variables.** For a null of probability measures, the tests `𝟙{p ≤ α}` of a
-measurable statistic `p` are post-hoc valid exactly when `p⁻¹`, truncated to `0` on `{1 ≤ p}`, is
-an e-variable. -/
-theorem isPostHocValid_indicator_iff_isEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hp : Measurable p) :
+/-- **Post-hoc p-variables.** The tests `𝟙{p ≤ α}` of a measurable statistic `p` are post-hoc
+valid exactly when `p⁻¹`, truncated to `0` on `{1 ≤ p}`, is an e-variable. -/
+theorem isPostHocValid_indicator_iff_isEVar (hp : Measurable p) :
     IsPostHocValid (fun α ↦ {ω | p ω ≤ α}.indicator 1) S ↔
       IsEVar ({ω | p ω < 1}.indicator fun ω ↦ (p ω)⁻¹) S := by
   -- the tests are measurable and nondecreasing in the level, and their post-hoc supremum is the
@@ -288,7 +285,7 @@ theorem isPostHocValid_indicator_iff_isEVar (hS : ∀ P ∈ S, IsProbabilityMeas
   have hmono (ω : Ω) : MonotoneOn (fun α ↦ {ω | p ω ≤ α}.indicator (1 : Ω → ℝ≥0∞) ω) (Ioo 0 1) :=
     fun _ _ _ _ hαβ ↦
       indicator_le_indicator_of_subset (fun _ h ↦ le_trans h hαβ) (fun _ ↦ zero_le) ω
-  rw [isPostHocValid_iff_isEVar_iSup hS
+  rw [isPostHocValid_iff_isEVar_iSup
     (fun _ _ ↦ measurable_one.indicator (measurableSet_le hp measurable_const)) hmono,
     funext (iSup_indicator_le_div_eq_indicator_inv p)]
 

@@ -267,8 +267,7 @@ theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) →
     have hE := (isEVar_div_singleton (Q := Ber(true, false, ⟨1 / 2, by norm_num⟩)) hP
       ).isEProcess_prod_piLE (by simpa)
     rw [Set.image_singleton] at hE
-    exact hE.mono (by simp only [Set.mem_singleton_iff, forall_eq]; infer_instance) hadapt
-      fun n ω ↦ hle n _
+    exact hE.mono hadapt fun n ω ↦ hle n _
   rw [isEProcess_iff_forall_singleton]
   refine ⟨hadapt, ?_⟩
   rintro _ ⟨P, hP, rfl⟩

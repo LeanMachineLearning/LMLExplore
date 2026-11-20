@@ -287,13 +287,11 @@ theorem isConfSeq_of_isEProcess (hS : ∀ θ, ∀ P ∈ S θ, IsProbabilityMeasu
   simpa [indicator_apply_eq_zero] using
     isConfSeq_of_isSequentialTest fun θ ↦ (hE θ).isSequentialTest (hS θ) α
 
-/-- **E-processes from a confidence sequence** [RRLK, §4.3]. For nulls of probability measures,
-`α⁻¹` times the indicator of the times at which a confidence sequence at level `α` misses `θ` is
-an e-process for the null `S θ`. -/
-theorem IsConfSeq.isEProcess (hS : ∀ θ, ∀ P ∈ S θ, IsProbabilityMeasure P)
-    (hC : IsConfSeq C ℱ S α) (θ : Θ) :
+/-- **E-processes from a confidence sequence** [RRLK, §4.3]. `α⁻¹` times the indicator of the
+times at which a confidence sequence at level `α` misses `θ` is an e-process for the null `S θ`. -/
+theorem IsConfSeq.isEProcess (hC : IsConfSeq C ℱ S α) (θ : Θ) :
     IsEProcess (fun n ω ↦ α⁻¹ * {ω | θ ∉ C n ω}.indicator 1 ω) ℱ (S θ) :=
-  (hC.isSequentialTest θ).isEProcess_inv_mul (hS θ)
+  (hC.isSequentialTest θ).isEProcess_inv_mul
 
 /-- **The duality between confidence sequences and e-processes** [RRLK, §4.3; RW, §13.1]. For
 nulls of probability measures and a level `α ≠ ∞`, random sets form a confidence sequence at level
@@ -304,7 +302,7 @@ theorem isConfSeq_iff_exists_isEProcess (hS : ∀ θ, ∀ P ∈ S θ, IsProbabil
     IsConfSeq C ℱ S α ↔
       ∃ E : Θ → ℕ → Ω → ℝ≥0∞, (∀ θ, IsEProcess (E θ) ℱ (S θ)) ∧
         C = fun n ω ↦ {θ | E θ n ω < α⁻¹} := by
-  refine ⟨fun hC ↦ ⟨_, hC.isEProcess hS, ?_⟩, fun ⟨E, hE, hCE⟩ ↦
+  refine ⟨fun hC ↦ ⟨_, hC.isEProcess, ?_⟩, fun ⟨E, hE, hCE⟩ ↦
     hCE ▸ isConfSeq_of_isEProcess hS hE α⟩
   -- `α⁻¹ * 𝟙{θ ∉ C n}` is `0 < α⁻¹` on `C n` and `α⁻¹` off it, since `α⁻¹ ≠ 0`
   ext n ω θ

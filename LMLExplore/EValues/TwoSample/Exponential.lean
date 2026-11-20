@@ -167,11 +167,9 @@ private lemma bind_gammaMeasure_eq_comp (μ : Measure ℝ) :
 private lemma segmentUniform_comp_mem_effectiveSet (h₁ : 0 < l₁) (h₂ : 0 < l₂) :
     Kernel.segmentUniform ∘ₘ ((expMeasure l₁).prod (expMeasure l₂)).map (fun x ↦ x.1 + x.2) ∈
       effectiveSet (Set.range fun l : Ioi (0 : ℝ) ↦ (expMeasure l).prod (expMeasure l)) := by
-  have hS : ∀ P ∈ Set.range fun l : Ioi (0 : ℝ) ↦ (expMeasure l).prod (expMeasure l),
-      P univ ≤ 1 := fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le
   rcases eq_or_ne l₁ l₂ with rfl | h
   · rw [segmentUniform_comp_map_add_prod_expMeasure_self h₁]
-    exact subset_effectiveSet hS ⟨⟨l₁, h₁⟩, rfl⟩
+    exact subset_effectiveSet ⟨⟨l₁, h₁⟩, rfl⟩
   have hα : 0 < min l₁⁻¹ l₂⁻¹ := lt_min (inv_pos.mpr h₁) (inv_pos.mpr h₂)
   have := isProbabilityMeasure_uniformMeasure
     (min_lt_max.mpr (inv_injective.ne h) : min l₁⁻¹ l₂⁻¹ < max l₁⁻¹ l₂⁻¹)
@@ -180,7 +178,7 @@ private lemma segmentUniform_comp_mem_effectiveSet (h₁ : 0 < l₁) (h₂ : 0 <
   filter_upwards [ae_mem_Ioc_uniformMeasure] with m hm
   have hm0 : 0 < m⁻¹ := inv_pos.mpr (hα.trans hm.1)
   rw [Kernel.comp_apply, gammaTwoInvKernel_apply, segmentUniform_comp_gammaMeasure hm0]
-  exact subset_effectiveSet hS ⟨⟨m⁻¹, hm0⟩, rfl⟩
+  exact subset_effectiveSet ⟨⟨m⁻¹, hm0⟩, rfl⟩
 
 /-- The likelihood ratio of `Exp(l₁) ⊗ Exp(l₂)` to its `Qᶜ` is an e-variable for the null. -/
 private lemma isEVar_rnDeriv_segmentUniform_comp (h₁ : 0 < l₁) (h₂ : 0 < l₂) :
@@ -191,7 +189,7 @@ private lemma isEVar_rnDeriv_segmentUniform_comp (h₁ : 0 < l₁) (h₂ : 0 < l
   have := isProbabilityMeasure_expMeasure h₂
   exact isEVar_rnDeriv_comp_map (by fun_prop) (ae_of_all _ Kernel.ae_add_segmentUniform)
     (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
-    (fun P hP ↦ have := isProbabilityMeasure_of_mem_null hP; inferInstance)
+    (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
     (fun _ ↦ segmentUniform_comp_map_add_of_mem)
     (fun _ ↦ map_add_absolutelyContinuous_of_mem h₁ h₂)
 
@@ -216,7 +214,9 @@ theorem isNumeraire_rnDeriv_segmentUniform_comp (h₁ : 0 < l₁) (h₂ : 0 < l�
       ((expMeasure l₁).prod (expMeasure l₂)) := by
   have := isProbabilityMeasure_expMeasure h₁
   have := isProbabilityMeasure_expMeasure h₂
-  exact isNumeraire_of_ae_eq_rnDeriv (isEVar_rnDeriv_segmentUniform_comp h₁ h₂)
+  exact isNumeraire_of_ae_eq_rnDeriv
+    (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
+    (isEVar_rnDeriv_segmentUniform_comp h₁ h₂)
     (segmentUniform_comp_mem_effectiveSet h₁ h₂) (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
     .rfl
 
@@ -231,7 +231,7 @@ theorem ripr_prod_expMeasure (h₁ : 0 < l₁) (h₂ : 0 < l₂) :
   have := isProbabilityMeasure_expMeasure h₁
   have := isProbabilityMeasure_expMeasure h₂
   exact ripr_eq_of_isEVar_rnDeriv
-    (fun P hP ↦ have := isProbabilityMeasure_of_mem_null hP; inferInstance)
+    (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
     (segmentUniform_comp_mem_effectiveSet h₁ h₂) (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
     (absolutelyContinuous_segmentUniform_comp h₁ h₂).2 (isEVar_rnDeriv_segmentUniform_comp h₁ h₂)
 

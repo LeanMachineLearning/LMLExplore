@@ -61,10 +61,7 @@ lemma exists_isEVar_eq_comp_initSeg [Nonempty 𝓧] (hS₁ : ∀ P ∈ S₁, IsP
     ∃ G : (Fin n → 𝓧) → ℝ≥0∞,
       IsEVar G ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) ∧ F = G ∘ initSeg n := by
   obtain ⟨G, hG, rfl⟩ := exists_measurable_eq_comp_initSeg hF hFn
-  refine ⟨G, IsEVar.of_lintegral_le_one ?_ hG ?_, rfl⟩
-  · rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    infer_instance
+  refine ⟨G, ⟨hG, ?_⟩, rfl⟩
   · rintro _ ⟨P, hP, rfl⟩
     have := hS₁ P hP
     rw [← (measurePreserving_initSeg P n).lintegral_comp hG]
@@ -106,8 +103,7 @@ theorem IsEProcess.eintegral_log_le_maxLogGrowth (Q₁ : Measure 𝓧) [IsProbab
   refine eintegral_log_le_maxLogGrowth_of_dependsOn Q₁ hS₁ (hE.measurable n) ?_ fun P hP ↦ ?_
   · exact fun ω ω' h ↦ (hE.adapted n).dependsOn_of_piLE
       fun i hi ↦ h i (Nat.lt_succ_of_le (Set.mem_Iic.1 hi))
-  · have := hS₁ P hP
-    simpa using (hE.isEVar n).lintegral_le_measure_univ _ ⟨P, hP, rfl⟩
+  · exact (hE.isEVar n).lintegral_le_one ⟨P, hP, rfl⟩
 
 /-- The value at time `n` of an e-process for an i.i.d. null has expected logarithm, under the
 i.i.d. law of `Q₁`, at most `n + 1` times the bipolar rate [RR26, Lemma 3.3]. -/

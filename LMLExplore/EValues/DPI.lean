@@ -29,6 +29,6 @@ namespace ProbabilityTheory
 lemma maxUtility_zero_measure {Ω : Type*} [MeasurableSpace Ω] (T : Set (Measure Ω))
     (U : Utility) : maxUtility 0 T U = 0 :=
   le_antisymm (iSup₂_le fun _ _ ↦ (eintegral_zero_measure _).le)
-    (le_iSup₂_of_le _ (isEVar_fun_one T) (eintegral_zero_measure _).ge)
+    (le_iSup₂_of_le 0 isEVar_zero (eintegral_zero_measure _).ge)
 
 end ProbabilityTheory

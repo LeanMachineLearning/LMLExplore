@@ -300,11 +300,10 @@ structure IsCompoundEVar (E : ι → Ω → ℝ≥0∞) (H : ι → Set (Measure
 
 /-- The expectations of e-variables over the true nulls sum to at most the number of true
 nulls. -/
-theorem sum_lintegral_le_card_trueNulls (hE : ∀ i, IsEVar (E i) (H i)) (P : Measure Ω)
-    [IsProbabilityMeasure P] : ∑ i ∈ trueNulls H P, ∫⁻ ω, E i ω ∂P ≤ #(trueNulls H P) := by
+theorem sum_lintegral_le_card_trueNulls (hE : ∀ i, IsEVar (E i) (H i)) (P : Measure Ω) :
+    ∑ i ∈ trueNulls H P, ∫⁻ ω, E i ω ∂P ≤ #(trueNulls H P) := by
   rw [cast_card]
-  exact sum_le_sum fun i hi ↦
-    ((hE i).lintegral_le_measure_univ P (mem_trueNulls.1 hi)).trans_eq measure_univ
+  exact sum_le_sum fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi)
 
 /-- **E-variables are compound e-variables** [IWR, §2; RW, §9.1]. -/
 theorem IsCompoundEVar.of_isEVar (hE : ∀ i, IsEVar (E i) (H i)) : IsCompoundEVar E H where
@@ -430,10 +429,9 @@ theorem IsCompoundEVar.lintegral_fdp_le (hE : IsCompoundEVar E H)
 
 /-- **False discovery rate control with e-variables** [WR22, Proposition 2]: a rejection procedure
 self-consistent at level `α` for e-variables has false discovery rate at most `α * #N / K`, with
-`N` the true nulls, under every probability measure and whatever the dependence of the
-e-variables. -/
+`N` the true nulls, under every measure and whatever the dependence of the e-variables. -/
 theorem lintegral_fdp_le_of_isEVar (hE : ∀ i, IsEVar (E i) (H i))
-    (hD : ∀ ω, IsSelfConsistent (E · ω) α (D ω)) (P : Measure Ω) [IsProbabilityMeasure P] :
+    (hD : ∀ ω, IsSelfConsistent (E · ω) α (D ω)) (P : Measure Ω) :
     ∫⁻ ω, fdp (trueNulls H P) (D ω) ∂P ≤ α * #(trueNulls H P) / Fintype.card ι :=
   (lintegral_fdp_le_of_isSelfConsistent (fun i ↦ (hE i).measurable.aemeasurable) hD _).trans
     (by gcongr; exact sum_lintegral_le_card_trueNulls hE P)
@@ -443,7 +441,7 @@ sets `D k ω` self-consistent at levels `α k` for e-variables, the expected lar
 false discovery proportion to the level is at most `#N / K`, with `N` the true nulls. -/
 theorem lintegral_iSup_fdp_div_le_of_isEVar (hE : ∀ i, IsEVar (E i) (H i)) {α : κ → ℝ≥0∞}
     {D : κ → Ω → Finset ι} (hD : ∀ k ω, IsSelfConsistent (E · ω) (α k) (D k ω))
-    (P : Measure Ω) [IsProbabilityMeasure P] :
+    (P : Measure Ω) :
     ∫⁻ ω, ⨆ k, fdp (trueNulls H P) (D k ω) / α k ∂P ≤
       #(trueNulls H P) / Fintype.card ι :=
   (lintegral_iSup_fdp_div_le_of_isSelfConsistent (fun i ↦ (hE i).measurable.aemeasurable) hD
@@ -460,7 +458,7 @@ theorem IsCompoundEVar.lintegral_fdp_eBH_le (hE : IsCompoundEVar E H) (α : ℝ�
 arbitrarily dependent e-variables has false discovery rate at most `α * #N / K`, with `N` the true
 nulls. -/
 theorem lintegral_fdp_eBH_le_of_isEVar (hE : ∀ i, IsEVar (E i) (H i)) (α : ℝ≥0∞)
-    (P : Measure Ω) [IsProbabilityMeasure P] :
+    (P : Measure Ω) :
     ∫⁻ ω, fdp (trueNulls H P) (eBH (E · ω) α) ∂P ≤ α * #(trueNulls H P) / Fintype.card ι :=
   lintegral_fdp_le_of_isEVar hE (fun _ ↦ isSelfConsistent_eBH) P
 

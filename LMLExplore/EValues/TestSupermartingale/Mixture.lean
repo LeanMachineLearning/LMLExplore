@@ -434,8 +434,8 @@ theorem not_isEVar_rnDeriv_boolKernel_comp :
     have h0 : N {b | (dirac true).rnDeriv N b ≠ f b} = 0 := ae_iff.1 hB
     exact (by simp [hN] : N {true} ≠ 0) (measure_mono_null (by simpa [f] using hne) h0)
   intro hE
-  have h := hE.lintegral_le_measure_univ (dirac true) (by simp)
-  rw [lintegral_dirac, hBtrue, measure_univ] at h
+  have h := hE.lintegral_le_one (μ := dirac true) (by simp)
+  rw [lintegral_dirac, hBtrue] at h
   norm_num at h
 
 end CompositeNull

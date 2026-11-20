@@ -73,7 +73,7 @@ theorem bipolarRate_eq_iInf_klDiv_of_forall_exists_forall_le (Q : Measure 𝓧)
   refine le_antisymm (bipolarRate_le_iInf_klDiv Q hS)
     (le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_)
   rcases le_or_gt c 0 with hc0 | hc0
-  · exact hc0.trans (bipolarRate_nonneg Q S)
+  · exact hc0.trans (bipolarRate_nonneg Q fun P hP ↦ (hS P hP).measure_univ.le)
   obtain ⟨c, rfl⟩ : ∃ r : ℝ, (r : EReal) = c :=
     ⟨c.toReal, EReal.coe_toReal hc.ne_top (ne_bot_of_gt hc0)⟩
   have hc0' : 0 < c := by exact_mod_cast hc0
