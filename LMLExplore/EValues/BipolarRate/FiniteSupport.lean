@@ -124,7 +124,7 @@ private lemma lintegral_lintegral_pi_resample [IsProbabilityMeasure Q] (hε : ε
 private lemma descFactorial_mul_lintegral_le [IsProbabilityMeasure Q] (hε : ε ≤ 1)
     {S : Set (Measure 𝓧)} {n m : ℕ} (hm : m ≠ 0)
     (hS : ∀ y : Fin m → 𝓧, ∑ k, (m : ℝ≥0∞)⁻¹ • resample Q ε (y k) ∈ S)
-    {E : (Fin n → 𝓧) → ℝ≥0∞} (hE : IsEVar E ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S)) :
+    {E : (Fin n → 𝓧) → ℝ≥0∞} (hE : IsEVar E (sampleNull S n)) :
     (m.descFactorial n : ℝ≥0∞) * (m : ℝ≥0∞)⁻¹ ^ n * ∫⁻ x, E x ∂(Measure.pi fun _ ↦ Q) ≤ 1 := by
   classical
   have := isProbabilityMeasure_resample (Q := Q) hε
@@ -162,7 +162,7 @@ private lemma descFactorial_mul_lintegral_le [IsProbabilityMeasure Q] (hε : ε 
     rw [lintegral_congr hexp, lintegral_finsetSum _ fun σ _ ↦ (hI σ).const_mul c]
     exact Finset.sum_congr rfl fun σ _ ↦ (lintegral_const_mul c (hI σ)).symm
   _ ≤ ∫⁻ _, 1 ∂(Measure.pi fun _ : Fin m ↦ Q) := by
-    exact lintegral_mono fun y ↦ hE.lintegral_le_one ⟨_, hS y, rfl⟩
+    exact lintegral_mono fun y ↦ hE.lintegral_le_one (pi_mem_sampleNull (hS y))
   _ = 1 := by simp
 
 /-- The mixtures `(1 - ε) F + ε Q` of probability measures, for `ε ≤ 1`, have mass `1`. -/
@@ -211,9 +211,8 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
       Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
   refine maxEPower_eq_zero_of_mem_effectiveSet
-    (sampleNull_def _ n ▸ measure_univ_le_one_of_mem_sampleNull (measure_univ_mixture_le_one hε) n)
-      fun E hE ↦
-      ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
+    (measure_univ_le_one_of_mem_sampleNull (measure_univ_mixture_le_one hε) n)
+      fun E hE ↦ ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
   obtain ⟨m, ham, hm⟩ := ((hlim.eventually (lt_mem_nhds ha)).and (eventually_ne_atTop 0)).exists
   exact (mul_le_mul_left ham.le _).trans
     (descFactorial_mul_lintegral_le hε hm (sum_resample_mem hm) hE)

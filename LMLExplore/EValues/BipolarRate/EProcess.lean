@@ -59,10 +59,11 @@ lemma exists_isEVar_eq_comp_initSeg [Nonempty 𝓧] (hS₁ : ∀ P ∈ S₁, IsP
     {F : (ℕ → 𝓧) → ℝ≥0∞} {n : ℕ} (hF : Measurable F) (hFn : DependsOn F (Set.Iio n))
     (h_null : ∀ P ∈ S₁, ∫⁻ ω, F ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) :
     ∃ G : (Fin n → 𝓧) → ℝ≥0∞,
-      IsEVar G ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) ∧ F = G ∘ initSeg n := by
+      IsEVar G (sampleNull S₁ n) ∧ F = G ∘ initSeg n := by
   obtain ⟨G, hG, rfl⟩ := exists_measurable_eq_comp_initSeg hF hFn
   refine ⟨G, ⟨hG, ?_⟩, rfl⟩
-  · rintro _ ⟨P, hP, rfl⟩
+  · rw [sampleNull_def]
+    rintro _ ⟨P, hP, rfl⟩
     have := hS₁ P hP
     rw [← (measurePreserving_initSeg P n).lintegral_comp hG]
     exact h_null P hP
@@ -97,20 +98,20 @@ maximal expected logarithm of an `n + 1`-sample e-variable: at time `n` the proc
 theorem IsEProcess.eintegral_log_le_maxLogGrowth (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁)) (n : ℕ) :
+      (iidNull S₁)) (n : ℕ) :
     ∫ᵉ ω, ENNReal.log (E n ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
       maxLogGrowth Q₁ S₁ (n + 1) := by
   refine eintegral_log_le_maxLogGrowth_of_dependsOn Q₁ hS₁ (hE.measurable n) ?_ fun P hP ↦ ?_
   · exact fun ω ω' h ↦ (hE.adapted n).dependsOn_of_piLE
       fun i hi ↦ h i (Nat.lt_succ_of_le (Set.mem_Iic.1 hi))
-  · exact (hE.isEVar n).lintegral_le_one ⟨P, hP, rfl⟩
+  · exact (hE.isEVar n).lintegral_le_one (infinitePi_mem_iidNull hP)
 
 /-- The value at time `n` of an e-process for an i.i.d. null has expected logarithm, under the
 i.i.d. law of `Q₁`, at most `n + 1` times the bipolar rate [RR26, Lemma 3.3]. -/
 theorem IsEProcess.eintegral_log_le_mul_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁)) (n : ℕ) :
+      (iidNull S₁)) (n : ℕ) :
     ∫ᵉ ω, ENNReal.log (E n ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
       ((n + 1 : ℕ) : EReal) * bipolarRate Q₁ S₁ :=
   (hE.eintegral_log_le_maxLogGrowth Q₁ hS₁ n).trans
@@ -121,7 +122,7 @@ at most the bipolar rate. -/
 theorem IsEProcess.eintegral_log_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁)) (n : ℕ) :
+      (iidNull S₁)) (n : ℕ) :
     (∫ᵉ ω, ENNReal.log (E n ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) / ((n + 1 : ℕ) : EReal) ≤
       bipolarRate Q₁ S₁ :=
   (EReal.div_le_iff_le_mul (by exact_mod_cast n.succ_pos) (EReal.natCast_ne_top _)).2
@@ -133,7 +134,7 @@ observations seen, has `limsup` at most the bipolar rate [RR26, Lemma 3.3]. -/
 theorem IsEProcess.limsup_eintegral_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁)) :
+      (iidNull S₁)) :
     limsup (fun n : ℕ ↦ (∫ᵉ ω, ENNReal.log (E n ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
       ((n + 1 : ℕ) : EReal)) atTop ≤ bipolarRate Q₁ S₁ :=
   limsup_le_iSup.trans (iSup_le fun n ↦ hE.eintegral_log_div_le_bipolarRate Q₁ hS₁ n)

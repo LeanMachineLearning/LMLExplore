@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.Admissible
+public import LMLExplore.EValues.Null.Basic
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.Calculus.MeanValue
@@ -127,20 +128,21 @@ private lemma measurable_expFactor_apply {k j : ℕ} (hkj : k ≤ j) :
 exponential process is a test supermartingale. -/
 private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
     (hN : ∀ μ ∈ N, IsProbabilityMeasure μ ∧ ∫⁻ x, expFactor x ∂μ ≤ 1) :
-    IsTestSupermartingale expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-      ((fun μ ↦ Measure.infinitePi fun _ : ℕ ↦ μ) '' N) := by
+    IsTestSupermartingale expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (iidNull N) := by
   have h := isTestSupermartingale_mul_prod (ℱ := Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-    (S := (fun μ ↦ Measure.infinitePi fun _ : ℕ ↦ μ) '' N)
+    (S := iidNull N)
     (M₀ := fun ω ↦ expFactor (ω 0)) (F := fun k ω ↦ expFactor (ω (k + 1)))
     (measurable_expFactor_apply le_rfl) ?_ (fun k ↦ measurable_expFactor_apply le_rfl)
     fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), ?_⟩
   · convert h using 1
     exact funext fun n ↦ funext (expProcess_eq_mul_prod n)
-  · rintro _ ⟨μ, hμ, rfl⟩
+  · rw [iidNull_def]
+    rintro _ ⟨μ, hμ, rfl⟩
     have := (hN μ hμ).1
     rw [(measurePreserving_eval_infinitePi (fun _ ↦ μ) 0).lintegral_comp measurable_expFactor]
     exact (hN μ hμ).2
-  · rintro _ ⟨μ, hμ, rfl⟩ s hs
+  · rw [iidNull_def]
+    rintro _ ⟨μ, hμ, rfl⟩ s hs
     have := (hN μ hμ).1
     rw [setLIntegral_comp_eval_succ μ measurable_expFactor k hs]
     exact mul_le_of_le_one_right' (hN μ hμ).2
@@ -195,15 +197,12 @@ private lemma lintegral_expFactor_le_one {μ : Measure ℝ} (hμ : HasSubgaussia
 /-- The exponential process is an e-process for i.i.d. sampling from `1`-sub-Gaussian laws. -/
 private lemma isEProcess_expProcess :
     IsEProcess expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-      ((fun μ ↦ Measure.infinitePi fun _ : ℕ ↦ μ) ''
-        {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
+      (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
   refine (isTestSupermartingale_expProcess (N := {μ : Measure ℝ | IsProbabilityMeasure μ ∧
     NullSingletonClass μ ∧ HasSubgaussianMGF id 1 μ}) fun μ hμ ↦
       ⟨hμ.1, lintegral_expFactor_le_one hμ.2.2⟩).isEProcess ?_
-  rintro _ ⟨μ, hμ, rfl⟩
-  have := hμ.1
-  infer_instance
+  exact isProbabilityMeasure_of_mem_iidNull fun _ hμ ↦ hμ.1
 
 /-! ### The Kearns–Saul gap
 
@@ -974,13 +973,13 @@ theorem isAdmissibleEProcess_ofReal_exp_sum_sub_iid :
     IsAdmissibleEProcess
       (fun n ω ↦ ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range (n + 1), ω i - (n + 1) / 2)))
       (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-      ((fun μ ↦ Measure.infinitePi fun _ : ℕ ↦ μ) ''
-        {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
+      (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
   refine isEProcess_expProcess.isAdmissibleEProcess_of_exists_lintegral_eq ?_
-  rintro n A hA ⟨_, ⟨μ, ⟨hμ, hμa, -⟩, rfl⟩, hμA⟩
+  rintro n A hA ⟨_, hμ, hμA⟩
+  obtain ⟨μ, ⟨hμ, hμa, -⟩, rfl⟩ := mem_iidNull.1 hμ
   obtain ⟨ν, hν, hνa, hνs, hν1, hνA⟩ := exists_touching_infinitePi_ne_zero hA hμA
-  exact ⟨_, ⟨ν, ⟨hν, hνa, hνs⟩, rfl⟩, hνA, by
+  exact ⟨_, infinitePi_mem_iidNull ⟨hν, hνa, hνs⟩, hνA, by
     rw [lintegral_expProcess_of_touching hν1 n]⟩
 
 end ProbabilityTheory

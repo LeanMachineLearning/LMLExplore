@@ -156,7 +156,7 @@ private lemma exists_bounded_bet (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
     fun P hP hPp ↦ ?_, ?_⟩
   · -- the bet `exp v` is at most `W`, whose expectation under the null is at most `1`
     have hY1 : ∫⁻ x, Y x ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1 := by
-      exact hYe.lintegral_le_one ⟨P, hP, rfl⟩
+      exact hYe.lintegral_le_one (pi_mem_sampleNull hP)
     have hexp (x : Fin m → 𝓧) : ENNReal.ofReal (Real.exp (v x)) ≤ W x := by
       rw [← ENNReal.log_le_log_iff, ENNReal.log_ofReal_exp, hv x]
       exact min_le_left _ _
@@ -283,7 +283,7 @@ theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure �
     (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
     ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
       (∀ α, IsLevelStoppingTime (τ α) (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) α) ∧
+        (iidNull S₁) α) ∧
       limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (τ α ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
         (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
   by_cases hQ : IsProbabilityMeasure Q₁
@@ -307,6 +307,7 @@ theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure �
   refine ⟨fun α ↦ hittingAfter E (Set.Ici α⁻¹) 0, fun α ↦
     ⟨hE.isStoppingTime_hittingAfter measurableSet_Ici, ?_⟩, ?_⟩
   · -- the level, by Ville's inequality
+    rw [iidNull_def]
     rintro _ ⟨P, hP, rfl⟩
     by_cases hP' : IsProbabilityMeasure P
     swap

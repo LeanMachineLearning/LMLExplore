@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConfidenceSequence
+public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.EValues.TestSupermartingale.LikelihoodRatio
 public import LMLExplore.EValues.TestSupermartingale.Predictor
 public import LMLExplore.MeasureTheory.Measure.Decomposition.RadonNikodym
@@ -156,7 +157,8 @@ theorem isEProcess_rnDeriv_trim_div_infinitePi [IsProbabilityMeasure ν]
       ≤ᵐ[Measure.infinitePi fun _ : ℕ ↦ ν] ℓ n) :
     IsEProcess (fun n ω ↦ (Q.trim ((piLE (X := fun _ : ℕ ↦ 𝓧)).le n)).rnDeriv
         ((Measure.infinitePi fun _ : ℕ ↦ ν).trim ((piLE (X := fun _ : ℕ ↦ 𝓧)).le n)) ω / ℓ n ω)
-      piLE ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) := by
+      piLE (iidNull S₁) := by
+  rw [iidNull_def]
   refine isEProcess_rnDeriv_trim_div ?_ ?_ hQ hℓ ?_
   · rintro _ ⟨P, hP, rfl⟩
     have := hS₁ P hP

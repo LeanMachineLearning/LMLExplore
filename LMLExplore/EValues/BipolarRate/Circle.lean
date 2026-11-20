@@ -172,10 +172,10 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
     ENNReal.log ((n * ε ^ (n - 1))⁻¹) ≤ maxLogGrowth volume S n := by
   set c := ((n : ℝ≥0∞) * ε ^ (n - 1))⁻¹
   have hA := measurableSet_pairwiseIrrational n
-  have hX : IsEVar ((pairwiseIrrational n).indicator fun _ ↦ c)
-      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S) := by
+  have hX : IsEVar ((pairwiseIrrational n).indicator fun _ ↦ c) (sampleNull S n) := by
     refine ⟨measurable_const.indicator hA, ?_⟩
-    · rintro _ ⟨P, hP, rfl⟩
+    · rw [sampleNull_def]
+      rintro _ ⟨P, hP, rfl⟩
       have := hS P hP
       obtain ⟨C, hPC, hC⟩ := hSC P hP
       rw [lintegral_indicator_const hA]

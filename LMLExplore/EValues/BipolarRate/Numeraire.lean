@@ -220,21 +220,21 @@ Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only have ma
 is not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
 theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
-    (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) {ε : ℝ}
+    (hM : ∀ n, IsEVar (M n) (sampleNull S₁ n)) {ε : ℝ}
     (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ENNReal.log (M n (initSeg n ω)) ≤ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
+        (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set E : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-    ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)
+    (sampleNull S₁ n)
   -- Markov's inequality and the Borel–Cantelli lemma for the ratio to the numeraire
   filter_upwards [ae_eventually_lt_exp_of_lintegral_le Q₁ (F := fun n x ↦ M n x / E n x)
     (fun n ↦ ((hM n).measurable.div (measurable_numeraire _ _)).aemeasurable) ENNReal.one_ne_top
     (fun n ↦ lintegral_div_numeraire_le_one _
-      (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull hS₁ n) (hM n))
+      (measure_univ_le_one_of_mem_sampleNull hS₁ n) (hM n))
     hε] with ω hω
   filter_upwards [hω] with n hn
   exact ENNReal.log_le_log_add_of_div_le hn.le
@@ -251,7 +251,7 @@ theorem ae_eventually_log_le_log_numeraire_add_of_dependsOn (Q₁ : Measure 𝓧
     (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ENNReal.log (F n ω) ≤ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
+        (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
@@ -278,7 +278,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
     (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
     ∃ m ≠ 0, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (seqBlockProd m
-        (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁))
+        (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) (sampleNull S₁ m))
         (n / m) ω) := by
   rw [bipolarRate_def] at hL
   obtain ⟨k, hk⟩ := lt_iSup_iff.1 hL
@@ -289,11 +289,11 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
-  have hfin : ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁, μ Set.univ ≤ 1 :=
-    sampleNull_def S₁ m ▸ measure_univ_le_one_of_mem_sampleNull hS₁ m
+  have hfin : ∀ μ ∈ sampleNull S₁ m, μ Set.univ ≤ 1 :=
+    measure_univ_le_one_of_mem_sampleNull hS₁ m
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
-    ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
-  have hnum : IsNumeraire Em ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
+    (sampleNull S₁ m)
+  have hnum : IsNumeraire Em (sampleNull S₁ m)
       (Measure.pi fun _ : Fin m ↦ Q₁) := isNumeraire_numeraire _ hfin
   have hEm : Measurable Em := measurable_numeraire _ _
   -- the expected logarithm of the numeraire exceeds `m L`
@@ -340,7 +340,7 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
   obtain ⟨m, -, h1⟩ := exists_ae_eventually_mul_le_log_seqBlockProd_numeraire Q₁
     (fun P hP ↦ (hS₁ P hP).measure_univ.le) hL'
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
-    ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
+    (sampleNull S₁ m)
   have hEm : Measurable Em := measurable_numeraire _ _
   -- `T` keeps up with the product of the numeraire over blocks
   have h2 := hT (fun n ↦ seqBlockProd m Em (n / m)) (fun n ↦ measurable_seqBlockProd hEm _)
@@ -349,9 +349,9 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
       have := hS₁ P hP
       rw [lintegral_seqBlockProd_const P hEm]
       exact pow_le_one₀ (by positivity) <| IsEVar.lintegral_le_one
-        (isEVar_numeraire _ (sampleNull_def S₁ m ▸
-          measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m))
-        ⟨P, hP, rfl⟩)
+        (isEVar_numeraire _
+          (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m))
+        (pi_mem_sampleNull hP))
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
   filter_upwards [hω1, hω2] with n hn1 hn2
@@ -408,14 +408,14 @@ theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) / (n : EReal)) atTop
+        (sampleNull S₁ n) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
   filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
-      (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull
+      (measure_univ_le_one_of_mem_sampleNull
         (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))
+        (sampleNull S₁ n) (initSeg n ω))
       fun _ hF hFn h_null _ hε ↦
         ae_eventually_log_le_log_numeraire_add_of_dependsOn Q₁ hS₁ hF hFn h_null hε]
     with ω hsup hinf

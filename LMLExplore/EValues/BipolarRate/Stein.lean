@@ -146,21 +146,19 @@ private lemma eventually_minTestSize_le (Q₁ : Measure 𝓧) [IsProbabilityMeas
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hβ : β < 1) {r : ℝ}
     (hr : (r : EReal) < bipolarRate Q₁ S₁) :
     ∀ᶠ n : ℕ in atTop, minTestSize (Measure.pi fun _ : Fin n ↦ Q₁)
-      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) β ≤ ENNReal.ofReal (Real.exp (-(n * r))) := by
+      (sampleNull S₁ n) β ≤ ENNReal.ofReal (Real.exp (-(n * r))) := by
   set E : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
-    ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)
+    (sampleNull S₁ n)
   set C : (n : ℕ) → Set (Fin n → 𝓧) := fun n ↦
     {x | (ENNReal.ofReal (Real.exp (-(n * r))))⁻¹ ≤ E n x}
   have hCm (n : ℕ) : MeasurableSet (C n) :=
     measurableSet_le measurable_const (measurable_numeraire _ _)
   -- Markov's inequality under the null
-  have hnull (n : ℕ) : ⨆ μ ∈ (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁, μ (C n) ≤
+  have hnull (n : ℕ) : ⨆ μ ∈ sampleNull S₁ n, μ (C n) ≤
       ENNReal.ofReal (Real.exp (-(n * r))) := by
-    refine iSup₂_le ?_
-    rintro _ ⟨P, hP, rfl⟩
-    exact (isEVar_numeraire _ (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull
-      (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)).measure_inv_le_le
-      (Set.mem_image_of_mem (fun P ↦ Measure.pi fun _ : Fin n ↦ P) hP) _
+    refine iSup₂_le fun μ hμ ↦ ?_
+    exact (isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull
+      (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)).measure_inv_le_le hμ _
   -- almost surely, the first `n` observations are eventually in `C n`
   have hae : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       initSeg n ω ∈ C n := by
@@ -182,15 +180,15 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
     (hr : bipolarRate Q₁ S₁ < r) :
     ∀ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (-(n * r))) ≤
       minTestSize (Measure.pi fun _ : Fin n ↦ Q₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) β := by
+        (sampleNull S₁ n) β := by
   classical
   -- a test of power at least `β` and size at most `exp (- n r)` if there is one, `∅` otherwise
   set p : (n : ℕ) → Set (Fin n → 𝓧) → Prop := fun n C ↦ MeasurableSet C ∧
     β ≤ Measure.pi (fun _ : Fin n ↦ Q₁) C ∧
-    ⨆ μ ∈ (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁, μ C ≤ ENNReal.ofReal (Real.exp (-(n * r)))
+    ⨆ μ ∈ sampleNull S₁ n, μ C ≤ ENNReal.ofReal (Real.exp (-(n * r)))
   set C : (n : ℕ) → Set (Fin n → 𝓧) := fun n ↦ if h : ∃ C, p n C then h.choose else ∅
   have hC (n : ℕ) : MeasurableSet (C n) ∧
-      ⨆ μ ∈ (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁, μ (C n) ≤
+      ⨆ μ ∈ sampleNull S₁ n, μ (C n) ≤
         ENNReal.ofReal (Real.exp (-(n * r))) := by
     by_cases h : ∃ C, p n C
     · simp only [C, h, dite_true]
@@ -202,7 +200,7 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
   -- the bets `exp (n r) 𝟙_{C n}` are `n`-sample e-variables
   set M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦
     (C n).indicator fun _ ↦ ENNReal.ofReal (Real.exp (n * r))
-  have hM (n : ℕ) : IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) := by
+  have hM (n : ℕ) : IsEVar (M n) (sampleNull S₁ n) := by
     refine ⟨measurable_const.indicator (hC n).1, fun μ hμ ↦ ?_⟩
     · rw [lintegral_indicator_const (hC n).1]
       calc ENNReal.ofReal (Real.exp (n * r)) * μ (C n)
@@ -234,7 +232,7 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
 theorem bipolarRate_le_liminf_neg_log_minTestSize_div (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hβ : β < 1) :
     bipolarRate Q₁ S₁ ≤ liminf (fun n : ℕ ↦ -ENNReal.log (minTestSize
-      (Measure.pi fun _ : Fin n ↦ Q₁) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) β) /
+      (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n) β) /
         (n : EReal)) atTop := by
   refine le_of_forall_lt_imp_le_of_dense fun a ha ↦ ?_
   obtain ⟨r, har, hrd⟩ := EReal.lt_iff_exists_real_btwn.1 ha
@@ -249,7 +247,7 @@ power `β > 0`, however small, gives a better exponent. -/
 theorem limsup_neg_log_minTestSize_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hβ : 0 < β) :
     limsup (fun n : ℕ ↦ -ENNReal.log (minTestSize (Measure.pi fun _ : Fin n ↦ Q₁)
-      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) β) / (n : EReal)) atTop ≤
+      (sampleNull S₁ n) β) / (n : EReal)) atTop ≤
         bipolarRate Q₁ S₁ := by
   refine le_of_forall_gt_imp_ge_of_dense fun a ha ↦ ?_
   obtain ⟨r, hdr, hra⟩ := EReal.lt_iff_exists_real_btwn.1 ha
@@ -264,7 +262,7 @@ against `Q₁ ^ n` has `-(1/n) log α*_n(β)` tending to the bipolar rate, also 
 theorem tendsto_neg_log_minTestSize_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hβ0 : 0 < β) (hβ1 : β < 1) :
     Tendsto (fun n : ℕ ↦ -ENNReal.log (minTestSize (Measure.pi fun _ : Fin n ↦ Q₁)
-      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) β) / (n : EReal)) atTop
+      (sampleNull S₁ n) β) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) :=
   tendsto_of_le_liminf_of_limsup_le (bipolarRate_le_liminf_neg_log_minTestSize_div Q₁ hS₁ hβ1)
     (limsup_neg_log_minTestSize_div_le_bipolarRate Q₁ hS₁ hβ0)
@@ -279,6 +277,6 @@ theorem tendsto_neg_log_minTestSize_div_klDiv (Q₁ P₁ : Measure 𝓧) [IsProb
       {Measure.pi fun _ : Fin n ↦ P₁} β) / (n : EReal)) atTop (𝓝 (klDiv Q₁ P₁ : EReal)) := by
   have h := tendsto_neg_log_minTestSize_div_bipolarRate Q₁ (S₁ := {P₁})
     (fun P hP ↦ by rw [Set.mem_singleton_iff.1 hP]; infer_instance) hβ0 hβ1
-  simpa only [Set.image_singleton, bipolarRate_singleton] using h
+  simpa only [sampleNull_singleton, bipolarRate_singleton] using h
 
 end ProbabilityTheory

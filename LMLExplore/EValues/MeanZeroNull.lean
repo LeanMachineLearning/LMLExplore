@@ -39,15 +39,15 @@ Savage [BS56]:
 
 * `ProbabilityTheory.exists_mem_meanZeroPosVarNull_etvDist_lt`: the null is dense in total
   variation.
-* `ProbabilityTheory.isEVar_pi_meanZeroPosVarNull_iff`: its `ι`-sample e-variables are those of
-  the i.i.d. laws of all probability measures.
+* `ProbabilityTheory.isEVar_sampleNull_meanZeroPosVarNull_iff`: its `n`-sample e-variables are
+  those of the i.i.d. laws of all probability measures.
 * `ProbabilityTheory.isEVar_meanZeroPosVarNull_iff`: its one-observation e-variables are the
   measurable functions bounded by `1`.
 * `ProbabilityTheory.maxLogGrowth_meanZeroPosVarNull`,
   `ProbabilityTheory.bipolarRate_meanZeroPosVarNull`,
   `ProbabilityTheory.measure_pi_le_of_forall_meanZeroPosVarNull`: no growth and no power against
   i.i.d. alternatives.
-* `ProbabilityTheory.le_one_of_isEProcess_infinitePi_meanZeroPosVarNull`: e-processes for the laws
+* `ProbabilityTheory.le_one_of_isEProcess_indepNull_meanZeroPosVarNull`: e-processes for the laws
   of independent sequences with marginals in the null are at most `1`.
 
 ## Implementation notes
@@ -219,13 +219,14 @@ theorem exists_mem_meanZeroPosVarNull_etvDist_lt (Q : Measure ℝ) [IsProbabilit
 
 /-! ### E-variables -/
 
-/-- **Same e-variables as for all laws.** For every finite set `ι` of i.i.d. real observations, a
+/-- **Same e-variables as for all laws.** For every number `n` of i.i.d. real observations, a
 function is an e-variable for the i.i.d. laws of the mean-zero null exactly when it is one for the
 i.i.d. laws of all probability measures on `ℝ`. -/
-theorem isEVar_pi_meanZeroPosVarNull_iff {ι : Type*} [Fintype ι] {X : (ι → ℝ) → ℝ≥0∞} :
-    IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' meanZeroPosVarNull) ↔
-      IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' {P | IsProbabilityMeasure P}) :=
-  isEVar_pi_iff_of_forall_exists_etvDist_lt (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
+theorem isEVar_sampleNull_meanZeroPosVarNull_iff {n : ℕ} {X : (Fin n → ℝ) → ℝ≥0∞} :
+    IsEVar X (sampleNull meanZeroPosVarNull n) ↔
+      IsEVar X (sampleNull {P : Measure ℝ | IsProbabilityMeasure P} n) :=
+  isEVar_sampleNull_iff_of_forall_exists_etvDist_lt
+    (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
     fun Q _ _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε
 
 /-- **One observation.** The e-variables for the laws on `ℝ` with mean `0` and a finite, positive
@@ -269,15 +270,13 @@ theorem measure_pi_le_of_forall_meanZeroPosVarNull {ι : Type*} [Fintype ι] {R 
 /-- **Independent sequences.** Every e-process, for any filtration, for the laws of the
 independent sequences of real observations whose marginals have mean `0` and a finite, positive
 variance is at most `1` at every time and on every sequence. -/
-theorem le_one_of_isEProcess_infinitePi_meanZeroPosVarNull
+theorem le_one_of_isEProcess_indepNull_meanZeroPosVarNull
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → ℝ))} {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
-    (hE : IsEProcess E ℱ
-      (Measure.infinitePi '' {P : ℕ → Measure ℝ | ∀ n, P n ∈ meanZeroPosVarNull}))
-    (n : ℕ) (x : ℕ → ℝ) :
+    (hE : IsEProcess E ℱ (indepNull meanZeroPosVarNull)) (n : ℕ) (x : ℕ → ℝ) :
     E n x ≤ 1 :=
   ((isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt
     (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
     (fun y _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt (Measure.dirac y) hε)).1
-      (hE.isEVar n)).2 x
+      (indepNull_def meanZeroPosVarNull ▸ hE.isEVar n)).2 x
 
 end ProbabilityTheory

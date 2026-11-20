@@ -75,6 +75,11 @@ variable {φ : Ω → Ω'} {S T : Set (Measure Ω)} {P : Measure Ω} {μ : Measu
 noncomputable def mapNull (φ : Ω → Ω') (S : Set (Measure Ω)) : Set (Measure Ω') :=
   Measure.map φ '' S
 
+/-- The null `mapNull φ S` as the set `{P.map φ | P ∈ S}`, the spelling of Statlib's
+`IsEVar.comp` and `maxUtility_map_le`. -/
+theorem mapNull_def (φ : Ω → Ω') (S : Set (Measure Ω)) : mapNull φ S = {P.map φ | P ∈ S} :=
+  (rfl)
+
 @[simp]
 theorem mem_mapNull : μ ∈ mapNull φ S ↔ ∃ P ∈ S, P.map φ = μ :=
   Iff.rfl
@@ -228,6 +233,11 @@ theorem measure_univ_le_one_of_mem_sampleNull (hS₁ : ∀ P ∈ S₁, P univ �
 noncomputable def iidNull (S₁ : Set (Measure 𝓧)) : Set (Measure (ℕ → 𝓧)) :=
   (fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁
 
+/-- The null `iidNull S₁` as the image of `S₁` under `P ↦ Measure.infinitePi fun _ : ℕ ↦ P`. -/
+theorem iidNull_def (S₁ : Set (Measure 𝓧)) :
+    iidNull S₁ = (fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁ :=
+  (rfl)
+
 @[simp]
 theorem mem_iidNull {μ : Measure (ℕ → 𝓧)} :
     μ ∈ iidNull S₁ ↔ ∃ P ∈ S₁, (Measure.infinitePi fun _ : ℕ ↦ P) = μ :=
@@ -260,6 +270,12 @@ theorem isProbabilityMeasure_of_mem_iidNull (hS₁ : ∀ P ∈ S₁, IsProbabili
 `Measure.infinitePi P` for `P : ℕ → Measure 𝓧` with `P i ∈ S₁` for every `i`. -/
 noncomputable def indepNull (S₁ : Set (Measure 𝓧)) : Set (Measure (ℕ → 𝓧)) :=
   Measure.infinitePi '' {P : ℕ → Measure 𝓧 | ∀ i, P i ∈ S₁}
+
+/-- The null `indepNull S₁` as the image under `Measure.infinitePi` of the sequences of members
+of `S₁`. -/
+theorem indepNull_def (S₁ : Set (Measure 𝓧)) :
+    indepNull S₁ = Measure.infinitePi '' {P : ℕ → Measure 𝓧 | ∀ i, P i ∈ S₁} :=
+  (rfl)
 
 @[simp]
 theorem mem_indepNull {μ : Measure (ℕ → 𝓧)} :

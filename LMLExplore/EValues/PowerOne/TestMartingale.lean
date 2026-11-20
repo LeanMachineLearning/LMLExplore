@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Probability.ProductMeasure
@@ -97,14 +98,14 @@ theorem isTestMartingale_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hQ₁ : Q₁ + ∑ i, b i • P i = ∑ i, c i • P i)
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → 𝓧))}
     (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
-    (hM : IsTestMartingale M ℱ ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁))
+    (hM : IsTestMartingale M ℱ (iidNull S₁))
     (hM0 : ∀ P ∈ S₁, ∫⁻ ω, M 0 ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) = 1) :
     IsTestMartingale M ℱ {Measure.infinitePi fun _ : ℕ ↦ Q₁} := by
   have hmem (w : ι → ℝ≥0) (hw : ∑ i, w i = 1) : ∑ i, w i • P i ∈ S₁ :=
     hS₁.sum_nnreal_smul_mem hw fun i _ ↦ hP i
   have hnull (w : ι → ℝ≥0) (hw : ∑ i, w i = 1) : Measure.infinitePi (fun _ : ℕ ↦ ∑ i, w i • P i) ∈
-      (fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁ :=
-    ⟨_, hmem w hw, rfl⟩
+      iidNull S₁ :=
+    infinitePi_mem_iidNull (hmem w hw)
   refine ⟨hM.adapted, ?_, ?_⟩
   · rintro _ rfl
     obtain ⟨N, hN⟩ := hℱ 0
@@ -145,7 +146,7 @@ theorem ae_limsup_lt_top_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hQ₁ : Q₁ + ∑ i, b i • P i = ∑ i, c i • P i)
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → 𝓧))}
     (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
-    (hM : IsTestMartingale M ℱ ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁))
+    (hM : IsTestMartingale M ℱ (iidNull S₁))
     (hM0 : ∀ P ∈ S₁, ∫⁻ ω, M 0 ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) = 1) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), limsup (fun n ↦ M n ω) atTop < ∞ :=
   (isTestMartingale_infinitePi_of_add_sum_eq_sum hS₁ hP hQ₁ hℱ hM
@@ -167,10 +168,10 @@ private lemma doublingProcess_const (n : ℕ) (x : Bool) : doublingProcess n (fu
 `1`. -/
 private lemma isTestMartingale_doublingProcess :
     IsTestMartingale doublingProcess (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) ''
-        {Measure.dirac false, Measure.dirac true}) := by
-  have hmem : ∀ μ ∈ ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) ''
-      {Measure.dirac false, Measure.dirac true}), ∃ x : Bool, μ = Measure.dirac (fun _ ↦ x) := by
+      (iidNull {Measure.dirac false, Measure.dirac true}) := by
+  have hmem : ∀ μ ∈ iidNull {Measure.dirac false, Measure.dirac true},
+      ∃ x : Bool, μ = Measure.dirac (fun _ ↦ x) := by
+    rw [iidNull_def]
     rintro μ ⟨P, hP, rfl⟩
     rcases hP with rfl | rfl
     · exact ⟨false, Measure.infinitePi_dirac (fun _ ↦ false)⟩
@@ -240,8 +241,7 @@ the observations, tends to `∞` almost surely under i.i.d. fair coin flips
 theorem exists_isTestMartingale_dirac_tendsto_top :
     ∃ M : ℕ → (ℕ → Bool) → ℝ≥0∞, M 0 = 1 ∧
       IsTestMartingale M (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) ''
-          {Measure.dirac false, Measure.dirac true}) ∧
+        (iidNull {Measure.dirac false, Measure.dirac true}) ∧
       ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦
           (2⁻¹ : ℝ≥0∞) • (Measure.dirac false + Measure.dirac true)),
         Tendsto (fun n ↦ M n ω) atTop (𝓝 ∞) :=

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
+public import LMLExplore.EValues.Null.Basic
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 import LMLExplore.Probability.Martingale.SampleMean
@@ -215,7 +216,7 @@ theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure 
     (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
     ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S) α ∧
+        (iidNull S) α ∧
       ∀ ω : ℕ → ℝ, (¬ ∃ l : ℝ,
         Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)) → τ ω < ⊤ := by
   -- the constants: a level `δ ≤ α`, weights `ε` on the rational pairs, a bound `C` for the
@@ -239,6 +240,7 @@ theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure 
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
   refine ⟨stopTime L K, ⟨isStoppingTime_stopTime L K, ?_⟩,
     fun ω hω ↦ stopTime_lt_top_of_not_tendsto hω⟩
+  rw [iidNull_def]
   rintro _ ⟨P, hPS, rfl⟩
   by_cases hP₁ : IsProbabilityMeasure P
   swap
