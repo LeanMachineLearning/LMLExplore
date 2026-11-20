@@ -178,11 +178,14 @@ section Sample
 variable {S₁ T₁ : Set (Measure 𝓧)} {P : Measure 𝓧} {n : ℕ}
 
 /-- The null of `n` independent observations with one law in `S₁`: the product laws
-`Measure.pi fun _ : Fin n ↦ P` for `P ∈ S₁`. The body is exposed, so that lemmas about
-`sampleNull` apply to the inline image `(fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁`, which
-`maxLogGrowth` still uses. -/
-@[expose] noncomputable def sampleNull (S₁ : Set (Measure 𝓧)) (n : ℕ) : Set (Measure (Fin n → 𝓧)) :=
+`Measure.pi fun _ : Fin n ↦ P` for `P ∈ S₁`. -/
+noncomputable def sampleNull (S₁ : Set (Measure 𝓧)) (n : ℕ) : Set (Measure (Fin n → 𝓧)) :=
   (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁
+
+/-- The null `sampleNull S₁ n` as the image of `S₁` under `P ↦ Measure.pi fun _ : Fin n ↦ P`. -/
+theorem sampleNull_def (S₁ : Set (Measure 𝓧)) (n : ℕ) :
+    sampleNull S₁ n = (fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁ :=
+  (rfl)
 
 @[simp]
 theorem mem_sampleNull {μ : Measure (Fin n → 𝓧)} :

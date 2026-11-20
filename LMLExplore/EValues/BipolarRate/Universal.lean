@@ -208,8 +208,9 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
     calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
     _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
       lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
-    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal (measure_univ_le_one_of_mem_sampleNull
-      (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) hε0.le hε1.le).lintegral_le_one ⟨P, hP, rfl⟩
+    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal (sampleNull_def S₁ m ▸
+      measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) hε0.le
+        hε1.le).lintegral_le_one ⟨P, hP, rfl⟩
   · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) :=
       hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
     rw [EReal.coe_lt_coe_iff, hlogε] at h

@@ -211,7 +211,8 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
       Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
   refine maxUtility_eq_zero_of_mem_effectiveSet
-    (measure_univ_le_one_of_mem_sampleNull (measure_univ_mixture_le_one hε) n) fun E hE ↦
+    (sampleNull_def _ n ▸ measure_univ_le_one_of_mem_sampleNull (measure_univ_mixture_le_one hε) n)
+      fun E hE ↦
       ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
   obtain ⟨m, ham, hm⟩ := ((hlim.eventually (lt_mem_nhds ha)).and (eventually_ne_atTop 0)).exists
   exact (mul_le_mul_left ham.le _).trans

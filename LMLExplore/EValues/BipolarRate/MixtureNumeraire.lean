@@ -126,7 +126,8 @@ theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
       ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) x
         ∂(ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') ≤ ν .univ := by
     calc _ ≤ (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') .univ :=
-          lintegral_div_numeraire_le_measure_univ _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
+          lintegral_div_numeraire_le_measure_univ _
+            (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull hS₁ n)
             (hM n)
     _ = ν .univ := by
       rw [Measure.bind_apply .univ
@@ -164,7 +165,8 @@ theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   have := nonempty_of_isProbabilityMeasure Q₁
   filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
-      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
+      (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull
+        (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))

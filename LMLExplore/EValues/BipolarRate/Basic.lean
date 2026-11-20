@@ -105,7 +105,7 @@ lemma bipolarRate_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
 most `1`, is nonnegative, as the constant `1` is an e-variable. -/
 lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
     0 ≤ maxLogGrowth Q₁ S₁ n :=
-  maxUtility_nonneg _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
+  maxUtility_nonneg _ (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull hS₁ n)
 
 /-- The normalized maximal expected logarithm of an `n`-sample e-variable is at most the bipolar
 rate, for `n ≠ 0`. -/
@@ -165,7 +165,7 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
   _ = maxUtility ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) logUtility := by
-    rw [maxLogGrowth_def, maxLogGrowth_def]
+    rw [maxLogGrowth_def, maxLogGrowth_def, ← sampleNull_def, ← sampleNull_def]
     exact (maxUtility_prod_eq_add _ _ (measure_univ_le_one_of_mem_sampleNull hS₁ m)
       (measure_univ_le_one_of_mem_sampleNull hS₁ n)).symm
   _ ≤ maxUtility ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
