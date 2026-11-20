@@ -6,10 +6,10 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
+import LMLExplore.Analysis.SpecialFunctions.Choose
 import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
 import LMLExplore.MeasureTheory.Constructions.Pi
-import Mathlib.Analysis.SpecialFunctions.Choose
 import Statlib.ForMathlib.MeasureTheory.Constructions.Pi
 
 /-!
@@ -197,23 +197,13 @@ theorem maxLogGrowth_finitelySupported_mixtures_eq_zero (Q : Measure 𝓧) [IsPr
     (hε : ε ≤ 1) (n : ℕ) :
     maxLogGrowth Q {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
       (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)} n = 0 := by
-  -- the fraction of the injective maps among the maps `Fin n → Fin m` tends to `1`
-  have hlim : Tendsto (fun m : ℕ ↦ (m.descFactorial n : ℝ≥0∞) * (m : ℝ≥0∞)⁻¹ ^ n) atTop
-      (𝓝 1) := by
-    have h := (Asymptotics.isEquivalent_iff_tendsto_one
-      ((eventually_ne_atTop 0).mono fun m hm ↦ pow_ne_zero n (Nat.cast_ne_zero.2 hm))).1
-      (isEquivalent_descFactorial n)
-    refine (by simpa using ENNReal.tendsto_ofReal h :
-      Tendsto (fun m : ℕ ↦ ENNReal.ofReal ((m.descFactorial n : ℝ) / (m : ℝ) ^ n)) atTop
-        (𝓝 1)).congr' ?_
-    filter_upwards [eventually_ne_atTop 0] with m hm
-    simp [div_eq_mul_inv, ENNReal.ofReal_mul, ENNReal.ofReal_inv_of_pos, ENNReal.ofReal_pow,
-      Nat.pos_of_ne_zero hm, ENNReal.inv_pow]
   rw [maxLogGrowth_def]
   refine maxEPower_eq_zero_of_mem_effectiveSet
     (measure_univ_le_one_of_mem_image_pi (measure_univ_mixture_le_one hε) n) fun E hE ↦
       ENNReal.le_of_forall_lt_one_mul_le fun a ha ↦ ?_
-  obtain ⟨m, ham, hm⟩ := ((hlim.eventually (lt_mem_nhds ha)).and (eventually_ne_atTop 0)).exists
+  -- the fraction of the injective maps among the maps `Fin n → Fin m` tends to `1`
+  obtain ⟨m, ham, hm⟩ := (((ENNReal.tendsto_descFactorial_mul_inv_pow n).eventually
+    (lt_mem_nhds ha)).and (eventually_ne_atTop 0)).exists
   exact (mul_le_mul_left ham.le _).trans
     (descFactorial_mul_lintegral_le hε hm (sum_resample_mem hm) hE)
 

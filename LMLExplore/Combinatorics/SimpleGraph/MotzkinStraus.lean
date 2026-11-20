@@ -33,6 +33,10 @@ the e-variables `c * 𝟙{x₀ ~ x₁}` of two i.i.d. observations on the vertic
 * `SimpleGraph.dotProduct_adjMatrix_mulVec_le`: for a probability vector `w`,
   `w ⬝ᵥ A *ᵥ w ≤ (ω - 1) / ω`.
 * `SimpleGraph.exists_dotProduct_adjMatrix_mulVec_eq`: the bound is attained.
+* `SimpleGraph.dotProduct_adjMatrix_mulVec_eq_of_isClique`: for a weight supported on a clique,
+  `w ⬝ᵥ A *ᵥ w = (∑ v, w v) ^ 2 - ∑ v, w v ^ 2`.
+* `SimpleGraph.cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique`: the homogeneous form
+  for a weight supported on a clique.
 
 ## Implementation notes
 
@@ -157,8 +161,8 @@ private lemma exists_isClique_support_le (n : ℕ) (w : V → ℝ) (hw : 0 ≤ w
 
 /-- For a weight supported on a clique, the quadratic form of the adjacency matrix is the square
 of the total weight minus the sum of the squares of the weights. -/
-private lemma dotProduct_adjMatrix_mulVec_eq_of_isClique (w : V → ℝ)
-    (hw : ∀ u v, w u ≠ 0 → w v ≠ 0 → u ≠ v → G.Adj u v) :
+theorem dotProduct_adjMatrix_mulVec_eq_of_isClique (w : V → ℝ)
+    (hw : G.IsClique {v | w v ≠ 0}) :
     w ⬝ᵥ G.adjMatrix ℝ *ᵥ w = (∑ v, w v) ^ 2 - ∑ v, w v ^ 2 := by
   classical
   rw [dotProduct_mulVec_adjMatrix, sq, sum_mul_sum]
@@ -176,18 +180,19 @@ private lemma dotProduct_adjMatrix_mulVec_eq_of_isClique (w : V → ℝ)
   · have : w u = 0 ∨ w v = 0 := by
       by_contra h
       push Not at h
-      exact hadj (hw u v h.1 h.2 huv)
+      exact hadj (hw h.1 h.2 huv)
     rcases this with h | h <;> simp [hadj, huv, h]
 
-/-- The Motzkin–Straus inequality for a weight supported on a clique. -/
-private lemma cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique (w : V → ℝ)
-    (hw : ∀ u v, w u ≠ 0 → w v ≠ 0 → u ≠ v → G.Adj u v) :
+/-- The Motzkin–Straus inequality for a weight supported on a clique: if the support of `w` is a
+clique of a finite graph with clique number `ω`, then
+`ω * (w ⬝ᵥ A *ᵥ w) ≤ (ω - 1) * (∑ v, w v) ^ 2`, where `A` is the adjacency matrix. -/
+theorem cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique (w : V → ℝ)
+    (hw : G.IsClique {v | w v ≠ 0}) :
     G.cliqueNum * (w ⬝ᵥ G.adjMatrix ℝ *ᵥ w) ≤ (G.cliqueNum - 1) * (∑ v, w v) ^ 2 := by
   classical
   rw [dotProduct_adjMatrix_mulVec_eq_of_isClique G w hw]
   set K : Finset V := {v | w v ≠ 0}
-  have hK : G.IsClique (K : Set V) := fun u hu v hv huv ↦
-    hw u v (by simpa [K] using hu) (by simpa [K] using hv) huv
+  have hK : G.IsClique (K : Set V) := by simpa [K] using hw
   have h_sum : ∑ v, w v = ∑ v ∈ K, w v := (sum_filter_ne_zero _).symm
   have h_sq : ∑ v, w v ^ 2 = ∑ v ∈ K, w v ^ 2 := by
     rw [sum_filter]
@@ -212,7 +217,8 @@ theorem cliqueNum_mul_dotProduct_adjMatrix_mulVec_le (w : V → ℝ) (hw : 0 ≤
   calc (G.cliqueNum : ℝ) * (w ⬝ᵥ G.adjMatrix ℝ *ᵥ w)
   _ ≤ G.cliqueNum * (w' ⬝ᵥ G.adjMatrix ℝ *ᵥ w') := by gcongr
   _ ≤ (G.cliqueNum - 1) * (∑ v, w' v) ^ 2 :=
-    cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique G w' hcl
+    cliqueNum_mul_dotProduct_adjMatrix_mulVec_le_of_isClique G w' fun u hu v hv huv ↦
+      hcl u v hu hv huv
   _ = (G.cliqueNum - 1) * (∑ v, w v) ^ 2 := by rw [hsum]
 
 /-- **Motzkin–Straus theorem**: for a probability vector `w` on the vertices of a finite graph
@@ -251,8 +257,8 @@ theorem exists_dotProduct_adjMatrix_mulVec_eq [Nonempty V] :
   · simp only [w, ite_pow, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow, sum_ite_mem,
       univ_inter, sum_const, hcard, nsmul_eq_mul]
     field_simp
-  · intro u v hu hv huv
-    simp only [w, ne_eq, ite_eq_right_iff, inv_eq_zero, Nat.cast_eq_zero,
+  · intro u hu v hv huv
+    simp only [Set.mem_ofPred_eq, w, ne_eq, ite_eq_right_iff, inv_eq_zero, Nat.cast_eq_zero,
       Classical.not_imp] at hu hv
     exact hK.isClique hu.1 hv.1 huv
 

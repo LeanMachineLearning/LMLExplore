@@ -8,10 +8,9 @@ module
 public import LMLExplore.Combinatorics.SimpleGraph.MotzkinStraus
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Statlib.EValues.EVariable
-import Mathlib.Analysis.SpecialFunctions.Choose
+import LMLExplore.Analysis.SpecialFunctions.Choose
+import LMLExplore.Probability.Process.EmpiricalMeasure
 import Mathlib.Data.Fintype.CardEmbedding
-import Mathlib.Probability.UniformOn
-import TauCeti.Probability.Process.EmpiricalMeasure
 import Statlib.ForMathlib.MeasureTheory.Constructions.Pi
 
 /-!
@@ -62,7 +61,7 @@ This file describes these e-variables exactly [EVR26, Note 11].
 
 public section
 
-open MeasureTheory Matrix Finset Filter Topology Asymptotics TauCeti.Probability
+open MeasureTheory Matrix Finset Filter Topology TauCeti.Probability
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -70,20 +69,6 @@ namespace ProbabilityTheory
 section General
 
 variable {𝓧 ι : Type*} {m𝓧 : MeasurableSpace 𝓧} [Fintype ι] [DecidableEq ι]
-
-/-- The expectation of `H` under the i.i.d. law of the empirical measure of a sample `y` of size
-`M` is the V-statistic `M⁻ⁿ ∑_{i ∈ [M]ⁿ} H (y ∘ i)`. -/
-private lemma lintegral_pi_empiricalMeasureOfFintype {M : ℕ} [Nonempty (Fin M)] (y : Fin M → 𝓧)
-    {H : (ι → 𝓧) → ℝ≥0∞} (hH : Measurable H) :
-    ∫⁻ x, H x ∂(Measure.pi fun _ : ι ↦ (empiricalMeasureOfFintype y : Measure 𝓧)) =
-      (M : ℝ≥0∞)⁻¹ ^ Fintype.card ι * ∑ i : ι → Fin M, H (y ∘ i) := by
-  have hy : Measurable y := .of_discrete
-  rw [empiricalMeasureOfFintype_eq_map_uniformOn, ← Measure.pi_map_pi fun _ ↦ hy.aemeasurable,
-    lintegral_map hH .of_discrete, lintegral_fintype, Finset.mul_sum]
-  refine sum_congr rfl fun i _ ↦ ?_
-  simp only [Measure.pi_singleton, uniformOn_univ, Measure.count_singleton, Fintype.card_fin,
-    prod_const, card_univ, ENNReal.div_eq_inv_mul, mul_one, Function.comp_def]
-  rw [mul_comm]
 
 /-- The expectation under `P ^ M` of the V-statistic of `H` over the first `M` observations is at
 least `M (M - 1) ⋯ (M - n + 1)` times `M⁻ⁿ` times the expectation of `H` under `P ^ n`: the
@@ -111,20 +96,6 @@ private lemma descFactorial_mul_lintegral_pi_le (P : Measure 𝓧) [IsProbabilit
   _ ≤ ∑ i : ι → Fin M, ∫⁻ y, H (y ∘ i) ∂(Measure.pi fun _ : Fin M ↦ P) :=
     sum_le_sum_of_subset (subset_univ _)
 
-/-- `M (M - 1) ⋯ (M - n + 1) / Mⁿ` tends to `1` as `M → ∞`. -/
-private lemma tendsto_descFactorial_mul_inv_pow (k : ℕ) :
-    Tendsto (fun M : ℕ ↦ (M.descFactorial k : ℝ≥0∞) * (M : ℝ≥0∞)⁻¹ ^ k) atTop (𝓝 1) := by
-  have hz : ∀ᶠ M : ℕ in atTop, ((M : ℝ) ^ k) ≠ 0 :=
-    eventually_atTop.2 ⟨1, fun M hM ↦ pow_ne_zero _ (by exact_mod_cast (by omega : M ≠ 0))⟩
-  have h := ENNReal.tendsto_ofReal ((isEquivalent_iff_tendsto_one hz).1
-    (isEquivalent_descFactorial k))
-  rw [ENNReal.ofReal_one] at h
-  refine h.congr' (eventually_atTop.2 ⟨1, fun M hM ↦ ?_⟩)
-  have hM : (0 : ℝ) < M := by exact_mod_cast (by omega : 0 < M)
-  simp only [Pi.div_apply]
-  rw [ENNReal.ofReal_div_of_pos (pow_pos hM k), ENNReal.ofReal_natCast, ENNReal.ofReal_pow hM.le,
-    ENNReal.ofReal_natCast, div_eq_mul_inv, ENNReal.inv_pow]
-
 /-- **The e-variables of an i.i.d. sample are those with V-statistics at most `1`.** On any
 measurable space, a function `H` of a finite number `n` of observations has expectation at most
 `1` under the i.i.d. law of every probability measure exactly when it is measurable and, for
@@ -137,7 +108,9 @@ theorem isEVar_pi_iff_sum_comp_le_one (H : (ι → 𝓧) → ℝ≥0∞) :
   refine ⟨fun hE ↦ ⟨hE.measurable, fun M hM y ↦ ?_⟩, fun ⟨hH, hV⟩ ↦ ⟨hH, ?_⟩⟩
   · -- the V-statistic is the expectation under the i.i.d. law of the empirical measure
     have : Nonempty (Fin M) := ⟨⟨0, hM⟩⟩
-    rw [← lintegral_pi_empiricalMeasureOfFintype y hE.measurable]
+    have h := lintegral_pi_empiricalMeasureOfFintype (ι := ι) y hE.measurable
+    rw [Fintype.card_fin] at h
+    rw [← h]
     exact hE.lintegral_le_one ⟨_, inferInstance, rfl⟩
   · rintro _ ⟨P, hP, rfl⟩
     have : IsProbabilityMeasure P := hP
@@ -158,7 +131,7 @@ theorem isEVar_pi_iff_sum_comp_le_one (H : (ι → 𝓧) → ℝ≥0∞) :
           hH.comp (Measurable.of_eval fun k ↦ measurable_pi_apply (i k)))).symm
       _ ≤ ∫⁻ _, 1 ∂(Measure.pi fun _ : Fin M ↦ P) := lintegral_mono fun y ↦ hV M hM y
       _ = 1 := by simp
-    have h := ENNReal.Tendsto.const_mul (tendsto_descFactorial_mul_inv_pow (Fintype.card ι))
+    have h := ENNReal.Tendsto.const_mul (ENNReal.tendsto_descFactorial_mul_inv_pow (Fintype.card ι))
       (a := I) (.inl one_ne_zero)
     rw [mul_one] at h
     exact le_of_tendsto h (eventually_atTop.2 ⟨1, fun M hM' ↦ hM M hM'⟩)
