@@ -203,22 +203,18 @@ private lemma antidiagonalUniform_comp_mem_effectiveSet (p₁ p₂ : unitInterva
         ((geometricMeasure p₁).prod (geometricMeasure p₂)).map (fun x ↦ x.1 + x.2) ∈
       effectiveSet (Set.range fun p : unitInterval ↦
         (geometricMeasure p).prod (geometricMeasure p)) := by
-  have hS : ∀ P ∈ Set.range fun p : unitInterval ↦ (geometricMeasure p).prod (geometricMeasure p),
-      P univ ≤ 1 := by
-    rintro _ ⟨p, rfl⟩
-    exact prob_le_one
   obtain ⟨q₁, hq₁, hq₁p⟩ := exists_ne_zero_geometricMeasure_eq p₁
   obtain ⟨q₂, hq₂, hq₂p⟩ := exists_ne_zero_geometricMeasure_eq p₂
   rw [← hq₁p, ← hq₂p]
   rcases eq_or_ne q₁ q₂ with rfl | h
   · obtain ⟨g, hg⟩ := exists_prod_geometricMeasure_self_singleton q₁
     rw [Kernel.antidiagonalUniform_comp_map_add_of_singleton hg]
-    exact subset_effectiveSet hS ⟨q₁, rfl⟩
+    exact subset_effectiveSet ⟨q₁, rfl⟩
   have := isProbabilityMeasure_uniformMeasure
     (min_lt_max.mpr (inv_injective.ne (Subtype.coe_injective.ne h)) :
       min (q₁ : ℝ)⁻¹ (q₂ : ℝ)⁻¹ < max (q₁ : ℝ)⁻¹ (q₂ : ℝ)⁻¹)
   rw [antidiagonalUniform_comp_map_add_prod_geometricMeasure hq₁ hq₂ h]
-  refine comp_mem_effectiveSet prob_le_one (ae_of_all _ fun m ↦ subset_effectiveSet hS ?_)
+  refine comp_mem_effectiveSet prob_le_one (ae_of_all _ fun m ↦ subset_effectiveSet ?_)
   exact ⟨projIcc 0 1 zero_le_one m⁻¹, (geomPairInvKernel_apply m).symm⟩
 
 end Geometric
@@ -240,10 +236,14 @@ theorem isNumeraire_rnDeriv_antidiagonalUniform_comp {p₁ p₂ : unitInterval}
           ((geometricMeasure p₁).prod (geometricMeasure p₂)).map fun x ↦ x.1 + x.2))
       (Set.range fun p : unitInterval ↦ (geometricMeasure p).prod (geometricMeasure p))
       ((geometricMeasure p₁).prod (geometricMeasure p₂)) := by
-  refine isNumeraire_of_ae_eq_rnDeriv (isEVar_rnDeriv_comp_map (measurable_of_countable _)
+  have hS : ∀ P ∈ Set.range fun p : unitInterval ↦ (geometricMeasure p).prod (geometricMeasure p),
+      P univ ≤ 1 := by
+    rintro _ ⟨p, rfl⟩
+    exact prob_le_one
+  refine isNumeraire_of_ae_eq_rnDeriv hS (isEVar_rnDeriv_comp_map (measurable_of_countable _)
     (ae_of_all _ Kernel.ae_add_antidiagonalUniform)
-    (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) (by rintro _ ⟨p, rfl⟩; infer_instance)
-    ?_ ?_) (antidiagonalUniform_comp_mem_effectiveSet p₁ p₂)
+    (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) hS ?_ ?_)
+    (antidiagonalUniform_comp_mem_effectiveSet p₁ p₂)
     (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) .rfl
   · rintro _ ⟨p, rfl⟩
     obtain ⟨g, hg⟩ := exists_prod_geometricMeasure_self_singleton p

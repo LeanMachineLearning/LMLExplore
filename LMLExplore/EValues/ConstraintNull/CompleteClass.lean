@@ -685,9 +685,8 @@ theorem isEVar_constraintNull_iff (hg : ∀ i, Measurable (g i)) :
     IsEVar E (constraintNull (range g)) ↔ Measurable E ∧ ∃ π ∈ constraintBets g,
       ∀ μ ∈ constraintNull (range g), E ≤ᵐ[μ] fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) :=
   ⟨fun hE ↦ ⟨hE.measurable, hE.exists_mem_constraintBets_ae_le hg⟩, fun ⟨hEm, _, hπ, hEπ⟩ ↦
-    IsEVar.of_lintegral_le_one (fun _ ↦ isProbabilityMeasure_of_mem_constraintNull) hEm
-      fun μ hμ ↦ (lintegral_mono_ae (hEπ μ hμ)).trans
-        (lintegral_ofReal_one_add_le_one_of_mem_constraintBets hπ hμ)⟩
+    ⟨hEm, fun μ hμ ↦ (lintegral_mono_ae (hEπ μ hμ)).trans
+      (lintegral_ofReal_one_add_le_one_of_mem_constraintBets hπ hμ)⟩⟩
 
 /-! ### Completion into a member of the null -/
 
@@ -770,7 +769,8 @@ theorem exists_add_sum_smul_dirac_mem_constraintNull (hg : ∀ i, Measurable (g 
   set r := μ.real univ with hr_def
   set m := 1 - r with hm_def
   have hm0 : 0 < m := by
-    have h1 := hμE 1 (isEVar_one _)
+    have h1 := hμE 1 (isEVar_one fun _ hν ↦
+      (isProbabilityMeasure_of_mem_constraintNull hν).measure_univ.le)
     simp only [Pi.one_apply, lintegral_one] at h1
     have h2 : r < 1 := by
       rw [hr_def, measureReal_def]

@@ -47,8 +47,7 @@ lemma klDiv_cond_le {μ : Measure 𝓧} [IsProbabilityMeasure μ] {A : Set 𝓧}
     calc (μ A)⁻¹ * ∫⁻ x, X x ∂μ.restrict A
     _ ≤ (μ A)⁻¹ * 1 := by
       gcongr
-      exact (setLIntegral_le_lintegral A X).trans
-        ((hX.lintegral_le_measure_univ μ rfl).trans_eq measure_univ)
+      exact (setLIntegral_le_lintegral A X).trans (hX.lintegral_le_one rfl)
     _ = (μ A)⁻¹ := mul_one _
 
 end InformationTheory

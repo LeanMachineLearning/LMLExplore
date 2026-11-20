@@ -113,13 +113,12 @@ theorem mem_effectiveSet_of_forall_exists_etvDist_lt
     exact tsub_le_iff_right.2 (measure_le_add_of_etvDist_le hs hν.le)
   exact tsub_le_iff_right.1 (le_liminf_of_le (by isBoundedDefault) hev)
 
-/-- A limit in total variation of members of a null `S` of measures of mass at most `1` belongs
-to the effective null of `S`. -/
-private lemma mem_effectiveSet_of_forall_exists_mem_etvDist_lt (hS : ∀ P ∈ S, P univ ≤ 1)
+/-- A limit in total variation of members of a null `S` belongs to the effective null of `S`. -/
+private lemma mem_effectiveSet_of_forall_exists_mem_etvDist_lt
     (h : ∀ ε > 0, ∃ P ∈ S, etvDist P μ < ε) : μ ∈ effectiveSet S :=
   mem_effectiveSet_of_forall_exists_etvDist_lt fun ε hε ↦
     let ⟨P, hP, hPμ⟩ := h ε hε
-    ⟨P, subset_effectiveSet hS hP, hPμ⟩
+    ⟨P, subset_effectiveSet hP, hPμ⟩
 
 /-! ### One observation and independent sequences -/
 
@@ -130,13 +129,13 @@ theorem isEVar_iff_of_forall_exists_etvDist_dirac_lt (hS : ∀ P ∈ S, P univ �
     (hS_dirac : ∀ x : Ω, ∀ ε > 0, ∃ P ∈ S, etvDist P (Measure.dirac x) < ε)
     {X : Ω → ℝ≥0∞} :
     IsEVar X S ↔ Measurable X ∧ ∀ x, X x ≤ 1 := by
-  refine ⟨fun hX ↦ ⟨hX.measurable, fun x ↦ ?_⟩, fun h ↦ .of_lintegral_le_measure_univ
-    (fun P hP ↦ ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩) h.1 fun P _ ↦ ?_⟩
+  refine ⟨fun hX ↦ ⟨hX.measurable, fun x ↦ ?_⟩, fun h ↦ ⟨h.1, fun P hP ↦ ?_⟩⟩
   · have hx : Measure.dirac x ∈ effectiveSet S :=
-      mem_effectiveSet_of_forall_exists_mem_etvDist_lt hS (hS_dirac x)
+      mem_effectiveSet_of_forall_exists_mem_etvDist_lt (hS_dirac x)
     simpa [lintegral_dirac' x hX.measurable] using hx X hX
   · calc ∫⁻ ω, X ω ∂P ≤ ∫⁻ _, 1 ∂P := lintegral_mono h.2
     _ = P univ := lintegral_one
+    _ ≤ 1 := hS P hP
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S : Set (Measure 𝓧)}
 
@@ -230,11 +229,9 @@ theorem pi_mem_effectiveSet_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPro
     (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) :
     Measure.pi (fun _ : ι ↦ Q) ∈ effectiveSet ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' S) := by
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
-  refine mem_effectiveSet_of_forall_exists_mem_etvDist_lt (fun R hR ↦ ?_) fun ε hε ↦ ?_
-  · have := isProbabilityMeasure_of_mem_image_pi hS R hR
-    exact prob_le_one
-  · obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ hε
-    exact ⟨_, ⟨P, hP, rfl⟩, hPQ⟩
+  refine mem_effectiveSet_of_forall_exists_mem_etvDist_lt fun ε hε ↦ ?_
+  obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ hε
+  exact ⟨_, ⟨P, hP, rfl⟩, hPQ⟩
 
 /-- **A null dense in total variation has the e-variables of all laws.** If every probability
 measure is a limit in total variation of members of a null `S` of probability measures, then for
@@ -245,8 +242,7 @@ theorem isEVar_pi_iff_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabili
     {X : (ι → 𝓧) → ℝ≥0∞} :
     IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' S) ↔
       IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' {P | IsProbabilityMeasure P}) := by
-  refine ⟨fun hX ↦ .of_lintegral_le_one (isProbabilityMeasure_of_mem_image_pi fun _ hP ↦ hP)
-    hX.measurable ?_, fun hX ↦ hX.anti_set (image_mono fun P hP ↦ hS P hP)⟩
+  refine ⟨fun hX ↦ ⟨hX.measurable, ?_⟩, fun hX ↦ hX.anti_set (image_mono fun P hP ↦ hS P hP)⟩
   rintro _ ⟨Q, hQ, rfl⟩
   have : IsProbabilityMeasure Q := hQ
   exact pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS (hdense Q hQ) X hX
@@ -271,10 +267,10 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
     (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) (n : ℕ) :
     maxLogGrowth Q S n = 0 := by
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
-  refine le_antisymm ?_ (maxLogGrowth_nonneg _ _ _)
+  refine le_antisymm ?_ (maxLogGrowth_nonneg _ (fun P hP ↦ (hS P hP).measure_univ.le) _)
   rw [maxLogGrowth_def]
   refine (maxUtility_le_klIntegral_of_mem_effectiveSet
-    (fun R hR ↦ have := isProbabilityMeasure_of_mem_image_pi hS R hR; inferInstance)
+    (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS P hP).measure_univ.le) n)
     (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).trans_eq ?_
   rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
 

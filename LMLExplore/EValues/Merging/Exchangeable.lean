@@ -122,7 +122,7 @@ theorem IsExchangeableEMerging.isEVar_comp [Countable ι] {Ω : Type*} {mΩ : Me
     {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, IsEVar (E i) S) (hexch : ∀ P ∈ S, ExchangeableFamily P E) :
     IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
   have hm : Measurable fun ω i ↦ E i ω := measurable_pi_iff.2 fun i ↦ (hE i).measurable
-  refine IsEVar.of_lintegral_le_one hS (hF.measurable.comp hm) fun P hP ↦ ?_
+  refine ⟨hF.measurable.comp hm, fun P hP ↦ ?_⟩
   have := hS P hP
   rw [← lintegral_map hF.measurable hm]
   refine hF.lintegral_le_one _ (fun σ ↦ ?_) fun i ↦ ?_
@@ -131,7 +131,7 @@ theorem IsExchangeableEMerging.isEVar_comp [Countable ι] {Ω : Type*} {mΩ : Me
     exact (hexch P hP).map_eq_of_injective (fun i ↦ (hE i).measurable.aemeasurable) σ.injective
       Function.injective_id
   · rw [lintegral_map (measurable_pi_apply i) hm]
-    simpa using (hE i).lintegral_le_measure_univ P hP
+    exact (hE i).lintegral_le_one hP
 
 end Definition
 

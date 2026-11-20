@@ -467,8 +467,7 @@ theorem isEVar_ofReal_one_add_integral_subgaussianCompensatedExp (a : ℝ) (ν :
     (StronglyMeasurable.integral_prod_right (ν := ν)
       (f := fun (x : ℝ) (l : EReal) ↦ subgaussianCompensatedExp l x)
         hmeas.stronglyMeasurable).measurable
-  refine IsEVar.of_lintegral_le_one ?_ (by fun_prop) fun μ hμ' ↦ ?_
-  · exact fun μ hμ ↦ hμ.1
+  refine ⟨by fun_prop, fun μ hμ' ↦ ?_⟩
   obtain ⟨hμ1, hμ⟩ := hμ'
   have hint : Integrable (Function.uncurry fun (x : ℝ) (l : EReal) ↦ subgaussianCompensatedExp l x)
       (μ.prod ν) := integrable_prod_subgaussianCompensatedExp hμ ν

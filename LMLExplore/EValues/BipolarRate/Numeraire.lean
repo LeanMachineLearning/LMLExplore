@@ -216,10 +216,10 @@ e-variables `M n` for the `n`-fold products of the members of `S₁` and every `
 surely under the i.i.d. law of `Q₁`, eventually `log (M n) ≤ log (X* n) + n ε` at the first `n`
 observations, where `X* n` is Statlib's `numeraire` of the `n`-sample null under `Q₁ ^ n`. The
 ratio `M n / X* n` has mean at most `1` under `Q₁ ^ n`, so this is Markov's inequality and the
-Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only be finite measures. If `Q₁`
+Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only have mass at most `1`. If `Q₁`
 is not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
 theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) {ε : ℝ}
     (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
@@ -233,7 +233,7 @@ theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
   -- Markov's inequality and the Borel–Cantelli lemma for the ratio to the numeraire
   filter_upwards [ae_eventually_lt_exp_of_lintegral_le Q₁ (F := fun n x ↦ M n x / E n x)
     (fun n ↦ ((hM n).measurable.div (measurable_numeraire _ _)).aemeasurable) ENNReal.one_ne_top
-    (fun n ↦ lintegral_div_numeraire_le_one _ (isFiniteMeasure_of_mem_image_pi hS₁ n) (hM n))
+    (fun n ↦ lintegral_div_numeraire_le_one _ (measure_univ_le_one_of_mem_image_pi hS₁ n) (hM n))
     hε] with ω hω
   filter_upwards [hω] with n hn
   exact ENNReal.log_le_log_add_of_div_le hn.le
@@ -258,7 +258,7 @@ theorem ae_eventually_log_le_log_numeraire_add_of_dependsOn (Q₁ : Measure 𝓧
   choose G hG hFG using fun n ↦
     exists_isEVar_eq_comp_initSeg hS₁ (hF n) (hFn n) fun P hP ↦ h_null P hP n
   filter_upwards [ae_eventually_log_le_log_numeraire_add Q₁
-    (fun P hP ↦ have := hS₁ P hP; inferInstance) hG hε] with ω hω
+    (fun P hP ↦ (hS₁ P hP).measure_univ.le) hG hε] with ω hω
   filter_upwards [hω] with n hn
   rw [hFG n]
   exact hn
@@ -274,7 +274,7 @@ from above at a level where its mean still exceeds `m L`, and apply the strong l
 numbers along the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the
 statement holds trivially. -/
 theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
     ∃ m ≠ 0, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (seqBlockProd m
         (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁))
@@ -288,7 +288,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
-  have hfin := isFiniteMeasure_of_mem_image_pi hS₁ m
+  have hfin := measure_univ_le_one_of_mem_image_pi hS₁ m
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
   have hnum : IsNumeraire Em ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
@@ -300,8 +300,8 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
     rw [← maxUtility_eq_eintegral_numeraire _ hfin, ← maxLogGrowth_def]
     exact (EReal.coe_lt_div_natCast_iff (Nat.pos_of_ne_zero hm)).1 hk
   -- so does the expected logarithm truncated at a level `c`, which is integrable
-  obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm hnum.ae_ne_zero
-    (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot hnum.eintegral_log_ne_bot) hmL
+  obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm (hnum.ae_ne_zero hfin)
+    (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot (hnum.eintegral_log_ne_bot hfin)) hmL
   set g : (Fin m → 𝓧) → ℝ := fun x ↦ truncLog c (Em x)
   have hlt : L < (m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
     rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hm0]
@@ -310,7 +310,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   have h1 := strong_law_ae_seqBlock_nat_div Q₁ hgi
   have h2 : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ j, Em (seqBlock m j ω) ≠ 0 :=
     ae_all_iff.2 fun j ↦ (measurePreserving_seqBlock (fun _ ↦ Q₁) m j).quasiMeasurePreserving.ae
-      hnum.ae_ne_zero
+      (hnum.ae_ne_zero hfin)
   filter_upwards [h1, h2] with ω hω1 hω2
   filter_upwards [hω1.eventually (lt_mem_nhds hlt), eventually_ge_atTop 1] with n hn1 hn
   have hn0 : (0 : ℝ) < n := by exact_mod_cast hn
@@ -336,7 +336,7 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (T n ω) := by
   obtain ⟨L', hLL', hL'⟩ := EReal.lt_iff_exists_real_btwn.1 hL
   obtain ⟨m, -, h1⟩ := exists_ae_eventually_mul_le_log_seqBlockProd_numeraire Q₁
-    (fun P hP ↦ have := hS₁ P hP; inferInstance) hL'
+    (fun P hP ↦ (hS₁ P hP).measure_univ.le) hL'
   set Em := numeraire (Measure.pi fun _ : Fin m ↦ Q₁)
     ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
   have hEm : Measurable Em := measurable_numeraire _ _
@@ -346,7 +346,8 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
     (fun P hP n ↦ by
       have := hS₁ P hP
       rw [lintegral_seqBlockProd_const P hEm]
-      exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ _).lintegral_le_one ⟨P, hP, rfl⟩))
+      exact pow_le_one₀ (by positivity) ((isEVar_numeraire _ (measure_univ_le_one_of_mem_image_pi
+        (fun P hP ↦ (hS₁ P hP).measure_univ.le) m)).lintegral_le_one ⟨P, hP, rfl⟩))
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
   filter_upwards [hω1, hω2] with n hn1 hn2
@@ -405,7 +406,8 @@ theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧)
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
-  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _ _,
+  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
+      (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))

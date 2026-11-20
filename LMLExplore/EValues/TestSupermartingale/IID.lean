@@ -104,9 +104,8 @@ theorem measure_exists_le_seqBlockProd_le (P : Measure 𝓧) {m : ℕ} {V : (Fin
   rcases le_or_gt c 1 with hc | hc
   · exact prob_le_one.trans (ENNReal.one_le_inv.2 hc)
   -- the products of copies of `V` along the sequence of the blocks
-  have hE := (IsEVar.of_lintegral_le_one (S := {Measure.pi fun _ : Fin m ↦ P})
-    (fun _ h ↦ h ▸ inferInstance) hV fun _ h ↦ h ▸ hVP).isEProcess_prod_piLE
-    (fun _ h ↦ h ▸ inferInstance)
+  have hE := (show IsEVar V {Measure.pi fun _ : Fin m ↦ P} from
+    ⟨hV, fun _ h ↦ h ▸ hVP⟩).isEProcess_prod_piLE (fun _ h ↦ h ▸ inferInstance)
   have hblocks := measurePreserving_seqBlock_infinitePi (fun _ ↦ P) m
   have hset : {ω | ∃ k, c ≤ seqBlockProd m V k ω} = (fun ω j ↦ seqBlock m j ω) ⁻¹'
       {y | ∃ n, c ≤ ∏ i : Fin (n + 1), V (y i)} := by

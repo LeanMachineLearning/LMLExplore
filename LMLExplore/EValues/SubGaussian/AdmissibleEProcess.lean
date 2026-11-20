@@ -977,13 +977,10 @@ theorem isAdmissibleEProcess_ofReal_exp_sum_sub_iid :
       ((fun μ ↦ Measure.infinitePi fun _ : ℕ ↦ μ) ''
         {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
-  refine isEProcess_expProcess.isAdmissibleEProcess_of_exists_lintegral_eq ?_ ?_
-  · rintro _ ⟨μ, hμ, rfl⟩
-    have := hμ.1
-    infer_instance
-  · rintro n A hA ⟨_, ⟨μ, ⟨hμ, hμa, -⟩, rfl⟩, hμA⟩
-    obtain ⟨ν, hν, hνa, hνs, hν1, hνA⟩ := exists_touching_infinitePi_ne_zero hA hμA
-    exact ⟨_, ⟨ν, ⟨hν, hνa, hνs⟩, rfl⟩, hνA, by
-      rw [lintegral_expProcess_of_touching hν1 n, measure_univ]⟩
+  refine isEProcess_expProcess.isAdmissibleEProcess_of_exists_lintegral_eq ?_
+  rintro n A hA ⟨_, ⟨μ, ⟨hμ, hμa, -⟩, rfl⟩, hμA⟩
+  obtain ⟨ν, hν, hνa, hνs, hν1, hνA⟩ := exists_touching_infinitePi_ne_zero hA hμA
+  exact ⟨_, ⟨ν, ⟨hν, hνa, hνs⟩, rfl⟩, hνA, by
+    rw [lintegral_expProcess_of_touching hν1 n]⟩
 
 end ProbabilityTheory

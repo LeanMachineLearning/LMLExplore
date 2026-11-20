@@ -514,8 +514,8 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
           have := hS P hP
           exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N
     _ ≤ N * bipolarRate Q S := maxLogGrowth_le_mul_bipolarRate Q S (by omega)
-  rwa [← coe_toReal_bipolarRate hd, ← EReal.coe_natCast, ← EReal.coe_mul,
-    EReal.coe_le_coe_iff] at hle
+  rwa [← coe_toReal_bipolarRate (fun P hP ↦ (hS P hP).measure_univ.le) hd, ← EReal.coe_natCast,
+    ← EReal.coe_mul, EReal.coe_le_coe_iff] at hle
 
 /-- **The covering argument, for fixed `K`.** Letting `N → ∞` in
 `cover_le_mul_toReal_bipolarRate`. -/
@@ -601,9 +601,10 @@ private lemma coe_le_bipolarRate_of_ae_frequently (Q : Measure 𝓧) [IsProbabil
   by_cases hd : bipolarRate Q S = ⊤
   · rw [hd]
     exact le_top
-  rw [← coe_toReal_bipolarRate hd, EReal.coe_le_coe_iff]
+  rw [← coe_toReal_bipolarRate (fun P hP ↦ (hS P hP).measure_univ.le) hd, EReal.coe_le_coe_iff]
   by_cases hL0 : L ≤ 0
-  · exact hL0.trans (EReal.toReal_nonneg (bipolarRate_nonneg Q S))
+  · exact hL0.trans
+      (EReal.toReal_nonneg (bipolarRate_nonneg Q fun P hP ↦ (hS P hP).measure_univ.le))
   rw [not_le] at hL0
   -- let `ε → 0` and `k₀ → ∞`
   refine le_of_forall_pos_le_add fun η hη ↦ ?_
@@ -725,7 +726,8 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
   by_cases hd : bipolarRate Q₁ S₁ = ⊤
   · simp [hd]
   set d := (bipolarRate Q₁ S₁).toReal
-  have hdeq : (d : EReal) = bipolarRate Q₁ S₁ := coe_toReal_bipolarRate hd
+  have hdeq : (d : EReal) = bipolarRate Q₁ S₁ :=
+    coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd
   -- for `L > d`, almost surely `F n < exp (n L)` eventually
   have key (L : ℝ) (hL : d < L) :
       ∀ᵐ ω ∂μ, ∀ᶠ n : ℕ in atTop, F n ω < ENNReal.ofReal (Real.exp (n * L)) := by

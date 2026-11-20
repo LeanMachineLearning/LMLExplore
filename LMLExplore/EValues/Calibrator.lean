@@ -107,9 +107,9 @@ probability measures, `f ∘ p` is an e-variable for every calibrator `f` and ev
 p-variable `p`. -/
 theorem IsPToECalibrator.isEVar_comp (hf : IsPToECalibrator f)
     (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hp : IsPVar p S) : IsEVar (f ∘ p) S :=
-  IsEVar.of_lintegral_le_one hS (hf.measurable.comp hp.measurable) fun P hP ↦
+  ⟨hf.measurable.comp hp.measurable, fun P hP ↦
     have := hS P hP
-    (hp.lintegral_comp_le hP prob_le_one hf.antitone).trans hf.lintegral_le_one
+    (hp.lintegral_comp_le hP prob_le_one hf.antitone).trans hf.lintegral_le_one⟩
 
 /-- **The converse**: an antitone function vanishing on `(1, ∞]` is a calibrator exactly when it
 turns the identity of `[0, 1]`, an exact p-variable under the Lebesgue measure on `[0, 1]`, into

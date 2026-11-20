@@ -147,13 +147,13 @@ theorem IsIEMerging.isEVar_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set
     (hE : ∀ i, IsEVar (E i) S) (hindep : ∀ P ∈ S, iIndepFun E P) :
     IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
   have hm : Measurable fun ω i ↦ E i ω := measurable_pi_iff.2 fun i ↦ (hE i).measurable
-  refine IsEVar.of_lintegral_le_one hS (hF.measurable.comp hm) fun P hP ↦ ?_
+  refine ⟨hF.measurable.comp hm, fun P hP ↦ ?_⟩
   have := hS P hP
   rw [← lintegral_map hF.measurable hm,
     (hindep P hP).map_fun_eq_pi_map fun i ↦ (hE i).measurable.aemeasurable]
   refine hF.lintegral_le_one _ fun i ↦ ?_
   rw [lintegral_map measurable_id' (hE i).measurable]
-  simpa using (hE i).lintegral_le_measure_univ P hP
+  exact (hE i).lintegral_le_one hP
 
 /-- A function of e-values is a merging function for independent e-values exactly when it turns
 e-variables that are independent under every member of the null into an e-variable, for every
@@ -172,15 +172,15 @@ theorem isIEMerging_iff_forall_isEVar {ι : Type u} [Fintype ι] {F : (ι → �
     rintro _ ⟨μ, hμ, -, rfl⟩
     infer_instance
   have hF := h (ι → ℝ≥0∞) S hS (fun i e ↦ e i)
-    (fun i ↦ IsEVar.of_lintegral_le_one hS (measurable_pi_apply i) fun P ↦ by
+    (fun i ↦ ⟨measurable_pi_apply i, fun P ↦ by
       rintro ⟨μ, hμ, hmean, rfl⟩
       rw [(measurePreserving_eval μ i).lintegral_comp measurable_id']
-      exact hmean i)
+      exact hmean i⟩)
     (by
       rintro _ ⟨μ, hμ, -, rfl⟩
       exact iIndepFun_pi (X := fun _ x ↦ x) fun _ ↦ aemeasurable_id')
   refine ⟨hF.measurable, fun μ _ hμ ↦ ?_⟩
-  simpa using hF.lintegral_le_measure_univ (Measure.pi μ) ⟨μ, inferInstance, hμ, rfl⟩
+  exact hF.lintegral_le_one ⟨μ, inferInstance, hμ, rfl⟩
 
 end Definition
 

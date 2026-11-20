@@ -120,12 +120,12 @@ theorem IsEMerging.isEVar_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set 
     (hF : IsEMerging F) (hS : ∀ P ∈ S, IsProbabilityMeasure P) {E : ι → Ω → ℝ≥0∞}
     (hE : ∀ i, IsEVar (E i) S) : IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
   have hm : Measurable fun ω i ↦ E i ω := measurable_pi_iff.2 fun i ↦ (hE i).measurable
-  refine IsEVar.of_lintegral_le_one hS (hF.measurable.comp hm) fun P hP ↦ ?_
+  refine ⟨hF.measurable.comp hm, fun P hP ↦ ?_⟩
   have := hS P hP
   rw [← lintegral_map hF.measurable hm]
   refine hF.lintegral_le_one _ fun i ↦ ?_
   rw [lintegral_map (measurable_pi_apply i) hm]
-  simpa using (hE i).lintegral_le_measure_univ P hP
+  exact (hE i).lintegral_le_one hP
 
 /-- A function of e-values is e-merging exactly when it turns e-variables into an e-variable, for
 every null hypothesis of probability measures on every measurable space in the universe of `ι`.
@@ -140,9 +140,8 @@ theorem isEMerging_iff_forall_isEVar {ι : Type u} {F : (ι → ℝ≥0∞) → 
     {μ | IsProbabilityMeasure μ ∧ ∀ i, ∫⁻ e, e i ∂μ ≤ 1}
   have hS : ∀ μ ∈ S, IsProbabilityMeasure μ := fun μ hμ ↦ hμ.1
   have hF := h (ι → ℝ≥0∞) S hS (fun i e ↦ e i)
-    fun i ↦ IsEVar.of_lintegral_le_one hS (measurable_pi_apply i) fun μ hμ ↦ hμ.2 i
-  refine ⟨hF.measurable, fun μ _ hle ↦ ?_⟩
-  simpa using hF.lintegral_le_measure_univ μ ⟨‹_›, hle⟩
+    fun i ↦ ⟨measurable_pi_apply i, fun μ hμ ↦ hμ.2 i⟩
+  exact ⟨hF.measurable, fun μ _ hle ↦ hF.lintegral_le_one ⟨‹_›, hle⟩⟩
 
 omit [Fintype ι] in
 /-- An e-merging function of finitely many e-values is finite at finite arguments. -/

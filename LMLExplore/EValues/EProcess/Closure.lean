@@ -112,7 +112,7 @@ theorem IsEProcess.singleton_comp (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     isProbabilityMeasure_bind κ.aemeasurable (hκ.mono fun θ hθ ↦ hS _ hθ)
   refine hE.effectiveSet_inter.anti_set (singleton_subset_iff.2 (mem_inter ?_ hprob))
   exact comp_mem_effectiveSet (by simp)
-    (hκ.mono fun θ hθ ↦ subset_effectiveSet (fun P hP ↦ (hS P hP).measure_univ.le) hθ)
+    (hκ.mono fun θ hθ ↦ subset_effectiveSet hθ)
 
 /-- A process that is an e-process for `S` and for `T` is an e-process for `S ∪ T`. -/
 theorem IsEProcess.union (hS : IsEProcess E ℱ S) (hT : IsEProcess E ℱ T) :
@@ -126,12 +126,12 @@ theorem isEProcess_union_iff : IsEProcess E ℱ (S ∪ T) ↔ IsEProcess E ℱ S
 
 /-! ### Minima -/
 
-/-- **Minima of e-processes.** For nulls of finite measures, the minimum of an e-process for `S`
-and an e-process for `T` is an e-process for `S ∪ T`. -/
-theorem IsEProcess.inf (hS : ∀ P ∈ S, IsFiniteMeasure P) (hT : ∀ P ∈ T, IsFiniteMeasure P)
-    (hE : IsEProcess E ℱ S) (hF : IsEProcess F ℱ T) : IsEProcess (E ⊓ F) ℱ (S ∪ T) := by
+/-- **Minima of e-processes.** The minimum of an e-process for `S` and an e-process for `T` is an
+e-process for `S ∪ T`. -/
+theorem IsEProcess.inf (hE : IsEProcess E ℱ S) (hF : IsEProcess F ℱ T) :
+    IsEProcess (E ⊓ F) ℱ (S ∪ T) := by
   have hEF : Adapted ℱ (E ⊓ F) := fun n ↦ (hE.adapted n).min (hF.adapted n)
-  exact (hE.mono hS hEF inf_le_left).union (hF.mono hT hEF inf_le_right)
+  exact (hE.mono hEF inf_le_left).union (hF.mono hEF inf_le_right)
 
 /-! ### Mixtures -/
 
@@ -144,8 +144,7 @@ theorem isEProcess_lintegral {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measu
     (hE : ∀ θ, IsEProcess (E θ) ℱ S) :
     IsEProcess (fun n ω ↦ ∫⁻ θ, E θ n ω ∂π) ℱ S := by
   have hM := adapted_lintegral (π := π) hE_meas
-  refine ⟨hM, fun τ hτ ↦ .of_lintegral_le_measure_univ hS (hM.measurable_apply_stoppingTime hτ)
-    fun P hP ↦ ?_⟩
+  refine ⟨hM, fun τ hτ ↦ ⟨hM.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_⟩⟩
   have := hS P hP
   -- the value at `τ` is jointly measurable, since `τ` takes countably many values
   have h_meas : Measurable fun q : Ω × Θ ↦ E q.2 (τ q.1) q.1 :=
@@ -154,30 +153,29 @@ theorem isEProcess_lintegral {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measu
         measurable_swap) (hτ.measurable_nat.comp measurable_fst)
   calc ∫⁻ ω, ∫⁻ θ, E θ (τ ω) ω ∂π ∂P
   _ = ∫⁻ θ, ∫⁻ ω, E θ (τ ω) ω ∂P ∂π := lintegral_lintegral_swap h_meas.aemeasurable
-  _ ≤ ∫⁻ _, P univ ∂π := lintegral_mono fun θ ↦
-    ((hE θ).isEVar_stoppedValue τ hτ).lintegral_le_measure_univ P hP
-  _ = P univ := by simp
+  _ ≤ ∫⁻ _, 1 ∂π := lintegral_mono fun θ ↦ ((hE θ).isEVar_stoppedValue τ hτ).lintegral_le_one hP
+  _ = 1 := by simp
 
-/-- **Time mixtures of e-variables** [RW, (7.12), Proposition 7.23]. For a null of finite
-measures, e-variables `E j` that are `ℱ j`-measurable, and weights `w j` with `∑' j, w j ≤ 1`, the
-nondecreasing process `n ↦ ∑ j ≤ n, w j * E j` is an e-process. -/
-theorem isEProcess_sum_mul (hS : ∀ P ∈ S, IsFiniteMeasure P)
-    (hE_meas : ∀ j, Measurable[ℱ j] (E j)) (hE : ∀ j, IsEVar (E j) S) {w : ℕ → ℝ≥0∞}
+/-- **Time mixtures of e-variables** [RW, (7.12), Proposition 7.23]. For e-variables `E j` that
+are `ℱ j`-measurable, and weights `w j` with `∑' j, w j ≤ 1`, the nondecreasing process
+`n ↦ ∑ j ≤ n, w j * E j` is an e-process. -/
+theorem isEProcess_sum_mul (hE_meas : ∀ j, Measurable[ℱ j] (E j)) (hE : ∀ j, IsEVar (E j) S)
+    {w : ℕ → ℝ≥0∞}
     (hw : ∑' j, w j ≤ 1) :
     IsEProcess (fun n ω ↦ ∑ j ∈ Finset.Iic n, w j * E j ω) ℱ S := by
   have hM : Adapted ℱ (fun n ω ↦ ∑ j ∈ Finset.Iic n, w j * E j ω) := fun n ↦
     Finset.measurable_fun_sum _ fun j hj ↦
       ((hE_meas j).mono (ℱ.mono (Finset.mem_Iic.1 hj)) le_rfl).const_mul (w j)
   -- at every time, the process is at most the e-variable `∑' j, w j * E j`
-  exact ⟨hM, fun τ hτ ↦ (isEVar_tsum_mul hS hE hw).mono hS (hM.measurable_apply_stoppingTime hτ)
+  exact ⟨hM, fun τ hτ ↦ (isEVar_tsum_mul hE hw).mono (hM.measurable_apply_stoppingTime hτ)
     fun ω ↦ sum_le_tsum _⟩
 
 /-! ### Conditional validity and optional continuation -/
 
-/-- **Conditional validity of e-processes.** For a null of finite measures, an e-process `E` and
-stopping times `ρ ≤ σ` with values in `ℕ` such that `1 ≤ E (ρ ω) ω` for every `ω`, the value
+/-- **Conditional validity of e-processes.** For a null of probability measures, an e-process `E`
+and stopping times `ρ ≤ σ` with values in `ℕ` such that `1 ≤ E (ρ ω) ω` for every `ω`, the value
 `fun ω ↦ E (σ ω) ω` at `σ` is a conditional e-variable given the σ-algebra at `ρ`. -/
-theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsFiniteMeasure P)
+theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     (hE : IsEProcess E ℱ S) {ρ σ : Ω → ℕ} (hρ : IsStoppingTime ℱ fun ω ↦ (ρ ω : WithTop ℕ))
     (hσ : IsStoppingTime ℱ fun ω ↦ (σ ω : WithTop ℕ)) (hρσ : ρ ≤ σ)
     (hE1 : ∀ ω, 1 ≤ E (ρ ω) ω) :
@@ -204,21 +202,20 @@ theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsFiniteMeasure P)
       rw [piecewise_eq_of_mem _ _ _ hω]
     · refine setLIntegral_congr_fun hs'.compl fun ω hω ↦ ?_
       rw [piecewise_eq_of_notMem _ _ _ hω]
-  _ ≤ P univ := (hE.isEVar_stoppedValue _ hσs).lintegral_le_measure_univ P hP
-  _ = P s + P sᶜ := (measure_add_measure_compl hs').symm
+  _ ≤ 1 := (hE.isEVar_stoppedValue _ hσs).lintegral_le_one hP
+  _ = P s + P sᶜ := by rw [measure_add_measure_compl hs', measure_univ]
 
-/-- **Optional continuation of e-processes** [RW, Proposition 7.9]. For a null of finite measures,
-e-processes `A` and `B` and a stopping time `τ` such that `1 ≤ B n` whenever `n ≤ τ`, the process
-`stoppedProcess A τ * B`, equal to `A n * B n` (so at least `A n`) up to `τ` and to `A τ * B n`
-after it, is an e-process. -/
-theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsFiniteMeasure P)
+/-- **Optional continuation of e-processes** [RW, Proposition 7.9]. For a null of probability
+measures, e-processes `A` and `B` and a stopping time `τ` such that `1 ≤ B n` whenever `n ≤ τ`, the
+process `stoppedProcess A τ * B`, equal to `A n * B n` (so at least `A n`) up to `τ` and to
+`A τ * B n` after it, is an e-process. -/
+theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {A B : ℕ → Ω → ℝ≥0∞} (hA : IsEProcess A ℱ S) {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ)
     (hB : IsEProcess B ℱ S) (hB1 : ∀ (n : ℕ) ω, (n : WithTop ℕ) ≤ τ ω → 1 ≤ B n ω) :
     IsEProcess (stoppedProcess A τ * B) ℱ S := by
   have hM : Adapted ℱ (stoppedProcess A τ * B) :=
     (hA.adapted.stoppedProcess_of_discrete hτ).mul hB.adapted
-  refine ⟨hM, fun σ hσ ↦ .of_lintegral_le_measure_univ hS (hM.measurable_apply_stoppingTime hσ)
-    fun P hP ↦ ?_⟩
+  refine ⟨hM, fun σ hσ ↦ ⟨hM.measurable_apply_stoppingTime hσ, fun P hP ↦ ?_⟩⟩
   -- `ρ = min σ τ`, the time at which `A` is read, with values in `ℕ`
   have hmin_ne (ω : Ω) : min (σ ω : WithTop ℕ) (τ ω) ≠ ⊤ :=
     ne_top_of_le_ne_top WithTop.coe_ne_top (min_le_left _ _)
@@ -244,6 +241,6 @@ theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsFiniteMeasure P)
     rw [stoppedProcess_eq_stoppedValue_apply, stoppedValue, hρ_def, Nat.cast_withTop]
   rw [h_eq]
   exact (hB_cond.lintegral_mul_le (hρ.measurableSpace_le) hP hAρ).trans
-    ((hA.isEVar_stoppedValue ρ hρ).lintegral_le_measure_univ P hP)
+    ((hA.isEVar_stoppedValue ρ hρ).lintegral_le_one hP)
 
 end ProbabilityTheory

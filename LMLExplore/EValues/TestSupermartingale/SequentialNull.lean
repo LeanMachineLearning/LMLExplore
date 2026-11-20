@@ -165,9 +165,8 @@ theorem isCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k : ℕ
     IsCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨hr.comp_prodMk_of_le (ℱ.le k) hX, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
-  exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
-    (hr1 ω).lintegral_le_measure_univ _ hω))
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← setLIntegral_one]
+  exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦ (hr1 ω).lintegral_le_one hω))
 
 /-- **One round against the sequential null, exact case.** Let `S₁` be a set of measures,
 let `X k` be measurable, and let `r ω` be an exact e-variable for `S₁` for
@@ -178,9 +177,8 @@ theorem isExactCondEVar_comp_sequentialNull {r : Ω → 𝓧 → ℝ≥0∞} {k 
     IsExactCondEVar (fun ω ↦ r ω (X k ω)) (ℱ k) (sequentialNull S₁ X ℱ) := by
   refine ⟨hr.comp_prodMk_of_le (ℱ.le k) hX, fun P hP s hs ↦ ?_⟩
   obtain ⟨κ, hκ, hκS⟩ := exists_hasCondLaw_of_mem_sequentialNull hP k
-  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← hκ.setLIntegral_measure_univ (ℱ.le k) hs]
-  exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
-    (hr1 ω).lintegral_eq_measure_univ _ hω))
+  rw [hκ.setLIntegral_comp (ℱ.le k) hr hs, ← setLIntegral_one]
+  exact lintegral_congr_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦ (hr1 ω).lintegral_eq_one hω))
 
 /-- **Products of e-variables chosen from the past are test supermartingales for the sequential
 null** [GdHK24, Proposition 2]. Let `S₁` be a set of measures, let `X k` be
@@ -219,15 +217,16 @@ theorem IsEVar.isTestSupermartingale_prod_sequentialNull {e : 𝓧 → ℝ≥0�
     (fun _ ↦ he.measurable.comp measurable_snd) fun _ _ ↦ he
 
 /-- **The product of the numeraires is a test supermartingale for the sequential null.** For a
-set `S₁` of measures, an alternative `Q₁` and `ℱ (k + 1)`-measurable observations
+set `S₁` of measures of mass at most `1`, an alternative `Q₁` and `ℱ (k + 1)`-measurable
+observations
 `X k`, the product `∏ k < n, X* (X k ω)` of the numeraire `X* = numeraire Q₁ S₁` (Statlib's
 `ProbabilityTheory.numeraire`, for a finite measure `Q₁` the log-optimal e-variable for `S₁` under
 `Q₁`) is a test supermartingale for the sequential null `sequentialNull S₁ X ℱ` [KG22,
 Theorem 12]. -/
 theorem isTestSupermartingale_prod_numeraire_sequentialNull (Q₁ : Measure 𝓧)
-    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, numeraire Q₁ S₁ (X k ω)) ℱ
       (sequentialNull S₁ X ℱ) :=
-  (isEVar_numeraire Q₁ S₁).isTestSupermartingale_prod_sequentialNull hX
+  (isEVar_numeraire Q₁ hS₁).isTestSupermartingale_prod_sequentialNull hX
 
 end ProbabilityTheory

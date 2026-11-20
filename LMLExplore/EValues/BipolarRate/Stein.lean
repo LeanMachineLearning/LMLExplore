@@ -158,8 +158,8 @@ private lemma eventually_minTestSize_le (Q₁ : Measure 𝓧) [IsProbabilityMeas
       ENNReal.ofReal (Real.exp (-(n * r))) := by
     refine iSup₂_le ?_
     rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    exact (isEVar_numeraire _ _).measure_inv_le_le
+    exact (isEVar_numeraire _ (measure_univ_le_one_of_mem_image_pi
+      (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)).measure_inv_le_le
       (Set.mem_image_of_mem (fun P ↦ Measure.pi fun _ : Fin n ↦ P) hP) _
   -- almost surely, the first `n` observations are eventually in `C n`
   have hae : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
@@ -203,10 +203,7 @@ private lemma eventually_le_minTestSize (Q₁ : Measure 𝓧) [IsProbabilityMeas
   set M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦
     (C n).indicator fun _ ↦ ENNReal.ofReal (Real.exp (n * r))
   have hM (n : ℕ) : IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) := by
-    refine IsEVar.of_lintegral_le_one ?_ (measurable_const.indicator (hC n).1) fun μ hμ ↦ ?_
-    · rintro _ ⟨P, hP, rfl⟩
-      have := hS₁ P hP
-      infer_instance
+    refine ⟨measurable_const.indicator (hC n).1, fun μ hμ ↦ ?_⟩
     · rw [lintegral_indicator_const (hC n).1]
       calc ENNReal.ofReal (Real.exp (n * r)) * μ (C n)
       _ ≤ ENNReal.ofReal (Real.exp (n * r)) * ENNReal.ofReal (Real.exp (-(n * r))) := by

@@ -210,7 +210,7 @@ private lemma isNumeraire_ofReal_div_mix {β : Type*} [MeasurableSpace β]
     refine Finset.sum_congr rfl fun x _ ↦ ?_
     rw [hμ, ← ENNReal.ofReal_mul (div_nonneg (hq x).le (hm x).le), mul_comm]
   have hW : IsEVar (fun x ↦ ENNReal.ofReal (q x / m x)) {P₁, P₂} := by
-    refine IsEVar.of_lintegral_le_one hS Measurable.of_discrete ?_
+    refine ⟨Measurable.of_discrete, ?_⟩
     simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
     rintro μ (rfl | rfl)
     · rw [hint a ha _ hP₁]
@@ -293,7 +293,7 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
     IsEVar (fun y ↦ Q {y} / P₁ {y}) {P₁, P₂} ∧ ∀ n x, X n x = ∏ i, Q {x i} / P₁ {x i} := by
   have := Fintype.ofFinite α
   refine ⟨?_, fun n x ↦ ?_⟩
-  · refine IsEVar.of_lintegral_le_one isProbabilityMeasure_of_mem_pair Measurable.of_discrete ?_
+  · refine ⟨Measurable.of_discrete, ?_⟩
     simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
     rintro μ (rfl | rfl)
     · exact (isEVar_div_singleton (Q := Q) hP₁).lintegral_le_one (by simp)
@@ -767,7 +767,7 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
       isProbabilityMeasure_of_mem_pair
     -- `e` is an e-variable: it is the numeraire of one observation
     have he : IsEVar e {P₁, P₂} := by
-      refine IsEVar.of_lintegral_le_one hS Measurable.of_discrete fun P hP ↦ ?_
+      refine ⟨Measurable.of_discrete, fun P hP ↦ ?_⟩
       have := hS P hP
       have h0 := ((hX 0).isEVar).lintegral_le_one (Set.mem_image_of_mem _ hP)
       rwa [lintegral_congr fun x ↦ (hXe 0 x).trans (Fin.prod_univ_one _),

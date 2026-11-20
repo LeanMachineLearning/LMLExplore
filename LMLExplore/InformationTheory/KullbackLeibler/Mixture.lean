@@ -64,16 +64,14 @@ theorem klDiv_mixture_of_mutuallySingular {μ ν : Measure 𝓧} [IsProbabilityM
       calc ε * ∫⁻ x, X x ∂μ
       _ ≤ (1 - ε) * ∫⁻ x, X x ∂ν + ε * ∫⁻ x, X x ∂μ := le_add_self
       _ = ∫⁻ x, X x ∂P := by simp [P, lintegral_add_measure]
-      _ ≤ P .univ := hX.lintegral_le_measure_univ P rfl
-      _ = 1 := measure_univ
+      _ ≤ 1 := hX.lintegral_le_one rfl
     calc ∫ᵉ x, (logUtility ∘ X) x ∂μ
     _ ≤ logUtility (∫⁻ x, X x ∂μ) :=
       Utility.eintegral_le_map logUtility hX.measurable.aemeasurable
     _ ≤ ENNReal.log ε⁻¹ := ENNReal.log_monotone hle
   · -- `1 / ε` times the indicator of the set `t` charged by `μ` alone is an e-variable
     have hX : IsEVar (t.indicator fun _ ↦ ε⁻¹) {P} := by
-      refine IsEVar.of_lintegral_le_one (by simpa using hP)
-        (measurable_const.indicator ht) fun P' hP' ↦ ?_
+      refine ⟨measurable_const.indicator ht, fun P' hP' ↦ ?_⟩
       rw [Set.mem_singleton_iff.1 hP', lintegral_indicator_const ht]
       calc ε⁻¹ * P t
       _ = ε⁻¹ * (ε * μ t) := by simp [P, t, hνμ.measure_nullSet]

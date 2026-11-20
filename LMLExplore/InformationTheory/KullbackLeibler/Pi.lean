@@ -41,9 +41,7 @@ two marginals. -/
 lemma klDiv_fst_add_klDiv_snd_le (R : Measure (𝓧 × 𝓨)) [IsProbabilityMeasure R] (P : Measure 𝓧)
     (P' : Measure 𝓨) [IsProbabilityMeasure P] [IsProbabilityMeasure P'] :
     klDiv R.fst P + klDiv R.snd P' ≤ klDiv R (P.prod P') := by
-  have h := maxUtility_fst_add_maxUtility_snd_le R (S := {P}) (T := {P'})
-    (fun μ hμ ↦ by rw [Set.mem_singleton_iff.1 hμ]; infer_instance)
-    (fun μ hμ ↦ by rw [Set.mem_singleton_iff.1 hμ]; infer_instance)
+  have h := maxUtility_fst_add_maxUtility_snd_le R (S := {P}) (T := {P'}) (by simp) (by simp)
   rwa [Set.image2_singleton, maxUtility_singleton_eq_klDiv, maxUtility_singleton_eq_klDiv,
     maxUtility_singleton_eq_klDiv, ← EReal.coe_ennreal_add,
     EReal.coe_ennreal_le_coe_ennreal_iff] at h

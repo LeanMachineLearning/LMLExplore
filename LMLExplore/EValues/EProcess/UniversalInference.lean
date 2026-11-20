@@ -97,7 +97,7 @@ theorem isEProcess_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have := hS P hP
   -- under `P`, the ratio is dominated by the likelihood ratio process of `Q` against `P`
   refine ((isTestSupermartingale_rnDeriv_trim (P := P) (ℱ := ℱ) hQ).isEProcess
-    (by simpa using this)).mono_ae (by simpa using inferInstanceAs (IsFiniteMeasure P)) hE ?_
+    (by simpa using this)).mono_ae hE ?_
   intro P' hP' n
   rw [mem_singleton_iff.1 hP']
   refine ae_le_of_ae_le_trim (hm := ℱ.le n) (Measure.rnDeriv_div_ae_le_rnDeriv (hSμ P hP n) ?_)
@@ -193,8 +193,7 @@ theorem isEVar_div_comp_of_indepFun [SigmaFinite ν] (hS : ∀ P ∈ S, IsProbab
     (hle : ∀ P ∈ S, (P.map D₀).rnDeriv ν ≤ᵐ[ν] ℓ) {q : 𝓩 → 𝓨 → ℝ≥0∞}
     (hq : Measurable (Function.uncurry q)) (hq1 : ∀ z, ∫⁻ y, q z y ∂ν ≤ 1) :
     IsEVar (fun ω ↦ q (D₁ ω) (D₀ ω) / ℓ (D₀ ω)) S := by
-  refine IsEVar.of_lintegral_le_one hS (((hq.comp (hD₁.prodMk hD₀)).div (hℓ.comp hD₀)))
-    fun P hP ↦ ?_
+  refine ⟨(hq.comp (hD₁.prodMk hD₀)).div (hℓ.comp hD₀), fun P hP ↦ ?_⟩
   have := hS P hP
   -- the prediction fitted on `D₁`, a function of `D₁` and of the value of `D₀`
   let r : Ω → 𝓨 → ℝ≥0∞ := fun ω y ↦ q (D₁ ω) y / ℓ y
@@ -215,7 +214,7 @@ theorem isEVar_div_comp_of_indepFun [SigmaFinite ν] (hS : ∀ P ∈ S, IsProbab
         ≤ ℓ y * (q (D₁ ω) y / ℓ y) := by gcongr
       _ ≤ q (D₁ ω) y := ENNReal.mul_div_le
   exact ((hlaw.isCondEVar_comp hD₁.comap_le hD₀ hr (ae_of_all _ hr1)).isEVar
-    (by simpa using inferInstanceAs (IsFiniteMeasure P))).lintegral_le_one (mem_singleton P)
+    (by simp)).lintegral_le_one (mem_singleton P)
 
 end Split
 
