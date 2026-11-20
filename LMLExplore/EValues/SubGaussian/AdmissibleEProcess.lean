@@ -9,7 +9,7 @@ public import LMLExplore.EValues.EProcess.Admissible
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.Calculus.MeanValue
-import LMLExplore.EValues.TestSupermartingale
+import LMLExplore.Probability.Martingale.TestSupermartingale
 import LMLExplore.Probability.Distributions.Gaussian.Real
 import LMLExplore.Probability.Moments.IntegrableExpMul
 import LMLExplore.Probability.Moments.SubGaussian.Basic

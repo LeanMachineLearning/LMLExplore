@@ -30,8 +30,12 @@ All terms are nonnegative: dropping overshoot, decrease and remainder gives Vill
 [Vil39; RW, Fact 7.6], with equality exactly when the three vanish. From time `m` on `s`, it
 gives the extended Ville inequality [WR23, Theorem 4.1] for every `ℝ≥0∞`-valued supermartingale,
 with no integrability condition:
-`P (s ∩ {∃ n ≥ m, c ≤ M n}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c`. Ville's inequality for test
-supermartingales, `P {∃ n, α⁻¹ ≤ M n} ≤ α`, is the time-uniform validity of the test that
+`P (s ∩ {∃ n ≥ m, c ≤ M n}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c`. Restricting to the
+`ℱ m`-measurable sets `s ∩ {k⁻¹ < M m}`, of finite measure, it holds under every measure, finite
+or not. Its case `m = 0`, `s = univ` is Ville's inequality, whose case `ENNReal.ofReal ∘ f` is
+Ville's inequality for real nonnegative supermartingales,
+`MeasureTheory.Supermartingale.measure_exists_le_le`. Ville's inequality for
+test supermartingales, `P {∃ n, α⁻¹ ≤ M n} ≤ α`, is the time-uniform validity of the test that
 rejects the null as soon as the evidence exceeds `α⁻¹`.
 
 ## Main statements
@@ -359,12 +363,10 @@ private theorem mul_measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ 
   rw [hset, hM.setLIntegral_eq_exact_ville hP h0 b hs, add_assoc, add_assoc]
   exact le_self_add
 
-/-- **The extended Ville inequality** [WR23, Theorem 4.1]. For every `ℝ≥0∞`-valued
-supermartingale under a finite measure, with no integrability condition, every time `m`, every
-`ℱ m`-measurable set `s` and every level `0 < c < ∞`,
-`P (s ∩ {∃ n ≥ m, c ≤ M n}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c`. -/
-theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
-    [IsFiniteMeasure P] {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) :
+/-- The extended Ville inequality under a finite measure. -/
+private theorem measure_inter_exists_le_le_of_isFiniteMeasure (hM : IsENNSupermartingale M ℱ S)
+    (hP : P ∈ S) [IsFiniteMeasure P] {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞)
+    (hs : MeasurableSet[ℱ m] s) :
     P (s ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c := by
   -- `M` capped at `c` is a supermartingale with finite initial expectation reaching `c` exactly
   -- when `M` does.
@@ -377,10 +379,72 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
   simpa only [Pi.inf_apply, le_inf_iff, le_refl, and_true] using
     hMc.mul_measure_inter_exists_le_le hP h0 c hs
 
-/-- **Ville's inequality** [Vil39; RW, Fact 7.6]. For every `ℝ≥0∞`-valued supermartingale under a
-finite measure, with no integrability condition, and every level `0 < c < ∞`, the probability
-that the process ever reaches `c` is at most `(∫⁻ ω, M 0 ω ∂P) / c`. -/
-theorem measure_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) [IsFiniteMeasure P]
+/-- **The extended Ville inequality** [WR23, Theorem 4.1]. For every `ℝ≥0∞`-valued
+supermartingale under any measure, with no integrability condition, every time `m`, every
+`ℱ m`-measurable set `s` and every level `0 < c < ∞`,
+`P (s ∩ {∃ n ≥ m, c ≤ M n}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c`. -/
+theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
+    {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) :
+    P (s ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) ≤ (∫⁻ ω in s, min (M m ω) c ∂P) / c := by
+  set E := {ω | ∃ n ≥ m, c ≤ M n ω}
+  set R := ∫⁻ ω in s, min (M m ω) c ∂P
+  rcases eq_or_ne R ∞ with hR | hR
+  · rw [hR, ENNReal.top_div_of_ne_top hc]
+    exact le_top
+  -- The bound holds under the restriction of `P` to each set `B k = s ∩ {k⁻¹ < M m}`, which is
+  -- `ℱ m`-measurable and of finite measure by Markov's inequality. Under that restriction, `M`
+  -- with the value `∞` before time `m` is a supermartingale.
+  set B : ℕ → Set Ω := fun k ↦ s ∩ {ω | (k : ℝ≥0∞)⁻¹ < M m ω}
+  have hB (k : ℕ) : MeasurableSet[ℱ m] (B k) := hs.inter (measurableSet_lt measurable_const
+    (hM.adapted m))
+  have hbound (k : ℕ) : P (B k ∩ E) ≤ R / c := by
+    set a := min (k : ℝ≥0∞)⁻¹ c
+    have ha0 : a ≠ 0 := (lt_min (ENNReal.inv_pos.2 (ENNReal.natCast_ne_top k))
+      (pos_iff_ne_zero.2 hc0)).ne'
+    have ha : a ≠ ∞ := ((min_le_right _ _).trans_lt hc.lt_top).ne
+    have : IsFiniteMeasure (P.restrict (B k)) := isFiniteMeasure_restrict.2 <| by
+      refine (lt_of_le_of_lt ?_ ((meas_ge_le_lintegral_div
+        ((hM.measurable m).min measurable_const).aemeasurable ha0 ha).trans_lt
+        (ENNReal.div_lt_top hR ha0))).ne
+      rw [Measure.restrict_apply' (ℱ.le m _ hs)]
+      exact measure_mono fun ω hω ↦ ⟨show a ≤ _ from min_le_min hω.2.le le_rfl, hω.1⟩
+    set M' : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ if n < m then ∞ else M n ω
+    have hM' : IsENNSupermartingale M' ℱ {P.restrict (B k)} := hM.ite_top_restrict hP (hB k)
+    have hE' : {ω | ∃ n ≥ m, c ≤ M' n ω} = E := by
+      ext ω
+      exact exists_congr fun n ↦ and_congr_right fun hn ↦ by simp [M', not_lt.2 hn]
+    have h := hM'.measure_inter_exists_le_le_of_isFiniteMeasure (m := m) (mem_singleton _) hc0 hc
+      MeasurableSet.univ
+    rw [univ_inter, hE', Measure.restrict_univ, Measure.restrict_apply' (ℱ.le m _ (hB k))] at h
+    simp only [M', lt_self_iff_false, ↓reduceIte] at h
+    rw [inter_comm]
+    exact h.trans (ENNReal.div_le_div_right (lintegral_mono_set inter_subset_left) c)
+  -- On `Z = s ∩ {M m = 0}`, the process vanishes almost surely from time `m` on.
+  set Z := s ∩ {ω | M m ω = 0}
+  have hZE : P (Z ∩ E) = 0 := by
+    refine measure_eq_zero_iff_ae_notMem.2 ?_
+    filter_upwards [hM.ae_eq_zero_of_eq_zero hP] with ω hω ⟨hωZ, n, hn, hcn⟩
+    exact hc0 (le_zero_iff.1 (hcn.trans_eq (hω m hωZ.2 n hn)))
+  -- The sets `B k` increase to `s` off `Z`.
+  have hcover : s ∩ E ⊆ (⋃ k, B k ∩ E) ∪ Z ∩ E := by
+    rintro ω ⟨hωs, hωE⟩
+    rcases eq_or_ne (M m ω) 0 with h0 | h0
+    · exact Or.inr ⟨⟨hωs, h0⟩, hωE⟩
+    · obtain ⟨k, hk⟩ := ENNReal.exists_inv_nat_lt h0
+      exact Or.inl (mem_iUnion.2 ⟨k, ⟨hωs, hk⟩, hωE⟩)
+  have hmono : Monotone fun k ↦ B k ∩ E := fun i j hij ↦ inter_subset_inter_left _
+    (inter_subset_inter_right _ fun ω (hω : (i : ℝ≥0∞)⁻¹ < M m ω) ↦
+      (ENNReal.inv_le_inv.2 (Nat.cast_le.2 hij)).trans_lt hω)
+  calc P (s ∩ E) ≤ P (⋃ k, B k ∩ E) + P (Z ∩ E) :=
+        (measure_mono hcover).trans (measure_union_le _ _)
+    _ ≤ R / c := by
+        rw [hZE, add_zero, hmono.measure_iUnion]
+        exact iSup_le hbound
+
+/-- **Ville's inequality** [Vil39; RW, Fact 7.6]. For every `ℝ≥0∞`-valued supermartingale under
+any measure, with no integrability condition, and every level `0 < c < ∞`, the measure of the
+event that the process ever reaches `c` is at most `(∫⁻ ω, M 0 ω ∂P) / c`. -/
+theorem measure_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
     {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) :
     P {ω | ∃ n, c ≤ M n ω} ≤ (∫⁻ ω, M 0 ω ∂P) / c := by
   have h := hM.measure_inter_exists_le_le (m := 0) hP hc0 hc MeasurableSet.univ
@@ -391,10 +455,10 @@ end IsENNSupermartingale
 
 namespace IsTestSupermartingale
 
-/-- **Ville's inequality** for test supermartingales [Vil39; RW, Fact 7.6]: under every finite
-member of the null, the probability that the process ever reaches a level `c ≠ 0` is at most
+/-- **Ville's inequality** for test supermartingales [Vil39; RW, Fact 7.6]: under every member
+of the null, the measure of the event that the process ever reaches a level `c ≠ 0` is at most
 `(∫⁻ ω, M 0 ω ∂P) / c`. -/
-theorem measure_exists_le_le (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) [IsFiniteMeasure P]
+theorem measure_exists_le_le (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S)
     {c : ℝ≥0∞} (hc0 : c ≠ 0) :
     P {ω | ∃ n, c ≤ M n ω} ≤ (∫⁻ ω, M 0 ω ∂P) / c := by
   rcases eq_or_ne c ∞ with rfl | hc
@@ -404,10 +468,10 @@ theorem measure_exists_le_le (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S)
   · exact hM.toIsENNSupermartingale.measure_exists_le_le hP hc0 hc
 
 /-- **Ville's inequality** for test supermartingales, at level `α` [RW, Fact 7.6]: under every
-finite member of the null, the test that rejects as soon as the process reaches `α⁻¹` has type I
-error at most `α`, uniformly over time. -/
+member of the null, the test that rejects as soon as the process reaches `α⁻¹` has type I error at
+most `α`, uniformly over time. -/
 theorem measure_exists_inv_le_le (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S)
-    [IsFiniteMeasure P] (α : ℝ≥0∞) : P {ω | ∃ n, α⁻¹ ≤ M n ω} ≤ α := by
+    (α : ℝ≥0∞) : P {ω | ∃ n, α⁻¹ ≤ M n ω} ≤ α := by
   rcases eq_or_ne α ∞ with rfl | hα
   · exact le_top
   refine (hM.measure_exists_le_le hP (ENNReal.inv_ne_zero.2 hα)).trans ?_

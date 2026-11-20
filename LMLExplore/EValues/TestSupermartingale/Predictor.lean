@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.TestSupermartingale
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import LMLExplore.Probability.Kernel.CondLaw
 public import Mathlib.Probability.Kernel.RadonNikodym
