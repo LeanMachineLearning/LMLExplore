@@ -5,9 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Statlib.EValues.RIPr
-public import LMLExplore.EValues.EVariable
-public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+public import LMLExplore.EValues.EffectiveSet.Basic
 
 /-!
 # The polarity between nulls and bets
@@ -51,9 +49,11 @@ asks for measurability: a non-measurable function is never an e-variable.
 * [LRR25] M. Larsson, A. Ramdas and J. Ruf, *The numeraire e-variable and reverse information
   projection*, Ann. Statist. 53 (2025), arXiv:2402.18810v4, Definition 3.1.
 
-The definitions and the proofs of convexity, solidity and closure under setwise limits are adapted
-from `notes/book/Suggested.lean` and `notes/book/Checks.lean` (commit `88fb487`) in the paper
-project `RemyDegenne/evalues_research` (Apache 2.0).
+The definitions are adapted from `notes/book/Suggested.lean` and `notes/book/Checks.lean` (commit
+`88fb487`) in the paper project `RemyDegenne/evalues_research` (Apache 2.0). Convexity, solidity
+and closure under setwise limits are transferred from the effective-null lemmas
+`convex_effectiveSet`, `isLowerSet_effectiveSet` and `mem_effectiveSet_of_measure_le_liminf`
+through `effectiveSet_polarNull`.
 -/
 
 public section
@@ -165,30 +165,18 @@ theorem effectiveSet_eq_polarNull (S : Set (Measure Ω)) :
     effectiveSet S = polarNull {X | IsEVar X S} :=
   Set.ext fun _ ↦ Iff.rfl
 
-/-- The integral of a bet is the integral of a measurable function below it that is an
-e-variable for the null the bets generate. -/
-private theorem exists_isEVar_polarNull_lintegral_eq (hX : X ∈ 𝓔) (μ : Measure Ω) :
-    ∃ g, IsEVar g (polarNull 𝓔) ∧ ∫⁻ ω, X ω ∂μ = ∫⁻ ω, g ω ∂μ := by
-  obtain ⟨g, hg, hgX, hint⟩ := exists_measurable_le_lintegral_eq μ X
-  exact ⟨g, ⟨hg, fun _ hν ↦ (lintegral_mono hgX).trans (hν X hX)⟩, hint⟩
-
 /-- Every polar is closed for the Galois connection: its effective null is itself. The bets need
 not be measurable. -/
 @[simp]
 theorem effectiveSet_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : effectiveSet (polarNull 𝓔) = polarNull 𝓔 := by
   refine Subset.antisymm (fun μ hμ X hX ↦ ?_) subset_effectiveSet
-  obtain ⟨g, hg, hint⟩ := exists_isEVar_polarNull_lintegral_eq hX μ
+  obtain ⟨g, hg, hgX, hint⟩ := exists_measurable_le_lintegral_eq μ X
   rw [hint]
-  exact hμ g hg
+  exact hμ g ⟨hg, fun _ hν ↦ (lintegral_mono hgX).trans (hν X hX)⟩
 
 /-- Every polar is convex. The bets need not be measurable. -/
-theorem convex_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : Convex ℝ≥0∞ (polarNull 𝓔) := by
-  intro μ hμ ν hν a b _ _ hab X hX
-  rw [lintegral_add_measure, lintegral_smul_measure, lintegral_smul_measure, smul_eq_mul,
-    smul_eq_mul]
-  calc a * ∫⁻ ω, X ω ∂μ + b * ∫⁻ ω, X ω ∂ν
-  _ ≤ a * 1 + b * 1 := by gcongr; exacts [hμ X hX, hν X hX]
-  _ = 1 := by simpa using hab
+theorem convex_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : Convex ℝ≥0∞ (polarNull 𝓔) :=
+  effectiveSet_polarNull 𝓔 ▸ convex_effectiveSet
 
 /-- Every polar contains the convex hull of each of its subsets. -/
 theorem convexHull_subset_polarNull (hS : S ⊆ polarNull 𝓔) : convexHull ℝ≥0∞ S ⊆ polarNull 𝓔 :=
@@ -196,7 +184,7 @@ theorem convexHull_subset_polarNull (hS : S ⊆ polarNull 𝓔) : convexHull ℝ
 
 /-- Every polar is solid: a measure below a member is a member. -/
 theorem isLowerSet_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : IsLowerSet (polarNull 𝓔) :=
-  fun _ _ hμν hν X hX ↦ (lintegral_mono' hμν le_rfl).trans (hν X hX)
+  effectiveSet_polarNull 𝓔 ▸ isLowerSet_effectiveSet
 
 /-- A measure below a member of a polar is a member. -/
 theorem mem_polarNull_of_le (hν : ν ∈ polarNull 𝓔) (hμν : μ ≤ ν) : μ ∈ polarNull 𝓔 :=
@@ -207,19 +195,16 @@ measurable set `s`, then `μ` is in the polar. The bets need not be measurable. 
 theorem mem_polarNull_of_measure_le_liminf {ι : Type*} {l : Filter ι} [l.NeBot]
     {μs : ι → Measure Ω} (hμs : ∀ᶠ i in l, μs i ∈ polarNull 𝓔)
     (h : ∀ s, MeasurableSet s → μ s ≤ liminf (fun i ↦ μs i s) l) : μ ∈ polarNull 𝓔 := by
-  intro X hX
-  obtain ⟨g, hg, hint⟩ := exists_isEVar_polarNull_lintegral_eq hX μ
-  rw [hint]
-  exact (lintegral_le_liminf_lintegral_of_forall_measurableSet_measure_le_liminf_measure
-    hg.measurable h).trans (liminf_le_of_frequently_le (hμs.mono fun _ hi ↦
-      hg.lintegral_le_one hi).frequently)
+  rw [← effectiveSet_polarNull 𝓔] at hμs ⊢
+  exact mem_effectiveSet_of_measure_le_liminf hμs h
 
 /-- Every polar is closed under setwise limits along any filter: if `μs i s` tends to `μ s` for
 every measurable set `s`, and `μs i` is eventually in the polar, then so is `μ`. -/
 theorem mem_polarNull_of_tendsto {ι : Type*} {l : Filter ι} [l.NeBot] {μs : ι → Measure Ω}
     (hμs : ∀ᶠ i in l, μs i ∈ polarNull 𝓔)
-    (h : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) : μ ∈ polarNull 𝓔 :=
-  mem_polarNull_of_measure_le_liminf hμs fun s hs ↦ (h s hs).liminf_eq.ge
+    (h : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) : μ ∈ polarNull 𝓔 := by
+  rw [← effectiveSet_polarNull 𝓔] at hμs ⊢
+  exact mem_effectiveSet_of_tendsto hμs h
 
 /-- When the constant `1` is a bet, every member of the polar has mass at most one. -/
 theorem measure_univ_le_one_of_mem_polarNull (h1 : 1 ∈ 𝓔) (hμ : μ ∈ polarNull 𝓔) :
