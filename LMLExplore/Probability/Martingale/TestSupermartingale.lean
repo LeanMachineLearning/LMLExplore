@@ -181,6 +181,22 @@ theorem ae_lt_top (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
   ae_all_iff.2 fun n ↦
     MeasureTheory.ae_lt_top (hM.measurable n) ((hM.lintegral_le hP n.zero_le).trans_lt h0.lt_top).ne
 
+/-- An `ℝ≥0∞`-valued supermartingale almost surely stays at `0` once it reaches it. -/
+theorem ae_eq_zero_of_eq_zero (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) :
+    ∀ᵐ ω ∂P, ∀ m, M m ω = 0 → ∀ n ≥ m, M n ω = 0 := by
+  have h (m n : ℕ) : ∀ᵐ ω ∂P, M m ω = 0 → m ≤ n → M n ω = 0 := by
+    by_cases hmn : m ≤ n
+    · have hs : MeasurableSet[ℱ m] {ω | M m ω = 0} := hM.adapted m (measurableSet_singleton 0)
+      have h : ∫⁻ ω in {ω | M m ω = 0}, M n ω ∂P = 0 := by
+        refine le_antisymm ((hM.setLIntegral_le hP hmn hs).trans_eq ?_) bot_le
+        exact (setLIntegral_eq_zero_iff (ℱ.le m _ hs) (hM.measurable m)).2
+          (ae_of_all _ fun _ hω ↦ hω)
+      filter_upwards [(setLIntegral_eq_zero_iff (ℱ.le m _ hs) (hM.measurable n)).1 h]
+        with ω hω h0 _ using hω h0
+    · exact ae_of_all _ fun ω _ hn ↦ absurd hn hmn
+  filter_upwards [ae_all_iff.2 fun m ↦ ae_all_iff.2 (h m)] with ω hω m h0 n hn
+    using hω m n h0 hn
+
 /-- An `ℝ≥0∞`-valued supermartingale with finite initial expectation under a finite measure has
 real values forming a real supermartingale. -/
 theorem supermartingale_toReal (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
@@ -478,22 +494,13 @@ these ratios are conditional e-variables (`IsENNSupermartingale.isCondEVar_div`)
 theorem IsENNSupermartingale.ae_eq_mul_prod_div (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
     (h0 : ∫⁻ ω, M 0 ω ∂P ≠ ∞) :
     ∀ᵐ ω ∂P, ∀ n, M n ω = M 0 ω * ∏ k ∈ range n, M (k + 1) ω / M k ω := by
-  -- almost surely, the process stays at `0` once it reaches it
-  have hzero : ∀ᵐ ω ∂P, ∀ k, M k ω = 0 → M (k + 1) ω = 0 := by
-    refine ae_all_iff.2 fun k ↦ ?_
-    have hs : MeasurableSet[ℱ k] {ω | M k ω = 0} := hM.adapted k (measurableSet_singleton 0)
-    have h : ∫⁻ ω in {ω | M k ω = 0}, M (k + 1) ω ∂P = 0 := by
-      refine le_antisymm ((hM.setLIntegral_succ_le P hP k _ hs).trans_eq ?_) bot_le
-      exact (setLIntegral_eq_zero_iff (ℱ.le k _ hs) (hM.measurable k)).2
-        (ae_of_all _ fun _ hω ↦ hω)
-    exact (setLIntegral_eq_zero_iff (ℱ.le k _ hs) (hM.measurable (k + 1))).1 h
-  filter_upwards [hzero, hM.ae_lt_top hP h0] with ω hz hfin n
+  filter_upwards [hM.ae_eq_zero_of_eq_zero hP, hM.ae_lt_top hP h0] with ω hz hfin n
   induction n with
   | zero => simp
   | succ n ih =>
     rw [prod_range_succ, ← mul_assoc, ← ih]
     rcases eq_or_ne (M n ω) 0 with h | h
-    · simp [h, hz n h]
+    · simp [h, hz n h (n + 1) n.le_succ]
     · exact (ENNReal.mul_div_cancel h (hfin n).ne).symm
 
 /-- **Test supermartingales are wealth processes** [WSR24, Proposition 3]. A test supermartingale

@@ -432,20 +432,10 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
     exact h.trans (ENNReal.div_le_div_right (lintegral_mono_set inter_subset_left) c)
   -- On `Z = s ∩ {M m = 0}`, the process vanishes almost surely from time `m` on.
   set Z := s ∩ {ω | M m ω = 0}
-  have hZ : MeasurableSet[ℱ m] Z := hs.inter (measurableSet_eq_fun (hM.adapted m) measurable_const)
   have hZE : P (Z ∩ E) = 0 := by
-    have h (n : ℕ) : ∀ᵐ ω ∂P, m ≤ n → ω ∈ Z → M n ω = 0 := by
-      by_cases hn : m ≤ n
-      · have h0 : ∫⁻ ω in Z, M n ω ∂P = 0 := by
-          refine le_antisymm ((hM.setLIntegral_le hP hn hZ).trans_eq ?_) zero_le
-          exact (setLIntegral_eq_zero_iff (ℱ.le m _ hZ) (hM.measurable m)).2
-            (ae_of_all _ fun ω hω ↦ hω.2)
-        filter_upwards [(setLIntegral_eq_zero_iff (ℱ.le m _ hZ) (hM.measurable n)).1 h0]
-          with ω hω _ using hω
-      · exact ae_of_all _ fun ω h ↦ absurd h hn
     refine measure_eq_zero_iff_ae_notMem.2 ?_
-    filter_upwards [ae_all_iff.2 h] with ω hω ⟨hωZ, n, hn, hcn⟩
-    exact hc0 (le_zero_iff.1 (hcn.trans_eq (hω n hn hωZ)))
+    filter_upwards [hM.ae_eq_zero_of_eq_zero hP] with ω hω ⟨hωZ, n, hn, hcn⟩
+    exact hc0 (le_zero_iff.1 (hcn.trans_eq (hω m hωZ.2 n hn)))
   -- The sets `B k` increase to `s` off `Z`.
   have hcover : s ∩ E ⊆ (⋃ k, B k ∩ E) ∪ Z ∩ E := by
     rintro ω ⟨hωs, hωE⟩
