@@ -158,7 +158,7 @@ private lemma eventually_minTestSize_le (Q₁ : Measure 𝓧) [IsProbabilityMeas
       ENNReal.ofReal (Real.exp (-(n * r))) := by
     refine iSup₂_le ?_
     rintro _ ⟨P, hP, rfl⟩
-    exact (isEVar_numeraire _ (measure_univ_le_one_of_mem_image_pi
+    exact (isEVar_numeraire _ (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull
       (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)).measure_inv_le_le
       (Set.mem_image_of_mem (fun P ↦ Measure.pi fun _ : Fin n ↦ P) hP) _
   -- almost surely, the first `n` observations are eventually in `C n`

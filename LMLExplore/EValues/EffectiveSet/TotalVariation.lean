@@ -270,7 +270,8 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
   refine le_antisymm ?_ (maxLogGrowth_nonneg _ (fun P hP ↦ (hS P hP).measure_univ.le) _)
   rw [maxLogGrowth_def]
   exact (maxEPower_eq_zero_of_mem_effectiveSet
-    (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS P hP).measure_univ.le) n)
+    (sampleNull_def S n ▸ measure_univ_le_one_of_mem_sampleNull
+      (fun P hP ↦ (hS P hP).measure_univ.le) n)
     (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).le
 
 /-- **The bipolar rate against a limit in total variation is zero.** If a probability measure `Q`

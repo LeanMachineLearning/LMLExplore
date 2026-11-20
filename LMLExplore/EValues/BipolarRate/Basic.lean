@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.Subadditive
 public import LMLExplore.EValues.KLInf
+public import LMLExplore.EValues.Null.Basic
 public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
@@ -99,20 +100,11 @@ lemma bipolarRate_def (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
     bipolarRate Q₁ S₁ = ⨆ n : ℕ, maxLogGrowth Q₁ S₁ (n + 1) / ((n + 1 : ℕ) : EReal) :=
   (rfl)
 
-/-- The `k`-fold products of the members of a set of measures of mass at most `1` have mass at
-most `1`. -/
-lemma measure_univ_le_one_of_mem_image_pi (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (k : ℕ) :
-    ∀ μ ∈ (fun P ↦ Measure.pi fun _ : Fin k ↦ P) '' S₁, μ Set.univ ≤ 1 := by
-  rintro _ ⟨P, hP, rfl⟩
-  have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
-  rw [Measure.pi_univ]
-  exact Finset.prod_le_one fun _ _ ↦ hS₁ P hP
-
 /-- The maximal expected logarithm of an `n`-sample e-variable, for a null of measures of mass at
 most `1`, is nonnegative, as the constant `1` is an e-variable. -/
 lemma maxLogGrowth_nonneg (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
     0 ≤ maxLogGrowth Q₁ S₁ n :=
-  maxEPower_nonneg _ (measure_univ_le_one_of_mem_image_pi hS₁ n)
+  maxEPower_nonneg _ (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull hS₁ n)
 
 /-- The normalized maximal expected logarithm of an `n`-sample e-variable is at most the bipolar
 rate, for `n ≠ 0`. -/
@@ -172,9 +164,10 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
   calc maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n
   _ = maxEPower ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
       (Set.image2 Measure.prod ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁)
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) :=
-    by rw [maxLogGrowth_def, maxLogGrowth_def, maxEPower_prod_eq_add
-      (measure_univ_le_one_of_mem_image_pi hS₁ m) (measure_univ_le_one_of_mem_image_pi hS₁ n)]
+        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) := by
+    rw [maxLogGrowth_def, maxLogGrowth_def, ← sampleNull_def, ← sampleNull_def]
+    exact (maxEPower_prod_eq_add (measure_univ_le_one_of_mem_sampleNull hS₁ m)
+      (measure_univ_le_one_of_mem_sampleNull hS₁ n)).symm
   _ ≤ maxEPower ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
       {μ.map e | μ ∈ (fun P ↦ Measure.pi fun _ : Fin (m + n) ↦ P) '' S₁} := by
     rw [h_map]
