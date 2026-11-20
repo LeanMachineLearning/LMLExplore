@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Probability.Process.HittingTime
+public import LMLExplore.Probability.Process.StoppedValue
 
 /-!
 # Hitting times of a sequence of events
@@ -22,7 +23,10 @@ probability of the event `A τ` read at `τ` [RRLK, Lemma 2]. A bound on the pro
 event read at every stopping time is therefore a bound uniform in time. Since that probability
 does not depend on the filtration, a bound on the events of a sequence adapted to a filtration `𝒢`,
 read at the stopping times of `𝒢`, holds at the stopping times of every finer filtration: the
-lifting lemma of [CR26, Lemma 1].
+lifting lemma of [CR26, Lemma 1]. With stopping times that may be infinite, and the event that
+infinitely many of the events occur read where the time is infinite
+(`MeasureTheory.stoppedEvent`), the supremum is attained, by the first time that one of the events
+occurs.
 
 ## Main statements
 
@@ -34,6 +38,10 @@ lifting lemma of [CR26, Lemma 1].
   sequence of events is the supremum of the measures of the events read at the stopping times with
   values in `ℕ` [RRLK, Lemma 2].
 * `MeasureTheory.forall_isStoppingTime_measure_le_iff_of_le`: the lifting lemma [CR26, Lemma 1].
+* `MeasureTheory.stoppedEvent_hittingAfter_indicator`,
+  `MeasureTheory.exists_isStoppingTime_stoppedEvent_eq_iUnion`: read at the first time that one of
+  the events occurs, a sequence of events gives their union, and for an adapted sequence that time
+  is a stopping time [RRLK, Lemma 2].
 
 ## References
 
@@ -110,5 +118,28 @@ theorem forall_isStoppingTime_measure_le_iff_of_le {mΩ : MeasurableSpace Ω} {�
       ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) → μ {ω | ω ∈ A (τ ω)} ≤ c := by
   simp_rw [← iSup₂_le_iff, ← measure_iUnion_eq_iSup_isStoppingTime hA,
     ← measure_iUnion_eq_iSup_isStoppingTime fun n ↦ h𝒢ℱ n _ (hA n)]
+
+
+/-- **The first occurrence gives the union** [RRLK, Lemma 2]. Read at the first time that one of
+the events `A n` occurs, and at `⊤` where none does, a sequence of events gives their union. -/
+theorem stoppedEvent_hittingAfter_indicator (A : ℕ → Set Ω) :
+    stoppedEvent A (hittingAfter (fun n ↦ (A n).indicator fun _ ↦ (1 : ℝ)) {1} 0) =
+      ⋃ n, A n := by
+  refine Set.Subset.antisymm stoppedEvent_subset_iUnion fun ω hω ↦ ?_
+  obtain ⟨k, hk⟩ := Set.mem_iUnion.1 hω
+  have h_lt := (hittingAfter_indicator_lt_top_iff A 0 ω).2 ⟨k, zero_le, hk⟩
+  have h_mem := hittingAfter_mem_set_of_ne_top h_lt.ne
+  rw [mem_stoppedEvent_of_ne_top h_lt.ne]
+  by_contra h
+  simp [h] at h_mem
+
+/-- **The first occurrence is a stopping time** [RRLK, Lemma 2]. For a sequence of events adapted
+to a filtration indexed by `ℕ`, some stopping time with values in `WithTop ℕ`, the first time
+that one of the events occurs, reads the events as their union. -/
+theorem exists_isStoppingTime_stoppedEvent_eq_iUnion {mΩ : MeasurableSpace Ω}
+    {ℱ : Filtration ℕ mΩ} {A : ℕ → Set Ω} (hA : ∀ n, MeasurableSet[ℱ n] (A n)) :
+    ∃ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ ∧ stoppedEvent A τ = ⋃ n, A n :=
+  ⟨_, Adapted.isStoppingTime_hittingAfter (fun n ↦ measurable_const.indicator (hA n))
+    (measurableSet_singleton 1), stoppedEvent_hittingAfter_indicator A⟩
 
 end MeasureTheory

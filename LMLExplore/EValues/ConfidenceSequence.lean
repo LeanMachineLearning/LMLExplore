@@ -42,6 +42,9 @@ confidence sequence at a level `α ≠ ∞` is of the latter form for the e-proc
 * `ProbabilityTheory.isConfSeq_tfae`: coverage uniformly in time, at every random time and at
   every stopping time, with values in `ℕ` or in `WithTop ℕ`, are equivalent
   [RRLK, §4.3 and Lemma 2].
+* `ProbabilityTheory.isConfSeq_iff_forall_isTimeUniform`: confidence sequences are an instance of
+  time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events that the set misses a
+  parameter [RRLK, §4.3 and Lemma 2].
 * `ProbabilityTheory.isConfSeq_biInter_iff`, `ProbabilityTheory.IsConfSeq.biInter`: the running
   intersection of a confidence sequence is a confidence sequence.
 * `ProbabilityTheory.isConfSeq_iff_exists_isSequentialTest`: the confidence sequences at level `α`
@@ -144,6 +147,22 @@ theorem congr (hC : IsConfSeq C ℱ S α) (hD : ∀ θ n, MeasurableSet[ℱ n] {
   hC.mono_ae hD fun θ P hP n ↦ (hCD θ P hP n).mono fun _ h ↦ h.1
 
 end IsConfSeq
+
+/-- **Confidence sequences are time-uniformly valid** [RRLK, §4.3 and Lemma 2]. Random sets form a
+confidence sequence at level `α` exactly when, for every parameter `θ`, the events `{θ ∉ C n}`
+that they miss `θ` are time-uniformly valid at level `α` for the null `S θ`. -/
+theorem isConfSeq_iff_forall_isTimeUniform :
+    IsConfSeq C ℱ S α ↔ ∀ θ, IsTimeUniform (fun n ↦ {ω | θ ∉ C n ω}) ℱ (S θ) α :=
+  ⟨fun h θ ↦ ⟨h.measurableSet_notMem θ, fun P hP ↦ by
+      simpa [ofPred_exists] using h.measure_exists_notMem_le θ P hP⟩,
+    fun h ↦ ⟨fun θ n ↦ by simpa [compl_ofPred] using ((h θ).measurableSet n).compl, fun θ P hP ↦ by
+      simpa [ofPred_exists] using (h θ).measure_iUnion_le P hP⟩⟩
+
+/-- For every parameter `θ`, the events `{θ ∉ C n}` that a confidence sequence misses `θ` are
+time-uniformly valid at level `α` for the null `S θ`. -/
+theorem IsConfSeq.isTimeUniform (hC : IsConfSeq C ℱ S α) (θ : Θ) :
+    IsTimeUniform (fun n ↦ {ω | θ ∉ C n ω}) ℱ (S θ) α :=
+  isConfSeq_iff_forall_isTimeUniform.1 hC θ
 
 /-- The constant confidence sequence `univ`, which contains every parameter, has level `0`. -/
 theorem isConfSeq_univ (ℱ : Filtration ℕ mΩ) (S : Θ → Set (Measure Ω)) :

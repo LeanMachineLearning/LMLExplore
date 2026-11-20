@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.EValues.Calibrator
 public import LMLExplore.EValues.EProcess.Basic
-public import LMLExplore.Probability.Process.HittingTime
+public import LMLExplore.EValues.EProcess.TimeUniform
 
 /-!
 # P-processes and sequential tests
@@ -50,6 +50,10 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 * `ProbabilityTheory.isPProcess_iff_measure_exists_le_le`: an adapted process is a p-process
   exactly when it is ever at most `α` with probability at most `α`, for every level `α` and every
   member of the null [RRLK, §4.1].
+* `ProbabilityTheory.isPProcess_iff_forall_isTimeUniform`,
+  `ProbabilityTheory.isSequentialTest_iff_isTimeUniform`: p-processes and sequential tests are
+  instances of time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events
+  `{p n ≤ α}` at every level `α` and for the events of rejection [RRLK, §4.1 and Lemma 2].
 * `ProbabilityTheory.IsPProcess.mono_filtration`,
   `ProbabilityTheory.IsSequentialTest.mono_filtration`: p-processes and sequential tests for a
   filtration `𝒢` are ones for every finer filtration [CR26, Theorem 1 and §3.1].
@@ -79,7 +83,7 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6, §7.3–7.4, Proposition 7.8 and Definition 7.10.
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
-  inference must rely on nonnegative martingales*, arXiv:2009.03167v3, §4.1 and §4.4.
+  inference must rely on nonnegative martingales*, arXiv:2009.03167v3, §4.1, §4.4 and Lemma 2.
 -/
 
 public section
@@ -164,6 +168,22 @@ p-process read at a random time `τ` with values in `ℕ`, not necessarily a sto
 theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → ℕ) (hP : P ∈ S) (α : ℝ≥0∞) :
     P {ω | p (τ ω) ω ≤ α} ≤ α :=
   (hp.measure_exists_le_le hP α).trans' (measure_mono fun ω (hω : p (τ ω) ω ≤ α) ↦ ⟨τ ω, hω⟩)
+
+/-- **P-processes are time-uniformly valid** [RRLK, §4.1 and Lemma 2]. A process is a p-process
+exactly when, at every level `α`, the events `{p n ≤ α}` are time-uniformly valid at level `α`. -/
+theorem isPProcess_iff_forall_isTimeUniform :
+    IsPProcess p ℱ S ↔ ∀ α, IsTimeUniform (fun n ↦ {ω | p n ω ≤ α}) ℱ S α := by
+  refine ⟨fun hp α ↦ isTimeUniform_iff_forall_isStoppingTime.2
+    ⟨fun n ↦ hp.adapted n measurableSet_Iic, fun P hP τ hτ ↦
+      (hp.isPVar_stoppedValue τ hτ).measure_le_le P hP α⟩, fun h ↦ ?_⟩
+  have hp : Adapted ℱ p := fun n ↦ measurable_of_Iic fun α ↦ (h α).measurableSet n
+  exact ⟨hp, fun τ hτ ↦ ⟨hp.measurable_apply_stoppingTime hτ, fun P hP α ↦ (h α).measure_le τ hP⟩⟩
+
+/-- At every level `α`, the events `{p n ≤ α}` of a p-process are time-uniformly valid at level
+`α`. -/
+theorem IsPProcess.isTimeUniform (hp : IsPProcess p ℱ S) (α : ℝ≥0∞) :
+    IsTimeUniform (fun n ↦ {ω | p n ω ≤ α}) ℱ S α :=
+  isPProcess_iff_forall_isTimeUniform.1 hp α
 
 /-- **p-lifting** [CR26, Theorem 1]. A p-process for a filtration `𝒢` is a p-process for every
 finer filtration `ℱ`, with no calibration: validity uniformly in time does not mention the
@@ -264,6 +284,23 @@ theorem mono_filtration (hφ : IsSequentialTest φ 𝒢 S α) (h𝒢ℱ : 𝒢 �
     hφ.measure_exists_eq_one_le⟩
 
 end IsSequentialTest
+
+/-- **Sequential tests are time-uniformly valid** [RRLK, §4.1 and Lemma 2]. A process is a
+level-`α` sequential test exactly when it is adapted and `{0, 1}`-valued and its events of
+rejection `{φ n = 1}` are time-uniformly valid at level `α`. -/
+theorem isSequentialTest_iff_isTimeUniform :
+    IsSequentialTest φ ℱ S α ↔ Adapted ℱ φ ∧ (∀ n ω, φ n ω = 0 ∨ φ n ω = 1) ∧
+      IsTimeUniform (fun n ↦ {ω | φ n ω = 1}) ℱ S α :=
+  ⟨fun hφ ↦ ⟨hφ.adapted, hφ.eq_zero_or_eq_one, fun n ↦ hφ.adapted n (measurableSet_singleton 1),
+      fun P hP ↦ by simpa [ofPred_exists] using hφ.measure_exists_eq_one_le P hP⟩,
+    fun ⟨hφ, h01, h⟩ ↦ ⟨hφ, h01, fun P hP ↦ by
+      simpa [ofPred_exists] using h.measure_iUnion_le P hP⟩⟩
+
+/-- The events of rejection `{φ n = 1}` of a level-`α` sequential test are time-uniformly valid at
+level `α`. -/
+theorem IsSequentialTest.isTimeUniform (hφ : IsSequentialTest φ ℱ S α) :
+    IsTimeUniform (fun n ↦ {ω | φ n ω = 1}) ℱ S α :=
+  (isSequentialTest_iff_isTimeUniform.1 hφ).2.2
 
 /-- **Sequential tests are valid at stopping times** [RRLK, §4.1]. A `{0, 1}`-valued adapted
 process is a level-`α` sequential test exactly when, under every member of the null, it rejects
