@@ -194,13 +194,8 @@ theorem cliqueNum_mul_dotProduct_mulVec_adjMatrix_le_of_isClique (w : V → ℝ)
   set K : Finset V := {v | w v ≠ 0}
   have hK : G.IsClique (K : Set V) := by simpa [K] using hw
   have h_sum : ∑ v, w v = ∑ v ∈ K, w v := (sum_filter_ne_zero _).symm
-  have h_sq : ∑ v, w v ^ 2 = ∑ v ∈ K, w v ^ 2 := by
-    rw [sum_filter]
-    refine sum_congr rfl fun v _ ↦ ?_
-    split_ifs with h
-    · rfl
-    · simp only [ne_eq, not_not] at h
-      simp [h]
+  have h_sq : ∑ v, w v ^ 2 = ∑ v ∈ K, w v ^ 2 :=
+    (sum_filter_of_ne fun v _ h ↦ by simpa using h).symm
   have h_cs : (∑ v, w v) ^ 2 ≤ (G.cliqueNum : ℝ) * ∑ v, w v ^ 2 := by
     rw [h_sum, h_sq]
     exact sq_sum_le_card_mul_sum_sq.trans (mul_le_mul_of_nonneg_right
