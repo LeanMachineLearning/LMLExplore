@@ -28,6 +28,9 @@ For `S = {c • Q}` with `0 < c < 1`, the largest e-power is `-log c`, while `kl
 `-log c + c - 1`, which is smaller (`coe_klDiv_smul_right_self_lt_maxEPower`). So the weak duality
 `maxEPower Q S ≤ klInf Q S` fails when `klDiv` replaces `klIntegral`.
 
+Both definitions are prototyped in `notes/book/Suggested.lean` of the paper project
+`RemyDegenne/evalues_research` (commit `88fb487`), where `klInf` is `ℝ≥0∞`-valued and uses `klDiv`.
+
 ## Main definitions
 
 * `ProbabilityTheory.klInf Q S`: the smallest relative entropy `klIntegral Q P` over `P ∈ S`.
@@ -112,7 +115,10 @@ theorem klIntegral_eq_klDiv_add_sub :
       EReal.coe_ennreal_ofReal, max_eq_left (integral_llr_add_sub_measure_univ_nonneg h.1 h.2)]
     norm_cast
     ring
-  have h_top : klIntegral μ ν = ⊤ := by simp [klIntegral, h]
+  have h_top : klIntegral μ ν = ⊤ := by
+    by_cases h_ac : μ ≪ ν
+    · exact klIntegral_of_not_integrable fun h_int ↦ h ⟨h_ac, h_int⟩
+    · exact klIntegral_of_not_ac h_ac
   rw [h_top, klDiv_eq_top_iff.2 fun h₁ h₂ ↦ h ⟨h₁, h₂⟩, EReal.coe_ennreal_top, EReal.top_add_coe,
     EReal.top_sub_coe]
 
@@ -134,7 +140,7 @@ theorem klIntegral_nonneg (h : ν univ ≤ μ univ) : 0 ≤ klIntegral μ ν := 
 theorem klIntegral_map_le {g : Ω → Ω'} (hg : Measurable g) :
     klIntegral (μ.map g) (ν.map g) ≤ klIntegral μ ν := by
   have hreal (ρ : Measure Ω) : (ρ.map g).real univ = ρ.real univ := by
-    rw [measureReal_def, measureReal_def, Measure.map_apply hg MeasurableSet.univ, preimage_univ]
+    simp [map_measureReal_apply hg .univ]
   rw [klIntegral_eq_klDiv_add_sub, klIntegral_eq_klDiv_add_sub, hreal, hreal]
   exact EReal.sub_le_sub (add_le_add_left (EReal.coe_ennreal_le_coe_ennreal_iff.2
     (klDiv_map_le μ ν hg)) _) le_rfl
@@ -149,6 +155,8 @@ measures of mass larger than that of `Q`. -/
 noncomputable def klInf (Q : Measure Ω) (S : Set (Measure Ω)) : EReal :=
   ⨅ P ∈ S, klIntegral Q P
 
+theorem klInf_def : klInf Q S = ⨅ P ∈ S, klIntegral Q P := (rfl)
+
 theorem klInf_le_klIntegral (hP : P ∈ S) : klInf Q S ≤ klIntegral Q P :=
   iInf₂_le P hP
 
@@ -162,11 +170,11 @@ theorem klInf_anti (hST : S ⊆ T) : klInf Q T ≤ klInf Q S :=
 
 @[simp]
 theorem klInf_empty : klInf Q ∅ = ⊤ := by
-  simp [klInf]
+  simp [klInf_def]
 
 @[simp]
 theorem klInf_singleton : klInf Q {P} = klIntegral Q P := by
-  simp [klInf]
+  simp [klInf_def]
 
 theorem klInf_union : klInf Q (S ∪ T) = min (klInf Q S) (klInf Q T) :=
   iInf_union
@@ -197,12 +205,14 @@ theorem maxEPower_def : maxEPower Q S = maxUtility Q S logUtility := (rfl)
 
 /-- The expected logarithm of an e-variable is at most the largest e-power. -/
 theorem IsEVar.eintegral_log_le_maxEPower {X : Ω → ℝ≥0∞}
-    (hX : IsEVar X S) (Q : Measure Ω) : ∫ᵉ ω, ENNReal.log (X ω) ∂Q ≤ maxEPower Q S :=
-  hX.eintegral_le_maxUtility Q logUtility
+    (hX : IsEVar X S) (Q : Measure Ω) : ∫ᵉ ω, ENNReal.log (X ω) ∂Q ≤ maxEPower Q S := by
+  simpa [maxEPower_def, logUtility_apply] using hX.eintegral_le_maxUtility Q logUtility
 
 theorem maxEPower_le_iff {c : EReal} :
-    maxEPower Q S ≤ c ↔ ∀ X, IsEVar X S → ∫ᵉ ω, ENNReal.log (X ω) ∂Q ≤ c :=
-  iSup₂_le_iff
+    maxEPower Q S ≤ c ↔ ∀ X, IsEVar X S → ∫ᵉ ω, ENNReal.log (X ω) ∂Q ≤ c := by
+  simp only [maxEPower_def, maxUtility_eq_sSup, sSup_le_iff, mem_ofPred_eq, Function.comp_apply,
+    logUtility_apply]
+  exact ⟨fun h X hX ↦ h _ ⟨X, hX, rfl⟩, fun h _ ⟨X, hX, hb⟩ ↦ hb ▸ h X hX⟩
 
 /-- The empty null has infinite largest e-power under a nonzero measure: every measurable function,
 `∞` included, is an e-variable for it. -/
@@ -267,7 +277,8 @@ theorem maxEPower_singleton [IsProbabilityMeasure Q] (hP : P univ ≤ 1) :
   refine le_of_eq_of_le ?_ (hX.eintegral_log_le_maxEPower Q)
   rw [eintegral_eq_lintegral_of_nonneg fun x ↦ by by_cases hx : x ∈ s <;> simp [hx],
     lintegral_congr (g := s.indicator fun _ ↦ ∞) fun x ↦ by by_cases hx : x ∈ s <;> simp [hx],
-    lintegral_indicator_const hs, ENNReal.top_mul hQs, EReal.coe_ennreal_top]
+    lintegral_indicator_const hs]
+  simp [ENNReal.top_mul hQs]
 
 /-- **Additivity on products of nulls**: the largest e-power of the products of the members of
 two nulls, under a product of probability measures, is the sum of the largest e-powers. This is
@@ -303,8 +314,8 @@ theorem coe_klDiv_smul_right_self_lt_maxEPower [IsProbabilityMeasure Q] {c : ℝ
   have hcQ : (c • Q) univ = c := by simp
   have : IsFiniteMeasure (c • Q) := ⟨by simpa [hcQ] using hc.lt_top⟩
   rw [maxEPower_singleton (hcQ.trans_le hc1.le), coe_klDiv_eq_klIntegral_add_sub,
-    klIntegral_smul_right_self hc0 hc, measureReal_def, measureReal_def, hcQ, measure_univ,
-    ENNReal.toReal_one, mul_one]
+    klIntegral_smul_right_self hc0 hc]
+  simp only [measureReal_def, hcQ, measure_univ, ENNReal.toReal_one, mul_one]
   have : c.toReal < 1 := by simpa using (ENNReal.toReal_lt_toReal hc ENNReal.one_ne_top).2 hc1
   norm_cast
   linarith
