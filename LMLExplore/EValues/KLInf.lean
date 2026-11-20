@@ -9,6 +9,7 @@ public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
 import Mathlib.InformationTheory.KullbackLeibler.DataProcessing
 import Statlib.ForMathlib.InformationTheory.KullbackLeibler.EIntegral
+import TauCeti.Data.EReal.Operations
 
 /-!
 # The smallest relative entropy to a null and the largest e-power
@@ -51,7 +52,9 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
 * `ProbabilityTheory.maxEPower_eq_klInf_effectiveSet`: Statlib's duality,
   `maxEPower Q S = klInf Q (effectiveSet S)`, and `ProbabilityTheory.maxEPower_le_klInf`.
 * `ProbabilityTheory.maxEPower_singleton`: the simple null, `maxEPower Q {P} = klIntegral Q P` for
-  `P` of mass at most one.
+  `P` of mass at most one, and `ProbabilityTheory.maxEPower_singleton_eq_klDiv`, its value
+  `klDiv Q P` for a probability measure `P`.
+* `ProbabilityTheory.maxEPower_eq_eintegral_numeraire`: the numeraire attains the largest e-power.
 * `ProbabilityTheory.maxEPower_prod_eq_add`: additivity of `maxEPower` on products of nulls.
 * `ProbabilityTheory.coe_klDiv_smul_right_self_lt_maxEPower`: `klDiv` cannot replace `klIntegral` in
   the duality.
@@ -187,6 +190,12 @@ theorem klInf_eq_iInf_klDiv [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ = Q un
   have : IsFiniteMeasure P := ⟨(hS P hP).trans_lt (measure_lt_top Q univ)⟩
   exact klIntegral_eq_klDiv (hS P hP).symm
 
+/-- For a null whose members have the mass of `Q`, `klInf` is the coercion to `EReal` of the
+smallest relative entropy `klDiv`, an infimum in `ℝ≥0∞`. -/
+theorem klInf_eq_coe_iInf_klDiv [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ = Q univ) :
+    klInf Q S = ((⨅ P ∈ S, klDiv Q P : ℝ≥0∞) : EReal) := by
+  simp only [klInf_eq_iInf_klDiv hS, EReal.coe_ennreal_iInf]
+
 /-- `klInf Q S` is nonnegative when every member of `S` has mass at most that of `Q`, in
 particular for a probability measure `Q` and a null of measures of mass at most one. -/
 theorem klInf_nonneg [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ Q univ) : 0 ≤ klInf Q S :=
@@ -213,6 +222,18 @@ theorem maxEPower_le_iff {c : EReal} :
   simp only [maxEPower_def, maxUtility_eq_sSup, sSup_le_iff, mem_ofPred_eq, Function.comp_apply,
     logUtility_apply]
   exact ⟨fun h X hX ↦ h _ ⟨X, hX, rfl⟩, fun h _ ⟨X, hX, hb⟩ ↦ hb ▸ h X hX⟩
+
+/-- The largest e-power exceeds `c` exactly when some e-variable has expected logarithm above
+`c`. -/
+theorem lt_maxEPower_iff {c : EReal} :
+    c < maxEPower Q S ↔ ∃ X, IsEVar X S ∧ c < ∫ᵉ ω, ENNReal.log (X ω) ∂Q := by
+  simpa using (maxEPower_le_iff (Q := Q) (S := S) (c := c)).not
+
+/-- The numeraire of a null of measures of mass at most one attains the largest e-power under a
+finite measure. This is Statlib's `maxUtility_eq_eintegral_numeraire`. -/
+theorem maxEPower_eq_eintegral_numeraire [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1) :
+    maxEPower Q S = ∫ᵉ ω, ENNReal.log (numeraire Q S ω) ∂Q :=
+  maxUtility_eq_eintegral_numeraire Q hS
 
 /-- The empty null has infinite largest e-power under a nonzero measure: every measurable function,
 `∞` included, is an e-variable for it. -/
@@ -279,6 +300,12 @@ theorem maxEPower_singleton [IsProbabilityMeasure Q] (hP : P univ ≤ 1) :
     lintegral_congr (g := s.indicator fun _ ↦ ∞) fun x ↦ by by_cases hx : x ∈ s <;> simp [hx],
     lintegral_indicator_const hs]
   simp [ENNReal.top_mul hQs]
+
+/-- **The simple null**, for probability measures: the largest e-power of `{P}` is the relative
+entropy `klDiv Q P`. This is Statlib's `maxUtility_singleton_eq_klDiv`. -/
+theorem maxEPower_singleton_eq_klDiv (Q P : Measure Ω) [IsProbabilityMeasure Q]
+    [IsProbabilityMeasure P] : maxEPower Q {P} = klDiv Q P :=
+  maxUtility_singleton_eq_klDiv Q P
 
 /-- **Additivity on products of nulls**: the largest e-power of the products of the members of
 two nulls, under a product of probability measures, is the sum of the largest e-powers. This is

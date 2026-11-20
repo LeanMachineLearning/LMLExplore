@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
-public import Statlib.EValues.RIPr
+public import LMLExplore.EValues.KLInf
 import LMLExplore.EValues.Utility.Basic
 
 /-!
@@ -24,7 +24,7 @@ e-variable for the mixture.
 
 * `InformationTheory.klDiv_mixture_of_mutuallySingular`:
   `klDiv μ ((1 - ε) • ν + ε • μ) = log (1 / ε)` for `ν ⟂ₘ μ`.
-* `InformationTheory.iInf_klDiv_mixture_of_mutuallySingular`: the smallest relative entropy
+* `InformationTheory.klInf_mixture_of_mutuallySingular`: the smallest relative entropy `klInf`
   from `μ` to a nonempty set of such mixtures is `log (1 / ε)`.
 
 ## Implementation notes
@@ -80,22 +80,20 @@ theorem klDiv_mixture_of_mutuallySingular {μ ν : Measure 𝓧} [IsProbabilityM
     exact (logUtility.eintegral_comp_indicator_const hνμ.measure_compl_nullSet ε⁻¹).symm.trans_le
       (hX.eintegral_le_maxUtility μ logUtility)
 
-/-- The smallest relative entropy from a probability measure `μ` to a nonempty set of mixtures
-`(1 - ε) ν + ε μ`, each with a probability measure `ν` singular to `μ`, is `log (1 / ε)`, for
-`ε ≤ 1`: every member is at relative entropy `log (1 / ε)`
+/-- The smallest relative entropy `klInf` from a probability measure `μ` to a nonempty set of
+mixtures `(1 - ε) ν + ε μ`, each with a probability measure `ν` singular to `μ`, is `log (1 / ε)`,
+for `ε ≤ 1`: every member is at relative entropy `log (1 / ε)`
 (`InformationTheory.klDiv_mixture_of_mutuallySingular`). -/
-theorem iInf_klDiv_mixture_of_mutuallySingular {μ : Measure 𝓧} [IsProbabilityMeasure μ]
+theorem klInf_mixture_of_mutuallySingular {μ : Measure 𝓧} [IsProbabilityMeasure μ]
     {ε : ℝ≥0∞} {S : Set (Measure 𝓧)} (hS : S.Nonempty)
     (h : ∀ P ∈ S, ∃ ν : Measure 𝓧, IsProbabilityMeasure ν ∧ ν ⟂ₘ μ ∧ P = (1 - ε) • ν + ε • μ)
     (hε : ε ≤ 1) :
-    ((⨅ P ∈ S, klDiv μ P : ℝ≥0∞) : EReal) = ENNReal.log ε⁻¹ := by
-  have hkl (P : Measure 𝓧) (hP : P ∈ S) : ((klDiv μ P : ℝ≥0∞) : EReal) = ENNReal.log ε⁻¹ := by
+    klInf μ S = ENNReal.log ε⁻¹ := by
+  have hkl (P : Measure 𝓧) (hP : P ∈ S) : klIntegral μ P = ENNReal.log ε⁻¹ := by
     obtain ⟨ν, hν, hνμ, rfl⟩ := h P hP
-    exact klDiv_mixture_of_mutuallySingular hνμ hε
-  obtain ⟨P₀, hP₀⟩ := hS
-  rw [← hkl P₀ hP₀]
-  congr 1
-  exact (biInf_congr fun P hP ↦ EReal.coe_ennreal_injective ((hkl P hP).trans
-    (hkl P₀ hP₀).symm)).trans (biInf_const ⟨P₀, hP₀⟩)
+    have : IsProbabilityMeasure ((1 - ε) • ν + ε • μ) := ⟨by simp [tsub_add_cancel_of_le hε]⟩
+    rw [klIntegral_eq_klDiv (by simp [tsub_add_cancel_of_le hε]),
+      klDiv_mixture_of_mutuallySingular hνμ hε]
+  rw [klInf_def, biInf_congr hkl, biInf_const hS]
 
 end InformationTheory

@@ -268,7 +268,7 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
     maxLogGrowth Q S n = 0 := by
   have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
   refine le_antisymm ?_ (maxLogGrowth_nonneg _ (fun P hP ↦ (hS P hP).measure_univ.le) _)
-  rw [maxLogGrowth_def]
+  rw [maxLogGrowth_def, maxEPower_def]
   refine (maxUtility_le_klIntegral_of_mem_effectiveSet
     (measure_univ_le_one_of_mem_image_pi (fun P hP ↦ (hS P hP).measure_univ.le) n)
     (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).trans_eq ?_

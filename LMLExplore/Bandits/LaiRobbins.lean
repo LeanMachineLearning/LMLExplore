@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Bandits.InstanceDependentLowerBound
+public import LMLExplore.EValues.KLInf
 
 /-!
 # The Lai–Robbins lower bound
@@ -38,7 +39,9 @@ integrability assumption.
 ## Main definitions
 
 * `LMLExplore.Bandits.IsConsistent alg E`: the algorithm `alg` is consistent over the class `E`.
-* `LMLExplore.Bandits.dInf M P m`: `d_inf(P, m, M)`.
+* `LMLExplore.Bandits.dInf M P m`: `d_inf(P, m, M)`. For laws of equal mass it is the smallest
+  relative entropy `klInf` from `P` to the laws of `M` with a mean above `m`
+  (`coe_dInf_eq_klInf`).
 
 ## Main statements
 
@@ -160,6 +163,13 @@ lemma dInf_eq_of_subset {M' : Set (Measure ℝ)} (hMM' : M ⊆ M')
   · exact dInf_le hQM hm
   · rw [h Q ⟨hQ, hQM⟩ hm]
     exact le_top
+
+/-- `d_inf(P, m, M)` is the smallest relative entropy `klInf` from `P` to the laws of `M` with a
+mean above `m`, when the laws of `M` have the mass of `P`, for instance for probability
+measures. -/
+theorem coe_dInf_eq_klInf [IsFiniteMeasure P] (hM : ∀ Q ∈ M, Q Set.univ = P Set.univ) :
+    (dInf M P m : EReal) = klInf P {Q ∈ M | m < Q[id]} :=
+  (klInf_eq_coe_iInf_klDiv fun Q (hQ : Q ∈ M ∧ m < Q[id]) ↦ hM Q hQ.1).symm
 
 end Defs
 

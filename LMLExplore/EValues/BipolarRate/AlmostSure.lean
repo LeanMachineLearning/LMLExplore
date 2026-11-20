@@ -19,7 +19,7 @@ observations has `limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁` [EVR26, Note
 e-process for the i.i.d. null grows almost surely at most at the bipolar rate per observation. The
 members of `S₁` are probability measures, and nothing else is assumed on `S₁` or `Q₁`: no
 domination, convexity or compactness. Since the bipolar rate is at most the smallest relative
-entropy from `Q₁` to the null (`ProbabilityTheory.bipolarRate_le_iInf_klDiv`), the bound by that
+entropy from `Q₁` to the null (`ProbabilityTheory.bipolarRate_le_klInf`), the bound by that
 relative entropy follows [WSJ26, Proposition 2.2, for portfolio nulls].
 
 The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bipolarRate`
