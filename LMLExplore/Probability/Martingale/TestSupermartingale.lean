@@ -152,13 +152,28 @@ theorem congr (hM : IsENNSupermartingale M ℱ S) (hM' : Adapted ℱ M')
       ← lintegral_congr_ae (ae_restrict_of_ae (h P hP n))]
     exact hM.setLIntegral_succ_le P hP n s hs⟩
 
+/-- A supermartingale under `P`, with the value `∞` before time `m`, is a supermartingale under
+the restriction of `P` to an `ℱ m`-measurable set. -/
+theorem ite_top_restrict (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {m : ℕ} {s : Set Ω}
+    (hs : MeasurableSet[ℱ m] s) :
+    IsENNSupermartingale (fun n ω ↦ if n < m then ∞ else M n ω) ℱ {P.restrict s} := by
+  refine ⟨fun n ↦ ?_, fun Q hQ n t ht ↦ ?_⟩
+  · by_cases hn : n < m
+    · simp [hn]
+    · simpa [hn] using hM.adapted n
+  rw [Set.mem_singleton_iff.1 hQ]
+  by_cases hn : n < m
+  · exact lintegral_mono fun ω ↦ by simp [hn]
+  · have hn1 : ¬n + 1 < m := by omega
+    simp only [hn, hn1, ↓reduceIte]
+    rw [Measure.restrict_restrict (ℱ.le n t ht)]
+    exact hM.setLIntegral_succ_le P hP n _ (ht.inter (ℱ.mono (not_lt.1 hn) _ hs))
+
 /-- A supermartingale under `P` is a supermartingale under the restriction of `P` to an
 `ℱ 0`-measurable set. -/
 theorem restrict (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {s : Set Ω}
     (hs : MeasurableSet[ℱ 0] s) : IsENNSupermartingale M ℱ {P.restrict s} := by
-  refine ⟨hM.adapted, fun Q hQ n t ht ↦ ?_⟩
-  rw [Set.mem_singleton_iff.1 hQ, Measure.restrict_restrict (ℱ.le n t ht)]
-  exact hM.setLIntegral_succ_le P hP n _ (ht.inter (ℱ.mono n.zero_le s hs))
+  simpa using hM.ite_top_restrict hP hs
 
 /-- The set integrals of an `ℝ≥0∞`-valued supermartingale over an `ℱ i`-measurable set do not
 increase after time `i`. -/

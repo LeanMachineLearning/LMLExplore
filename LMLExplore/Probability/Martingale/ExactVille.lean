@@ -409,18 +409,7 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
       rw [Measure.restrict_apply' (ℱ.le m _ hs)]
       exact measure_mono fun ω hω ↦ ⟨show a ≤ _ from min_le_min hω.2.le le_rfl, hω.1⟩
     set M' : ℕ → Ω → ℝ≥0∞ := fun n ω ↦ if n < m then ∞ else M n ω
-    have hM' : IsENNSupermartingale M' ℱ {P.restrict (B k)} := by
-      refine ⟨fun n ↦ ?_, fun Q hQ n t ht ↦ ?_⟩
-      · by_cases hn : n < m
-        · simp [M', hn]
-        · simpa [M', hn] using hM.adapted n
-      rw [mem_singleton_iff.1 hQ]
-      by_cases hn : n < m
-      · exact lintegral_mono fun ω ↦ by simp [M', hn]
-      · have hn1 : ¬n + 1 < m := by omega
-        simp only [M', hn, hn1, ↓reduceIte]
-        rw [Measure.restrict_restrict (ℱ.le n t ht)]
-        exact hM.setLIntegral_succ_le P hP n _ (ht.inter (ℱ.mono (not_lt.1 hn) _ (hB k)))
+    have hM' : IsENNSupermartingale M' ℱ {P.restrict (B k)} := hM.ite_top_restrict hP (hB k)
     have hE' : {ω | ∃ n ≥ m, c ≤ M' n ω} = E := by
       ext ω
       exact exists_congr fun n ↦ and_congr_right fun hn ↦ by simp [M', not_lt.2 hn]
