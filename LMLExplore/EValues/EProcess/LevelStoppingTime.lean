@@ -26,16 +26,18 @@ the adapted `{0, 1}`-valued process `𝟙{τ ≤ n}`, which rejects from time `�
 sequential test in the sense of `IsSequentialTest`; conversely the rejection events of a
 `{0, 1}`-valued sequential test `φ` are those of the first time `hittingAfter φ {1} 0` at which it
 rejects, and the first rejection time of `𝟙{τ ≤ n}` is `τ`
-(`MeasureTheory.hittingAfter_indicator_setOf_le_apply`). The first time an e-process reaches
-`α⁻¹` is a level-`α` sequential test, at every level `α`, `0` included, by Ville's inequality for
-e-processes; for `α ≠ ∞` every level-`α` sequential test is of this form, with the e-process
-`α⁻¹ * 𝟙{τ ≤ n}` [RW, Proposition 7.8]. The first time a p-process is at most `α` is a level-`α`
-sequential test [RRLK, Proposition 11]. The minimum of two sequential tests for one null is a
-sequential test at the sum of their levels, and their maximum is a sequential test for the union
-of their nulls at the common level.
+(`MeasureTheory.hittingAfter_indicator_setOf_le_apply`). For a null of probability measures, the
+first time an e-process reaches `α⁻¹` is a level-`α` sequential test, at every level `α`, `0`
+included, by Ville's inequality for e-processes; for such a null and `α ≠ ∞` every level-`α`
+sequential test is of this form, with the e-process `α⁻¹ * 𝟙{τ ≤ n}` [RW, Proposition 7.8]. The
+first time a p-process is at most `α` is a level-`α` sequential test [RRLK, Proposition 11]. The
+minimum of two sequential tests for one null is a sequential test at the sum of their levels, and
+their maximum is a sequential test for the union of their nulls at the common level.
 
-The null is an arbitrary set of measures, with no dominating measure, and the filtration is
-arbitrary.
+The filtration is arbitrary, and the null has no dominating measure. The null is an arbitrary set
+of measures in the definition, its order properties, its correspondence with `IsSequentialTest`
+and the thresholding of p-processes; the results on e-processes assume that every member of the
+null is a probability measure.
 
 ## Main definitions
 
@@ -146,9 +148,10 @@ theorem isLevelStoppingTime_iff_isSequentialTest :
   -- the process `𝟙{τ ≤ n}` rejects at some time exactly where `τ` is finite
   have h_rej : {ω | ∃ n : ℕ, {ω | τ ω ≤ n}.indicator (1 : Ω → ℝ≥0∞) ω = 1} = {ω | τ ω < ⊤} := by
     ext ω
-    rw [mem_ofPred_eq, mem_ofPred_eq, ← hittingAfter_indicator_setOf_le_apply (β := ℝ≥0∞)
-      (τ := τ) (n := 0) (ω := ω) (by simp), hittingAfter_lt_top_iff]
-    simp
+    simp only [mem_ofPred_eq]
+    cases h : τ ω
+    · simp [indicator, h]
+    · simpa [indicator, h] using ⟨_, le_rfl⟩
   refine ⟨fun hτ ↦ ⟨fun n ↦
     measurable_const.indicator (hτ.isStoppingTime.measurableSet_le_natCast n), fun n ω ↦ ?_,
     fun P hP ↦ h_rej ▸ hτ.measure_lt_top_le P hP⟩,
