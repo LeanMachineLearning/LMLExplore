@@ -18,10 +18,12 @@ of the filters `ae P` over `P ∈ S`, so that "almost surely under every member"
 of measures, with no domination: the quasi-sure filter of a dominated null is the almost
 everywhere filter of a dominating mixture, but no such measure exists in general.
 
-E-variables, p-variables, conditional e-variables, test supermartingales and e-processes depend on
-their argument only up to quasi-sure equality. E-variables, conditional e-variables and e-processes
-are solid (closed downward) in the quasi-sure order, and p-variables are closed upward in it. This
-file states those congruence and monotonicity lemmas with the quasi-sure filter.
+Among measurable functions, and among adapted processes for the process notions, e-variables,
+p-variables, conditional e-variables, test supermartingales and e-processes depend on their argument
+only up to quasi-sure equality; e-variables, conditional e-variables and e-processes are solid
+(closed downward) in the quasi-sure order, and p-variables are closed upward in it. The regularity
+cannot be dropped, as each of these notions includes measurability or adaptedness. This file states
+those congruence and monotonicity lemmas with the quasi-sure filter.
 
 ## Main definitions
 
