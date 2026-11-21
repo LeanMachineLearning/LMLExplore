@@ -19,6 +19,13 @@ import LMLExplore.Data.EReal.Inv
   `r ≤ -(log x) / n`.
 * `ENNReal.neg_log_div_le_of_ofReal_exp_le`: for `0 < n`, if `exp (-(n r)) ≤ x`, then
   `-(log x) / n ≤ r`.
+* `ENNReal.toENNReal_log_le_div_add`: for `0 < r < ∞`, `(log a)⁺ ≤ a / r + (log r)⁺`.
+
+## Implementation notes
+
+`toENNReal_log_le_div_add` is adapted from the lemma of the same name in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`.
 -/
 
 public section
@@ -62,5 +69,23 @@ lemma neg_log_div_le_of_ofReal_exp_le {x : ℝ≥0∞} {n : ℕ} {r : ℝ} (hn :
   rw [log_ofReal_exp, EReal.coe_neg] at hlog
   rw [EReal.div_natCast_le_coe_iff hn]
   exact EReal.neg_le_of_neg_le hlog
+
+/-- For `0 < r < ∞`, the positive part of `log a` is at most `a / r + (log r)⁺`: this is
+`log (a / r) ≤ a / r - 1`. -/
+lemma toENNReal_log_le_div_add {a r : ℝ≥0∞} (hr0 : 0 < r) (hr : r ≠ ∞) :
+    (log a).toENNReal ≤ a / r + ENNReal.ofReal (Real.log r.toReal) := by
+  rcases eq_or_ne a 0 with rfl | ha0
+  · simp
+  rcases eq_or_ne a ∞ with rfl | hatop
+  · simp [ENNReal.top_div_of_ne_top hr]
+  have hr' : 0 < r.toReal := ENNReal.toReal_pos hr0.ne' hr
+  have ha' : 0 < a.toReal := ENNReal.toReal_pos ha0 hatop
+  rw [log_pos_real ha0 hatop, EReal.real_coe_toENNReal,
+    ← ENNReal.ofReal_toReal (ENNReal.div_ne_top hatop hr0.ne'), ENNReal.toReal_div]
+  refine (ENNReal.ofReal_le_ofReal ?_).trans ENNReal.ofReal_add_le
+  have h1 : Real.log a.toReal = Real.log (a.toReal / r.toReal) + Real.log r.toReal := by
+    rw [Real.log_div ha'.ne' hr'.ne', sub_add_cancel]
+  have h2 := Real.log_le_sub_one_of_pos (div_pos ha' hr')
+  linarith
 
 end ENNReal
