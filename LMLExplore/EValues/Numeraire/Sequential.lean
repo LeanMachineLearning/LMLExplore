@@ -259,7 +259,7 @@ private lemma eq_ofReal_div_mix (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X : (Fin n 
     (P₁ := Measure.pi fun _ : Fin n ↦ P₁) (P₂ := Measure.pi fun _ : Fin n ↦ P₂)
     (piMass_pos hQ) (piMass_nonneg P₁) (piMass_nonneg P₂) (pi_singleton_eq_ofReal_piMass Q)
     (pi_singleton_eq_ofReal_piMass P₁) (pi_singleton_eq_ofReal_piMass P₂) hw0 hw1 hm hE₁ hE₂
-  rw [sampleNull_def, Set.image_pair] at hX
+  rw [sampleNull_insert, sampleNull_singleton] at hX
   refine congrFun (hX.eq_of_countable hN fun y ↦ ?_) x
   rw [pi_singleton_eq_ofReal_piMass]
   exact (ENNReal.ofReal_pos.2 (piMass_pos hQ y)).ne'

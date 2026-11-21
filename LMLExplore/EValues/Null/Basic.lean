@@ -200,6 +200,12 @@ theorem mem_sampleNull {μ : Measure (Fin n → 𝓧)} :
 theorem pi_mem_sampleNull (hP : P ∈ S₁) : (Measure.pi fun _ : Fin n ↦ P) ∈ sampleNull S₁ n :=
   mem_image_of_mem _ hP
 
+/-- A property holds for every member of `sampleNull S₁ n` exactly when it holds for the product
+law `Measure.pi fun _ : Fin n ↦ P` of every `P ∈ S₁`. -/
+theorem forall_mem_sampleNull {p : Measure (Fin n → 𝓧) → Prop} :
+    (∀ μ ∈ sampleNull S₁ n, p μ) ↔ ∀ P ∈ S₁, p (Measure.pi fun _ : Fin n ↦ P) :=
+  forall_mem_image
+
 @[gcongr]
 theorem sampleNull_mono (hST : S₁ ⊆ T₁) (n : ℕ) : sampleNull S₁ n ⊆ sampleNull T₁ n :=
   image_mono hST
@@ -212,6 +218,11 @@ theorem sampleNull_empty (n : ℕ) : sampleNull (∅ : Set (Measure 𝓧)) n = �
 theorem sampleNull_singleton (P : Measure 𝓧) (n : ℕ) :
     sampleNull {P} n = {Measure.pi fun _ : Fin n ↦ P} :=
   image_singleton
+
+@[simp]
+theorem sampleNull_insert (P : Measure 𝓧) (S₁ : Set (Measure 𝓧)) (n : ℕ) :
+    sampleNull (insert P S₁) n = insert (Measure.pi fun _ : Fin n ↦ P) (sampleNull S₁ n) :=
+  image_insert_eq
 
 /-- The samples of a null of probability measures have probability laws. -/
 theorem isProbabilityMeasure_of_mem_sampleNull (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (n : ℕ) :
@@ -246,6 +257,12 @@ theorem mem_iidNull {μ : Measure (ℕ → 𝓧)} :
 theorem infinitePi_mem_iidNull (hP : P ∈ S₁) : (Measure.infinitePi fun _ : ℕ ↦ P) ∈ iidNull S₁ :=
   mem_image_of_mem _ hP
 
+/-- A property holds for every member of `iidNull S₁` exactly when it holds for the law
+`Measure.infinitePi fun _ : ℕ ↦ P` of every `P ∈ S₁`. -/
+theorem forall_mem_iidNull {p : Measure (ℕ → 𝓧) → Prop} :
+    (∀ μ ∈ iidNull S₁, p μ) ↔ ∀ P ∈ S₁, p (Measure.infinitePi fun _ : ℕ ↦ P) :=
+  forall_mem_image
+
 @[gcongr]
 theorem iidNull_mono (hST : S₁ ⊆ T₁) : iidNull S₁ ⊆ iidNull T₁ :=
   image_mono hST
@@ -258,6 +275,11 @@ theorem iidNull_empty : iidNull (∅ : Set (Measure 𝓧)) = ∅ :=
 theorem iidNull_singleton (P : Measure 𝓧) :
     iidNull {P} = {Measure.infinitePi fun _ : ℕ ↦ P} :=
   image_singleton
+
+@[simp]
+theorem iidNull_insert (P : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
+    iidNull (insert P S₁) = insert (Measure.infinitePi fun _ : ℕ ↦ P) (iidNull S₁) :=
+  image_insert_eq
 
 /-- The members of the i.i.d. null of a null of probability measures are probability measures. -/
 theorem isProbabilityMeasure_of_mem_iidNull (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) :
@@ -285,6 +307,13 @@ theorem mem_indepNull {μ : Measure (ℕ → 𝓧)} :
 theorem infinitePi_mem_indepNull {P : ℕ → Measure 𝓧} (hP : ∀ i, P i ∈ S₁) :
     Measure.infinitePi P ∈ indepNull S₁ :=
   mem_image_of_mem _ hP
+
+/-- A property holds for every member of `indepNull S₁` exactly when it holds for the law
+`Measure.infinitePi P` of every sequence `P` of members of `S₁`. -/
+theorem forall_mem_indepNull {p : Measure (ℕ → 𝓧) → Prop} :
+    (∀ μ ∈ indepNull S₁, p μ) ↔
+      ∀ P : ℕ → Measure 𝓧, (∀ i, P i ∈ S₁) → p (Measure.infinitePi P) :=
+  forall_mem_image
 
 @[gcongr]
 theorem indepNull_mono (hST : S₁ ⊆ T₁) : indepNull S₁ ⊆ indepNull T₁ :=

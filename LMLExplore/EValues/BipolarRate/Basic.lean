@@ -343,16 +343,14 @@ lemma le_maxLogGrowth_of_ofReal_exp_mul_le_one (Q : Measure 𝓧) [IsProbability
   have hXm : Measurable X := measurable_const.add (measurable_const.mul
     (measurable_const.indicator hA))
   have hX : IsEVar X (sampleNull S m) := by
-    refine ⟨hXm, ?_⟩
-    · rw [sampleNull_def]
-      rintro _ ⟨P, hPS, rfl⟩
-      have := hS P hPS
-      calc ∫⁻ x, X x ∂(Measure.pi fun _ : Fin m ↦ P)
-      _ = 2⁻¹ + 2⁻¹ * (b * (Measure.pi fun _ : Fin m ↦ P) A) := by
-        simp [X, lintegral_add_right _ ((measurable_const.indicator hA).const_mul _),
-          lintegral_const_mul _ (measurable_const.indicator hA), lintegral_indicator_const hA]
-      _ ≤ 2⁻¹ + 2⁻¹ * 1 := by gcongr; exact hP P hPS
-      _ = 1 := by rw [mul_one, ENNReal.inv_two_add_inv_two]
+    refine ⟨hXm, forall_mem_sampleNull.2 fun P hPS ↦ ?_⟩
+    have := hS P hPS
+    calc ∫⁻ x, X x ∂(Measure.pi fun _ : Fin m ↦ P)
+    _ = 2⁻¹ + 2⁻¹ * (b * (Measure.pi fun _ : Fin m ↦ P) A) := by
+      simp [X, lintegral_add_right _ ((measurable_const.indicator hA).const_mul _),
+        lintegral_const_mul _ (measurable_const.indicator hA), lintegral_indicator_const hA]
+    _ ≤ 2⁻¹ + 2⁻¹ * 1 := by gcongr; exact hP P hPS
+    _ = 1 := by rw [mul_one, ENNReal.inv_two_add_inv_two]
   set g : (Fin m → 𝓧) → ℝ := fun x ↦ A.indicator (fun _ ↦ t) x - Real.log 2
   have hg (x : Fin m → 𝓧) : ENNReal.ofReal (Real.exp (g x)) ≤ X x := by
     by_cases hx : x ∈ A

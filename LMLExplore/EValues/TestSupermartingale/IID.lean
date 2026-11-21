@@ -64,15 +64,13 @@ theorem IsEVar.isTestSupermartingale_prod_piLE (hS : ∀ P ∈ S, IsProbabilityM
       (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) (iidNull S) := by
   set T := iidNull S with hT
   have h0 : ∀ P ∈ T, ∫⁻ ω, e (ω 0) ∂P ≤ 1 := by
-    rw [hT, iidNull_def]
-    rintro _ ⟨P, hP, rfl⟩
+    refine hT ▸ forall_mem_iidNull.2 fun P hP ↦ ?_
     have := hS P hP
     rw [(measurePreserving_eval_infinitePi (fun _ ↦ P) 0).lintegral_comp he.measurable]
     exact he.lintegral_le_one hP
   have hF : ∀ k, IsCondEVar (fun ω : ℕ → 𝓧 ↦ e (ω (k + 1))) (Filtration.piLE k) T := by
     refine fun k ↦ ⟨he.measurable.comp (measurable_pi_apply _), ?_⟩
-    rw [hT, iidNull_def]
-    rintro _ ⟨P, hP, rfl⟩ s hs
+    refine hT ▸ forall_mem_iidNull.2 fun P hP s hs ↦ ?_
     have := hS P hP
     rw [setLIntegral_comp_eval_succ P he.measurable k hs]
     exact mul_le_of_le_one_right' (he.lintegral_le_one hP)

@@ -171,8 +171,7 @@ private lemma isTestMartingale_doublingProcess :
       (iidNull {Measure.dirac false, Measure.dirac true}) := by
   have hmem : ∀ μ ∈ iidNull {Measure.dirac false, Measure.dirac true},
       ∃ x : Bool, μ = Measure.dirac (fun _ ↦ x) := by
-    rw [iidNull_def]
-    rintro μ ⟨P, hP, rfl⟩
+    refine forall_mem_iidNull.2 fun P hP ↦ ?_
     rcases hP with rfl | rfl
     · exact ⟨false, Measure.infinitePi_dirac (fun _ ↦ false)⟩
     · exact ⟨true, Measure.infinitePi_dirac (fun _ ↦ true)⟩

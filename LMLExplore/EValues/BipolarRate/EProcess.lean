@@ -61,12 +61,10 @@ lemma exists_isEVar_eq_comp_initSeg [Nonempty 𝓧] (hS₁ : ∀ P ∈ S₁, IsP
     ∃ G : (Fin n → 𝓧) → ℝ≥0∞,
       IsEVar G (sampleNull S₁ n) ∧ F = G ∘ initSeg n := by
   obtain ⟨G, hG, rfl⟩ := exists_measurable_eq_comp_initSeg hF hFn
-  refine ⟨G, ⟨hG, ?_⟩, rfl⟩
-  · rw [sampleNull_def]
-    rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    rw [← (measurePreserving_initSeg P n).lintegral_comp hG]
-    exact h_null P hP
+  refine ⟨G, ⟨hG, forall_mem_sampleNull.2 fun P hP ↦ ?_⟩, rfl⟩
+  have := hS₁ P hP
+  rw [← (measurePreserving_initSeg P n).lintegral_comp hG]
+  exact h_null P hP
 
 /-- A function of the first `n` observations with expectation at most one under the i.i.d. laws of
 the members of `S₁` has expected logarithm, under the i.i.d. law of `Q₁`, at most the maximal

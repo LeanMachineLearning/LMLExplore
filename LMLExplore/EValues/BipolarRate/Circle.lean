@@ -173,15 +173,13 @@ private lemma log_le_maxLogGrowth {S : Set (Measure UnitAddCircle)}
   set c := ((n : ℝ≥0∞) * ε ^ (n - 1))⁻¹
   have hA := measurableSet_pairwiseIrrational n
   have hX : IsEVar ((pairwiseIrrational n).indicator fun _ ↦ c) (sampleNull S n) := by
-    refine ⟨measurable_const.indicator hA, ?_⟩
-    · rw [sampleNull_def]
-      rintro _ ⟨P, hP, rfl⟩
-      have := hS P hP
-      obtain ⟨C, hPC, hC⟩ := hSC P hP
-      rw [lintegral_indicator_const hA]
-      calc c * (Measure.pi fun _ : Fin n ↦ P) (pairwiseIrrational n)
-      _ ≤ c * (n * ε ^ (n - 1)) := by gcongr; exact measure_pi_pairwiseIrrational_le hPC hC hn
-      _ ≤ 1 := ENNReal.inv_mul_le_one _
+    refine ⟨measurable_const.indicator hA, forall_mem_sampleNull.2 fun P hP ↦ ?_⟩
+    have := hS P hP
+    obtain ⟨C, hPC, hC⟩ := hSC P hP
+    rw [lintegral_indicator_const hA]
+    calc c * (Measure.pi fun _ : Fin n ↦ P) (pairwiseIrrational n)
+    _ ≤ c * (n * ε ^ (n - 1)) := by gcongr; exact measure_pi_pairwiseIrrational_le hPC hC hn
+    _ ≤ 1 := ENNReal.inv_mul_le_one _
   rw [maxLogGrowth_def]
   refine le_of_eq_of_le ?_ (hX.eintegral_log_le_maxEPower _)
   simpa [Function.comp_def, logUtility_apply] using

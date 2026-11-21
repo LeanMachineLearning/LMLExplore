@@ -307,8 +307,7 @@ theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure �
   refine ⟨fun α ↦ hittingAfter E (Set.Ici α⁻¹) 0, fun α ↦
     ⟨hE.isStoppingTime_hittingAfter measurableSet_Ici, ?_⟩, ?_⟩
   · -- the level, by Ville's inequality
-    rw [iidNull_def]
-    rintro _ ⟨P, hP, rfl⟩
+    refine forall_mem_iidNull.2 fun P hP ↦ ?_
     by_cases hP' : IsProbabilityMeasure P
     swap
     · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0)

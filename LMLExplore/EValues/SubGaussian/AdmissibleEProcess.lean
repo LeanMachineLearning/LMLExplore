@@ -136,13 +136,11 @@ private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
     fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), ?_⟩
   · convert h using 1
     exact funext fun n ↦ funext (expProcess_eq_mul_prod n)
-  · rw [iidNull_def]
-    rintro _ ⟨μ, hμ, rfl⟩
+  · refine forall_mem_iidNull.2 fun μ hμ ↦ ?_
     have := (hN μ hμ).1
     rw [(measurePreserving_eval_infinitePi (fun _ ↦ μ) 0).lintegral_comp measurable_expFactor]
     exact (hN μ hμ).2
-  · rw [iidNull_def]
-    rintro _ ⟨μ, hμ, rfl⟩ s hs
+  · refine forall_mem_iidNull.2 fun μ hμ s hs ↦ ?_
     have := (hN μ hμ).1
     rw [setLIntegral_comp_eval_succ μ measurable_expFactor k hs]
     exact mul_le_of_le_one_right' (hN μ hμ).2

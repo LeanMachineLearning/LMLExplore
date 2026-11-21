@@ -240,8 +240,7 @@ theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure 
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
   refine ⟨stopTime L K, ⟨isStoppingTime_stopTime L K, ?_⟩,
     fun ω hω ↦ stopTime_lt_top_of_not_tendsto hω⟩
-  rw [iidNull_def]
-  rintro _ ⟨P, hPS, rfl⟩
+  refine forall_mem_iidNull.2 fun P hPS ↦ ?_
   by_cases hP₁ : IsProbabilityMeasure P
   swap
   · -- the product of copies of `P` is zero
