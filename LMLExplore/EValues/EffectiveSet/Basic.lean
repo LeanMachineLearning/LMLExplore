@@ -162,6 +162,23 @@ theorem IsEVar.min_const {X : Ω → ℝ≥0∞} (hX : IsEVar X S) (c : ℝ≥0�
     IsEVar (fun ω ↦ min (X ω) c) S :=
   hX.mono (hX.measurable.min measurable_const) fun _ ↦ min_le_left _ _
 
+/-- **Bounds on the null hold on the effective null.** If every member of `S` gives an integral
+at most `c` to a measurable function `φ`, so does every member of the effective null of `S`. -/
+theorem lintegral_le_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S) {φ : Ω → ℝ≥0∞}
+    (hφ : Measurable φ) {c : ℝ≥0∞} (h : ∀ P ∈ S, ∫⁻ ω, φ ω ∂P ≤ c) : ∫⁻ ω, φ ω ∂μ ≤ c := by
+  refine ENNReal.le_of_forall_pos_le_add fun ε hε hc ↦ ?_
+  -- `φ / (c + ε)` is an e-variable for `S`
+  have hd0 : c + ε ≠ 0 := by simpa using fun _ ↦ hε.ne'
+  have hd_top : c + ε ≠ ∞ := ENNReal.add_ne_top.2 ⟨hc.ne, ENNReal.coe_ne_top⟩
+  have h_div (ν : Measure Ω) : ∫⁻ ω, φ ω / (c + ε) ∂ν = (∫⁻ ω, φ ω ∂ν) / (c + ε) := by
+    simp_rw [div_eq_mul_inv]
+    exact lintegral_mul_const _ hφ
+  have hY : IsEVar (fun ω ↦ φ ω / (c + ε)) S := ⟨hφ.div_const _, fun P hP ↦ by
+    rw [h_div, ENNReal.div_le_iff hd0 hd_top, one_mul]
+    exact (h P hP).trans le_self_add⟩
+  have h_le := hμ _ hY
+  rwa [h_div, ENNReal.div_le_iff hd0 hd_top, one_mul] at h_le
+
 /-- A measure `Q` outside the effective null of a null `S` is detected by a
 bounded e-variable: some e-variable for `S` bounded by an integer `N ≥ 2` has expectation larger
 than `1` under `Q`. -/
