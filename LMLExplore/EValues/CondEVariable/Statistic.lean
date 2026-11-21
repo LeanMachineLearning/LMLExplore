@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.Numeraire
+import LMLExplore.Probability.Kernel.Basic
 import Mathlib.Probability.Distributions.Bernoulli
 
 /-!
@@ -201,12 +202,9 @@ theorem exists_ae_eq_rnDeriv_comp_map_not_isEVar :
   let p : unitInterval := ⟨2⁻¹, by norm_num, by norm_num⟩
   let κ : Kernel Bool (Bool × Bool) :=
     Kernel.ofFunOfCountable fun t ↦ bernoulliMeasure (t, true) (t, false) p
-  -- Mathlib has no `Kernel.ofFunOfCountable_apply`: the kernel applies as the function by `rfl`
-  have hκ_apply (t : Bool) : κ t = bernoulliMeasure (t, true) (t, false) p := rfl
-  have : IsMarkovKernel κ := ⟨fun t ↦ by rw [hκ_apply]; infer_instance⟩
   have hfib (t : Bool) : ∀ᵐ x ∂κ t, x.1 = t := by
-    rw [ae_iff, hκ_apply, bernoulliMeasure_apply_of_notMem_of_notMem p .of_discrete
-      (by simp) (by simp)]
+    rw [ae_iff, Kernel.ofFunOfCountable_apply,
+      bernoulliMeasure_apply_of_notMem_of_notMem p .of_discrete (by simp) (by simp)]
   have hmap (t : Bool) : (κ t).map Prod.fst = Measure.dirac t := by
     rw [Measure.map_congr (hfib t), Measure.map_const, measure_univ, one_smul]
   have hcomp (t : Bool) : κ ∘ₘ Measure.dirac t = κ t := Measure.dirac_bind κ.measurable t
@@ -220,7 +218,8 @@ theorem exists_ae_eq_rnDeriv_comp_map_not_isEVar :
     rw [Measure.dirac_apply' _ hs, indicator_of_notMem]
     intro hmem
     have h := measure_mono_null (singleton_subset_iff.mpr hmem) hs0
-    rw [hκ_apply, bernoulliMeasure_apply_of_mem_of_notMem p .of_discrete (by simp) (by simp)] at h
+    rw [Kernel.ofFunOfCountable_apply,
+      bernoulliMeasure_apply_of_mem_of_notMem p .of_discrete (by simp) (by simp)] at h
     rw [ENNReal.coe_eq_zero, ← NNReal.coe_eq_zero, unitInterval.coe_toNNReal] at h
     norm_num [p] at h
   · rintro _ ⟨t, rfl⟩
