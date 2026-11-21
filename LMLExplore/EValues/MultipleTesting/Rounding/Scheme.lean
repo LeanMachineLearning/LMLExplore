@@ -5,8 +5,10 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Data.Fintype.Fin
 public import LMLExplore.EValues.MultipleTesting.EBH
 public import LMLExplore.EValues.MultipleTesting.Rounding.Program
+public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 
 /-!
 # The optimal rounding of e-values for e-BH
@@ -30,8 +32,9 @@ U-eBH applies e-BH to `x i / U` for one uniform `U` on `[0, 1]`. A scheme is com
 rounded value is a nonincreasing function of one common uniform variable; the joint stochastic
 rounding of [XR23], which rounds each e-value to one of two grid points around it with the same
 uniform variable for all hypotheses (`ProbabilityTheory.stochasticRound`), is one. Every comonotone
-scheme rejects, at every value of the uniform variable, a subset of what U-eBH rejects, so U-eBH is
-optimal among the comonotone schemes. It is not optimal among all schemes: for the e-values
+scheme rejects, at every value of the uniform variable, a subset of what U-eBH rejects, so U-eBH
+dominates every comonotone scheme (U-eBH is not itself one: `x i / U` has an infinite mean). It
+does not dominate all schemes: for the e-values
 `(8, 2)` at level `1/10`, U-eBH rejects `3/5` hypotheses on average and the optimal scheme `7/10`.
 
 ## Main definitions
@@ -59,10 +62,11 @@ optimal among the comonotone schemes. It is not optimal among all schemes: for t
   of rejections of a scheme is `V`, attained by the optimal nested scheme [EVR26, Note 30,
   Theorem].
 * `ProbabilityTheory.eBH_subset_eBH_div`,
-  `ProbabilityTheory.lintegral_card_eBH_le_lintegral_card_eBH_div`: U-eBH is optimal among the
-  comonotone schemes [EVR26, Note 30, Theorem, Statement 4], which include the joint stochastic
-  rounding (`ProbabilityTheory.lintegral_card_eBH_stochasticRound_le`).
-* `ProbabilityTheory.card_eBH_div_eq_uebhCount`,
+  `ProbabilityTheory.lintegral_card_eBH_le_lintegral_card_eBH_div`: U-eBH dominates every
+  comonotone scheme [EVR26, Note 30, Theorem, Statement 4] (U-eBH is not itself one: `x i / U` has
+  an infinite mean); the comonotone schemes include the joint stochastic rounding
+  (`ProbabilityTheory.lintegral_card_eBH_stochasticRound_le`).
+* `ProbabilityTheory.card_eBH_div_eq_ueBHCount`,
   `ProbabilityTheory.lintegral_card_eBH_div_le`: U-eBH rejects `N_U = max {k : U ≤ k y_(k)}`
   hypotheses, hence at most `V` on average [EVR26, Note 30, Theorem, Statement 3].
 * `ProbabilityTheory.lintegral_card_eBH_div_example`,
@@ -130,10 +134,6 @@ theorem ofReal_roundingBudget {α : ℝ≥0∞} {x : ι → ℝ≥0∞} (hα : �
 theorem antitone_roundingBudget [Preorder ι] {α : ℝ≥0∞} {x : ι → ℝ≥0∞} (hα : α ≠ ∞)
     (hx_top : ∀ i, x i ≠ ∞) (hx : Antitone x) : Antitone (roundingBudget α x) :=
   fun _ _ hij ↦ ENNReal.toReal_mono (budget_ne_top hα hx_top _) (by gcongr; exact hx hij)
-
-/-- The rejection set of e-BH is measurable in the e-values. -/
-theorem measurable_eBH_id (α : ℝ≥0∞) : Measurable fun s : ι → ℝ≥0∞ ↦ eBH s α :=
-  measurable_eBH (E := fun i (s : ι → ℝ≥0∞) ↦ s i) measurable_pi_apply α
 
 /-! ### Every rounding scheme is a feasible point of the linear program -/
 
@@ -232,18 +232,15 @@ on the hypotheses of index less than `k`, and `0` on the others. -/
 noncomputable def nestedRounding (K : ℕ) (α : ℝ≥0∞) (k : ℕ) (i : Fin K) : ℝ≥0∞ :=
   if (i : ℕ) < k then K / (α * k) else 0
 
+@[simp]
 theorem nestedRounding_of_lt {k : ℕ} {i : Fin K} (hi : (i : ℕ) < k) :
     nestedRounding K α k i = K / (α * k) :=
   ite_eq_left hi
 
+@[simp]
 theorem nestedRounding_of_le {k : ℕ} {i : Fin K} (hi : k ≤ (i : ℕ)) :
     nestedRounding K α k i = 0 :=
   ite_eq_right (not_lt.2 hi)
-
-/-- The number of rejections of e-BH is measurable in the e-values. -/
-private lemma measurable_card_eBH (α : ℝ≥0∞) :
-    Measurable fun s : Fin K → ℝ≥0∞ ↦ (#(eBH s α) : ℝ≥0∞) :=
-  (measurable_of_finite fun R : Finset (Fin K) ↦ (#R : ℝ≥0∞)).comp (measurable_eBH_id α)
 
 /-- **e-BH applied to the nested rounding rejects the first `k` hypotheses**, for a level
 `α ∉ {0, ∞}`. -/
@@ -267,6 +264,13 @@ noncomputable def optimalRoundingScheme (α : ℝ≥0∞) (x : Fin K → ℝ≥0
     Measure (Fin K → ℝ≥0∞) :=
   ∑ k ∈ range (K + 1), ENNReal.ofReal (optimalRoundingLaw (roundingBudget α x) k) •
     Measure.dirac (nestedRounding K α k)
+
+/-- The probability of a set under the optimal nested scheme is a sum over the counts. -/
+theorem optimalRoundingScheme_apply (s : Set (Fin K → ℝ≥0∞)) :
+    optimalRoundingScheme α x s = ∑ k ∈ range (K + 1),
+      ENNReal.ofReal (optimalRoundingLaw (roundingBudget α x) k) *
+        s.indicator 1 (nestedRounding K α k) := by
+  simp [optimalRoundingScheme]
 
 /-- An expectation under the optimal nested scheme is a sum over the counts. -/
 theorem lintegral_optimalRoundingScheme {f : (Fin K → ℝ≥0∞) → ℝ≥0∞} (hf : Measurable f) :
@@ -342,13 +346,6 @@ theorem lintegral_card_eBH_optimalRoundingScheme (hx : Antitone x) (hx_top : ∀
     card_topRanks (Nat.lt_succ_iff.1 (mem_range.1 hk)), ENNReal.ofReal_mul (Nat.cast_nonneg k),
     ENNReal.ofReal_natCast, mul_comm]
 
-/-- At level `0`, e-BH rejects nothing. -/
-private lemma eBH_zero (s : Fin K → ℝ≥0∞) : eBH s 0 = ∅ :=
-  eq_empty_of_forall_notMem fun i hi ↦ by
-    have h := mem_eBH_iff_le_mul_card.1 hi
-    rw [zero_mul, zero_mul, Fintype.card_fin] at h
-    exact absurd h (not_le.2 (Nat.cast_pos.2 (Fin.pos i)))
-
 /-- At level `0`, the value of the linear program is `0`: every budget vanishes. -/
 private lemma roundingValue_roundingBudget_zero (x : Fin K → ℝ≥0∞) :
     roundingValue (roundingBudget 0 x) ≤ 0 := by
@@ -373,7 +370,7 @@ theorem isGreatest_lintegral_card_eBH (hx : Antitone x) (hx_top : ∀ i, x i ≠
   rcases eq_or_ne α 0 with rfl | hα0
   · -- at level `0`, not rounding attains the value `0`
     refine ⟨_, isRoundingScheme_dirac x, ?_⟩
-    simp [eBH_zero, ENNReal.ofReal_eq_zero.2 (roundingValue_roundingBudget_zero x)]
+    simp [ENNReal.ofReal_eq_zero.2 (roundingValue_roundingBudget_zero x)]
   · exact ⟨_, isRoundingScheme_optimalRoundingScheme hx hx_top hα0 hα,
       lintegral_card_eBH_optimalRoundingScheme hx hx_top hα0 hα⟩
 
@@ -419,21 +416,6 @@ section Comonotone
 
 variable {x : ι → ℝ≥0∞} {α : ℝ≥0∞}
 
-/-- A nonincreasing function of the uniform variable is at most its mean divided by `u` at `u`. -/
-private lemma le_div_of_antitoneOn {f : ℝ → ℝ≥0∞} {c : ℝ≥0∞} (hf : AntitoneOn f (Set.Icc 0 1))
-    (hfc : ∫⁻ v in Set.Icc 0 1, f v ≤ c) {u : ℝ} (hu : u ∈ Set.Ioc 0 1) :
-    f u ≤ c / ENNReal.ofReal u := by
-  rw [ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hu.1).ne')
-    (Or.inl ENNReal.ofReal_ne_top),
-    mul_comm]
-  calc ENNReal.ofReal u * f u = ∫⁻ _ in Set.Icc 0 u, f u := by
-        rw [setLIntegral_const, Real.volume_Icc, sub_zero, mul_comm]
-    _ ≤ ∫⁻ v in Set.Icc 0 u, f v :=
-        setLIntegral_mono' measurableSet_Icc fun v hv ↦
-          hf ⟨hv.1, hv.2.trans hu.2⟩ ⟨hu.1.le, hu.2⟩ hv.2
-    _ ≤ ∫⁻ v in Set.Icc 0 1, f v := lintegral_mono_set (Set.Icc_subset_Icc le_rfl hu.2)
-    _ ≤ c := hfc
-
 /-- **U-eBH dominates every comonotone scheme pointwise** [EVR26, Note 30, Theorem, Statement 4]:
 if the rounded e-values `f i u` are nonincreasing functions of one uniform variable `u ∈ [0, 1]`
 with means at most `x i`, then at every `u ∈ (0, 1]` e-BH applied to them rejects a subset of what
@@ -441,11 +423,18 @@ U-eBH, e-BH applied to `x i / u`, rejects. -/
 theorem eBH_subset_eBH_div {f : ι → ℝ → ℝ≥0∞} (hf : ∀ i, AntitoneOn (f i) (Set.Icc 0 1))
     (hfx : ∀ i, ∫⁻ u in Set.Icc 0 1, f i u ≤ x i) {u : ℝ} (hu : u ∈ Set.Ioc 0 1) (α : ℝ≥0∞) :
     eBH (f · u) α ⊆ eBH (fun i ↦ x i / ENNReal.ofReal u) α :=
-  eBH_mono le_rfl fun i ↦ le_div_of_antitoneOn (hf i) (hfx i) hu
+  eBH_mono le_rfl fun i ↦ by
+    -- Markov's inequality: `u * f i u ≤ ∫⁻ f i ≤ x i`
+    rw [ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hu.1).ne')
+      (Or.inl ENNReal.ofReal_ne_top), mul_comm]
+    have h := (hf i).ofReal_sub_mul_le_setLIntegral_Icc ⟨hu.1.le, hu.2⟩
+    rw [sub_zero] at h
+    exact h.trans (hfx i)
 
-/-- **U-eBH is optimal among the comonotone schemes** [EVR26, Note 30, Theorem, Statement 4]:
-e-BH applied to rounded e-values that are nonincreasing functions of one uniform variable, with
-means at most `x i`, rejects on average at most as many hypotheses as U-eBH. -/
+/-- **U-eBH dominates every comonotone scheme** [EVR26, Note 30, Theorem, Statement 4]: e-BH
+applied to rounded e-values that are nonincreasing functions of one uniform variable, with means at
+most `x i`, rejects on average at most as many hypotheses as U-eBH. U-eBH is not itself a
+comonotone scheme: `x i / U` has an infinite mean. -/
 theorem lintegral_card_eBH_le_lintegral_card_eBH_div {f : ι → ℝ → ℝ≥0∞}
     (hf : ∀ i, AntitoneOn (f i) (Set.Icc 0 1)) (hfx : ∀ i, ∫⁻ u in Set.Icc 0 1, f i u ≤ x i)
     (α : ℝ≥0∞) :
@@ -462,16 +451,32 @@ e-value with the same `u`. -/
 noncomputable def stochasticRound (a b x : ℝ≥0∞) (u : ℝ) : ℝ≥0∞ :=
   if ENNReal.ofReal u * (b - a) ≤ x - a then b else a
 
+theorem stochasticRound_def (a b x : ℝ≥0∞) (u : ℝ) :
+    stochasticRound a b x u = if ENNReal.ofReal u * (b - a) ≤ x - a then b else a :=
+  (rfl)
+
+/-- The stochastic rounding is `b` when `u * (b - a) ≤ x - a`. -/
+theorem stochasticRound_of_le {a b x : ℝ≥0∞} {u : ℝ} (h : ENNReal.ofReal u * (b - a) ≤ x - a) :
+    stochasticRound a b x u = b :=
+  ite_eq_left h
+
+/-- The stochastic rounding is `a` when `x - a < u * (b - a)`. -/
+theorem stochasticRound_of_lt {a b x : ℝ≥0∞} {u : ℝ} (h : x - a < ENNReal.ofReal u * (b - a)) :
+    stochasticRound a b x u = a :=
+  ite_eq_right (not_le.2 h)
+
 /-- The stochastic rounding is nonincreasing in the uniform variable. -/
 theorem antitone_stochasticRound {a b : ℝ≥0∞} (hab : a ≤ b) (x : ℝ≥0∞) :
     Antitone (stochasticRound a b x) := by
   intro u v huv
-  unfold stochasticRound
-  split_ifs with hv hu hu
-  · exact le_rfl
-  · exact absurd ((mul_le_mul_left (ENNReal.ofReal_le_ofReal huv) _).trans hv) hu
-  · exact hab
-  · exact le_rfl
+  by_cases hv : ENNReal.ofReal v * (b - a) ≤ x - a
+  · rw [stochasticRound_of_le hv,
+      stochasticRound_of_le ((mul_le_mul_left (ENNReal.ofReal_le_ofReal huv) _).trans hv)]
+  · rw [stochasticRound_of_lt (not_le.1 hv)]
+    by_cases hu : ENNReal.ofReal u * (b - a) ≤ x - a
+    · rw [stochasticRound_of_le hu]
+      exact hab
+    · rw [stochasticRound_of_lt (not_le.1 hu)]
 
 /-- The stochastic rounding of `x ∈ [a, b]`, with `b` finite, has mean `x`. -/
 theorem setLIntegral_stochasticRound {a b x : ℝ≥0∞} (hax : a ≤ x) (hxb : x ≤ b) (hb : b ≠ ∞) :
@@ -482,7 +487,7 @@ theorem setLIntegral_stochasticRound {a b x : ℝ≥0∞} (hax : a ≤ x) (hxb :
     subst hab
     have hx : x = a := le_antisymm hxb hax
     subst hx
-    simp [stochasticRound, Real.volume_Icc]
+    simp [stochasticRound_def, Real.volume_Icc]
   · -- the rounding is `a + (b - a) * 𝟙{u ≤ θ}` with `θ = (x - a) / (b - a) ∈ [0, 1]`
     have hba0 : b - a ≠ 0 := (tsub_pos_of_lt hab).ne'
     have hba : b - a ≠ ∞ := ENNReal.sub_ne_top hb
@@ -495,22 +500,25 @@ theorem setLIntegral_stochasticRound {a b x : ℝ≥0∞} (hax : a ≤ x) (hxb :
     have hfun : (fun u ↦ stochasticRound a b x u) =
         fun u ↦ a + Set.indicator (Set.Iic θ.toReal) (fun _ ↦ b - a) u := by
       ext u
-      unfold stochasticRound
       by_cases hu : u ≤ θ.toReal
-      · rw [ite_eq_left ((hcond u).2 hu), Set.indicator_of_mem (Set.mem_Iic.2 hu),
+      · rw [stochasticRound_of_le ((hcond u).2 hu), Set.indicator_of_mem (Set.mem_Iic.2 hu),
           add_tsub_cancel_of_le hab.le]
-      · rw [ite_eq_right (mt (hcond u).1 hu), Set.indicator_of_notMem (by simpa using hu),
-          add_zero]
+      · rw [stochasticRound_of_lt (not_le.1 (mt (hcond u).1 hu)),
+          Set.indicator_of_notMem (by simpa using hu), add_zero]
     have hθr1 : θ.toReal ≤ 1 := ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using hθ1)
     have hset : Set.Iic θ.toReal ∩ Set.Icc 0 1 = Set.Icc 0 θ.toReal := by
       ext u
       simp only [Set.mem_inter_iff, Set.mem_Iic, Set.mem_Icc]
       exact ⟨fun h ↦ ⟨h.2.1, h.1⟩, fun h ↦ ⟨h.2, h.1, h.2.trans hθr1⟩⟩
-    rw [hfun, lintegral_add_left measurable_const, setLIntegral_const,
-      lintegral_indicator_const measurableSet_Iic, Real.volume_Icc, sub_zero,
-      ENNReal.ofReal_one, mul_one, Measure.restrict_apply measurableSet_Iic, hset,
-      Real.volume_Icc, sub_zero, ENNReal.ofReal_toReal hθtop, hθ,
-      ENNReal.mul_div_cancel hba0 hba, add_tsub_cancel_of_le hax]
+    -- the constant `a` integrates to `a`, and the indicator to `(b - a) * θ = x - a`
+    have hconst : ∫⁻ _ in Set.Icc (0 : ℝ) 1, a = a := by simp [Real.volume_Icc]
+    have hind : ∫⁻ u in Set.Icc (0 : ℝ) 1, Set.indicator (Set.Iic θ.toReal) (fun _ ↦ b - a) u =
+        (b - a) * θ := by
+      rw [lintegral_indicator_const measurableSet_Iic, Measure.restrict_apply measurableSet_Iic,
+        hset]
+      simp [Real.volume_Icc, ENNReal.ofReal_toReal hθtop]
+    have hmul : (b - a) * θ = x - a := ENNReal.mul_div_cancel hba0 hba
+    rw [hfun, lintegral_add_left measurable_const, hconst, hind, hmul, add_tsub_cancel_of_le hax]
 
 /-- **U-eBH dominates the joint stochastic rounding** [EVR26, Note 30, Theorem, Statement 4]: for
 grid points `a i ≤ x i ≤ b i` with `b i` finite, e-BH applied to the stochastic roundings of all
@@ -532,24 +540,6 @@ section UeBH
 
 variable {K : ℕ} {x : Fin K → ℝ≥0∞} {α : ℝ≥0∞}
 
-/-- At least `k` indices of an antitone family satisfy a threshold exactly when the index `k - 1`
-does. -/
-private lemma le_card_filter_iff {y : Fin K → ℝ} (hy : Antitone y) {k : ℕ} (hk0 : 0 < k)
-    (hkK : k ≤ K) (c : ℝ) : k ≤ #{j | c ≤ y j} ↔ c ≤ y ⟨k - 1, by omega⟩ := by
-  constructor
-  · intro h
-    by_contra hc
-    have hsub : ({j | c ≤ y j} : Finset (Fin K)) ⊆ topRanks (k - 1) := fun j hj ↦ by
-      rw [mem_filter] at hj
-      refine mem_topRanks.2 (not_le.1 fun hjk ↦ hc (hj.2.trans (hy (Fin.mk_le_mk.2 ?_))))
-      simpa using hjk
-    have := (card_le_card hsub).trans_eq (card_topRanks (by omega))
-    omega
-  · intro hc
-    refine (card_topRanks hkK).symm.le.trans (card_le_card fun j hj ↦ ?_)
-    rw [mem_filter]
-    exact ⟨mem_univ j, hc.trans (hy (Fin.mk_le_mk.2 (by have := mem_topRanks.1 hj; omega)))⟩
-
 /-- The threshold of U-eBH: `K ≤ α * k * (x j / u)` exactly when `u ≤ k * y j`, for the budget
 `y j = α * x j / K`. -/
 private lemma le_mul_div_ofReal_iff (hx_top : ∀ i, x i ≠ ∞) (hα : α ≠ ∞) {u : ℝ} (hu : 0 < u)
@@ -557,20 +547,24 @@ private lemma le_mul_div_ofReal_iff (hx_top : ∀ i, x i ≠ ∞) (hα : α ≠ 
     (K : ℝ≥0∞) ≤ α * k * (x j / ENNReal.ofReal u) ↔ u ≤ k * roundingBudget α x j := by
   have hK : (0 : ℝ) < K := by exact_mod_cast Fin.pos j
   have hu' : ENNReal.ofReal u ≠ 0 := (ENNReal.ofReal_pos.2 hu).ne'
+  have hfin : α * k * x j ≠ ∞ :=
+    ENNReal.mul_ne_top (ENNReal.mul_ne_top hα (ENNReal.natCast_ne_top k)) (hx_top j)
+  -- in `ℝ≥0∞`, the threshold reads `K * u ≤ α * k * x j`, between finite numbers
   rw [← mul_div_assoc, ENNReal.le_div_iff_mul_le (Or.inl hu') (Or.inl ENNReal.ofReal_ne_top),
-    ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_toReal (ENNReal.mul_ne_top (ENNReal.mul_ne_top hα
-      (ENNReal.natCast_ne_top k)) (hx_top j)), ← ENNReal.ofReal_mul hK.le,
-    ENNReal.ofReal_le_ofReal_iff ENNReal.toReal_nonneg, roundingBudget_def]
-  simp only [Fintype.card_fin, ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_natCast]
+    ← ENNReal.toReal_le_toReal (ENNReal.mul_ne_top (ENNReal.natCast_ne_top K)
+      ENNReal.ofReal_ne_top) hfin]
+  -- in `ℝ`, `K * u ≤ α * k * x j` is `u ≤ k * (α * x j / K)`
+  simp only [ENNReal.toReal_mul, ENNReal.toReal_natCast, ENNReal.toReal_ofReal hu.le,
+    roundingBudget_def, Fintype.card_fin, ENNReal.toReal_div]
   rw [mul_div_assoc', le_div_iff₀ hK]
   constructor <;> intro h <;> linarith
 
 /-- **The number of rejections of U-eBH** [EVR26, Note 30, Theorem, Statement 3]: for antitone
 finite e-values, a finite level and `u > 0`, e-BH applied to `x i / u` rejects
 `N_U = max {k : u ≤ k y_(k)}` hypotheses, with the budgets `y i = α * x i / K`. -/
-theorem card_eBH_div_eq_uebhCount (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞) (hα : α ≠ ∞)
+theorem card_eBH_div_eq_ueBHCount (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞) (hα : α ≠ ∞)
     {u : ℝ} (hu : 0 < u) :
-    #(eBH (fun i ↦ x i / ENNReal.ofReal u) α) = uebhCount (roundingBudget α x) u := by
+    #(eBH (fun i ↦ x i / ENNReal.ofReal u) α) = ueBHCount (roundingBudget α x) u := by
   have hy := antitone_roundingBudget hα hx_top hx
   -- for `1 ≤ k ≤ K`, at least `k` e-values pass the threshold of `k` iff `u ≤ k y_(k)`
   have key : ∀ k, 0 < k → k ≤ K →
@@ -579,7 +573,7 @@ theorem card_eBH_div_eq_uebhCount (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞
     intro k hk0 hkK
     have hk : (0 : ℝ) < k := by exact_mod_cast hk0
     simp_rw [Fintype.card_fin, le_mul_div_ofReal_iff hx_top hα hu, ← div_le_iff₀' hk]
-    rw [le_card_filter_iff hy hk0 hkK, rankBudget_of_pos_of_le _ hk0 hkK, div_le_iff₀' hk]
+    rw [hy.le_card_filter_le_iff hk0 hkK, rankBudget_of_pos_of_le _ hk0 hkK, div_le_iff₀' hk]
   rw [card_eBH]
   refine le_antisymm ?_ ?_
   · set n := Nat.findGreatest (fun k ↦ k ≤ #{j | (Fintype.card (Fin K) : ℝ≥0∞) ≤
@@ -588,28 +582,28 @@ theorem card_eBH_div_eq_uebhCount (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞
     · rw [hn]
       exact Nat.zero_le _
     have hnK : n ≤ K := (Nat.findGreatest_le _).trans_eq (Fintype.card_fin K)
-    exact (le_uebhCount_iff hn).2 ⟨n, le_rfl, hnK, (key n hn hnK).1 (Nat.findGreatest_spec
+    exact (le_ueBHCount_iff hn).2 ⟨n, le_rfl, hnK, (key n hn hnK).1 (Nat.findGreatest_spec
       (P := fun k ↦ k ≤ #{j | (Fintype.card (Fin K) : ℝ≥0∞) ≤
         α * k * (x j / ENNReal.ofReal u)}) (Nat.zero_le _) (Nat.zero_le _))⟩
-  · rcases Nat.eq_zero_or_pos (uebhCount (roundingBudget α x) u) with hN | hN
+  · rcases Nat.eq_zero_or_pos (ueBHCount (roundingBudget α x) u) with hN | hN
     · rw [hN]
       exact Nat.zero_le _
-    obtain ⟨l, hNl, hlK, hl⟩ := (le_uebhCount_iff hN).1 le_rfl
+    obtain ⟨l, hNl, hlK, hl⟩ := (le_ueBHCount_iff hN).1 le_rfl
     exact hNl.trans (Nat.le_findGreatest (hlK.trans_eq (Fintype.card_fin K).symm)
       ((key l (by omega) hlK).2 hl))
 
 /-- The expected number of rejections of U-eBH is the mean of `N_U`. -/
 theorem lintegral_card_eBH_div_eq (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞) (hα : α ≠ ∞) :
     ∫⁻ u in Set.Icc 0 1, (#(eBH (fun i ↦ x i / ENNReal.ofReal u) α) : ℝ≥0∞) =
-      ENNReal.ofReal (∫ u in Set.Icc (0 : ℝ) 1, (uebhCount (roundingBudget α x) u : ℝ)) := by
-  have hmeas : Measurable fun u ↦ (uebhCount (roundingBudget α x) u : ℝ) :=
-    measurable_from_nat.comp (measurable_uebhCount _)
+      ENNReal.ofReal (∫ u in Set.Icc (0 : ℝ) 1, (ueBHCount (roundingBudget α x) u : ℝ)) := by
+  have hmeas : Measurable fun u ↦ (ueBHCount (roundingBudget α x) u : ℝ) :=
+    measurable_from_nat.comp (measurable_ueBHCount _)
   rw [ofReal_integral_eq_lintegral_ofReal, ← Measure.restrict_congr_set Ioc_ae_eq_Icc]
   · refine setLIntegral_congr_fun measurableSet_Ioc fun u hu ↦ ?_
-    rw [card_eBH_div_eq_uebhCount hx hx_top hα hu.1, ENNReal.ofReal_natCast]
+    rw [card_eBH_div_eq_ueBHCount hx hx_top hα hu.1, ENNReal.ofReal_natCast]
   · refine Integrable.of_bound hmeas.aestronglyMeasurable K (ae_of_all _ fun u ↦ ?_)
     rw [Real.norm_natCast]
-    exact_mod_cast uebhCount_le _ u
+    exact_mod_cast ueBHCount_le _ u
   · exact ae_of_all _ fun u ↦ Nat.cast_nonneg _
 
 /-- **U-eBH rejects at most `V` on average** [EVR26, Note 30, Theorem, Statement 3]: for antitone
@@ -620,7 +614,7 @@ theorem lintegral_card_eBH_div_le (hx : Antitone x) (hx_top : ∀ i, x i ≠ ∞
     ∫⁻ u in Set.Icc 0 1, (#(eBH (fun i ↦ x i / ENNReal.ofReal u) α) : ℝ≥0∞) ≤
       ENNReal.ofReal (roundingValue (roundingBudget α x)) := by
   rw [lintegral_card_eBH_div_eq hx hx_top hα]
-  exact ENNReal.ofReal_le_ofReal (integral_uebhCount_le_roundingValue
+  exact ENNReal.ofReal_le_ofReal (integral_ueBHCount_le_roundingValue
     (antitone_roundingBudget hα hx_top hx) (roundingBudget_nonneg α x))
 
 end UeBH
@@ -646,17 +640,17 @@ private lemma roundingValue_example : roundingValue ![(2 / 5 : ℝ), 1 / 10] = 7
   norm_num [Fin.sum_univ_two]
 
 /-- For `K = 2` and `y = (2/5, 1/10)`, U-eBH rejects `3/5` hypotheses on average. -/
-private lemma integral_uebhCount_example :
-    ∫ u in Set.Icc (0 : ℝ) 1, (uebhCount ![(2 / 5 : ℝ), 1 / 10] u : ℝ) = 3 / 5 := by
+private lemma integral_ueBHCount_example :
+    ∫ u in Set.Icc (0 : ℝ) 1, (ueBHCount ![(2 / 5 : ℝ), 1 / 10] u : ℝ) = 3 / 5 := by
   set y : Fin 2 → ℝ := ![(2 / 5 : ℝ), 1 / 10]
   have hb1 : rankBudget y 1 = 2 / 5 := by simpa [y] using rankBudget_succ y 0
   have hb2 : rankBudget y 2 = 1 / 10 := by simpa [y] using rankBudget_succ y 1
   -- the count of U-eBH: `2` on `[0, 1/5]`, `1` on `(1/5, 2/5]`, `0` above
-  have hN : ∀ u, uebhCount y u = if u ≤ 1 / 5 then 2 else if u ≤ 2 / 5 then 1 else 0 := by
+  have hN : ∀ u, ueBHCount y u = if u ≤ 1 / 5 then 2 else if u ≤ 2 / 5 then 1 else 0 := by
     intro u
-    have hle := uebhCount_le y u
-    have h2 : 2 ≤ uebhCount y u ↔ u ≤ 1 / 5 := by
-      rw [le_uebhCount_iff (by norm_num)]
+    have hle := ueBHCount_le y u
+    have h2 : 2 ≤ ueBHCount y u ↔ u ≤ 1 / 5 := by
+      rw [le_ueBHCount_iff (by norm_num)]
       constructor
       · rintro ⟨l, h2l, hl2, hu⟩
         obtain rfl : l = 2 := by omega
@@ -665,8 +659,8 @@ private lemma integral_uebhCount_example :
         linarith
       · intro hu
         exact ⟨2, le_rfl, le_rfl, by rw [hb2]; push_cast; linarith⟩
-    have h1 : 1 ≤ uebhCount y u ↔ u ≤ 2 / 5 := by
-      rw [le_uebhCount_iff (by norm_num)]
+    have h1 : 1 ≤ ueBHCount y u ↔ u ≤ 2 / 5 := by
+      rw [le_ueBHCount_iff (by norm_num)]
       constructor
       · rintro ⟨l, h1l, hl2, hu⟩
         interval_cases l
@@ -686,43 +680,18 @@ private lemma integral_uebhCount_example :
       omega
     · have := mt h1.1 hb
       omega
-  have hL1 : uebhLaw y 1 = 1 / 5 := by
-    rw [uebhLaw_def, show {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = 1} = Set.Ioc (1 / 5) (2 / 5)
-      from ?_, Real.volume_real_Ioc_of_le (by norm_num)]
-    · norm_num
-    · ext u
-      rw [Set.mem_sep_iff, hN u, Set.mem_Icc, Set.mem_Ioc]
-      split_ifs with ha hb
-      · constructor
-        · rintro ⟨_, h⟩
-          exact absurd h (by norm_num)
-        · rintro ⟨h, _⟩
-          linarith
-      · exact ⟨fun _ ↦ ⟨not_le.1 ha, hb⟩, fun h ↦ ⟨⟨by linarith, by linarith⟩, rfl⟩⟩
-      · constructor
-        · rintro ⟨_, h⟩
-          exact absurd h (by norm_num)
-        · rintro ⟨_, h⟩
-          exact absurd h hb
-  have hL2 : uebhLaw y 2 = 1 / 5 := by
-    rw [uebhLaw_def, show {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = 2} = Set.Icc 0 (1 / 5)
-      from ?_, Real.volume_real_Icc_of_le (by norm_num)]
-    · norm_num
-    · ext u
-      rw [Set.mem_sep_iff, hN u, Set.mem_Icc, Set.mem_Icc]
-      split_ifs with ha hb
-      · exact ⟨fun h ↦ ⟨h.1.1, ha⟩, fun h ↦ ⟨⟨h.1, by linarith⟩, rfl⟩⟩
-      · constructor
-        · rintro ⟨_, h⟩
-          exact absurd h (by norm_num)
-        · rintro ⟨_, h⟩
-          exact absurd h ha
-      · constructor
-        · rintro ⟨_, h⟩
-          exact absurd h (by norm_num)
-        · rintro ⟨_, h⟩
-          exact absurd h ha
-  rw [integral_uebhCount_eq, roundingObjective_nestedPoint]
+  -- the law of the count: `1/5` at `1` (on `(1/5, 2/5]`) and `1/5` at `2` (on `[0, 1/5]`)
+  have hL1 : ueBHLaw y 1 = 1 / 5 := by
+    rw [ueBHLaw_def, show {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = 1} = Set.Ioc (1 / 5) (2 / 5)
+      by ext u; simp only [Set.mem_ofPred_eq, hN u, Set.mem_Icc, Set.mem_Ioc]; split_ifs <;> grind,
+      Real.volume_real_Ioc_of_le (by norm_num)]
+    norm_num
+  have hL2 : ueBHLaw y 2 = 1 / 5 := by
+    rw [ueBHLaw_def, show {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = 2} = Set.Icc 0 (1 / 5)
+      by ext u; simp only [Set.mem_ofPred_eq, hN u, Set.mem_Icc]; split_ifs <;> grind,
+      Real.volume_real_Icc_of_le (by norm_num)]
+    norm_num
+  rw [integral_ueBHCount_eq, roundingObjective_nestedPoint]
   simp only [sum_range_succ, sum_range_zero, hL1, hL2]
   norm_num
 
@@ -749,7 +718,7 @@ theorem lintegral_card_eBH_div_example :
         (#(eBH (fun i ↦ ![(8 : ℝ≥0∞), 2] i / ENNReal.ofReal u) 10⁻¹) : ℝ≥0∞) =
       ENNReal.ofReal (3 / 5) := by
   rw [lintegral_card_eBH_div_eq antitone_example ne_top_example (by simp), roundingBudget_example,
-    integral_uebhCount_example]
+    integral_ueBHCount_example]
 
 /-- **The optimal rounding in the example** [EVR26, Note 30, Theorem, Statement 3]: for the
 e-values `(8, 2)` at level `1/10`, the largest expected number of rejections of a rounding scheme

@@ -7,14 +7,15 @@ module
 
 public import Mathlib.MeasureTheory.Integral.Bochner.Set
 public import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+public import LMLExplore.Algebra.BigOperators.Intervals
 
 /-!
 # The linear program of stochastic rounding for e-BH
 
 A stochastic rounding scheme replaces realized e-values by random ones of no larger means, and
 applies e-BH to them. For one realization, the law of the rejection set of such a scheme is a
-feasible point of a linear program, and conversely
-(`LMLExplore.EValues.MultipleTesting.Rounding.Scheme`).
+feasible point of a linear program, and the optimal nested point of this program is the law of the
+rejection set of a scheme (`LMLExplore.EValues.MultipleTesting.Rounding.Scheme`).
 This file solves that linear program [EVR26, Note 30], the program which [XR23, Appendix,
 "Generalization of stochastic rounding"] writes and leaves open.
 
@@ -30,7 +31,7 @@ With the budgets sorted, `y_(1) ≥ … ≥ y_(K)` and `y_(K+1) = 0`, the larges
 (`ProbabilityTheory.roundingValue`), attained by a nested point, which rejects the `N`
 hypotheses with the largest budgets for a random `N`. U-eBH, which rejects
 `N_U = max {k : u ≤ k y_(k)}` hypotheses when a uniform variable takes the value `u`
-(`ProbabilityTheory.uebhCount`), gives a feasible nested point, hence does no better than `V`.
+(`ProbabilityTheory.ueBHCount`), gives a feasible nested point, hence does no better than `V`.
 
 The program is symmetric in the hypotheses, so the main statements take antitone budgets
 `y : Fin K → ℝ` (the hypothesis of index `i` has rank `i + 1`); the version for any order goes
@@ -49,7 +50,7 @@ through a sorting permutation.
   `ProbabilityTheory.roundingThreshold`, `ProbabilityTheory.optimalRoundingLaw`: the masses
   `c_k = k (y_(k) - y_(k+1))`, the tails `C_j = ∑_{k > j} c_k`, the threshold
   `m = min {j | C_j ≤ 1}` and the law of the number of rejections of the optimal nested point.
-* `ProbabilityTheory.uebhCount y u`, `ProbabilityTheory.uebhLaw y`: the number of rejections of
+* `ProbabilityTheory.ueBHCount y u`, `ProbabilityTheory.ueBHLaw y`: the number of rejections of
   U-eBH and its law.
 
 ## Main statements
@@ -64,8 +65,8 @@ through a sorting permutation.
   order.
 * `ProbabilityTheory.isGreatest_roundingObjective_of_sum_le_one`: when `∑ i, y i ≤ 1`, the value
   is `∑_k (2k - 1) y_(k)`.
-* `ProbabilityTheory.isRoundingFeasible_nestedPoint_uebhLaw`,
-  `ProbabilityTheory.integral_uebhCount_le_roundingValue`: U-eBH is feasible, so its expected
+* `ProbabilityTheory.isRoundingFeasible_nestedPoint_ueBHLaw`,
+  `ProbabilityTheory.integral_ueBHCount_le_roundingValue`: U-eBH is feasible, so its expected
   number of rejections is at most `V` [EVR26, Note 30, Theorem, Statement 3].
 
 ## Implementation notes
@@ -208,62 +209,34 @@ theorem optimalRoundingLaw_def (y : Fin K → ℝ) (k : ℕ) :
 /-- The number `N_U = max {k : k y_(k) ≥ u}` of rejections of U-eBH when the uniform variable `U`
 takes the value `u` ([EVR26, Note 30, Theorem, Statement 3]), `0` when no `1 ≤ k ≤ K` satisfies
 `k y_(k) ≥ u`. -/
-noncomputable def uebhCount (y : Fin K → ℝ) (u : ℝ) : ℕ :=
+noncomputable def ueBHCount (y : Fin K → ℝ) (u : ℝ) : ℕ :=
   ({k ∈ Icc 1 K | u ≤ k * rankBudget y k}).sup id
 
-theorem uebhCount_def (y : Fin K → ℝ) (u : ℝ) :
-    uebhCount y u = ({k ∈ Icc 1 K | u ≤ k * rankBudget y k}).sup id :=
+theorem ueBHCount_def (y : Fin K → ℝ) (u : ℝ) :
+    ueBHCount y u = ({k ∈ Icc 1 K | u ≤ k * rankBudget y k}).sup id :=
   (rfl)
 
 /-- The law of `N_U` for `U` uniform on `[0, 1]`: `P(N_U = k)` is the length of the set of the
 `u ∈ [0, 1]` at which U-eBH rejects `k` hypotheses. -/
-noncomputable def uebhLaw (y : Fin K → ℝ) (k : ℕ) : ℝ :=
-  volume.real {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = k}
+noncomputable def ueBHLaw (y : Fin K → ℝ) (k : ℕ) : ℝ :=
+  volume.real {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = k}
 
-theorem uebhLaw_def (y : Fin K → ℝ) (k : ℕ) :
-    uebhLaw y k = volume.real {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = k} :=
+theorem ueBHLaw_def (y : Fin K → ℝ) (k : ℕ) :
+    ueBHLaw y k = volume.real {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = k} :=
   (rfl)
 
 /-! ### Sums over ranks -/
 
 /-- The budget of rank `i + 1` is the budget of index `i`. -/
+@[simp]
 theorem rankBudget_succ (y : Fin K → ℝ) (i : Fin K) : rankBudget y (i + 1) = y i := by
-  rw [rankBudget, dite_eq_left ⟨Nat.succ_pos _, by simp⟩]
-  rfl
+  rw [rankBudget_of_pos_of_le y (Nat.succ_pos _) i.isLt]
+  exact congrArg y (Fin.ext (by simp))
 
 /-- The budgets of rank `0` and above `K` are `0`. -/
 theorem rankBudget_eq_zero (y : Fin K → ℝ) {k : ℕ} (hk : k = 0 ∨ K < k) : rankBudget y k = 0 := by
   rw [rankBudget, dite_eq_right]
   omega
-
-/-- A sum over the ranks `j < k ≤ n` as a sum over `range n`. -/
-private lemma sum_Ioc_eq_sum_range_ite (j n : ℕ) (F : ℕ → ℝ) :
-    ∑ k ∈ Ioc j n, F k = ∑ k ∈ range n, if j ≤ k then F (k + 1) else 0 := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [sum_range_succ, ← ih]
-    by_cases hj : j ≤ n
-    · rw [sum_Ioc_succ_top hj, ite_eq_left hj]
-    · rw [ite_eq_right hj, add_zero, Ioc_eq_empty (by omega), Ioc_eq_empty (by omega)]
-
-/-- A sum over the ranks `a < k ≤ K` as a sum over `range (K + 1)`. -/
-private lemma sum_range_ite_lt (a K : ℕ) (F : ℕ → ℝ) :
-    ∑ k ∈ range (K + 1), (if a < k then F k else 0) = ∑ k ∈ Ioc a K, F k := by
-  rw [← sum_filter]
-  congr 1
-  ext k
-  simp only [mem_filter, mem_range, mem_Ioc]
-  omega
-
-/-- Telescoping over the ranks `i < k ≤ n`. -/
-private lemma sum_Ioc_sub_succ (g : ℕ → ℝ) {i n : ℕ} (hin : i ≤ n) :
-    ∑ k ∈ Ioc i n, (g k - g (k + 1)) = g (i + 1) - g (n + 1) := by
-  induction n, hin using Nat.le_induction with
-  | base => simp
-  | succ n hn ih =>
-    rw [sum_Ioc_succ_top hn, ih]
-    ring
 
 /-- **Summation by parts** against the ranked budgets: for a potential `P` with `P 0 = 0`, the sum
 of the increments `P (i + 1) - P i` weighted by the budgets is the sum of `P (k + 1)` weighted by
@@ -271,19 +244,15 @@ the decrements `y_(k+1) - y_(k+2)`. -/
 private lemma sum_sub_mul_eq_sum_range (y : Fin K → ℝ) (P : ℕ → ℝ) (hP : P 0 = 0) :
     ∑ i : Fin K, (P (i + 1) - P i) * y i =
       ∑ k ∈ range K, P (k + 1) * (rankBudget y (k + 1) - rankBudget y (k + 1 + 1)) := by
-  have key : ∀ n, ∑ k ∈ range n, (P (k + 1) - P k) * rankBudget y (k + 1) =
-      ∑ k ∈ range n, P (k + 1) * (rankBudget y (k + 1) - rankBudget y (k + 1 + 1)) +
-        P n * rankBudget y (n + 1) - P 0 * rankBudget y 1 := by
-    intro n
-    induction n with
-    | zero => simp
-    | succ n ih =>
-      rw [sum_range_succ, sum_range_succ, ih]
-      ring
-  have hK := key K
-  rw [← Fin.sum_univ_eq_sum_range (fun k ↦ (P (k + 1) - P k) * rankBudget y (k + 1)) K] at hK
-  simp only [rankBudget_succ] at hK
-  rw [hK, rankBudget_eq_zero y (Or.inr (Nat.lt_succ_self K)), hP]
+  have hK1 : rankBudget y (K + 1) = 0 := rankBudget_eq_zero y (Or.inr (Nat.lt_succ_self K))
+  -- `sum_range_by_parts` over `range (K + 1)`, whose last term vanishes since `y_(K+1) = 0`
+  have h := sum_range_by_parts (fun k ↦ rankBudget y (k + 1)) (fun k ↦ P (k + 1) - P k) (K + 1)
+  simp only [sum_range_sub, hP, sub_zero, smul_eq_mul, add_tsub_cancel_right, hK1, zero_mul,
+    zero_sub, sum_range_succ _ K, add_zero] at h
+  rw [← Fin.sum_univ_eq_sum_range (fun k ↦ rankBudget y (k + 1) * (P (k + 1) - P k)) K] at h
+  simp only [rankBudget_succ] at h
+  simp_rw [mul_comm _ (y _), h, ← sum_neg_distrib]
+  refine sum_congr rfl fun k _ ↦ ?_
   ring
 
 /-! ### The dual bound -/
@@ -330,27 +299,11 @@ private lemma monotone_dualWeight (j : ℕ) : Monotone (dualWeight j) := by
   · omega
   · linarith
 
-/-- A nondecreasing function summed over a set `R` of indices is at least its sum over the first
-`|R|` indices. -/
-private lemma sum_range_card_le_sum {g : ℕ → ℝ} (hg : Monotone g) (R : Finset (Fin K)) :
-    ∑ t ∈ range R.card, g t ≤ ∑ i ∈ R, g i := by
-  induction R using Finset.induction_on_max with
-  | empty => simp
-  | insert a s has ih =>
-    have hcard : s.card ≤ a := by
-      calc s.card = (s.map Fin.valEmbedding).card := (card_map _).symm
-        _ ≤ (range a).card := card_le_card fun x hx ↦ by
-            obtain ⟨i, hi, rfl⟩ := mem_map.1 hx
-            exact mem_range.2 (has i hi)
-        _ = a := card_range _
-    have ha : a ∉ s := fun h ↦ lt_irrefl _ (has a h)
-    rw [card_insert_of_notMem ha, sum_range_succ, sum_insert ha]
-    linarith [hg hcard]
-
 /-- The dual constraint: for every set `R`, `|R|² ≤ ∑_{i ∈ R} u_i + j |R|`. -/
 private lemma card_sq_le_sum_dualWeight (j : ℕ) (R : Finset (Fin K)) :
     (R.card : ℝ) ^ 2 ≤ ∑ i ∈ R, dualWeight j i + j * R.card := by
-  have h := sum_range_card_le_sum (monotone_dualWeight j) R
+  have h := LMLExplore.sum_range_card_le_sum (monotone_dualWeight j) (R.map Fin.valEmbedding)
+  simp only [card_map, sum_map, Fin.valEmbedding_apply] at h
   rw [show ∑ t ∈ range R.card, dualWeight j t = dualPotential j R.card - dualPotential j 0 from
     sum_range_sub (dualPotential j) _] at h
   have h0 : dualPotential j 0 = 0 := by simp [dualPotential]
@@ -366,8 +319,8 @@ private lemma card_sq_le_sum_dualWeight (j : ℕ) (R : Finset (Fin K)) :
 private lemma sum_dualWeight_mul_add_eq_roundingDual (y : Fin K → ℝ) (j : ℕ) :
     ∑ i : Fin K, dualWeight j i * y i + j = roundingDual y j := by
   have h := sum_sub_mul_eq_sum_range y (dualPotential j) (by simp [dualPotential])
-  change ∑ i : Fin K, dualWeight j i * y i = _ at h
-  rw [h, roundingDual, add_comm, sum_Ioc_eq_sum_range_ite]
+  simp only [← dualWeight.eq_1] at h
+  rw [h, roundingDual, add_comm, LMLExplore.sum_Ioc_eq_sum_range_ite]
   congr 1
   refine sum_congr rfl fun k _ ↦ ?_
   unfold dualPotential
@@ -425,6 +378,7 @@ theorem card_topRanks {k : ℕ} (hk : k ≤ K) : (topRanks (K := K) k).card = k 
   rw [← card_map Fin.valEmbedding, map_topRanks hk, card_range]
 
 /-- Membership in `topRanks k`. -/
+@[simp]
 theorem mem_topRanks {i : Fin K} {k : ℕ} : i ∈ topRanks k ↔ (i : ℕ) < k := by
   simp [topRanks]
 
@@ -476,7 +430,7 @@ theorem isRoundingFeasible_nestedPoint {y : Fin K → ℝ} {q : ℕ → ℝ} (hq
           · rw [ite_eq_left (mem_topRanks.2 hik), ite_eq_left hik]
             ring
           · rw [ite_eq_right (fun h ↦ hik (mem_topRanks.1 h)), ite_eq_right hik, zero_mul]
-      _ = ∑ k ∈ Ioc (i : ℕ) K, q k / k := sum_range_ite_lt _ _ _
+      _ = ∑ k ∈ Ioc (i : ℕ) K, q k / k := LMLExplore.sum_range_ite_lt _ _ _
       _ ≤ y i := hb i
 
 /-! ### The optimal nested scheme -/
@@ -520,7 +474,10 @@ private lemma roundingMass_div (y : Fin K → ℝ) {k : ℕ} (hk : 0 < k) :
 private lemma sum_Ioc_roundingMass_div (y : Fin K → ℝ) {i : ℕ} (hi : i ≤ K) :
     ∑ k ∈ Ioc i K, roundingMass y k / k = rankBudget y (i + 1) := by
   rw [sum_congr rfl fun k hk ↦ roundingMass_div y (by have := (mem_Ioc.1 hk).1; omega),
-    sum_Ioc_sub_succ _ hi, rankBudget_eq_zero y (Or.inr (Nat.lt_succ_self K)), sub_zero]
+    ← Ico_add_one_add_one_eq_Ioc]
+  simp_rw [← neg_sub (rankBudget y (_ + 1))]
+  rw [sum_neg_distrib, sum_Ico_sub (fun k ↦ rankBudget y k) (by omega), neg_sub,
+    rankBudget_eq_zero y (k := K + 1) (Or.inr (by omega)), sub_zero]
 
 /-- `C_j = c_{j+1} + C_{j+1}` for `j < K`. -/
 private lemma roundingTailMass_eq_add (y : Fin K → ℝ) {j : ℕ} (hj : j < K) :
@@ -529,6 +486,7 @@ private lemma roundingTailMass_eq_add (y : Fin K → ℝ) {j : ℕ} (hj : j < K)
   rw [← sum_Ioc_consecutive _ (Nat.le_succ j) hj, Nat.Ioc_succ_singleton, sum_singleton]
 
 /-- `C_K = 0`. -/
+@[simp]
 theorem roundingTailMass_self (y : Fin K → ℝ) : roundingTailMass y K = 0 := by
   simp [roundingTailMass]
 
@@ -558,7 +516,7 @@ private lemma sum_mul_optimalRoundingLaw (y : Fin K → ℝ) (g : ℕ → ℝ) :
       g (roundingThreshold y) * (1 - roundingTailMass y (roundingThreshold y)) +
         ∑ k ∈ Ioc (roundingThreshold y) K, g k * roundingMass y k := by
   simp_rw [optimalRoundingLaw_eq, mul_add, sum_add_distrib, mul_ite, mul_zero]
-  rw [sum_range_ite_lt _ _ (fun k ↦ g k * roundingMass y k), sum_ite_eq' (range (K + 1)),
+  rw [LMLExplore.sum_range_ite_lt _ _ (fun k ↦ g k * roundingMass y k), sum_ite_eq' (range (K + 1)),
     ite_eq_left (mem_range.2 (Nat.lt_succ_of_le (roundingThreshold_le y)))]
   ring
 
@@ -568,8 +526,7 @@ private lemma roundingObjective_nestedPoint_optimalRoundingLaw_eq_roundingDual (
     roundingObjective (nestedPoint K (optimalRoundingLaw y)) =
       roundingDual y (roundingThreshold y) := by
   rw [roundingObjective_nestedPoint, sum_mul_optimalRoundingLaw, roundingDual, roundingTailMass,
-    mul_sub,
-    mul_one, mul_sum]
+    mul_sub, mul_one, mul_sum]
   have : ∑ k ∈ Ioc (roundingThreshold y) K, (k : ℝ) * ((k : ℝ) - roundingThreshold y) *
         (rankBudget y k - rankBudget y (k + 1)) =
       ∑ k ∈ Ioc (roundingThreshold y) K, (k : ℝ) * roundingMass y k -
@@ -731,7 +688,7 @@ theorem isGreatest_roundingObjective_of_sum_le_one {y : Fin K → ℝ} (hy : Ant
   have hC0 : roundingTailMass y 0 = ∑ i, y i := by
     have h := sum_sub_mul_eq_sum_range y (fun r ↦ (r : ℝ)) (by simp)
     simp only [Nat.cast_add, Nat.cast_one, add_sub_cancel_left, one_mul] at h
-    rw [h, roundingTailMass, sum_Ioc_eq_sum_range_ite]
+    rw [h, roundingTailMass, LMLExplore.sum_Ioc_eq_sum_range_ite]
     refine sum_congr rfl fun k _ ↦ ?_
     rw [ite_eq_left (Nat.zero_le k), roundingMass]
     push_cast
@@ -755,89 +712,88 @@ section UeBH
 variable {y : Fin K → ℝ}
 
 /-- U-eBH rejects at most `K` hypotheses. -/
-theorem uebhCount_le (y : Fin K → ℝ) (u : ℝ) : uebhCount y u ≤ K :=
+theorem ueBHCount_le (y : Fin K → ℝ) (u : ℝ) : ueBHCount y u ≤ K :=
   Finset.sup_le fun _ hk ↦ (mem_Icc.1 (mem_filter.1 hk).1).2
 
 /-- When U-eBH rejects, its count `N` satisfies `u ≤ N y_(N)`. -/
-private lemma uebhCount_mem {u : ℝ} (h : 0 < uebhCount y u) :
-    uebhCount y u ∈ ({k ∈ Icc 1 K | u ≤ k * rankBudget y k} : Finset ℕ) := by
+private lemma ueBHCount_mem {u : ℝ} (h : 0 < ueBHCount y u) :
+    ueBHCount y u ∈ ({k ∈ Icc 1 K | u ≤ k * rankBudget y k} : Finset ℕ) := by
   have hne : ({k ∈ Icc 1 K | u ≤ k * rankBudget y k} : Finset ℕ).Nonempty := by
     rw [nonempty_iff_ne_empty]
     intro he
-    rw [uebhCount, he, sup_empty] at h
+    rw [ueBHCount, he, sup_empty] at h
     exact lt_irrefl _ h
   obtain ⟨l, hl, hsup⟩ := exists_mem_eq_sup _ hne id
-  rw [uebhCount, hsup]
+  rw [ueBHCount, hsup]
   exact hl
 
 /-- U-eBH rejects at least `k ≥ 1` hypotheses iff some rank `l ≥ k` has `u ≤ l y_(l)`. -/
-theorem le_uebhCount_iff {k : ℕ} (hk : 0 < k) {u : ℝ} :
-    k ≤ uebhCount y u ↔ ∃ l, k ≤ l ∧ l ≤ K ∧ u ≤ l * rankBudget y l := by
+theorem le_ueBHCount_iff {k : ℕ} (hk : 0 < k) {u : ℝ} :
+    k ≤ ueBHCount y u ↔ ∃ l, k ≤ l ∧ l ≤ K ∧ u ≤ l * rankBudget y l := by
   constructor
   · intro h
-    have hl := mem_filter.1 (uebhCount_mem (y := y) (u := u) (by omega))
-    exact ⟨uebhCount y u, h, (mem_Icc.1 hl.1).2, hl.2⟩
+    have hl := mem_filter.1 (ueBHCount_mem (y := y) (u := u) (by omega))
+    exact ⟨ueBHCount y u, h, (mem_Icc.1 hl.1).2, hl.2⟩
   · rintro ⟨l, hkl, hlK, hu⟩
     exact hkl.trans (le_sup (f := id) (mem_filter.2 ⟨mem_Icc.2 ⟨by omega, hlK⟩, hu⟩))
 
 /-- The count of U-eBH is antitone in the uniform variable. -/
-theorem antitone_uebhCount (y : Fin K → ℝ) : Antitone (uebhCount y) := fun _ _ huv ↦
+theorem antitone_ueBHCount (y : Fin K → ℝ) : Antitone (ueBHCount y) := fun _ _ huv ↦
   sup_mono fun _ hk ↦ by
     rw [mem_filter] at hk ⊢
     exact ⟨hk.1, huv.trans hk.2⟩
 
 /-- The count of U-eBH is measurable in the uniform variable. -/
-theorem measurable_uebhCount (y : Fin K → ℝ) : Measurable (uebhCount y) :=
-  (antitone_uebhCount y).measurable
+theorem measurable_ueBHCount (y : Fin K → ℝ) : Measurable (ueBHCount y) :=
+  (antitone_ueBHCount y).measurable
 
 /-- The events of the law of U-eBH are measurable. -/
-private lemma measurableSet_uebhCount_eq (y : Fin K → ℝ) (k : ℕ) :
-    MeasurableSet {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = k} :=
-  measurableSet_Icc.inter (measurable_uebhCount y (measurableSet_singleton k))
+private lemma measurableSet_ueBHCount_eq (y : Fin K → ℝ) (k : ℕ) :
+    MeasurableSet {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = k} :=
+  measurableSet_Icc.inter (measurable_ueBHCount y (measurableSet_singleton k))
 
 /-- The law of U-eBH summed over a set `S` of counts is the probability that the count is in
 `S`. -/
-private lemma sum_uebhLaw (y : Fin K → ℝ) (S : Finset ℕ) :
-    ∑ k ∈ S, uebhLaw y k = volume.real {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u ∈ S} := by
-  have h : {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u ∈ S} =
-      ⋃ k ∈ S, {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = k} := by
+private lemma sum_ueBHLaw (y : Fin K → ℝ) (S : Finset ℕ) :
+    ∑ k ∈ S, ueBHLaw y k = volume.real {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u ∈ S} := by
+  have h : {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u ∈ S} =
+      ⋃ k ∈ S, {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = k} := by
     ext u
     simp
-  rw [h, measureReal_biUnion_finset _ (fun k _ ↦ measurableSet_uebhCount_eq y k)
+  rw [h, measureReal_biUnion_finset _ (fun k _ ↦ measurableSet_ueBHCount_eq y k)
     (fun _ _ ↦ measure_ne_top_of_subset (fun _ hu ↦ hu.1) measure_Icc_lt_top.ne)]
   · rfl
   · intro k _ l _ hkl
     exact Set.disjoint_left.2 fun u hu hu' ↦ hkl (hu.2.symm.trans hu'.2)
 
 /-- The expected count of U-eBH is the objective of the nested point with its law. -/
-theorem integral_uebhCount_eq (y : Fin K → ℝ) :
-    ∫ u in Set.Icc (0 : ℝ) 1, (uebhCount y u : ℝ) =
-      roundingObjective (nestedPoint K (uebhLaw y)) := by
+theorem integral_ueBHCount_eq (y : Fin K → ℝ) :
+    ∫ u in Set.Icc (0 : ℝ) 1, (ueBHCount y u : ℝ) =
+      roundingObjective (nestedPoint K (ueBHLaw y)) := by
   rw [roundingObjective_nestedPoint]
-  have hpt : ∀ u, (uebhCount y u : ℝ) = ∑ k ∈ range (K + 1),
-      Set.indicator {u | uebhCount y u = k} (fun _ ↦ (k : ℝ)) u := by
+  have hpt : ∀ u, (ueBHCount y u : ℝ) = ∑ k ∈ range (K + 1),
+      Set.indicator {u | ueBHCount y u = k} (fun _ ↦ (k : ℝ)) u := by
     intro u
     simp only [Set.indicator_apply, Set.mem_ofPred_eq]
-    rw [sum_ite_eq, ite_eq_left (mem_range.2 (Nat.lt_succ_of_le (uebhCount_le y u)))]
+    rw [sum_ite_eq, ite_eq_left (mem_range.2 (Nat.lt_succ_of_le (ueBHCount_le y u)))]
   simp_rw [hpt]
   rw [integral_finsetSum]
   · refine sum_congr rfl fun k _ ↦ ?_
-    have hk : MeasurableSet {u : ℝ | uebhCount y u = k} :=
-      measurable_uebhCount y (measurableSet_singleton k)
-    rw [integral_indicator_const _ hk, smul_eq_mul, mul_comm, uebhLaw,
-      measureReal_restrict_apply hk, Set.inter_comm]
-    rfl
+    have hk : MeasurableSet {u : ℝ | ueBHCount y u = k} :=
+      measurable_ueBHCount y (measurableSet_singleton k)
+    rw [integral_indicator_const _ hk, smul_eq_mul, mul_comm, ueBHLaw,
+      measureReal_restrict_apply hk, Set.ofPred_inter_eq_sep]
   · intro k _
-    exact (integrable_const _).indicator (measurable_uebhCount y (measurableSet_singleton k))
+    exact (integrable_const _).indicator (measurable_ueBHCount y (measurableSet_singleton k))
 
 /-- **U-eBH is feasible** [EVR26, Note 30, Theorem, Statement 3]: for antitone nonnegative
 budgets, the nested point whose law is that of `N_U = max {k : k y_(k) ≥ U}`, for `U` uniform on
 `[0, 1]`, is a feasible point of the linear program. -/
-theorem isRoundingFeasible_nestedPoint_uebhLaw (hy : Antitone y)
-    (hy0 : ∀ i, 0 ≤ y i) : IsRoundingFeasible y (nestedPoint K (uebhLaw y)) := by
+theorem isRoundingFeasible_nestedPoint_ueBHLaw (hy : Antitone y)
+    (hy0 : ∀ i, 0 ≤ y i) : IsRoundingFeasible y (nestedPoint K (ueBHLaw y)) := by
   refine isRoundingFeasible_nestedPoint (fun k _ ↦ measureReal_nonneg) ?_ (fun i ↦ ?_)
-  · rw [sum_uebhLaw]
-    calc volume.real {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u ∈ range (K + 1)}
+  · rw [sum_ueBHLaw]
+    calc volume.real {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u ∈ range (K + 1)}
         ≤ volume.real (Set.Icc (0 : ℝ) 1) :=
           measureReal_mono (fun u hu ↦ hu.1) measure_Icc_lt_top.ne
       _ = 1 := by simp [Real.volume_real_Icc]
@@ -848,17 +804,17 @@ theorem isRoundingFeasible_nestedPoint_uebhLaw (hy : Antitone y)
     have hk'pos : (0 : ℝ) < k' := by exact_mod_cast (by omega : 0 < k')
     -- U-eBH rejects at least `k'` hypotheses as soon as it rejects at least `i + 1`, and then
     -- `u ≤ k' y_(k')`
-    have hN : ∀ u, (i : ℕ) + 1 ≤ uebhCount y u →
-        k' ≤ uebhCount y u ∧ u ≤ k' * rankBudget y k' := by
+    have hN : ∀ u, (i : ℕ) + 1 ≤ ueBHCount y u →
+        k' ≤ ueBHCount y u ∧ u ≤ k' * rankBudget y k' := by
       intro u hu
-      have hmem := (mem_filter.1 (uebhCount_mem (y := y) (u := u) (by omega))).2
-      have hle := hmem.trans (hk'max _ (mem_Icc.2 ⟨hu, uebhCount_le y u⟩))
-      exact ⟨(le_uebhCount_iff (by omega)).2 ⟨k', le_rfl, hk'mem.2, hle⟩, hle⟩
-    have hterm : ∀ k ∈ Ioc (i : ℕ) K, uebhLaw y k / k ≤ uebhLaw y k / k' := by
+      have hmem := (mem_filter.1 (ueBHCount_mem (y := y) (u := u) (by omega))).2
+      have hle := hmem.trans (hk'max _ (mem_Icc.2 ⟨hu, ueBHCount_le y u⟩))
+      exact ⟨(le_ueBHCount_iff (by omega)).2 ⟨k', le_rfl, hk'mem.2, hle⟩, hle⟩
+    have hterm : ∀ k ∈ Ioc (i : ℕ) K, ueBHLaw y k / k ≤ ueBHLaw y k / k' := by
       intro k hk
       rcases lt_or_ge k k' with hkk | hkk
-      · have h0 : uebhLaw y k = 0 := by
-          rw [uebhLaw, show {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u = k} = ∅ from ?_,
+      · have h0 : ueBHLaw y k = 0 := by
+          rw [ueBHLaw, show {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u = k} = ∅ from ?_,
             measureReal_empty]
           ext u
           simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_and]
@@ -869,13 +825,13 @@ theorem isRoundingFeasible_nestedPoint_uebhLaw (hy : Antitone y)
       · exact div_le_div_of_nonneg_left measureReal_nonneg hk'pos (by exact_mod_cast hkk)
     have hb0 : 0 ≤ (k' : ℝ) * rankBudget y k' :=
       mul_nonneg (Nat.cast_nonneg _) (rankBudget_nonneg hy0 _)
-    calc ∑ k ∈ Ioc (i : ℕ) K, uebhLaw y k / k ≤ ∑ k ∈ Ioc (i : ℕ) K, uebhLaw y k / k' :=
+    calc ∑ k ∈ Ioc (i : ℕ) K, ueBHLaw y k / k ≤ ∑ k ∈ Ioc (i : ℕ) K, ueBHLaw y k / k' :=
           sum_le_sum hterm
-      _ = (∑ k ∈ Ioc (i : ℕ) K, uebhLaw y k) / k' := by rw [sum_div]
+      _ = (∑ k ∈ Ioc (i : ℕ) K, ueBHLaw y k) / k' := by rw [sum_div]
       _ ≤ (k' * rankBudget y k') / k' := by
           gcongr
-          rw [sum_uebhLaw]
-          calc volume.real {u ∈ Set.Icc (0 : ℝ) 1 | uebhCount y u ∈ Ioc (i : ℕ) K}
+          rw [sum_ueBHLaw]
+          calc volume.real {u ∈ Set.Icc (0 : ℝ) 1 | ueBHCount y u ∈ Ioc (i : ℕ) K}
               ≤ volume.real (Set.Icc 0 ((k' : ℝ) * rankBudget y k')) :=
                 measureReal_mono (fun u hu ↦
                   ⟨hu.1.1, (hN u (by have := (mem_Ioc.1 hu.2).1; omega)).2⟩)
@@ -889,11 +845,11 @@ theorem isRoundingFeasible_nestedPoint_uebhLaw (hy : Antitone y)
 /-- **U-eBH does no better than the optimum** [EVR26, Note 30, Theorem, Statement 3]: for
 antitone nonnegative budgets, the expected number `E[N_U]` of rejections of U-eBH, for `U` uniform
 on `[0, 1]`, is at most `min_{0 ≤ j ≤ K} D(j)`. -/
-theorem integral_uebhCount_le_roundingValue (hy : Antitone y) (hy0 : ∀ i, 0 ≤ y i) :
-    ∫ u in Set.Icc (0 : ℝ) 1, (uebhCount y u : ℝ) ≤ roundingValue y := by
-  rw [integral_uebhCount_eq]
+theorem integral_ueBHCount_le_roundingValue (hy : Antitone y) (hy0 : ∀ i, 0 ≤ y i) :
+    ∫ u in Set.Icc (0 : ℝ) 1, (ueBHCount y u : ℝ) ≤ roundingValue y := by
+  rw [integral_ueBHCount_eq]
   exact le_roundingValue fun j _ ↦
-    roundingObjective_le_roundingDual (isRoundingFeasible_nestedPoint_uebhLaw hy hy0) j
+    roundingObjective_le_roundingDual (isRoundingFeasible_nestedPoint_ueBHLaw hy hy0) j
 
 end UeBH
 
