@@ -151,12 +151,11 @@ theorem isNumeraire_of_ae_eq_rnDeriv_comp_map [IsProbabilityMeasure Q] [IsFinite
     (hQ : Q ≪ κ ∘ₘ Q.map T) (hS : ∀ P ∈ S, P univ ≤ 1) (hSκ : ∀ P ∈ S, κ ∘ₘ P.map T = P)
     (hSQ : ∀ P ∈ S, P.map T ≪ Q.map T) (hmem : κ ∘ₘ Q.map T ∈ effectiveSet S)
     (hX : Measurable X) (hXQ : X =ᵐ[κ ∘ₘ Q.map T] Q.rnDeriv (κ ∘ₘ Q.map T)) :
-    IsNumeraire X S Q := by
-  have hE := isEVar_rnDeriv_comp_map hT hκ hQ hS hSκ hSQ
-  refine isNumeraire_of_ae_eq_rnDeriv hS ⟨hX, fun P hP ↦ ?_⟩ hmem hQ (hQ.ae_le hXQ)
-  have hPκ : P ≪ κ ∘ₘ Q.map T := hSκ P hP ▸ (hSQ P hP).comp_right κ
-  rw [lintegral_congr_ae (hPκ.ae_le hXQ)]
-  exact hE.lintegral_le_one hP
+    IsNumeraire X S Q :=
+  isNumeraire_of_ae_eq_rnDeriv hS
+    ((isEVar_rnDeriv_comp_map hT hκ hQ hS hSκ hSQ).congr hX fun P hP ↦
+      ((hSκ P hP ▸ (hSQ P hP).comp_right κ : P ≪ κ ∘ₘ Q.map T)).ae_le hXQ.symm)
+    hmem hQ (hQ.ae_le hXQ)
 
 /-- **The conditional numeraire** [HGLLA24; LRR25, Theorem 4.1]. If `κ` is the conditional law
 given `T` of every member of a null `S` of measures of mass at most `1`, under each of which the law
