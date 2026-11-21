@@ -123,7 +123,9 @@ theorem HasCondDistrib.hasCondLaw [SFinite P] {κ : Kernel[m] Ω 𝓧}
     (h : HasCondDistrib (m𝓧 := m) X id κ P) :
     HasCondLaw X κ m P := by
   by_cases hκ : IsSFiniteKernel κ
-  · exact ⟨fun g hg ↦ h.lintegral_comp_prodMk_eq_lintegral_lintegral hg⟩
+  · refine ⟨fun g hg ↦ ?_⟩
+    simpa only [Function.uncurry_apply_pair, id] using
+      h.lintegral_comp_prodMk_eq_lintegral_lintegral hg
   -- otherwise the joint law `P.map id ⊗ₘ κ` vanishes, and so does `P`
   have hP : P = 0 := by
     rw [← Measure.map_eq_zero_iff h.aemeasurable, h.map_eq,
@@ -140,7 +142,8 @@ theorem hasCondDistrib_id_iff_hasCondLaw [SFinite P] (hm : m ≤ mΩ) (hX : AEMe
   refine ⟨HasCondDistrib.hasCondLaw, fun h ↦ ?_⟩
   refine (hasCondDistrib_iff_forall_lintegral_eq (m𝓧 := m) ⟨id, measurable_id'' hm, .rfl⟩
     hX).2 fun g hg ↦ ?_
-  exact h.lintegral_comp (Function.curry g) hg
+  rw [← Function.uncurry_curry g] at hg
+  simpa only [Function.curry_apply, id] using h.lintegral_comp (Function.curry g) hg
 
 /-- **A conditional law from its values on rectangles.** If `η` is an `m`-measurable s-finite
 kernel and `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` for every `m`-measurable `s` and measurable
