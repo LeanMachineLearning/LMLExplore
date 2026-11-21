@@ -131,7 +131,7 @@ theorem noArbitrageOn_iff : NoArbitrageOn a Y ↔ ∀ ρ : ι → ℝ, (∀ i, 0
 nonnegative combination that is nonnegative at that point has all its weights zero. -/
 theorem noArbitrageOn_of_forall_neg {x₀ : 𝓧} (hx₀ : x₀ ∈ Y) (ha : ∀ i, a i x₀ < 0) :
     NoArbitrageOn a Y := by
-  intro ρ hρ h x _
+  refine noArbitrageOn_iff.2 fun ρ hρ h x _ ↦ ?_
   have hle : ∀ i ∈ Finset.univ, ρ i * a i x₀ ≤ 0 :=
     fun i _ ↦ mul_nonpos_of_nonneg_of_nonpos (hρ i) (ha i).le
   have h0 := (Finset.sum_eq_zero_iff_of_nonpos hle).1
