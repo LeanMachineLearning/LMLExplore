@@ -136,9 +136,9 @@ theorem map_mem_superUniformNull_of_ofReal_le {q : ℝ → ℝ≥0∞} (hq : Mea
     (h_le : ∀ x ∈ Icc (0 : ℝ) 1, ENNReal.ofReal x ≤ q x) :
     (volume.restrict (Icc (0 : ℝ) 1)).map q ∈ superUniformNull := by
   have : IsProbabilityMeasure (volume.restrict (Icc (0 : ℝ) 1)) := ⟨by simp⟩
-  refine (isExactPVar_ofReal_volume.toIsPVar.mono hq fun P hP ↦ ?_).map_mem_superUniformNull
+  refine (isExactPVar_ofReal_volume.toIsPVar.mono hq ?_).map_mem_superUniformNull
     (mem_singleton _)
-  rw [mem_singleton_iff.1 hP]
+  rw [quasiSure_singleton]
   exact ae_restrict_of_forall_mem measurableSet_Icc h_le
 
 /-- The uniform law on `[0, 1]`, as a law on `ℝ≥0∞`, is super-uniform. -/

@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.Null.QuasiSure
+public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.StoppedLaw
 
 /-!

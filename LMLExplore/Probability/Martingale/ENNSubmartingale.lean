@@ -78,13 +78,13 @@ theorem measurable (hM : IsENNSubmartingale M ℱ S) (n : ℕ) : Measurable (M n
 theorem anti_set (hST : S ⊆ T) (hM : IsENNSubmartingale M ℱ T) : IsENNSubmartingale M ℱ S :=
   ⟨hM.adapted, fun P hP ↦ hM.setLIntegral_le_succ P (hST hP)⟩
 
-/-- An adapted process almost surely equal at every time to a submartingale, under every member
-of the null, is a submartingale. -/
+/-- An adapted process quasi-surely equal at every time to a submartingale is
+a submartingale. -/
 theorem congr (hM : IsENNSubmartingale M ℱ S) (hM' : Adapted ℱ M')
-    (h : ∀ P ∈ S, ∀ n, M n =ᵐ[P] M' n) : IsENNSubmartingale M' ℱ S :=
+    (h : ∀ n, M n =ᶠ[quasiSure S] M' n) : IsENNSubmartingale M' ℱ S :=
   ⟨hM', fun P hP n s hs ↦ by
-    rw [← lintegral_congr_ae (ae_restrict_of_ae (h P hP (n + 1))),
-      ← lintegral_congr_ae (ae_restrict_of_ae (h P hP n))]
+    rw [← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h (n + 1)) hP)),
+      ← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h n) hP))]
     exact hM.setLIntegral_le_succ P hP n s hs⟩
 
 /-- The set integrals of an `ℝ≥0∞`-valued submartingale over an `ℱ i`-measurable set do not

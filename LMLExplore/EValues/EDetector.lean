@@ -118,16 +118,17 @@ theorem measurable (hM : IsEDetector M ℱ S) (n : ℕ) : Measurable (M n) :=
 theorem anti_set (hST : S ⊆ T) (hM : IsEDetector M ℱ T) : IsEDetector M ℱ S :=
   ⟨hM.adapted, fun τ hτ P hP ↦ hM.lintegral_le τ hτ P (hST hP)⟩
 
-/-- **Domination.** An adapted process that is almost surely at most an e-detector at every time,
-under every member of the null, is an e-detector. -/
+/-- **Domination.** An adapted process quasi-surely at most an e-detector at every time is an
+e-detector. -/
 theorem mono_ae (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N)
-    (hNM : ∀ P ∈ S, ∀ n, N n ≤ᵐ[P] M n) : IsEDetector N ℱ S := by
+    (hNM : ∀ n, N n ≤ᶠ[quasiSure S] M n) : IsEDetector N ℱ S := by
   refine ⟨hN, fun τ hτ P hP ↦ (lintegral_mono_ae ?_).trans (hM.lintegral_le τ hτ P hP)⟩
-  filter_upwards [ae_all_iff.2 (hNM P hP)] with ω hω using hω (τ ω)
+  filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hNM n) hP] with ω hω
+    using hω (τ ω)
 
 /-- **Domination.** An adapted process that is at most an e-detector is an e-detector. -/
 theorem mono (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N) (hNM : N ≤ M) : IsEDetector N ℱ S :=
-  hM.mono_ae hN fun _ _ n ↦ ae_of_all _ (hNM n)
+  hM.mono_ae hN fun n ↦ .of_forall (hNM n)
 
 /-- An e-detector vanishes at time `0`, almost surely under every member of the null. -/
 theorem apply_zero_ae_eq_zero (hM : IsEDetector M ℱ S) (hP : P ∈ S) : M 0 =ᵐ[P] 0 := by
@@ -249,20 +250,21 @@ theorem setLIntegral_le (hE : IsEProcessFrom E j ℱ S) {τ : Ω → ℕ}
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcessFrom E j ℱ T) : IsEProcessFrom E j ℱ S :=
   ⟨hE.adapted, fun τ hτ hjτ ↦ (hE.isCondEVar_stoppedValue τ hτ hjτ).anti_set hST⟩
 
-/-- **Domination.** An adapted process that is almost surely at most an e-process from time `j` at
-every time, under every member of the null, is an e-process from time `j`. -/
+/-- **Domination.** An adapted process quasi-surely at most an e-process from time `j` at every
+time is an e-process from time `j`. -/
 theorem mono_ae (hE : IsEProcessFrom E j ℱ S) (hF : Adapted ℱ F)
-    (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) : IsEProcessFrom F j ℱ S := by
+    (hFE : ∀ n, F n ≤ᶠ[quasiSure S] E n) : IsEProcessFrom F j ℱ S := by
   refine ⟨hF, fun τ hτ hjτ ↦ ⟨hF.measurable_apply_stoppingTime hτ, fun P hP s hs ↦ ?_⟩⟩
   refine (lintegral_mono_ae (ae_restrict_of_ae ?_)).trans
     ((hE.isCondEVar_stoppedValue τ hτ hjτ).setLIntegral_le P hP s hs)
-  filter_upwards [ae_all_iff.2 (hFE P hP)] with ω hω using hω (τ ω)
+  filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hFE n) hP] with ω hω
+    using hω (τ ω)
 
 /-- **Domination.** An adapted process that is at most an e-process from time `j` is an e-process
 from time `j`. -/
 theorem mono (hE : IsEProcessFrom E j ℱ S) (hF : Adapted ℱ F) (hFE : F ≤ E) :
     IsEProcessFrom F j ℱ S :=
-  hE.mono_ae hF fun _ _ n ↦ ae_of_all _ (hFE n)
+  hE.mono_ae hF fun n ↦ .of_forall (hFE n)
 
 /-- An e-process from time `0`, for a null of measures of mass at most `1`, is an e-process. -/
 theorem isEProcess (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEProcessFrom E 0 ℱ S) :

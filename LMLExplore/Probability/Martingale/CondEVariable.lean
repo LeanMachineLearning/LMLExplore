@@ -8,6 +8,7 @@ module
 public import LMLExplore.MeasureTheory.Function.ConditionalLExpectation
 public import LMLExplore.MeasureTheory.Measure.WithDensity
 public import Mathlib.MeasureTheory.Function.ConditionalLExpectation
+public import LMLExplore.Probability.QuasiSure
 public import Statlib.EValues.EVariable
 
 /-!
@@ -107,13 +108,18 @@ theorem anti_set (hST : S ⊆ T) (hX : IsCondEVar X m T) : IsCondEVar X m S :=
 theorem of_le (hm : m' ≤ m) (hX : IsCondEVar X m S) : IsCondEVar X m' S :=
   ⟨hX.measurable, fun P hP s hs ↦ hX.setLIntegral_le P hP s (hm s hs)⟩
 
-/-- A measurable function almost surely equal to a conditional e-variable under every member of
-the null is a conditional e-variable. -/
-theorem congr (hX : IsCondEVar X m S) (hY : Measurable Y) (hXY : ∀ P ∈ S, X =ᵐ[P] Y) :
+/-- A measurable function quasi-surely below a conditional e-variable is a conditional
+e-variable. -/
+theorem mono_ae (hY : IsCondEVar Y m S) (hX : Measurable[mΩ] X) (hXY : X ≤ᶠ[quasiSure S] Y) :
+    IsCondEVar X m S :=
+  ⟨hX, fun P hP s hs ↦ (lintegral_mono_ae (ae_restrict_of_ae
+    (ae_of_eventually_quasiSure hXY hP))).trans (hY.setLIntegral_le P hP s hs)⟩
+
+/-- A measurable function quasi-surely equal to a conditional e-variable is a conditional
+e-variable. -/
+theorem congr (hX : IsCondEVar X m S) (hY : Measurable Y) (hXY : X =ᶠ[quasiSure S] Y) :
     IsCondEVar Y m S :=
-  ⟨hY, fun P hP s hs ↦
-    (lintegral_congr_ae (ae_restrict_of_ae (hXY P hP))).symm.trans_le
-      (hX.setLIntegral_le P hP s hs)⟩
+  hX.mono_ae hY hXY.symm.le
 
 end IsCondEVar
 
@@ -127,12 +133,12 @@ theorem anti_set (hST : S ⊆ T) (hX : IsExactCondEVar X m T) : IsExactCondEVar 
 theorem of_le (hm : m' ≤ m) (hX : IsExactCondEVar X m S) : IsExactCondEVar X m' S :=
   ⟨hX.measurable, fun P hP s hs ↦ hX.setLIntegral_eq P hP s (hm s hs)⟩
 
-/-- A measurable function almost surely equal to an exact conditional e-variable under every
-member of the null is an exact conditional e-variable. -/
-theorem congr (hX : IsExactCondEVar X m S) (hY : Measurable Y) (hXY : ∀ P ∈ S, X =ᵐ[P] Y) :
+/-- A measurable function quasi-surely equal to an exact conditional e-variable is an exact
+conditional e-variable. -/
+theorem congr (hX : IsExactCondEVar X m S) (hY : Measurable Y) (hXY : X =ᶠ[quasiSure S] Y) :
     IsExactCondEVar Y m S :=
   ⟨hY, fun P hP s hs ↦
-    (lintegral_congr_ae (ae_restrict_of_ae (hXY P hP))).symm.trans
+    (lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure hXY hP))).symm.trans
       (hX.setLIntegral_eq P hP s hs)⟩
 
 end IsExactCondEVar

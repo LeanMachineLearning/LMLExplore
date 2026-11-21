@@ -106,18 +106,18 @@ theorem isPVar_union_iff : IsPVar p (S ∪ T) ↔ IsPVar p S ∧ IsPVar p T :=
   ⟨fun h ↦ ⟨h.anti_set subset_union_left, h.anti_set subset_union_right⟩,
     fun h ↦ h.1.union h.2⟩
 
-/-- A measurable function almost surely at least a p-variable, under every member of the null, is a
-p-variable. -/
-theorem IsPVar.mono (hp : IsPVar p S) (hq : Measurable q) (hpq : ∀ P ∈ S, p ≤ᵐ[P] q) :
+/-- A measurable function quasi-surely at least a p-variable is a p-variable. -/
+theorem IsPVar.mono (hp : IsPVar p S) (hq : Measurable q) (hpq : p ≤ᶠ[quasiSure S] q) :
     IsPVar q S where
   measurable := hq
   measure_le_le P hP α := by
     refine le_trans (measure_mono_ae ?_) (hp.measure_le_le P hP α)
-    filter_upwards [hpq P hP] with ω hω hqα using hω.trans hqα
+    filter_upwards [ae_of_eventually_quasiSure hpq hP] with ω hω hqα using hω.trans hqα
 
-theorem IsPVar.congr (hp : IsPVar p S) (hq : Measurable q) (hpq : ∀ P ∈ S, p =ᵐ[P] q) :
+/-- A measurable function quasi-surely equal to a p-variable is a p-variable. -/
+theorem IsPVar.congr (hp : IsPVar p S) (hq : Measurable q) (hpq : p =ᶠ[quasiSure S] q) :
     IsPVar q S :=
-  hp.mono hq fun P hP ↦ (hpq P hP).le
+  hp.mono hq hpq.le
 
 /-- The composition of a p-variable with a measurable map is a p-variable for the null of the
 measures whose image is in the original null. -/
@@ -277,12 +277,13 @@ theorem IsExactPVar.anti_set (hST : S ⊆ T) (hp : IsExactPVar p T) : IsExactPVa
   toIsPVar := hp.toIsPVar.anti_set hST
   measure_le_eq P hP := hp.measure_le_eq P (hST hP)
 
+/-- A measurable function quasi-surely equal to an exact p-variable is an exact p-variable. -/
 theorem IsExactPVar.congr (hp : IsExactPVar p S) (hq : Measurable q)
-    (hpq : ∀ P ∈ S, p =ᵐ[P] q) : IsExactPVar q S where
+    (hpq : p =ᶠ[quasiSure S] q) : IsExactPVar q S where
   toIsPVar := hp.toIsPVar.congr hq hpq
   measure_le_eq P hP α hα := by
     refine (measure_congr ?_).trans (hp.measure_le_eq P hP α hα)
-    filter_upwards [hpq P hP] with ω hω
+    filter_upwards [ae_of_eventually_quasiSure hpq hP] with ω hω
     simp [hω]
 
 /-- The composition of an exact p-variable with a measurable map is an exact p-variable for the

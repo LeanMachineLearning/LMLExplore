@@ -127,24 +127,25 @@ theorem anti_set (hST : ∀ θ, S θ ⊆ T θ) (hC : IsConfSeq C ℱ T α) : IsC
 theorem mono_level (hC : IsConfSeq C ℱ S α) (hαβ : α ≤ β) : IsConfSeq C ℱ S β :=
   ⟨hC.measurableSet_mem, fun θ P hP ↦ (hC.measure_exists_notMem_le θ P hP).trans hαβ⟩
 
-/-- **Domination.** Adapted random sets that contain a confidence sequence at every time, almost
-surely under every `P ∈ S θ` for the parameter `θ`, form a confidence sequence. -/
+/-- **Domination.** Adapted random sets that contain a confidence sequence at every time,
+quasi-surely for the null `S θ` of the parameter `θ`, form a confidence sequence. -/
 theorem mono_ae (hC : IsConfSeq C ℱ S α) (hD : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ D n ω})
-    (hCD : ∀ θ, ∀ P ∈ S θ, ∀ n, ∀ᵐ ω ∂P, θ ∈ C n ω → θ ∈ D n ω) : IsConfSeq D ℱ S α := by
+    (hCD : ∀ θ n, ∀ᶠ ω in quasiSure (S θ), θ ∈ C n ω → θ ∈ D n ω) : IsConfSeq D ℱ S α := by
   refine ⟨hD, fun θ P hP ↦ (hC.measure_exists_notMem_le θ P hP).trans' (measure_mono_ae ?_)⟩
-  filter_upwards [ae_all_iff.2 (hCD θ P hP)] with ω hω ⟨n, hn⟩ using ⟨n, mt (hω n) hn⟩
+  filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hCD θ n) hP] with ω hω ⟨n, hn⟩
+    using ⟨n, mt (hω n) hn⟩
 
 /-- Adapted random sets that contain a confidence sequence at every time form a confidence
 sequence. -/
 theorem mono (hC : IsConfSeq C ℱ S α) (hD : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ D n ω})
     (hCD : ∀ n ω, C n ω ⊆ D n ω) : IsConfSeq D ℱ S α :=
-  hC.mono_ae hD fun _ _ _ n ↦ ae_of_all _ fun ω ↦ @hCD n ω _
+  hC.mono_ae hD fun _ n ↦ .of_forall fun ω ↦ @hCD n ω _
 
-/-- Adapted random sets that agree with a confidence sequence at every time, almost surely under
-every `P ∈ S θ` for the parameter `θ`, form a confidence sequence. -/
+/-- Adapted random sets that agree with a confidence sequence at every time, quasi-surely for the
+null `S θ` of the parameter `θ`, form a confidence sequence. -/
 theorem congr (hC : IsConfSeq C ℱ S α) (hD : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ D n ω})
-    (hCD : ∀ θ, ∀ P ∈ S θ, ∀ n, ∀ᵐ ω ∂P, θ ∈ C n ω ↔ θ ∈ D n ω) : IsConfSeq D ℱ S α :=
-  hC.mono_ae hD fun θ P hP n ↦ (hCD θ P hP n).mono fun _ h ↦ h.1
+    (hCD : ∀ θ n, ∀ᶠ ω in quasiSure (S θ), θ ∈ C n ω ↔ θ ∈ D n ω) : IsConfSeq D ℱ S α :=
+  hC.mono_ae hD fun θ n ↦ (hCD θ n).mono fun _ h ↦ h.1
 
 end IsConfSeq
 

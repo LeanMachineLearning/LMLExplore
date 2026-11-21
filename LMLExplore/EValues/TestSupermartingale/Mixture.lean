@@ -114,7 +114,8 @@ theorem isTestMartingale_lintegral_of_ae_eq_rnDeriv_trim [SigmaFiniteFiltration 
     IsTestMartingale (fun n ω ↦ ∫⁻ θ, L θ n ω ∂π) ℱ {P} := by
   have : ∀ θ, IsFiniteMeasure (Q θ) := fun θ ↦ ⟨(hQ θ).trans_lt ENNReal.one_lt_top⟩
   refine (isTestMartingale_rnDeriv_trim_comp hQ hQP).congr (adapted_lintegral hL) ?_
-  rintro _ rfl n
+  intro n
+  rw [quasiSure_singleton]
   exact Measure.rnDeriv_trim_bind_ae_eq (ℱ.le n) Q.measurable (hL n) (hLQ n) (hQP n)
 
 /-- **Mixtures of likelihood ratio processes are test supermartingales** [RW, §7.5]. Let `π` be a
@@ -133,7 +134,8 @@ theorem isTestSupermartingale_lintegral_of_ae_eq_rnDeriv_trim [SigmaFiniteFiltra
     (fun _ hP ↦ by rw [mem_singleton_iff.1 hP]; infer_instance) hL fun θ ↦
       (isTestSupermartingale_rnDeriv_trim (hQ θ)).congr
         (fun n ↦ (hL n).comp measurable_prodMk_left) ?_
-  rintro _ rfl n
+  intro n
+  rw [quasiSure_singleton]
   exact (hLQ θ n).symm
 
 end LikelihoodRatio

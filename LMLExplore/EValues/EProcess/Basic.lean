@@ -58,7 +58,7 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   e-process for `S` is one for every subset of `S`, and an adapted process is an e-process for `S`
   exactly when it is one for each simple null `{P}` with `P ∈ S`.
 * `ProbabilityTheory.IsEProcess.mono_ae`, `ProbabilityTheory.IsEProcess.mono`: an adapted process
-  dominated by an e-process, almost surely under every member of the null or pointwise, is an
+  dominated by an e-process, quasi-surely (`ProbabilityTheory.quasiSure`) or pointwise, is an
   e-process.
 * `ProbabilityTheory.isEProcess_one`, `ProbabilityTheory.convex_isEProcess`: the constant process
   `1` is an e-process for a null of measures of mass at most `1`, and the e-processes for a null
@@ -152,24 +152,23 @@ theorem of_lintegral_le_one (hE : Adapted ℱ E)
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcess E ℱ T) : IsEProcess E ℱ S :=
   ⟨hE.adapted, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).anti_set hST⟩
 
-/-- An adapted process equal to an e-process at every time, almost surely under every member of the
-null, is an e-process. -/
-theorem congr (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hEF : ∀ P ∈ S, ∀ n, E n =ᵐ[P] F n) :
-    IsEProcess F ℱ S :=
-  ⟨hF, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).congr (hF.measurable_apply_stoppingTime hτ)
-    fun P hP ↦ by filter_upwards [ae_all_iff.2 (hEF P hP)] with ω hω using hω (τ ω)⟩
-
-/-- **Domination.** An adapted process that is almost surely at most an e-process at every time,
-under every member of the null, is an e-process. -/
-theorem mono_ae (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hFE : ∀ P ∈ S, ∀ n, F n ≤ᵐ[P] E n) :
+/-- **Domination.** An adapted process quasi-surely at most an e-process at every time is an
+e-process. -/
+theorem mono_ae (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hFE : ∀ n, F n ≤ᶠ[quasiSure S] E n) :
     IsEProcess F ℱ S := by
   refine ⟨hF, fun τ hτ ↦ ⟨hF.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_⟩⟩
   refine (lintegral_mono_ae ?_).trans ((hE.isEVar_stoppedValue τ hτ).lintegral_le_one hP)
-  filter_upwards [ae_all_iff.2 (hFE P hP)] with ω hω using hω (τ ω)
+  filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hFE n) hP] with ω hω
+    using hω (τ ω)
+
+/-- An adapted process quasi-surely equal at every time to an e-process is an e-process. -/
+theorem congr (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hEF : ∀ n, E n =ᶠ[quasiSure S] F n) :
+    IsEProcess F ℱ S :=
+  hE.mono_ae hF fun n ↦ (hEF n).symm.le
 
 /-- **Domination.** An adapted process that is at most an e-process is an e-process. -/
 theorem mono (hE : IsEProcess E ℱ S) (hF : Adapted ℱ F) (hFE : F ≤ E) : IsEProcess F ℱ S :=
-  hE.mono_ae hF fun _ _ n ↦ ae_of_all _ (hFE n)
+  hE.mono_ae hF fun n ↦ .of_forall (hFE n)
 
 end IsEProcess
 
