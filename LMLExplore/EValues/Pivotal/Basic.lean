@@ -13,6 +13,7 @@ public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.MeasureTheory.Integral.Bochner.Set
 import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.Integral.Prod
 
@@ -332,8 +333,7 @@ theorem le_eintegral_log_twoPointEVar {Q : Measure Ω} [IsProbabilityMeasure Q]
       B.indicator (fun _ ↦ Real.log (1 + η) - Real.log (1 - η)) ω) Q :=
     (integrable_const _).add ((integrable_const _).indicator hB)
   rw [eintegral_congr (log_twoPointEVar B hη1), eintegral_eq_integral hint,
-    EReal.coe_le_coe_iff, integral_add (integrable_const _) ((integrable_const _).indicator hB),
-    integral_const, integral_indicator_const _ hB, probReal_univ, one_smul, smul_eq_mul]
+    EReal.coe_le_coe_iff, integral_const_add_indicator_const _ _ hB, smul_eq_mul]
   -- `E_Q log X = (log (1 + η) + log (1 - η)) / 2 + (Q(B) - 1 / 2) (log (1 + η) - log (1 - η))`
   have hL := Real.two_mul_le_log_one_add_sub_log_one_sub hη0 (by linarith)
   have hsum := Real.neg_four_div_three_mul_sq_le_log_one_add_add_log_one_sub

@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.Pivotal.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.MeasureTheory.Integral.Bochner.Set
 import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Probability.ConditionalProbability
@@ -192,9 +193,8 @@ private lemma le_eintegral_log_bumpEVar {n : ℕ} (hn : 1 ≤ n) :
     (integrable_const _).add ((integrable_const _).indicator (measurableSet_bumpSet n))
   refine le_trans ?_ ((eintegral_eq_integral hint).symm.trans_le
     (eintegral_mono (le_log_bumpEVar hn)))
-  rw [EReal.coe_le_coe_iff, integral_add (integrable_const _)
-    ((integrable_const _).indicator (measurableSet_bumpSet n)), integral_const,
-    integral_indicator_const _ (measurableSet_bumpSet n), probReal_univ, one_smul, smul_eq_mul]
+  rw [EReal.coe_le_coe_iff, integral_const_add_indicator_const _ _ (measurableSet_bumpSet n),
+    smul_eq_mul]
   have hQA := inv_le_measureReal_bumpAlt_bumpSet hn
   have hn' : (1 : ℝ) ≤ n := by exact_mod_cast hn
   have hlog : 0 ≤ Real.log 2 := Real.log_nonneg (by norm_num)
