@@ -23,9 +23,10 @@ in `WithTop ℕ`, with the event `limsup A` that infinitely many of them occur w
 (`MeasureTheory.stoppedEvent`). Time-uniform validity is equivalent to validity at every random
 time, possibly infinite and not necessarily a stopping time, and to validity at every stopping
 time: the event at a random time is contained in the union, and the union is the event read at the
-first time that one of the events occurs, which is a stopping time. The same holds for the
-`ℕ`-valued random and stopping times. The equivalence holds with equality: the largest probability
-of the union over the null is the largest probability of the event read at a stopping time.
+first time that one of the events occurs, which is a stopping time. The same holds for the random
+times that are finite everywhere and for the bounded stopping times. The equivalence holds with
+equality: the largest probability of the union over the null is the largest probability of the
+event read at a stopping time.
 Validity uniformly in time does not mention the filtration, so it passes to every finer filtration,
 and back to a coarser one to which the events are adapted [CR26, Lemma 1].
 
@@ -48,7 +49,7 @@ bound: for an adjuster `A`, `⨆ n, A (max 1 (E n))` has expectation at most `1`
 ## Main statements
 
 * `ProbabilityTheory.isTimeUniform_tfae`: time-uniform validity is validity at every random time
-  and at every stopping time, with values in `WithTop ℕ` or in `ℕ` [RRLK, Lemma 2].
+  and at every stopping time, possibly infinite or bounded [RRLK, Lemma 2].
 * `ProbabilityTheory.iSup_measure_iUnion_eq_iSup_isStoppingTime`,
   `ProbabilityTheory.iSup_measure_iUnion_eq_iSup_stoppedEvent`: the largest probability of the
   union over the null is the largest probability of the event read at a stopping time, and at a
@@ -105,12 +106,6 @@ theorem measure_stoppedEvent_le (h : IsTimeUniform A ℱ S α) (τ : Ω → With
     P (stoppedEvent A τ) ≤ α :=
   (measure_mono stoppedEvent_subset_iUnion).trans (h.measure_iUnion_le P hP)
 
-/-- Under every member of the null, time-uniformly valid events read at a random time with values
-in `ℕ`, not necessarily a stopping time, occur with probability at most `α`. -/
-theorem measure_le (h : IsTimeUniform A ℱ S α) (τ : Ω → ℕ) (hP : P ∈ S) :
-    P {ω | ω ∈ A (τ ω)} ≤ α := by
-  simpa using h.measure_stoppedEvent_le (fun ω ↦ (τ ω : WithTop ℕ)) hP
-
 /-- Time-uniformly valid events for `T` are time-uniformly valid for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (h : IsTimeUniform A ℱ T α) : IsTimeUniform A ℱ S α :=
   ⟨h.measurableSet, fun P hP ↦ h.measure_iUnion_le P (hST hP)⟩
@@ -144,35 +139,36 @@ following are equivalent:
 2. read at every random time with values in `WithTop ℕ`, with `limsup A` where the time is
   infinite, they occur with probability at most `α`;
 3. the same at every stopping time with values in `WithTop ℕ`;
-4. the same at every random time with values in `ℕ`;
-5. the same at every stopping time with values in `ℕ`. -/
+4. the same at every random time that is finite everywhere;
+5. the same at every bounded stopping time. -/
 theorem isTimeUniform_tfae (hA : ∀ n, MeasurableSet[ℱ n] (A n)) :
     List.TFAE [IsTimeUniform A ℱ S α,
       ∀ P ∈ S, ∀ τ : Ω → WithTop ℕ, P (stoppedEvent A τ) ≤ α,
       ∀ P ∈ S, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → P (stoppedEvent A τ) ≤ α,
-      ∀ P ∈ S, ∀ τ : Ω → ℕ, P {ω | ω ∈ A (τ ω)} ≤ α,
-      ∀ P ∈ S, ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-        P {ω | ω ∈ A (τ ω)} ≤ α] := by
+      ∀ P ∈ S, ∀ τ : Ω → WithTop ℕ, (∀ ω, τ ω ≠ ⊤) → P (stoppedEvent A τ) ≤ α,
+      ∀ P ∈ S, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        P (stoppedEvent A τ) ≤ α] := by
   tfae_have 1 → 2 := fun h P hP τ ↦ h.measure_stoppedEvent_le τ hP
   tfae_have 2 → 3 := fun h P hP τ _ ↦ h P hP τ
   tfae_have 3 → 1 := fun h ↦ ⟨hA, fun P hP ↦ by
     -- the union is the event read at the first time that one of the events occurs
     obtain ⟨τ, hτ, h_eq⟩ := exists_isStoppingTime_stoppedEvent_eq_iUnion hA
     exact h_eq ▸ h P hP τ hτ⟩
-  tfae_have 2 → 4 := fun h P hP τ ↦ by simpa using h P hP (fun ω ↦ (τ ω : WithTop ℕ))
-  tfae_have 4 → 5 := fun h P hP τ _ ↦ h P hP τ
+  tfae_have 2 → 4 := fun h P hP τ _ ↦ h P hP τ
+  tfae_have 4 → 5 := fun h P hP τ _ N hτN ↦
+    h P hP τ fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
   tfae_have 5 → 1 := fun h ↦ ⟨hA, fun P hP ↦ by
     rw [measure_iUnion_eq_iSup_isStoppingTime hA]
-    exact iSup₂_le fun τ hτ ↦ h P hP τ hτ⟩
+    exact iSup₂_le fun τ hτ ↦ iSup₂_le fun N hτN ↦ h P hP τ hτ N hτN⟩
   tfae_finish
 
 /-- **Time-uniform validity at stopping times** [RRLK, Lemma 2]. Events adapted to `ℱ` are
 time-uniformly valid at level `α` exactly when, under every member of the null, they occur with
-probability at most `α` when read at every stopping time with values in `ℕ`. -/
+probability at most `α` when read at every bounded stopping time. -/
 theorem isTimeUniform_iff_forall_isStoppingTime :
     IsTimeUniform A ℱ S α ↔ (∀ n, MeasurableSet[ℱ n] (A n)) ∧
-      ∀ P ∈ S, ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-        P {ω | ω ∈ A (τ ω)} ≤ α :=
+      ∀ P ∈ S, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        P (stoppedEvent A τ) ≤ α :=
   ⟨fun h ↦ ⟨h.measurableSet, (isTimeUniform_tfae h.measurableSet).out 1 5 |>.1 h⟩,
     fun ⟨hA, h⟩ ↦ (isTimeUniform_tfae hA).out 1 5 |>.2 h⟩
 
@@ -207,8 +203,8 @@ e-process: its value at every random time is below its supremum. The converse fa
 (`ProbabilityTheory.exists_isEProcess_one_lt_lintegral_iSup`). -/
 theorem IsEProcess.of_lintegral_iSup_le_one (hE : Adapted ℱ E)
     (h : ∀ P ∈ S, ∫⁻ ω, ⨆ n, E n ω ∂P ≤ 1) : IsEProcess E ℱ S :=
-  .of_lintegral_le_one hE fun τ _ P hP ↦
-    (lintegral_mono fun ω ↦ le_iSup (E · ω) (τ ω)).trans (h P hP)
+  .of_lintegral_le_one hE fun _ _ _ _ P hP ↦
+    (lintegral_mono fun ω ↦ le_iSup (E · ω) _).trans (h P hP)
 
 /-! ### A martingale that doubles or vanishes -/
 
@@ -244,7 +240,7 @@ private lemma lintegral_coinLaw (f : Bool → ℝ≥0∞) :
 
 private lemma isEProcess_doubleOrNothing :
     IsEProcess doubleOrNothing revealFiltration {coinLaw} := by
-  refine .of_lintegral_le_one (fun n ↦ ?_) fun τ hτ P hP ↦ ?_
+  refine .of_lintegral_le_one (fun n ↦ ?_) fun τ hτ N hτN P hP ↦ ?_
   · rcases eq_or_ne n 0 with rfl | hn
     · have h_const : doubleOrNothing 0 = fun _ ↦ 1 := by ext; simp [doubleOrNothing]
       rw [h_const]
@@ -257,11 +253,15 @@ private lemma isEProcess_doubleOrNothing :
   rw [revealFiltration_zero, MeasurableSpace.measurableSet_bot_iff] at h0
   rcases h0 with h0 | h0
   · -- `τ ≥ 1` everywhere: the martingale is read at time `1` or later
-    have hτ1 (ω : Bool) : τ ω ≠ 0 := fun h ↦ eq_empty_iff_forall_notMem.1 h0 ω (by simp [h])
-    simp [doubleOrNothing, hτ1]
+    have hτ1 (ω : Bool) : (τ ω).untopA ≠ 0 := fun h ↦ eq_empty_iff_forall_notMem.1 h0 ω (by
+      rw [mem_ofPred_eq, ← WithTop.natCast_untopA
+        (ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)), h]
+      simp)
+    simp [stoppedValue, doubleOrNothing, hτ1]
   · -- `τ = 0` everywhere: the martingale is read at time `0`
     have hτ0 (ω : Bool) : τ ω = 0 := by simpa using h0.ge (mem_univ ω)
-    simp [doubleOrNothing, hτ0, ← two_mul]
+    have h0 : (0 : WithTop ℕ).untopA = 0 := by simp
+    simp [stoppedValue, doubleOrNothing, hτ0, h0, ← two_mul]
 
 /-- The supremum of the running maximum of the martingale up to time `1`. -/
 private lemma iSup_le_one_doubleOrNothing (ω : Bool) :

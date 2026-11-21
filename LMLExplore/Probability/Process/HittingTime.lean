@@ -43,8 +43,8 @@ occurs.
 * `MeasureTheory.hittingAfter_apply_congr`: two hitting times agree at `ω` when the two processes
   lie in their sets at the same times.
 * `MeasureTheory.measure_iUnion_eq_iSup_isStoppingTime`: the measure of the union of an adapted
-  sequence of events is the supremum of the measures of the events read at the stopping times with
-  values in `ℕ` [RRLK, Lemma 2].
+  sequence of events is the supremum of the measures of the events read at the bounded stopping
+  times [RRLK, Lemma 2].
 * `MeasureTheory.forall_isStoppingTime_measure_le_iff_of_le`: the lifting lemma [CR26, Lemma 1].
 * `MeasureTheory.stoppedEvent_hittingAfter_indicator`,
   `MeasureTheory.exists_isStoppingTime_stoppedEvent_eq_iUnion`: read at the first time that one of
@@ -123,40 +123,53 @@ theorem hittingAfter_indicator_setOf_le_apply [WellFoundedLT ι] {β : Type*} [Z
   by_cases h : τ ω ≤ i <;> simp [h]
 
 /-- **The events of an adapted sequence read at stopping times**, the form of [RRLK, Lemma 2] for
-one measure and the stopping times with values in `ℕ`. For a sequence of events `A n` adapted to a
-filtration indexed by `ℕ`, the measure of the event that some `A n` occurs is the supremum, over
-the stopping times `τ` with values in `ℕ`, of the measure of the event `A (τ ω)` read at `τ`. The
-measure need not be finite and the events need not be nested. -/
+one measure and the bounded stopping times. For a sequence of events `A n` adapted to a filtration
+indexed by `ℕ`, the measure of the event that some `A n` occurs is the supremum, over the bounded
+stopping times `τ`, of the measure of the events read at `τ`. The measure need not be finite and
+the events need not be nested. -/
 theorem measure_iUnion_eq_iSup_isStoppingTime {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
     {ℱ : Filtration ℕ mΩ} {A : ℕ → Set Ω} (hA : ∀ n, MeasurableSet[ℱ n] (A n)) :
-    μ (⋃ n, A n) = ⨆ (τ : Ω → ℕ) (_ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))),
-      μ {ω | ω ∈ A (τ ω)} := by
-  refine le_antisymm ?_ (iSup₂_le fun τ _ ↦ measure_mono fun ω hω ↦ Set.mem_iUnion.2 ⟨τ ω, hω⟩)
+    μ (⋃ n, A n) = ⨆ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (N : ℕ) (_ : ∀ ω, τ ω ≤ N),
+      μ (stoppedEvent A τ) := by
+  refine le_antisymm ?_
+    (iSup₂_le fun τ _ ↦ iSup₂_le fun _ _ ↦ measure_mono stoppedEvent_subset_iUnion)
   -- by continuity from below, it suffices to bound the probability that one of `A 0, …, A N`
   -- occurs, and the first of them that occurs, or `N`, is a stopping time
   rw [measure_iUnion_eq_iSup_accumulate]
   refine iSup_le fun N ↦ ?_
   set u : ℕ → Ω → ℝ := fun n ↦ (A n).indicator fun _ ↦ 1
   have hu : Adapted ℱ u := fun n ↦ measurable_const.indicator (hA n)
-  refine le_iSup₂_of_le (fun ω ↦ hittingBtwn u {1} 0 N ω)
-    (hu.isStoppingTime_hittingBtwn (measurableSet_singleton 1)) (measure_mono fun ω hω ↦ ?_)
+  refine le_iSup₂_of_le _ (hu.isStoppingTime_hittingBtwn (measurableSet_singleton 1) (n := 0)
+    (n' := N)) (le_iSup₂_of_le N
+      (fun ω ↦ by rw [Nat.cast_withTop]; exact WithTop.coe_le_coe.2 (hittingBtwn_le ω))
+      (measure_mono fun ω hω ↦ ?_))
   obtain ⟨k, hk, hωk⟩ := Set.mem_accumulate.1 hω
   have h := hittingBtwn_mem_set (u := u) (s := {1}) (n := 0) (m := N) (ω := ω)
     ⟨k, ⟨zero_le, hk⟩, by simp [u, hωk]⟩
+  rw [mem_stoppedEvent_of_eq_natCast (τ := fun ω ↦ WithTop.some (hittingBtwn u {1} 0 N ω))
+    (ω := ω) (n := hittingBtwn u {1} 0 N ω) (Nat.cast_withTop _).symm]
   simpa [u] using h
 
 /-- **The lifting lemma** [CR26, Lemma 1]. For filtrations `𝒢 ≤ ℱ` and a sequence of events `A n`
-adapted to the coarser filtration `𝒢`, a bound on the measure of the event `A (τ ω)` read at every
-stopping time `τ` of `𝒢` with values in `ℕ` holds at every stopping time of `ℱ`: both say that the
-measure of the union of the events is at most the bound. -/
+adapted to the coarser filtration `𝒢`, a bound on the measure of the events read at every bounded
+stopping time of `𝒢` holds at every bounded stopping time of `ℱ`: both say that the measure of the
+union of the events is at most the bound. -/
 theorem forall_isStoppingTime_measure_le_iff_of_le {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
     {𝒢 ℱ : Filtration ℕ mΩ} (h𝒢ℱ : 𝒢 ≤ ℱ) {A : ℕ → Set Ω} (hA : ∀ n, MeasurableSet[𝒢 n] (A n))
     (c : ℝ≥0∞) :
-    (∀ τ : Ω → ℕ, IsStoppingTime 𝒢 (fun ω ↦ (τ ω : WithTop ℕ)) → μ {ω | ω ∈ A (τ ω)} ≤ c) ↔
-      ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) → μ {ω | ω ∈ A (τ ω)} ≤ c := by
-  simp_rw [← iSup₂_le_iff, ← measure_iUnion_eq_iSup_isStoppingTime hA,
-    ← measure_iUnion_eq_iSup_isStoppingTime fun n ↦ h𝒢ℱ n _ (hA n)]
-
+    (∀ τ : Ω → WithTop ℕ, IsStoppingTime 𝒢 τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        μ (stoppedEvent A τ) ≤ c) ↔
+      ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        μ (stoppedEvent A τ) ≤ c := by
+  -- both say that the measure of the union is at most `c`
+  have h𝒢 := measure_iUnion_eq_iSup_isStoppingTime (μ := μ) hA
+  have hℱ := measure_iUnion_eq_iSup_isStoppingTime (μ := μ) fun n ↦ h𝒢ℱ n _ (hA n)
+  refine ⟨fun h τ _ _ _ ↦ (measure_mono stoppedEvent_subset_iUnion).trans ?_,
+    fun h τ _ _ _ ↦ (measure_mono stoppedEvent_subset_iUnion).trans ?_⟩
+  · rw [h𝒢]
+    exact iSup₂_le fun τ hτ ↦ iSup₂_le fun N hτN ↦ h τ hτ N hτN
+  · rw [hℱ]
+    exact iSup₂_le fun τ hτ ↦ iSup₂_le fun N hτN ↦ h τ hτ N hτN
 
 /-- **The first occurrence gives the union** [RRLK, Lemma 2]. Read at the first time that one of
 the events `A n` occurs, and at `⊤` where none does, a sequence of events gives their union. -/

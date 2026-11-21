@@ -33,18 +33,13 @@ time, which is how a statistician switches between two stopping rules after seei
   `MeasureTheory.IsStoppingTime.measurableSet_natCast_lt`, `MeasureTheory.isStoppingTime_natCast`,
   `MeasureTheory.IsStoppingTime.min_natCast`: Mathlib's stopping-time API for `WithTop ℕ`-valued
   times, stated at the cast `(n : WithTop ℕ)` rather than the coercion `WithTop.some n`.
-* `MeasureTheory.IsStoppingTime.toNat_min`: the minimum of a stopping time with values in
-  `WithTop ℕ` and a constant is a stopping time with values in `ℕ`.
-* `MeasureTheory.IsStoppingTime.measurable_nat`, `MeasureTheory.IsStoppingTime.natCast_min`: a
-  stopping time with values in `ℕ` is measurable, and so is its minimum with a constant a stopping
-  time.
-* `MeasureTheory.isStoppingTime_natCast_add_one_iff`: for filtrations with `𝒢 (n + 1) = ℱ n`, a
-  time `τ` with values in `ℕ` is a stopping time of `ℱ` exactly when `τ + 1` is one of `𝒢`.
+* `MeasureTheory.isStoppingTime_add_one_iff`: for filtrations with `𝒢 (n + 1) = ℱ n`, a time `τ`
+  is a stopping time of `ℱ` exactly when `τ + 1` is one of `𝒢`.
 * `MeasureTheory.Adapted.shift`, `MeasureTheory.adapted_shift_iff`: for filtrations with
   `𝒢 (n + 1) = ℱ n`, a process `M` with `M 0` measurable at time `0` is adapted to `𝒢` exactly
   when its shift `fun n ↦ M (n + 1)` is adapted to `ℱ`.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
-  `Filtration.piLE` with values in `ℕ` is determined by the coordinates up to it.
+  `Filtration.piLE` is determined, where it is finite, by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
 * `MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`: two stopping times at least a
   stopping time `ρ`, glued along a set of the σ-algebra at `ρ`, form a stopping time.
@@ -120,67 +115,43 @@ theorem IsStoppingTime.min_natCast (hτ : IsStoppingTime ℱ τ) (n : ℕ) :
   rw [Nat.cast_withTop]
   exact hτ.min_const n
 
-/-- The minimum of a stopping time with values in `WithTop ℕ` and the cast `(n : WithTop ℕ)`, as a
-natural number, is a stopping time with values in `ℕ`; it casts back to `min (τ ω) n`
-(`ENat.natCast_toNat_min`). -/
-theorem IsStoppingTime.toNat_min (hτ : IsStoppingTime ℱ τ) (n : ℕ) :
-    IsStoppingTime ℱ fun ω ↦ ((ENat.toNat (min (τ ω) n) : ℕ) : WithTop ℕ) := by
-  simp_rw [ENat.natCast_toNat_min]
-  exact hτ.min_natCast n
-
 end NatCast
 
-/-! ### Stopping times with values in `ℕ` -/
+/-! ### Stopping times of filtrations indexed by `ℕ` -/
 
 section Nat
 
-variable {ℱ : Filtration ℕ mΩ} {τ : Ω → ℕ}
+variable {ℱ : Filtration ℕ mΩ} {τ : Ω → WithTop ℕ}
 
-/-- A stopping time with values in `ℕ` is measurable. -/
-theorem IsStoppingTime.measurable_nat (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
-    Measurable τ := by
-  convert (measurable_of_countable (WithTop.untopD 0)).comp hτ.measurable' using 1
-  exact funext fun ω ↦ (WithTop.untopD_coe 0 (τ ω)).symm
-
-/-- The minimum of a stopping time with values in `ℕ` and a constant is a stopping time. -/
-theorem IsStoppingTime.natCast_min (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) (n : ℕ) :
-    IsStoppingTime ℱ fun ω ↦ ((min (τ ω) n : ℕ) : WithTop ℕ) := by
-  have h : (fun ω ↦ ((min (τ ω) n : ℕ) : WithTop ℕ)) = fun ω ↦ min (τ ω : WithTop ℕ) n :=
-    funext fun ω ↦ WithTop.coe_min _ _
-  rw [h]
-  exact hτ.min_natCast n
-
-/-- A stopping time with values in `ℕ` of the coordinate filtration `Filtration.piLE` is
-determined by the coordinates up to it: if `ω'` agrees with `ω` up to `τ ω`, then
-`τ ω' = τ ω`. -/
+/-- A stopping time of the coordinate filtration `Filtration.piLE` is determined by the
+coordinates up to it: if `τ ω = n` and `ω'` agrees with `ω` up to `n`, then `τ ω' = n`. -/
 theorem IsStoppingTime.eq_of_forall_le {X : ℕ → Type*} [∀ i, MeasurableSpace (X i)]
-    {τ : (∀ i, X i) → ℕ} (hτ : IsStoppingTime Filtration.piLE fun ω ↦ (τ ω : WithTop ℕ))
-    {ω ω' : ∀ i, X i} (h : ∀ i ≤ τ ω, ω i = ω' i) : τ ω' = τ ω := by
-  have hm : MeasurableSet[Filtration.piLE (τ ω)] {ω' | τ ω' = τ ω} := by
-    simpa using hτ.measurableSet_eq (τ ω)
-  have hd : DependsOn ({ω' | τ ω' = τ ω}.indicator fun _ ↦ (1 : ℕ)) (Set.Iic (τ ω)) :=
+    {τ : (∀ i, X i) → WithTop ℕ} (hτ : IsStoppingTime Filtration.piLE τ) {ω ω' : ∀ i, X i}
+    {n : ℕ} (hn : τ ω = n) (h : ∀ i ≤ n, ω i = ω' i) : τ ω' = n := by
+  have hm : MeasurableSet[Filtration.piLE n] {ω' | τ ω' = n} := by
+    simpa using hτ.measurableSet_eq n
+  have hd : DependsOn ({ω' | τ ω' = n}.indicator fun _ ↦ (1 : ℕ)) (Set.Iic n) :=
     (measurable_const.indicator hm).dependsOn_of_piLE
   have h1 := hd fun i hi ↦ h i hi
   by_contra hne
-  simp [Set.indicator, hne] at h1
+  simp [Set.indicator, hne, hn] at h1
 
 /-- For filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, a
-random time `τ` with values in `ℕ` is a stopping time of `ℱ` exactly when `τ + 1` is a stopping
-time of `𝒢`. -/
-theorem isStoppingTime_natCast_add_one_iff {𝒢 : Filtration ℕ mΩ} (h : ∀ n, 𝒢 (n + 1) = ℱ n) :
-    IsStoppingTime 𝒢 (fun ω ↦ ((τ ω + 1 : ℕ) : WithTop ℕ)) ↔
-      IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ) := by
-  have hset (n : ℕ) : {ω | ((τ ω + 1 : ℕ) : WithTop ℕ) ≤ ((n + 1 : ℕ) : WithTop ℕ)} =
-      {ω | (τ ω : WithTop ℕ) ≤ n} := by
+random time `τ` is a stopping time of `ℱ` exactly when `τ + 1` is a stopping time of `𝒢`. -/
+theorem isStoppingTime_add_one_iff {𝒢 : Filtration ℕ mΩ} (h : ∀ n, 𝒢 (n + 1) = ℱ n) :
+    IsStoppingTime 𝒢 (fun ω ↦ τ ω + 1) ↔ IsStoppingTime ℱ τ := by
+  have hset (n : ℕ) : {ω | τ ω + 1 ≤ ((n + 1 : ℕ) : WithTop ℕ)} = {ω | τ ω ≤ n} := by
     ext ω
-    simp only [Set.mem_ofPred_eq, Nat.cast_le, Nat.add_le_add_iff_right]
+    simp only [Set.mem_ofPred_eq, Nat.cast_add, Nat.cast_one]
+    exact WithTop.add_le_add_iff_right WithTop.one_ne_top
   refine ⟨fun hτ n ↦ ?_, fun hτ n ↦ ?_⟩
   · rw [← Nat.cast_withTop, ← h, ← hset]
     exact hτ.measurableSet_le_natCast (n + 1)
   · rcases n with _ | n
     · convert @MeasurableSet.empty _ (𝒢 0) using 1
       ext ω
-      simp
+      simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
+      exact lt_of_lt_of_le (by simp) le_add_self
     · rw [← Nat.cast_withTop, h, hset]
       exact hτ.measurableSet_le_natCast n
 

@@ -13,9 +13,10 @@ public import LMLExplore.Probability.Process.StoppedLaw
 
 For a filtration `ℱ` indexed by `ℕ`, the space of stopped paths is `ℕ × Ω` with the progressive
 σ-algebra `Filtration.progressive ℱ`, whose measurable functions are the adapted processes, and a
-stopping time `τ` with values in `ℕ` sends a measure `P` on `Ω` to the law `stoppedLaw ℱ P τ` of
-the stopped path `ω ↦ (τ ω, ω)`. The stopped null `stoppedNull ℱ S` of a null `S` is the set of
-the stopped laws of its members at all such stopping times. An adapted process `E` is an
+stopping time `τ` that is finite everywhere sends a measure `P` on `Ω` to the law of the stopped
+path `ω ↦ ((τ ω).untopA, ω)`, the stopped law `stoppedLaw ℱ P fun ω ↦ (τ ω).untopA`. The stopped
+null `stoppedNull ℱ S` of a null `S` is the set of the stopped laws of its members at all such
+stopping times. An adapted process `E` is an
 e-process for `S` exactly when `Function.uncurry E` is an e-variable for the stopped null
 [KG22, Section 3], with no hypothesis on the null: e-processes are the e-variables of one null on
 one measurable space, and the theory of e-variables applies to them. Its closure under `liminf`
@@ -25,7 +26,7 @@ stopped null is read time by time.
 ## Main definitions
 
 * `ProbabilityTheory.stoppedNull ℱ S`: the stopped laws of the members of `S` at the stopping
-  times with values in `ℕ`.
+  times that are finite everywhere.
 
 ## Main statements
 
@@ -58,37 +59,40 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S T : Set (Measure Ω)}
-  {P : Measure Ω} {τ : Ω → ℕ} {E : ℕ → Ω → ℝ≥0∞}
+  {P : Measure Ω} {τ : Ω → WithTop ℕ} {E : ℕ → Ω → ℝ≥0∞}
 
 /-! ### The stopped null -/
 
 /-- The **stopped null** of a null `S` for a filtration `ℱ` indexed by `ℕ`: the stopped laws
-`stoppedLaw ℱ P τ` of the members `P` of `S` at the stopping times `τ` with values in `ℕ`, a null
-on the space `ℕ × Ω` of stopped paths with the progressive σ-algebra of `ℱ`. -/
+`stoppedLaw ℱ P fun ω ↦ (τ ω).untopA` of the members `P` of `S` at the stopping times `τ` that are
+finite everywhere, a null on the space `ℕ × Ω` of stopped paths with the progressive σ-algebra of
+`ℱ`. -/
 def stoppedNull (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) :
     Set (@Measure (ℕ × Ω) ℱ.progressive) :=
-  {μ | ∃ P ∈ S, ∃ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) ∧ stoppedLaw ℱ P τ = μ}
+  {μ | ∃ P ∈ S, ∃ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ ∧ (∀ ω, τ ω ≠ ⊤) ∧
+    stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) = μ}
 
 theorem stoppedNull_def (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) :
-    stoppedNull ℱ S = {μ | ∃ P ∈ S, ∃ τ : Ω → ℕ,
-      IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) ∧ stoppedLaw ℱ P τ = μ} := (rfl)
+    stoppedNull ℱ S = {μ | ∃ P ∈ S, ∃ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ ∧ (∀ ω, τ ω ≠ ⊤) ∧
+      stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) = μ} := (rfl)
 
 @[simp]
 theorem mem_stoppedNull {μ : @Measure (ℕ × Ω) ℱ.progressive} :
-    μ ∈ stoppedNull ℱ S ↔ ∃ P ∈ S, ∃ τ : Ω → ℕ,
-      IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) ∧ stoppedLaw ℱ P τ = μ :=
+    μ ∈ stoppedNull ℱ S ↔ ∃ P ∈ S, ∃ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ ∧ (∀ ω, τ ω ≠ ⊤) ∧
+      stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) = μ :=
   Iff.rfl
 
-/-- The stopped law of a member of the null at a stopping time is in the stopped null. -/
-theorem stoppedLaw_mem_stoppedNull (hP : P ∈ S)
-    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) :
-    stoppedLaw ℱ P τ ∈ stoppedNull ℱ S :=
-  ⟨P, hP, τ, hτ, rfl⟩
+/-- The stopped law of a member of the null at a stopping time that is finite everywhere is in the
+stopped null. -/
+theorem stoppedLaw_mem_stoppedNull (hP : P ∈ S) (hτ : IsStoppingTime ℱ τ)
+    (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) ∈ stoppedNull ℱ S :=
+  ⟨P, hP, τ, hτ, hτ_top, rfl⟩
 
 @[gcongr]
 theorem stoppedNull_mono (hST : S ⊆ T) : stoppedNull ℱ S ⊆ stoppedNull ℱ T := by
-  rintro _ ⟨P, hP, τ, hτ, rfl⟩
-  exact ⟨P, hST hP, τ, hτ, rfl⟩
+  rintro _ ⟨P, hP, τ, hτ, hτ_top, rfl⟩
+  exact ⟨P, hST hP, τ, hτ, hτ_top, rfl⟩
 
 @[simp]
 theorem stoppedNull_empty : stoppedNull ℱ (∅ : Set (Measure Ω)) = ∅ := by
@@ -103,15 +107,15 @@ theorem stoppedNull_union : stoppedNull ℱ (S ∪ T) = stoppedNull ℱ S ∪ st
 /-- The stopped laws of a null of probability measures are probability measures. -/
 theorem isProbabilityMeasure_of_mem_stoppedNull (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {μ : @Measure (ℕ × Ω) ℱ.progressive} (hμ : μ ∈ stoppedNull ℱ S) : IsProbabilityMeasure μ := by
-  obtain ⟨P, hP, τ, -, rfl⟩ := hμ
+  obtain ⟨P, hP, τ, -, -, rfl⟩ := hμ
   have := hS P hP
   infer_instance
 
 /-- The stopped laws of a null of measures of mass at most one have mass at most one. -/
 theorem measure_univ_le_one_of_mem_stoppedNull (hS : ∀ P ∈ S, P univ ≤ 1)
     {μ : @Measure (ℕ × Ω) ℱ.progressive} (hμ : μ ∈ stoppedNull ℱ S) : μ univ ≤ 1 := by
-  obtain ⟨P, hP, τ, hτ, rfl⟩ := hμ
-  rw [stoppedLaw_univ hτ.measurable_nat]
+  obtain ⟨P, hP, τ, hτ, -, rfl⟩ := hμ
+  rw [stoppedLaw_univ hτ.measurable'.untopA]
   exact hS P hP
 
 /-! ### E-processes as e-variables on stopped paths -/
@@ -124,13 +128,14 @@ theorem isEProcess_iff_isEVar_stoppedNull :
   refine ⟨fun hE ↦ ?_, fun hE ↦ ?_⟩
   · have hE_meas := Filtration.measurable_uncurry_progressive_iff.2 hE.adapted
     refine ⟨hE_meas, ?_⟩
-    rintro _ ⟨P, hP, τ, hτ, rfl⟩
-    rw [lintegral_stoppedLaw hτ.measurable_nat hE_meas]
-    exact hE.lintegral_le_one hτ hP
+    rintro _ ⟨P, hP, τ, hτ, hτ_top, rfl⟩
+    rw [lintegral_stoppedLaw hτ.measurable'.untopA hE_meas]
+    exact hE.lintegral_le_one hτ hτ_top hP
   · refine .of_lintegral_le_one (Filtration.measurable_uncurry_progressive_iff.1 hE.measurable)
-      fun τ hτ P hP ↦ ?_
-    have h := hE.lintegral_le_one (stoppedLaw_mem_stoppedNull hP hτ)
-    rwa [lintegral_stoppedLaw hτ.measurable_nat hE.measurable] at h
+      fun τ hτ N hτN P hP ↦ ?_
+    have h := hE.lintegral_le_one (stoppedLaw_mem_stoppedNull hP hτ
+      fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω))
+    rwa [lintegral_stoppedLaw hτ.measurable'.untopA hE.measurable] at h
 
 /-- **The quasi-sure filter of the stopped null.** A property of stopped paths given by a
 progressive set holds quasi-surely for the stopped null exactly when, at every time `n`, it holds
@@ -141,11 +146,12 @@ theorem eventually_quasiSure_stoppedNull_iff {p : ℕ × Ω → Prop}
     (∀ᶠ x in quasiSure (stoppedNull ℱ S), p x) ↔ ∀ n, ∀ᶠ ω in quasiSure S, p (n, ω) := by
   simp only [eventually_quasiSure_iff]
   refine ⟨fun h n P hP ↦ ?_, ?_⟩
-  · have h' := h _ (stoppedLaw_mem_stoppedNull (τ := fun _ ↦ n) hP (isStoppingTime_natCast n))
-    rwa [ae_stoppedLaw_iff measurable_const hp] at h'
-  · rintro h _ ⟨P, hP, τ, hτ, rfl⟩
-    rw [ae_stoppedLaw_iff hτ.measurable_nat hp]
-    filter_upwards [ae_all_iff.2 fun n ↦ h n P hP] with ω hω using hω (τ ω)
+  · have h' := h _ (stoppedLaw_mem_stoppedNull hP (isStoppingTime_natCast n)
+      fun _ ↦ WithTop.natCast_ne_top n)
+    rwa [ae_stoppedLaw_iff measurable_const hp, WithTop.untopA_natCast] at h'
+  · rintro h _ ⟨P, hP, τ, hτ, -, rfl⟩
+    rw [ae_stoppedLaw_iff hτ.measurable'.untopA hp]
+    filter_upwards [ae_all_iff.2 fun n ↦ h n P hP] with ω hω using hω _
 
 /-- **The time-wise `liminf` of e-processes.** For a sequence `E k` of e-processes, the process
 `fun n ω ↦ liminf (fun k ↦ E k n ω) atTop` is an e-process. On the stopped paths, this is the

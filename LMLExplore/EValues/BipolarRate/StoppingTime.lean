@@ -24,7 +24,8 @@ observations have been made at a time `τ`. Write `d = bipolarRate Q₁ S₁` an
 of `Q₁`.
 
 The **Wald inequality** at the bipolar rate [EVR26, Note 01]: for every e-process `E` for the
-i.i.d. null and every stopping time `τ` with values in `ℕ`, `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`, in
+i.i.d. null and every stopping time `τ` that is finite everywhere, `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`,
+in
 `EReal`, with Statlib's extended integral on the left. Nothing is assumed of `S₁` beyond its
 members being probability measures, and nothing of `Q₁`. The expectation of `τ` may be infinite,
 with `∞ * 0 = 0`: if `d = 0`, the e-process has a nonpositive expected logarithm at every stopping
@@ -63,7 +64,7 @@ times applies the Wald inequality to the e-process `ε + (1 - ε) α⁻¹ 𝟙{�
 The proofs are adapted from `EValuesResearch/Results/BipolarRate.lean` and
 `EValuesResearch/Results/BipolarRateAux.lean` (commit `dd4072f`) in the paper project
 `RemyDegenne/evalues_research`, which formalizes [EVR26, Note 01]. They are specialized here to
-stopping times with values in `ℕ`.
+stopping times that are finite everywhere.
 
 ## References
 
@@ -114,6 +115,10 @@ private lemma lintegral_indicator_mix_stoppedValue_le_one (hS₁ : ∀ P ∈ S�
       ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
   have := hS₁ P hP
   have hPS : Measure.infinitePi (fun _ : ℕ ↦ P) ∈ iidNull S₁ := infinitePi_mem_iidNull hP
+  have hτn : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
+      fun ω ↦ ((min (τ ω) (n - 1) : ℕ) : WithTop ℕ) := by
+    simp_rw [Nat.mono_cast.map_min]
+    exact hτ.min_natCast (n - 1)
   calc ∫⁻ ω, {ω | τ ω + 1 ≤ n}.indicator
         (fun ω ↦ ENNReal.ofReal (1 - ε) * E (τ ω) ω + ENNReal.ofReal ε) ω
       ∂Measure.infinitePi (fun _ ↦ P)
@@ -127,11 +132,10 @@ private lemma lintegral_indicator_mix_stoppedValue_le_one (hS₁ : ∀ P ∈ S�
   _ = ENNReal.ofReal (1 - ε) * ∫⁻ ω, E (min (τ ω) (n - 1)) ω
       ∂Measure.infinitePi (fun _ ↦ P) + ENNReal.ofReal ε := by
     rw [lintegral_add_right _ measurable_const, lintegral_const_mul _
-      (hE.measurable_stoppedValue (hτ.natCast_min (n - 1))), lintegral_const,
-      measure_univ, mul_one]
+      (by simpa using hE.measurable_stoppedValue hτn), lintegral_const, measure_univ, mul_one]
   _ ≤ ENNReal.ofReal (1 - ε) * 1 + ENNReal.ofReal ε := by
     gcongr
-    exact hE.lintegral_le_one (hτ.natCast_min (n - 1)) hPS
+    simpa using hE.lintegral_le_one hτn (fun _ ↦ WithTop.natCast_ne_top _) hPS
   _ = 1 := by
     rw [mul_one, ← ENNReal.ofReal_add (by linarith) hε0.le, sub_add_cancel, ENNReal.ofReal_one]
 
@@ -152,20 +156,29 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set V : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun k ω ↦
     ENNReal.ofReal (1 - ε) * E (min (τ ω) k) ω + ENNReal.ofReal ε
-  have hτk (k : ℕ) := hτ.natCast_min k
+  have hτk (k : ℕ) : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
+      fun ω ↦ ((min (τ ω) k : ℕ) : WithTop ℕ) := by
+    simp_rw [Nat.mono_cast.map_min]
+    exact hτ.min_natCast k
+  have hτm : Measurable τ := by simpa using hτ.measurable'.untopA
+  -- `min τ k` is determined by the coordinates up to it
+  have heq (k : ℕ) {ω ω' : ℕ → 𝓧} (h : ∀ i ≤ min (τ ω) k, ω i = ω' i) :
+      min (τ ω') k = min (τ ω) k :=
+    Nat.cast_injective ((hτk k).eq_of_forall_le rfl h)
   have hVm (k : ℕ) : Measurable (V k) :=
-    (measurable_const.mul (hE.measurable_stoppedValue (hτk k))).add measurable_const
+    (measurable_const.mul (by simpa using hE.measurable_stoppedValue (hτk k))).add
+      measurable_const
   have hVε (k : ℕ) (ω : ℕ → 𝓧) : ENNReal.ofReal ε ≤ V k ω := le_add_self
   -- the Wald inequality for the round stopped at `min τ k`
   have hk (k : ℕ) : ∫ ω, truncLog c (V k ω) ∂μ ≤ D := by
     refine (integral_truncLog_le_bipolarRate_mul (σ := fun ω ↦ min (τ ω) k + 1) Q₁ hS₁ ?_ ?_
-      (((hτk k).measurable_nat).add_const 1) (hVm k) (fun _ ↦ le_add_self)
+      ((hτm.min measurable_const).add_const 1) (hVm k) (fun _ ↦ le_add_self)
       (K := k + 1) (fun ω ↦ by simp) ?_ hε0 (hVε k) hd).trans ?_
     · refine dependsOnBefore_iff.2 fun u ω ω' h hle ↦ ?_
-      rw [(hτk k).eq_of_forall_le fun i hi ↦ h i (by omega)]
+      rw [heq k fun i hi ↦ h i (by omega)]
     · refine dependsOnBefore_iff.2 fun u ω ω' h hle ↦ ?_
       have h' : ∀ i ≤ min (τ ω) k, ω i = ω' i := fun i hi ↦ h i (by omega)
-      simp only [V, (hτk k).eq_of_forall_le h',
+      simp only [V, heq k h',
         ((hE.adapted (min (τ ω) k)).dependsOn_of_piLE fun i hi ↦ h' i hi).symm]
     · exact fun P hP n ↦ lintegral_indicator_mix_stoppedValue_le_one hS₁ hE (hτk k) hε0 hε1 hP n
     · exact hD k
@@ -194,8 +207,8 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   set m := ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂μ
   set D := (bipolarRate Q₁ S₁).toReal * m.toReal
-  have hτm := hτ.measurable_nat
-  have hEτm : Measurable fun ω ↦ E (τ ω) ω := hE.measurable_stoppedValue hτ
+  have hτm : Measurable τ := by simpa using hτ.measurable'.untopA
+  have hEτm : Measurable fun ω ↦ E (τ ω) ω := by simpa using hE.measurable_stoppedValue hτ
   have hD (k : ℕ) : (bipolarRate Q₁ S₁).toReal * ∫ ω, ((min (τ ω) k + 1 : ℕ) : ℝ) ∂μ ≤ D := by
     rcases hdm with hd0 | hm
     · simp [D, hd0]
@@ -223,8 +236,8 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
 end EProcess
 
 /-- **The Wald inequality at the bipolar rate.** For an e-process `E` for the i.i.d. laws of the
-members of `S₁` and a stopping time `τ` with values in `ℕ`, the expected logarithm of `E` at `τ`
-under the i.i.d. law of `Q₁` is at most the expected number `τ + 1` of observations times the
+members of `S₁` and a stopping time `τ` that is finite everywhere, the expected logarithm of `E` at
+`τ` under the i.i.d. law of `Q₁` is at most the expected number `τ + 1` of observations times the
 bipolar rate. The expected number of observations may be infinite, with `∞ * 0 = 0`: if the
 bipolar rate is `0`, the expected logarithm is nonpositive at every stopping time. The expected
 logarithm is Statlib's extended integral, which is `⊥` when the positive and negative parts of
@@ -234,11 +247,18 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
       (iidNull S₁))
-    {τ : (ℕ → 𝓧) → ℕ}
-    (hτ : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (τ ω : WithTop ℕ)) :
-    ∫ᵉ ω, ENNReal.log (E (τ ω) ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
-      ((∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) : ℝ≥0∞) : EReal) *
+    {τ : (ℕ → 𝓧) → WithTop ℕ}
+    (hτ : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    ∫ᵉ ω, ENNReal.log (stoppedValue E τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
+      ((∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) : ℝ≥0∞) : EReal) *
         bipolarRate Q₁ S₁ := by
+  -- `τ` is finite, so it is the cast of a time with values in `ℕ`
+  obtain ⟨τ, rfl⟩ : ∃ τ' : (ℕ → 𝓧) → ℕ, τ = fun ω ↦ (τ' ω : WithTop ℕ) :=
+    ⟨_, funext fun ω ↦ (WithTop.natCast_untopA (hτ_top ω)).symm⟩
+  have h_cast : ∫⁻ ω, ENat.toENNReal (τ ω : WithTop ℕ) + 1 ∂Measure.infinitePi (fun _ ↦ Q₁) =
+      ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ ↦ Q₁) :=
+    lintegral_congr fun ω ↦ congrArg (· + 1) (ENat.toENNReal_coe (τ ω))
+  rw [stoppedValue_natCast, h_cast]
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
@@ -282,15 +302,15 @@ private lemma isEProcess_add_indicator_le (hS₁ : ∀ P ∈ S₁, IsProbability
     (hτ.measurable_enat (measurableSet_singleton ⊤)).compl
   refine IsEProcess.of_lintegral_le_one (fun n ↦
     (measurable_const.indicator (hτ.measurableSet_le_natCast n)).const_add _)
-    fun σ _ _ hμ ↦ ?_
+    fun σ _ _ _ μ hμ ↦ ?_
   obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
   have := hS₁ P hP
-  calc ∫⁻ ω, ENNReal.ofReal ε + {x | τ x ≤ σ ω}.indicator (fun _ ↦ b) ω
+  calc ∫⁻ ω, ENNReal.ofReal ε + {x | τ x ≤ ((σ ω).untopA : WithTop ℕ)}.indicator (fun _ ↦ b) ω
       ∂Measure.infinitePi (fun _ ↦ P)
   _ ≤ ∫⁻ ω, ENNReal.ofReal ε + {ω | τ ω ≠ ⊤}.indicator (fun _ ↦ b) ω
       ∂Measure.infinitePi (fun _ ↦ P) :=
     lintegral_mono fun ω ↦ add_le_add le_rfl (Set.indicator_le_indicator_of_subset
-      (s := {x | τ x ≤ σ ω}) (t := {x | τ x ≠ ⊤})
+      (s := {x | τ x ≤ ((σ ω).untopA : WithTop ℕ)}) (t := {x | τ x ≠ ⊤})
       (fun x hx ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top _) hx) (fun _ ↦ bot_le) ω)
   _ = ENNReal.ofReal ε + b * Measure.infinitePi (fun _ ↦ P) {ω | τ ω ≠ ⊤} := by
     rw [lintegral_add_left measurable_const, lintegral_const, measure_univ, mul_one,
@@ -327,17 +347,15 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     filter_upwards [ae_lt_top (f := fun ω ↦ ENat.toENNReal (τ ω) + 1)
       ((measurable_from_top.comp hτm).add_const 1) hm] with ω hω
     exact ENat.toENNReal_ne_top.1 (ne_top_of_lt (lt_of_le_of_lt le_self_add hω))
-  -- the stopping times `min τ k`, with values in `ℕ`
-  set τk : ℕ → (ℕ → 𝓧) → ℕ := fun k ω ↦ ENat.toNat (min (τ ω) k)
-  have hτk_coe (k : ℕ) (ω : ℕ → 𝓧) : ((τk k ω : ℕ) : WithTop ℕ) = min (τ ω) k :=
-    ENat.natCast_toNat_min (τ ω) k
-  have hτk (k : ℕ) : IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      fun ω ↦ (τk k ω : WithTop ℕ) :=
-    hτ.toNat_min k
-  have hmk (k : ℕ) : ∫⁻ ω, (τk k ω : ℝ≥0∞) + 1 ∂μ ≤ m := lintegral_mono fun ω ↦ by
+  -- the stopping times `min τ k`, which are finite
+  have hτk_top (k : ℕ) (ω : ℕ → 𝓧) : min (τ ω) k ≠ ⊤ :=
+    ne_top_of_le_ne_top (WithTop.natCast_ne_top k) (min_le_right _ _)
+  have hτk_coe (k : ℕ) (ω : ℕ → 𝓧) : (((min (τ ω) k).untopA : ℕ) : WithTop ℕ) = min (τ ω) k :=
+    WithTop.natCast_untopA (hτk_top k ω)
+  have hmk (k : ℕ) : ∫⁻ ω, ENat.toENNReal (min (τ ω) k : WithTop ℕ) + 1 ∂μ ≤ m :=
+    lintegral_mono fun ω ↦ by
     gcongr
-    have h : ((τk k ω : ℕ) : ℕ∞) ≤ τ ω := (hτk_coe k ω).trans_le (min_le_left _ _)
-    exact_mod_cast ENat.toENNReal_le.2 h
+    exact ENat.toENNReal_le.2 (min_le_left _ _)
   -- the e-process `ε + (1 - ε) a⁻¹ 𝟙{τ ≤ n}`
   have hb0 : 0 < (1 - ε) / a := div_pos (by linarith) ha0
   set b := ENNReal.ofReal ((1 - ε) / a)
@@ -355,10 +373,12 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     by_cases h : τ ω ≤ k
     · simp only [g, h, ↓reduceIte, le_max_left]
     · simp only [g, h, ↓reduceIte, le_max_right]
-  have hlog (k : ℕ) (ω : ℕ → 𝓧) : ENNReal.log (E (τk k ω) ω) = (g k ω : EReal) := by
-    have hmem : ω ∈ {x | τ x ≤ (τk k ω : WithTop ℕ)} ↔ τ ω ≤ k := by
+  have hlog (k : ℕ) (ω : ℕ → 𝓧) :
+      ENNReal.log (stoppedValue E (fun ω ↦ min (τ ω) k) ω) = (g k ω : EReal) := by
+    have hmem : ω ∈ {x | τ x ≤ ((min (τ ω) k).untopA : WithTop ℕ)} ↔ τ ω ≤ k := by
       rw [Set.mem_ofPred_eq, hτk_coe]
       exact ⟨fun h ↦ h.trans (min_le_right _ _), fun h ↦ le_min le_rfl h⟩
+    rw [stoppedValue]
     by_cases hω : τ ω ≤ k
     · simp only [E, g, Set.indicator_of_mem (hmem.2 hω), hω, ↓reduceIte]
       rw [← ENNReal.ofReal_add hε0.le hb0.le, ENNReal.log_ofReal_of_pos (by linarith)]
@@ -367,8 +387,11 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
   have hk (k : ℕ) : ∫ ω, g k ω ∂μ ≤ D := by
     have hg : Integrable (g k) μ :=
       Integrable.of_bound (hgm k).aestronglyMeasurable _ (ae_of_all _ (hgC k))
-    have h := hE.eintegral_log_stoppedValue_le_mul_bipolarRate Q₁ hS₁ (hτk k)
-    have hmk' : ∫⁻ ω, (τk k ω : ℝ≥0∞) + 1 ∂μ ≠ ∞ := ne_top_of_le_ne_top hm (hmk k)
+    have h := hE.eintegral_log_stoppedValue_le_mul_bipolarRate Q₁ hS₁ (hτ.min_natCast k)
+      (hτk_top k)
+    have hmk' : ∫⁻ ω, ENat.toENNReal (min (τ ω) k : WithTop ℕ) + 1
+        ∂Measure.infinitePi (fun _ ↦ Q₁) ≠ ∞ :=
+      ne_top_of_le_ne_top hm (hmk k)
     rw [eintegral_congr (hlog k), eintegral_eq_integral hg, ← EReal.coe_ennreal_toReal hmk',
       ← coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd, ← EReal.coe_mul,
       EReal.coe_le_coe_iff] at h

@@ -1007,16 +1007,17 @@ observations is asserted. -/
 theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
     (hadapt : ∀ n, DependsOn (E n) (Iic n))
     (hE : ∀ Q ∈ oneSidedCondSubgaussianNull, (∃ T : Finset (ℕ → ℝ), Q (↑T)ᶜ = 0) →
-      ∀ τ : (ℕ → ℝ) → ℕ, IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-        (fun ω ↦ (τ ω : WithTop ℕ)) → (∃ N, ∀ ω, τ ω ≤ N) → ∫⁻ ω, E (τ ω) ω ∂Q ≤ 1) :
+      ∀ τ : (ℕ → ℝ) → WithTop ℕ, IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) τ →
+        ∀ N : ℕ, (∀ ω, τ ω ≤ N) → ∫⁻ ω, stoppedValue E τ ω ∂Q ≤ 1) :
     ∃ π : ℕ → (ℕ → ℝ) → Measure ℝ≥0, (∀ n ω, π n ω univ ≤ 1) ∧
       (∀ n, DependsOn (π n) (Iio n)) ∧
       ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range (n + 1),
         ∫⁻ l, ENNReal.ofReal (Real.exp ((l : ℝ) * ω k - (l : ℝ) ^ 2 / 2)) ∂π k ω :=
-  exists_le_prod_of_envelope_le_one hadapt fun _ ↦ iSup₂_le fun p hp ↦
-    hE p.1 ⟨hp.isTreeLaw.isProbabilityMeasure, fun n l hl s hs ↦
-      hp.isTreeLaw.constraint n (Nat.zero_le n) l hl s hs⟩ hp.exists_finset p.2 hp.isStoppingTime
-      hp.bddAbove
+  exists_le_prod_of_envelope_le_one hadapt fun _ ↦ iSup₂_le fun p hp ↦ by
+    obtain ⟨N, hN⟩ := hp.bddAbove
+    simpa using hE p.1 ⟨hp.isTreeLaw.isProbabilityMeasure, fun n l hl s hs ↦
+      hp.isTreeLaw.constraint n (Nat.zero_le n) l hl s hs⟩ hp.exists_finset _ hp.isStoppingTime N
+      fun ω ↦ Nat.cast_le.2 (hN ω)
 
 /-- **Domination of e-processes by predictable products of mixtures** [EVR26, Note 12,
 Theorem 4]. Every e-process for the one-sided conditionally `1`-sub-Gaussian null and the
@@ -1030,8 +1031,6 @@ theorem IsEProcess.exists_le_prod_lintegral_exp {E : ℕ → (ℕ → ℝ) → �
       ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range (n + 1),
         ∫⁻ l, ENNReal.ofReal (Real.exp ((l : ℝ) * ω k - (l : ℝ) ^ 2 / 2)) ∂π k ω :=
   exists_le_prod_lintegral_exp_of_forall_lintegral_le_one (fun n ↦ (hE.adapted n).dependsOn_of_piLE)
-    fun Q hQ _ τ hτ _ ↦ by
-      have := hQ.1
-      exact hE.lintegral_le_one hτ hQ
+    fun _ hQ _ _ hτ _ hτN ↦ (hE.isEVar_stoppedValue_of_le hτ hτN).lintegral_le_one hQ
 
 end ProbabilityTheory
