@@ -63,6 +63,9 @@ Theorems 9.18–9.19].
 * `ProbabilityTheory.card_eBH`, `ProbabilityTheory.mem_eBH_iff_le_mul_card`: the number of
   rejections of e-BH, and its threshold form [WR22, Proposition 1].
 * `ProbabilityTheory.mem_eBH_iff_one_le_mul`: for one hypothesis, e-BH is the e-test.
+* `ProbabilityTheory.eBH_mono`, `ProbabilityTheory.mem_eBH_comp_equiv`,
+  `ProbabilityTheory.card_eBH_comp_equiv`: e-BH is monotone in the level and the e-values, and
+  commutes with relabelling the hypotheses.
 * `ProbabilityTheory.lintegral_iSup_fdp_div_le_of_isSelfConsistent`,
   `ProbabilityTheory.lintegral_fdp_le_of_isSelfConsistent`: the post-hoc and fixed-level bounds
   on the false discovery rate of self-consistent procedures.
@@ -264,6 +267,24 @@ theorem mem_eBH_iff_one_le_mul [Unique ι] : i ∈ eBH e α ↔ 1 ≤ α * e i :
   refine mem_eBH_iff_exists.trans ⟨fun ⟨R, h, hi⟩ ↦ ?_, fun h ↦ ⟨{i}, ?_, mem_singleton_self i⟩⟩
   · simpa [hR R hi] using h i hi
   · simpa [isSelfConsistent_iff] using h
+
+/-- **e-BH is monotone** in the level and in the e-values. -/
+theorem eBH_mono {e' : ι → ℝ≥0∞} {α' : ℝ≥0∞} (hα : α ≤ α') (he : e ≤ e') :
+    eBH e α ⊆ eBH e' α' :=
+  (isSelfConsistent_eBH.mono hα he).subset_eBH
+
+/-- **e-BH commutes with relabelling the hypotheses**: for a bijection `σ : κ ≃ ι`, e-BH applied
+to `e ∘ σ` rejects `i` exactly when e-BH applied to `e` rejects `σ i`. -/
+theorem mem_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) {i : κ} : i ∈ eBH (e ∘ σ) α ↔ σ i ∈ eBH e α := by
+  have hK : Fintype.card κ = Fintype.card ι := Fintype.card_congr σ
+  have hc (k : ℕ) : #{j : κ | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e (σ j)} =
+      #{j : ι | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j} :=
+    card_equiv σ fun j ↦ by simp
+  simp only [eBH_def, mem_filter, mem_univ, true_and, Function.comp_apply, hK, hc]
+
+/-- Relabelling the hypotheses does not change the number of rejections of e-BH. -/
+theorem card_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) : #(eBH (e ∘ σ) α) = #(eBH e α) :=
+  card_equiv σ fun _ ↦ mem_eBH_comp_equiv σ
 
 /-- The e-BH rejection set is measurable in measurable e-values. -/
 theorem measurable_eBH {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, Measurable (E i)) (α : ℝ≥0∞) :
