@@ -5,7 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.EValues.Null.QuasiSure
+public import LMLExplore.Order.Filter.CompleteClass
 import LMLExplore.EValues.Admissible
 
 /-!
@@ -30,6 +31,9 @@ almost surely there.
 
 ## Main statements
 
+* `ProbabilityTheory.isAdmissibleEProcess_iff_isAdmissible`: an e-process is admissible exactly
+  when its paths `ω ↦ (n ↦ E n ω)` are admissible (`Filter.IsAdmissible`) among the paths of
+  e-processes, for the quasi-sure order of the null.
 * `ProbabilityTheory.isAdmissibleEProcess_iff_measure_lt_eq_zero`: an e-process is admissible
   exactly when no e-process dominates it strictly, the definition of [RRLK, §4.2].
 * `ProbabilityTheory.IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq`: an e-process such
@@ -84,6 +88,20 @@ theorem congr (hE : IsAdmissibleEProcess E ℱ S) (hF : Adapted ℱ F)
     (hE.ae_le hG (fun P hP n ↦ (hEF P hP n).le.trans (hFG P hP n)) hP n).trans (hEF P hP n).le
 
 end IsAdmissibleEProcess
+
+/-- An e-process is admissible exactly when its paths `ω ↦ (n ↦ E n ω)` are admissible among the
+paths of e-processes for the quasi-sure order of the null (`Filter.IsAdmissible`): domination at
+every time, almost surely under every member, is the quasi-sure order on paths, as time is
+countable. -/
+theorem isAdmissibleEProcess_iff_isAdmissible :
+    IsAdmissibleEProcess E ℱ S ↔
+      (quasiSure S).IsAdmissible {X | IsEProcess (Function.swap X) ℱ S} (Function.swap E) := by
+  have hle (E F : ℕ → Ω → ℝ≥0∞) :
+      Function.swap E ≤ᶠ[quasiSure S] Function.swap F ↔ ∀ P ∈ S, ∀ n, E n ≤ᵐ[P] F n := by
+    simp only [Filter.EventuallyLE, Pi.le_def, Function.swap, eventually_quasiSure_iff, ae_all_iff]
+  exact ⟨fun hE ↦ ⟨hE.toIsEProcess, fun X hX hEX ↦
+      (hle _ E).2 (hE.ae_le_of_ae_le _ hX ((hle E _).1 hEX))⟩,
+    fun hE ↦ ⟨hE.mem, fun F hF hEF ↦ (hle F E).1 (hE.eventuallyLE hF ((hle E F).2 hEF))⟩⟩
 
 /-- An e-process is admissible exactly when no e-process dominates it strictly: for every
 e-process `F` with `E n ≤ F n` almost surely under every member of the null at every time, the

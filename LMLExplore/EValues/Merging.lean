@@ -7,7 +7,9 @@ module
 
 public import LMLExplore.Analysis.Convex.LagrangeDuality
 public import Statlib.EValues.EVariable
+public import LMLExplore.Order.Filter.CompleteClass
 import LMLExplore.Algebra.BigOperators.Perm
+import LMLExplore.Order.Filter.Basic
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 import Mathlib.Algebra.BigOperators.Field
 
@@ -57,10 +59,14 @@ Proposition 8.3].
   nonnegative combinations `p • μ + q • ν`, so Lagrange duality applies to them, and
   `ProbabilityTheory.exists_forall_toReal_lintegral_le_add_sum_mul`: the resulting Lagrange
   multipliers for the program of maximizing `∫⁻ F ∂μ` under the constraints `∫⁻ e, e i ∂μ ≤ 1`.
+* `ProbabilityTheory.isAdmissibleEMerging_iff_isAdmissible`: admissibility of e-merging functions
+  is `Filter.IsAdmissible` for the order at finite arguments.
 * `ProbabilityTheory.isAdmissibleEMerging_iff`: the admissible e-merging functions are the weighted
   means on finite arguments [Wan25, Theorem 1; RW, Theorem 8.4], and
   `ProbabilityTheory.IsEMerging.exists_isAdmissibleEMerging_le`: every e-merging function is
   dominated by an admissible one.
+* `ProbabilityTheory.isMinimalCompleteClass_add_sum_mul`: the weighted means form a minimal
+  complete class of e-merging functions.
 * `ProbabilityTheory.IsEMerging.exists_le_add_mul_sum_div_card`: a symmetric e-merging function is
   dominated by `λ + (1 - λ) M` for some `λ ∈ [0, 1]` [VW21, Theorem 3.2], and
   `ProbabilityTheory.isAdmissibleEMerging_iff_of_symmetric`: the symmetric admissible ones are
@@ -339,6 +345,19 @@ structure IsAdmissibleEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop e
     (∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) →
       ∀ e : ι → ℝ≥0, G (fun i ↦ e i) = F (fun i ↦ e i)
 
+omit [Fintype ι] in
+open Filter in
+/-- An e-merging function is admissible exactly when it is admissible among the e-merging functions
+(`Filter.IsAdmissible`) for the order at finite arguments, the eventual order along the principal
+filter of the finite vectors. -/
+theorem isAdmissibleEMerging_iff_isAdmissible :
+    IsAdmissibleEMerging F ↔
+      (𝓟 (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))).IsAdmissible {G | IsEMerging G} F :=
+  ⟨fun hF ↦ ⟨hF.toIsEMerging, fun G hG hFG ↦ eventuallyLE_principal_range_iff.2
+      fun e ↦ (hF.eq_of_le G hG (eventuallyLE_principal_range_iff.1 hFG) e).le⟩,
+    fun hF ↦ ⟨hF.mem, fun _ hG hFG e ↦ (eventuallyLE_principal_range_iff.1
+      (hF.eventuallyLE hG (eventuallyLE_principal_range_iff.2 hFG)) e).antisymm (hFG e)⟩⟩
+
 /-- **The admissible e-merging functions are the weighted means** [Wan25, Theorem 1; RW,
 Theorem 8.4]: a function is an admissible e-merging function exactly when it is measurable and
 equal, at finite arguments, to `e ↦ w₀ + ∑ i, w i * e i` for some nonnegative weights summing
@@ -378,6 +397,25 @@ theorem IsEMerging.exists_isAdmissibleEMerging_le [Finite ι] (hF : IsEMerging F
   obtain ⟨w₀, w, hw, hle⟩ := hF.exists_le_add_sum_mul
   exact ⟨fun e ↦ (w₀ : ℝ≥0∞) + ∑ i, (w i : ℝ≥0∞) * e i, isAdmissibleEMerging_iff.2
     ⟨by fun_prop, w₀, w, hw, fun e ↦ rfl⟩, hle⟩
+
+open Filter in
+/-- **The weighted means form a minimal complete class of e-merging functions**: every e-merging
+function is dominated at finite arguments by a mean `e ↦ w₀ + ∑ i, w i * e i` with nonnegative
+weights summing to `1`, and none of these means can be removed together with the functions equal
+to it at finite arguments. The means are the admissible e-merging functions [Wan25, Theorem 1],
+and a complete class of admissible elements is minimal (`Filter.isMinimalCompleteClass_iff`). -/
+theorem isMinimalCompleteClass_add_sum_mul :
+    (𝓟 (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))).IsMinimalCompleteClass {G | IsEMerging G}
+      {G | ∃ (w₀ : ℝ≥0) (w : ι → ℝ≥0), w₀ + ∑ i, w i = 1 ∧
+        G = fun e ↦ w₀ + ∑ i, (w i : ℝ≥0∞) * e i} := by
+  refine IsCompleteClass.isMinimalCompleteClass ⟨?_, fun F hF ↦ ?_⟩ ?_
+  · rintro _ ⟨w₀, w, hw, rfl⟩
+    exact isEMerging_add_sum_mul hw.le
+  · obtain ⟨w₀, w, hw, hle⟩ := IsEMerging.exists_le_add_sum_mul hF
+    exact ⟨_, ⟨w₀, w, hw, rfl⟩, eventuallyLE_principal_range_iff.2 hle⟩
+  · rintro _ ⟨w₀, w, hw, rfl⟩
+    exact isAdmissibleEMerging_iff_isAdmissible.1
+      (isAdmissibleEMerging_iff.2 ⟨by fun_prop, w₀, w, hw, fun e ↦ rfl⟩)
 
 /-! ### Symmetric e-merging functions -/
 
