@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.EValues.Null.Basic
+public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
 import LMLExplore.Algebra.Polynomial.Roots
@@ -14,24 +15,23 @@ import LMLExplore.EValues.Numeraire
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.ProductMeasure
-import LMLExplore.Probability.Process.Filtration
 import Mathlib.Topology.Order.IntermediateValue
 
 /-!
 # The numeraires of the sample sizes, as a process
 
 Let `S₁` be a set of laws on `𝓧`, the null, and `Q₁` a law on `𝓧`, the alternative. For every
-number `n + 1` of observations, the numeraire of the `(n + 1)`-sample null
-`{P ^ (n + 1) | P ∈ S₁}` under `Q₁ ^ (n + 1)` is the log-optimal `(n + 1)`-sample e-variable
-(Statlib's `ProbabilityTheory.IsNumeraire`). Evaluated at the first `n + 1` coordinates of a
-sequence `ω : ℕ → 𝓧`, these numeraires form a process adapted to `Filtration.piLE`, whose time `n`
-has seen the observations `ω 0, …, ω n`. Ramdas, Grünwald, Vovk and Shafer ask when this process
-is an e-process for the i.i.d. null [RGVS23, §8.2.4]. This file answers the question for a null
-`{P₁, P₂}` on a finite space, with `Q₁`, `P₁` and `P₂` charging every point: the process is an
-e-process exactly when `∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`. These
-are also exactly the cases in which the numeraires are products `∏ i, e (x i)` of copies of one
-function `e`, and products of copies of an e-variable form a test supermartingale
-(`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLE`). The module
+number `n` of observations, the numeraire of the `n`-sample null `{P ^ n | P ∈ S₁}` under `Q₁ ^ n`
+is the log-optimal `n`-sample e-variable (Statlib's `ProbabilityTheory.IsNumeraire`). Evaluated at
+the first `n` coordinates of a sequence `ω : ℕ → 𝓧`, these numeraires form a process adapted to
+`Filtration.piLT`, whose time `n` has seen the `n` observations `ω 0, …, ω (n - 1)`. Ramdas,
+Grünwald, Vovk and Shafer ask when this process is an e-process for the i.i.d. null
+[RGVS23, §8.2.4]. This file answers the question for a null `{P₁, P₂}` on a finite space, with
+`Q₁`, `P₁` and `P₂` charging every point: the process is an e-process exactly when
+`∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1` or `∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1`. These are also exactly the
+cases in which the numeraires are products `∏ i, e (x i)` of copies of one function `e`, and
+products of copies of an e-variable form a test supermartingale
+(`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLT`). The module
 `LMLExplore.EValues.Numeraire.Sequential.Bernoulli` gives an explicit counterexample, the null
 `{Ber(1/5), Ber(4/5)}` under the alternative `Ber(1/2)`, and uses the private helpers of this file
 on masses and mixtures through `import all`.
@@ -41,10 +41,10 @@ statements and proofs are adapted from their formalization in
 `EValuesResearch/Results/SequentialNumeraire.lean` (commit `dd4072f`) in the paper project
 `RemyDegenne/evalues_research`.
 
-A numeraire is unique only almost surely under `Q₁ ^ (n + 1)`, and when `Q₁` does not charge
-every point whether the process is an e-process can depend on the version. The statements take
-any family `X n` of numeraires, for instance Statlib's chosen version `numeraire`
-(`isNumeraire_numeraire`). Under their hypotheses `Q₁ ^ (n + 1)` charges every point, so that all
+A numeraire is unique only almost surely under `Q₁ ^ n`, and when `Q₁` does not charge every
+point whether the process is an e-process can depend on the version. The statements take any
+family `X n` of numeraires, for instance Statlib's chosen version `numeraire`
+(`isNumeraire_numeraire`). Under their hypotheses `Q₁ ^ n` charges every point, so that all
 versions agree everywhere.
 
 ## Main statements
@@ -288,9 +288,8 @@ omit [Fintype α] in
 /-- If `E_Q[p₂ / p₁] ≤ 1`, the likelihood ratio of `Q` against `P₁` is an e-variable for
 `{P₁, P₂}`, and the numeraires of `{P₁, P₂}` are the products of its copies. -/
 private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
-    (h : ∫⁻ x, P₂ {x} / P₁ {x} ∂Q ≤ 1) {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
-      (Measure.pi fun _ ↦ Q)) :
+    (h : ∫⁻ x, P₂ {x} / P₁ {x} ∂Q ≤ 1) {X : (n : ℕ) → (Fin n → α) → ℝ≥0∞}
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} n) (Measure.pi fun _ ↦ Q)) :
     IsEVar (fun y ↦ Q {y} / P₁ {y}) {P₁, P₂} ∧ ∀ n x, X n x = ∏ i, Q {x i} / P₁ {x i} := by
   have := Fintype.ofFinite α
   refine ⟨?_, fun n x ↦ ?_⟩
@@ -381,22 +380,22 @@ private lemma exists_weight_interior (hP₁ : ∀ x, P₁ {x} ≠ 0) (hP₂ : �
 
 /-! ### Stopping times with two values -/
 
-/-- **The stopping time with two values.** Let `E` be a process whose values at times `k` and
-`k + 1` are functions `F₁` and `F₂` of the first `k + 1` and `k + 2` observations, with
-`E_P[F₂] = 1` under the i.i.d. law of a law `P` that charges every point. If stopping at `k` when
-the first `k + 1` observations are `x₀`, and at `k + 1` otherwise, gives `E` an expectation at
-most `1`, then `F₁ x₀` is at most the conditional expectation of `F₂` given `x₀`. -/
+/-- **The stopping time with two values.** Let `E` be a process whose values at times `k + 1`
+and `k + 2` are functions `F₁` and `F₂` of the first `k + 1` and `k + 2` observations, with
+`E_P[F₂] = 1` under the i.i.d. law of a law `P` that charges every point. If stopping at `k + 1`
+when the first `k + 1` observations are `x₀`, and at `k + 2` otherwise, gives `E` an expectation
+at most `1`, then `F₁ x₀` is at most the conditional expectation of `F₂` given `x₀`. -/
 private lemma le_sum_of_lintegral_stop_le_one [DecidableEq α] {P : Measure α}
     [IsProbabilityMeasure P] (hP : ∀ x, P {x} ≠ 0) {E : ℕ → (ℕ → α) → ℝ≥0∞} {k : ℕ}
     {F₁ : (Fin (k + 1) → α) → ℝ≥0∞} {F₂ : (Fin (k + 2) → α) → ℝ≥0∞}
-    (h₁ : ∀ ω, E k ω = F₁ fun i ↦ ω i) (h₂ : ∀ ω, E (k + 1) ω = F₂ fun i ↦ ω i)
+    (h₁ : ∀ ω, E (k + 1) ω = F₁ fun i ↦ ω i) (h₂ : ∀ ω, E (k + 2) ω = F₂ fun i ↦ ω i)
     (hF₂ : ∫⁻ z, F₂ z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1) (x₀ : Fin (k + 1) → α)
-    (hτ : ∫⁻ ω, E (if (fun i : Fin (k + 1) ↦ ω i) = x₀ then k else k + 1) ω
+    (hτ : ∫⁻ ω, E (if (fun i : Fin (k + 1) ↦ ω i) = x₀ then k + 1 else k + 2) ω
       ∂(Measure.infinitePi fun _ : ℕ ↦ P) ≤ 1) :
     F₁ x₀ ≤ ∑ y, F₂ (Fin.snoc x₀ y) * P {y} := by
   set G : (Fin (k + 2) → α) → ℝ≥0∞ := fun z ↦
     if Fin.init z = x₀ then F₁ (Fin.init z) else F₂ z with hG
-  have hEG : ∀ ω, E (if (fun i : Fin (k + 1) ↦ ω i) = x₀ then k else k + 1) ω =
+  have hEG : ∀ ω, E (if (fun i : Fin (k + 1) ↦ ω i) = x₀ then k + 1 else k + 2) ω =
       G fun i ↦ ω i := by
     intro ω
     -- `Fin.init` drops the last coordinate, and `Fin.castSucc i` has the value of `i`
@@ -547,20 +546,20 @@ private lemma prod_ite_lt_eq {f : α → ℝ} {y₂ : α} (hf : f y₂ ≠ 0) (y
 
 omit [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
 /-- **The e-process property at a stopping time with two values.** Let the numeraires form an
-e-process, and let those of `k + 1` and `k + 2` observations be the likelihood ratios of the
-products of `Q` against the mixtures of weights `w` and `w'`. For a law `P` of the null that
-charges every point, under which the second likelihood ratio has expectation `1`, and a sample
-`x₀` of `k + 1` observations, stopping after `x₀` and after `k + 2` observations otherwise shows
-that the first ratio at `x₀` is at most the expectation under `P` of the second ratio at `x₀`
-extended by one observation. -/
-private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
-    (hE : IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
+e-process for `Filtration.piLT`, and let those of `k + 1` and `k + 2` observations be the
+likelihood ratios of the products of `Q` against the mixtures of weights `w` and `w'`. For a law
+`P` of the null that charges every point, under which the second likelihood ratio has expectation
+`1`, and a sample `x₀` of `k + 1` observations, stopping after `x₀` and after `k + 2` observations
+otherwise shows that the first ratio at `x₀` is at most the expectation under `P` of the second
+ratio at `x₀` extended by one observation. -/
+private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin n → α) → ℝ≥0∞}
+    (hE : IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ α))
       (iidNull {P₁, P₂}))
     {k : ℕ} {w w' : ℝ} (hm' : ∀ z : Fin (k + 2) → α, 0 < w' * piMass P₁ z + (1 - w') * piMass P₂ z)
     (hN₁ : ∀ x : Fin (k + 1) → α,
-      X k x = ENNReal.ofReal (piMass Q x / (w * piMass P₁ x + (1 - w) * piMass P₂ x)))
+      X (k + 1) x = ENNReal.ofReal (piMass Q x / (w * piMass P₁ x + (1 - w) * piMass P₂ x)))
     (hN₂ : ∀ z : Fin (k + 2) → α,
-      X (k + 1) z = ENNReal.ofReal (piMass Q z / (w' * piMass P₁ z + (1 - w') * piMass P₂ z)))
+      X (k + 2) z = ENNReal.ofReal (piMass Q z / (w' * piMass P₁ z + (1 - w') * piMass P₂ z)))
     {P : Measure α} [IsProbabilityMeasure P] (hPS : P ∈ ({P₁, P₂} : Set (Measure α)))
     (hP : ∀ y, P {y} ≠ 0)
     (hEP : ∑ z : Fin (k + 2) → α,
@@ -574,12 +573,12 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) →
       (1 - w') * (piMass P₂ x₀ * P₂.real {y}) := fun y ↦ by
     rw [← piMass_snoc, ← piMass_snoc]
     exact (hm' _).le
-  have hτ := Filtration.isStoppingTime_piLE_comp_initSeg
-    (T := fun x ↦ if x = x₀ then k else k + 1) Measurable.of_discrete
+  have hτ := Filtration.isStoppingTime_piLT_comp_initSeg
+    (T := fun x ↦ if x = x₀ then k + 1 else k + 2) Measurable.of_discrete
     fun x ↦ by split_ifs <;> omega
   simp only [initSeg_def] at hτ
   have hle := hE.lintegral_le_one hτ (infinitePi_mem_iidNull hPS)
-  have hF₂ : ∫⁻ z, X (k + 1) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
+  have hF₂ : ∫⁻ z, X (k + 2) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
     rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
       ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (piMass_nonneg _ _)
         (div_nonneg (piMass_nonneg _ _) (hm' z).le)]
@@ -588,7 +587,7 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) →
       ← ENNReal.ofReal_mul (div_nonneg (piMass_nonneg _ _) (hm' z).le), mul_comm]
   have h := le_sum_of_lintegral_stop_le_one hP (E := fun n ω ↦ X n fun i ↦ ω i)
     (fun _ ↦ rfl) (fun _ ↦ rfl) hF₂ x₀ hle
-  have hy : ∀ y, X (k + 1) (Fin.snoc x₀ y) * P {y} =
+  have hy : ∀ y, X (k + 2) (Fin.snoc x₀ y) * P {y} =
       ENNReal.ofReal (piMass Q x₀ * Q.real {y} / (w' * (piMass P₁ x₀ * P₁.real {y}) +
         (1 - w') * (piMass P₂ x₀ * P₂.real {y})) * P.real {y}) := fun y ↦ by
     rw [hN₂, piMass_snoc, piMass_snoc, piMass_snoc, ← ofReal_measureReal (μ := P),
@@ -628,10 +627,9 @@ stopping time that stops after `|α| - 1` observations on one sample and after `
 private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0) (h₁ : 1 < ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}))
     (h₂ : 1 < ∑ y, P₁.real {y} * (Q.real {y} / P₂.real {y}))
-    {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
-      (Measure.pi fun _ ↦ Q)) :
-    ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
+    {X : (n : ℕ) → (Fin n → α) → ℝ≥0∞}
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} n) (Measure.pi fun _ ↦ Q)) :
+    ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ α))
       (iidNull {P₁, P₂}) := by
   classical
   intro hE
@@ -647,9 +645,9 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
     exists_weight_interior hP₁ hP₂ h₁ h₂ (n := k + 2) (by omega)
   have hmix : ∀ {n : ℕ} {v : ℝ}, 0 < v → v < 1 → ∀ x : Fin n → α,
       0 < v * piMass P₁ x + (1 - v) * piMass P₂ x := fun hv0 hv1 x ↦ mix_pos hP₁ hv0 hv1.le x
-  have hN₁ := eq_ofReal_div_mix hQ (hX k) hw0.le hw1.le (hmix hw0 hw1) hE₁.le hE₂.le
-  have hN₂ := eq_ofReal_div_mix hQ (hX (k + 1)) hw0'.le hw1'.le (hmix hw0' hw1') hE₁'.le hE₂'.le
-  -- the e-process property at the stopping times with values in `{k, k + 1}`
+  have hN₁ := eq_ofReal_div_mix hQ (hX (k + 1)) hw0.le hw1.le (hmix hw0 hw1) hE₁.le hE₂.le
+  have hN₂ := eq_ofReal_div_mix hQ (hX (k + 2)) hw0'.le hw1'.le (hmix hw0' hw1') hE₁'.le hE₂'.le
+  -- the e-process property at the stopping times with values in `{k + 1, k + 2}`
   have hstep := fun x₀ ↦ mixture_le_and_sum_eq_zero (piMass_pos hP₁ x₀) (piMass_pos hP₂ x₀)
     (piMass_pos hQ x₀) (hmix hw0 hw1 x₀) hw0' hw1' (fun y ↦ measureReal_pos_of_ne_zero (hP₁ y))
     (fun y ↦ measureReal_pos_of_ne_zero (hP₂ y)) (sum_measureReal_singleton_eq_one Q)
@@ -719,20 +717,19 @@ section TwoPoint
 
 variable {α : Type*} [MeasurableSpace α] [MeasurableSingletonClass α] [Finite α]
   {Q₁ P₁ P₂ : Measure α} [IsProbabilityMeasure Q₁] [IsProbabilityMeasure P₁]
-  [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
+  [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin n → α) → ℝ≥0∞}
 
 /-- **Two-point nulls on a finite space.** This answers the question of [RGVS23, §8.2.4] for
 nulls of two laws on a finite space. Let `P₁`, `P₂` and the alternative `Q₁` charge every point,
-and let `X n` be a numeraire of `n + 1` observations for the i.i.d. null `{P₁, P₂}` under
-`Q₁ ^ (n + 1)` for every `n`, for instance Statlib's `numeraire`. The process of the numeraires at
-the first observations, `fun n ω ↦ X n fun i ↦ ω i`, is an e-process for the i.i.d. null and
-`Filtration.piLE` exactly when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1`
+and let `X n` be a numeraire of `n` observations for the i.i.d. null `{P₁, P₂}` under `Q₁ ^ n`
+for every `n`, for instance Statlib's `numeraire`. The process of the numeraires at the first
+observations, `fun n ω ↦ X n fun i ↦ ω i`, is an e-process for the i.i.d. null and
+`Filtration.piLT` exactly when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1`
 [EVR26, Note 23, Theorem (3)]. -/
 theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
-    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
-      (Measure.pi fun _ ↦ Q₁)) :
-    IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} n) (Measure.pi fun _ ↦ Q₁)) :
+    IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ α))
         (iidNull {P₁, P₂}) ↔
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
   have := Fintype.ofFinite α
@@ -746,21 +743,20 @@ theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : 
     exact not_isEProcess_of_one_lt hQ₁ hP₁ hP₂ hcon.1 hcon.2 hX h
   · rcases h with h | h
     · obtain ⟨he, hXe⟩ := isEVar_div_and_eq_prod_of_le hQ₁ hP₁ h hX
-      simpa only [hXe] using he.isEProcess_prod_piLE hS
+      simpa only [hXe] using he.isEProcess_prod_piLT hS
     · simp_rw [Set.pair_comm P₁ P₂] at hX hS ⊢
       obtain ⟨he, hXe⟩ := isEVar_div_and_eq_prod_of_le hQ₁ hP₂ h hX
-      simpa only [hXe] using he.isEProcess_prod_piLE hS
+      simpa only [hXe] using he.isEProcess_prod_piLT hS
 
 /-- **The numeraires of a two-point null are products exactly when they form an e-process.** On a
 finite space, let `P₁`, `P₂` and the alternative `Q₁` charge every point, and let `X n` be a
-numeraire of `n + 1` observations for the i.i.d. null `{P₁, P₂}` under `Q₁ ^ (n + 1)` for every
-`n`. The numeraires are products `X n x = ∏ i, e (x i)` of copies of one function `e` exactly
+numeraire of `n` observations for the i.i.d. null `{P₁, P₂}` under `Q₁ ^ n` for every `n`. The
+numeraires are products `X n x = ∏ i, e (x i)` of copies of one function `e` exactly
 when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1` [EVR26, Note 23, Theorem (3)]. -/
 theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
-    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
-      (Measure.pi fun _ ↦ Q₁)) :
-    (∃ e : α → ℝ≥0∞, ∀ n (x : Fin (n + 1) → α), X n x = ∏ i, e (x i)) ↔
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} n) (Measure.pi fun _ ↦ Q₁)) :
+    (∃ e : α → ℝ≥0∞, ∀ n (x : Fin n → α), X n x = ∏ i, e (x i)) ↔
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
   have := Fintype.ofFinite α
   refine ⟨fun ⟨e, hXe⟩ ↦ ?_, fun h ↦ ?_⟩
@@ -770,12 +766,12 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
     have he : IsEVar e {P₁, P₂} := by
       refine ⟨Measurable.of_discrete, fun P hP ↦ ?_⟩
       have := hS P hP
-      have h0 := ((hX 0).isEVar).lintegral_le_one (pi_mem_sampleNull hP)
-      rwa [lintegral_congr fun x ↦ (hXe 0 x).trans (Fin.prod_univ_one _),
+      have h0 := ((hX 1).isEVar).lintegral_le_one (pi_mem_sampleNull hP)
+      rwa [lintegral_congr fun x ↦ (hXe 1 x).trans (Fin.prod_univ_one _),
         (measurePreserving_eval (fun _ : Fin 1 ↦ P) 0).lintegral_comp
           Measurable.of_discrete] at h0
     exact (isEProcess_numeraires_pair_iff hQ₁ hP₁ hP₂ hX).1
-      (by simpa only [hXe] using he.isEProcess_prod_piLE hS)
+      (by simpa only [hXe] using he.isEProcess_prod_piLT hS)
   · rcases h with h | h
     · exact ⟨fun y ↦ Q₁ {y} / P₁ {y}, (isEVar_div_and_eq_prod_of_le hQ₁ hP₁ h hX).2⟩
     · simp_rw [Set.pair_comm P₁ P₂] at hX
