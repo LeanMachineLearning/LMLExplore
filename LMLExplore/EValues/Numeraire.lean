@@ -69,6 +69,8 @@ almost surely positive.
   with no absolute continuity: `∞` on a `P`-null set `N` off which `Q` is absolutely continuous
   with respect to `P`, and the likelihood ratio of `Q[|Nᶜ]` to `P` on `Nᶜ` [LRR25,
   Corollary 3.15].
+* `ProbabilityTheory.IsNumeraire.nonempty_of_ae_ne_top`: a null with a numeraire that is almost
+  surely finite under a nonzero alternative is not empty.
 * `ProbabilityTheory.isNumeraire_rnDeriv`: for `Q ≪ P`, the likelihood ratio `Q.rnDeriv P` is the
   numeraire of `{P}` [RW, Theorem 3.20]; its expected logarithm is `klDiv Q P` by Statlib's
   `maxUtility_singleton_eq_klDiv`.
@@ -148,6 +150,16 @@ theorem measure_fsupport_eq_measure_univ (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
     (hX₀ : ∀ᵐ ω ∂Q, X ω ≠ 0) : Q X.fsupport = Q univ :=
   measure_congr <| ae_eq_univ.mpr <| mem_ae_iff.mp <| by
     filter_upwards [hX_top, hX₀] with ω h_top h_zero using ⟨h_top, h_zero⟩
+
+/-- **A null with an almost surely finite numeraire is not empty.** For the empty null, `∞` is an
+e-variable, so a numeraire is almost surely infinite under a nonzero alternative `Q`. -/
+theorem IsNumeraire.nonempty_of_ae_ne_top [NeZero Q] (hX : IsNumeraire X S Q)
+    (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞) : S.Nonempty := by
+  refine nonempty_iff_ne_empty.2 fun h_empty ↦ ?_
+  have hY : IsEVar (fun _ : Ω ↦ ∞) S := ⟨measurable_const, by simp [h_empty]⟩
+  have h_false : ∀ᵐ ω ∂Q, False := by
+    filter_upwards [hX.ae_eq_top_of_eq_top hY, hX_top] with ω h1 h2 using h2 (h1 rfl)
+  exact NeZero.ne Q (ae_eq_bot.1 (Filter.eventually_false_iff_eq_bot.1 h_false))
 
 /-- The measure `Q.withDensity X⁻¹` is in the effective null exactly when every e-variable `Y`
 has `∫⁻ Y / X ∂Q ≤ 1`: under `Q.withDensity X⁻¹`, `Y` has expectation `∫⁻ Y / X ∂Q`. -/

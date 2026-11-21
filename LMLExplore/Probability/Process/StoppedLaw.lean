@@ -8,6 +8,7 @@ module
 public import LMLExplore.Probability.Process.Progressive
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Map
+public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
 
 /-!
 # The law of a stopped path
@@ -30,9 +31,9 @@ one measurable space: e-processes are the e-variables of the stopped laws of a n
 ## Main statements
 
 * `MeasureTheory.stoppedLaw_apply`, `MeasureTheory.lintegral_stoppedLaw`,
-  `MeasureTheory.ae_stoppedLaw_iff`: the measure of a progressive set, the integral of a
-  progressive function and the almost-sure properties under a stopped law, at a measurable random
-  time.
+  `MeasureTheory.eintegral_stoppedLaw`, `MeasureTheory.ae_stoppedLaw_iff`: the measure of a
+  progressive set, the integrals of a progressive function with values in `ℝ≥0∞` and in `EReal`,
+  and the almost-sure properties under a stopped law, at a measurable random time.
 * `MeasureTheory.stoppedLaw_univ`: a stopped law has the mass of the measure.
 * `MeasureTheory.lintegral_sum_smul_stoppedLaw_const`: under the mixture over a measure `ρ` on the
   times of the stopped laws at the constant times, the integral of a progressive function `f` is
@@ -104,6 +105,13 @@ theorem lintegral_stoppedLaw (hτ : Measurable τ) {f : ι × Ω → ℝ≥0∞}
     ∫⁻ x, f x ∂(stoppedLaw ℱ P τ) = ∫⁻ ω, f (τ ω, ω) ∂P :=
   @lintegral_map Ω (ι × Ω) mΩ ℱ.progressive P f _ hf
     (Filtration.measurable_prodMk_progressive hτ)
+
+/-- The extended integral of a progressive `EReal`-valued function of the stopped path under a
+stopped law is the extended integral of its value at the random time. -/
+theorem eintegral_stoppedLaw (hτ : Measurable τ) {f : ι × Ω → EReal}
+    (hf : Measurable[ℱ.progressive] f) :
+    ∫ᵉ x, f x ∂(stoppedLaw ℱ P τ) = ∫ᵉ ω, f (τ ω, ω) ∂P :=
+  eintegral_map (mβ := ℱ.progressive) hf (Filtration.measurable_prodMk_progressive hτ)
 
 /-- A property of stopped paths given by a progressive set holds almost everywhere under a stopped
 law exactly when it holds almost surely at the random time. -/
