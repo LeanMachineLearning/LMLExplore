@@ -57,6 +57,8 @@ arbitrary, and p-processes are validated at the bounded stopping times, as e-pro
 * `ProbabilityTheory.IsPProcess.measure_le_le`, `ProbabilityTheory.IsPProcess.isPVar_stoppedValue`:
   a p-process read at a random time is at most `α` with probability at most `α`, and its value at
   a stopping time is a p-variable.
+* `ProbabilityTheory.IsPProcess.of_isPVar_stoppedValue`: an adapted process whose value at every
+  stopping time that is finite everywhere is a p-variable is a p-process.
 * `ProbabilityTheory.isPProcess_iff_forall_isTimeUniform`,
   `ProbabilityTheory.isSequentialTest_iff_isTimeUniform`: p-processes and sequential tests are
   instances of time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events
@@ -123,6 +125,13 @@ theorem measurable (hp : IsPProcess p ℱ S) (n : ℕ) : Measurable (p n) :=
 theorem isPVar (hp : IsPProcess p ℱ S) (n : ℕ) : IsPVar (p n) S := by
   simpa only [stoppedValue_const] using
     hp.isPVar_stoppedValue_of_le (isStoppingTime_const ℱ n) (N := n) fun _ ↦ le_rfl
+
+/-- An adapted process whose value at every stopping time that is finite everywhere is a
+p-variable is a p-process. -/
+theorem of_isPVar_stoppedValue (hp : Adapted ℱ p)
+    (h : ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → (∀ ω, τ ω ≠ ⊤) → IsPVar (stoppedValue p τ) S) :
+    IsPProcess p ℱ S :=
+  ⟨hp, fun τ hτ _ hτN ↦ h τ hτ fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)⟩
 
 /-- A p-process for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hp : IsPProcess p ℱ T) : IsPProcess p ℱ S :=

@@ -132,11 +132,12 @@ theorem mono (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N) (hNM : N ≤ M) : I
 
 /-- An e-detector vanishes at time `0`, almost surely under every member of the null. -/
 theorem apply_zero_ae_eq_zero (hM : IsEDetector M ℱ S) (hP : P ∈ S) : M 0 =ᵐ[P] 0 := by
-  have h := hM.lintegral_le _ (isStoppingTime_const ℱ 0) (fun _ ↦ WithTop.coe_ne_top) P hP
-  rw [stoppedValue_const] at h
-  -- the expected time is `0`: `ENat.toENNReal 0 = 0` holds by definition
-  have h0 : ∫⁻ _ : Ω, ENat.toENNReal (0 : ℕ∞) ∂P = 0 := by simp
-  exact (lintegral_eq_zero_iff (hM.measurable 0)).1 (nonpos_iff_eq_zero.1 (h.trans_eq h0))
+  -- `ℕ∞` is by definition `WithTop ℕ`, so the time `((0 : ℕ) : WithTop ℕ)` is `(0 : ℕ∞)`
+  have h : ∫⁻ ω, stoppedValue M (fun _ ↦ ((0 : ℕ) : WithTop ℕ)) ω ∂P ≤
+      ∫⁻ _, ENat.toENNReal (0 : ℕ∞) ∂P :=
+    hM.lintegral_le _ (isStoppingTime_natCast 0) (fun _ ↦ WithTop.natCast_ne_top 0) P hP
+  rw [stoppedValue_natCast, ENat.toENNReal_zero, lintegral_zero, nonpos_iff_eq_zero] at h
+  exact (lintegral_eq_zero_iff (hM.measurable 0)).1 h
 
 /-- The bound of an e-detector at every stopping time `τ` with values in `WithTop ℕ`, with the value
 `stoppedValueLimsup M τ` where `τ` is infinite: the expectation of `M` at `τ` is at most the
