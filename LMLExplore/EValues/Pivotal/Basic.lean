@@ -190,7 +190,7 @@ private lemma measureReal_prod_randomizedEvent_halfShift {P : Measure 𝓧} [IsP
     {h : 𝓧 → ℝ} (hh : Measurable h) {c : ℝ} (hc : ∀ᵐ x ∂P, |h x| ≤ c) :
     (P.prod volume).real (randomizedEvent (halfShift h c)) =
       1 / 2 + (∫ x, h x ∂P) / (2 * c) := by
-  have hint : Integrable h P := .of_ae_abs_le hh.aestronglyMeasurable hc
+  have hint : Integrable h P := .of_bound hh.aestronglyMeasurable c (by simpa using hc)
   rw [measureReal_prod_randomizedEvent P (measurable_halfShift hh c),
     integral_congr_ae (hc.mono fun x hx ↦ coe_halfShift hx),
     integral_add (integrable_const _) (hint.div_const _), integral_const, integral_div]
@@ -402,7 +402,8 @@ theorem le_integral_toReal_sub_one_of_le_eintegral_log {Q : Measure Ω} [IsFinit
     (hc : (c : EReal) ≤ ∫ᵉ x, ENNReal.log (X x) ∂Q) :
     c ≤ ∫ x, ((X x).toReal - 1) ∂Q := by
   have hint : Integrable (fun x ↦ (X x).toReal - 1) Q :=
-    .of_ae_abs_le (hX.ennreal_toReal.sub_const 1).aestronglyMeasurable (hXQ.mono fun _ hx ↦ hx.2)
+    .of_bound (hX.ennreal_toReal.sub_const 1).aestronglyMeasurable M
+      (hXQ.mono fun _ hx ↦ by simpa using hx.2)
   have hae : ∀ᵐ x ∂Q, (X x : EReal) - 1 = (((X x).toReal - 1 : ℝ) : EReal) := by
     filter_upwards [hXQ] with x hx
     rw [EReal.coe_sub, EReal.coe_ennreal_toReal hx.1, EReal.coe_one]
@@ -432,10 +433,10 @@ theorem le_mul_tvDist_of_isExactEVar {S 𝒬 : Set (Measure 𝓧)}
   have h𝒬M : ∀ Q ∈ 𝒬, ∀ᵐ x ∂Q, |(X x).toReal - 1| ≤ M := fun Q hQ ↦ hXM Q (.inr hQ)
   have hSi : ∀ P ∈ S, Integrable (fun x ↦ (X x).toReal - 1) P := fun P hP ↦
     have := hSf P hP
-    .of_ae_abs_le hf.aestronglyMeasurable (hSM P hP)
+    .of_bound hf.aestronglyMeasurable M (by simpa using hSM P hP)
   have h𝒬i : ∀ Q ∈ 𝒬, Integrable (fun x ↦ (X x).toReal - 1) Q := fun Q hQ ↦
     have := h𝒬 Q hQ
-    .of_ae_abs_le hf.aestronglyMeasurable (h𝒬M Q hQ)
+    .of_bound hf.aestronglyMeasurable M (by simpa using h𝒬M Q hQ)
   have := isFiniteMeasure_of_mem_span hSf hμ₁
   have := isFiniteMeasure_of_mem_span hSf hμ₂
   have := isFiniteMeasure_of_mem_convexHull h𝒬 hν
@@ -447,7 +448,8 @@ theorem le_mul_tvDist_of_isExactEVar {S 𝒬 : Set (Measure 𝓧)}
     ((ae_add_measure_iff.2 ⟨h1M, hνM⟩).mono fun x hx ↦ by rwa [Real.norm_eq_abs])
     ((ae_of_mem_span hSM hμ₂).mono fun x hx ↦ by rwa [Real.norm_eq_abs])
   rw [integral_add_measure (integrable_of_mem_span hSi hμ₁)
-    (.of_ae_abs_le hf.aestronglyMeasurable hνM), integral_eq_zero_of_mem_span hSi hS0 hμ₁,
+    (.of_bound hf.aestronglyMeasurable M (by simpa using hνM)),
+    integral_eq_zero_of_mem_span hSi hS0 hμ₁,
     integral_eq_zero_of_mem_span hSi hS0 hμ₂, zero_add, sub_zero, Real.norm_eq_abs] at key
   exact (le_integral_of_mem_convexHull h𝒬i hc hν).trans ((le_abs_self _).trans key)
 
@@ -498,7 +500,8 @@ theorem exists_integral_eq_zero_of_isExactEVar_prod {S 𝒬 : Set (Measure 𝓧)
     · linarith [le_max_right (K : ℝ) 1, (X p).toReal_nonneg]
   have hint : ∀ P ∈ S ∪ 𝒬, Integrable f (P.prod volume) := fun P hP ↦
     have := hfin P hP
-    .of_ae_abs_le hf.aestronglyMeasurable ((hfM P hP).mono fun _ hp ↦ hp.2)
+    .of_bound hf.aestronglyMeasurable _
+      ((hfM P hP).mono fun _ hp ↦ (Real.norm_eq_abs _).trans_le hp.2)
   refine ⟨fun x ↦ ∫ u, f (x, u),
     (hf.stronglyMeasurable.integral_prod_right' (ν := volume)).measurable,
     fun P hP ↦ ?_, fun P hP ↦ ?_, fun Q hQ ↦ ?_⟩

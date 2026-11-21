@@ -7,7 +7,6 @@ module
 
 public import Mathlib.Analysis.Convex.Hull
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
-import Mathlib.MeasureTheory.Integral.IntegrableOn
 
 /-!
 # Expectations of finite suprema, of finite sums, of shifts by constants, of positive parts and
@@ -34,8 +33,6 @@ under combinations of measures
   most the integral of the positive part.
 * `MeasureTheory.integral_posPart_sub_posPart_le`: under a probability measure,
   `𝔼 f⁺ - c⁺ ≤ 𝔼 |f - c|`, the positive part being `1`-Lipschitz.
-* `MeasureTheory.Integrable.of_ae_abs_le`: a real function bounded almost everywhere in absolute
-  value is integrable under a finite measure.
 * `MeasureTheory.ae_of_mem_span`, `MeasureTheory.isFiniteMeasure_of_mem_span`,
   `MeasureTheory.integrable_of_mem_span`: almost everywhere properties, finiteness and
   integrability pass from a set `S` of measures to the finite nonnegative combinations of members
@@ -172,13 +169,7 @@ section Combination
 open scoped NNReal
 
 variable {Ω E : Type*} {mΩ : MeasurableSpace Ω} [NormedAddCommGroup E]
-  {S : Set (Measure Ω)} {f : Ω → ℝ} {g : Ω → E} {M c : ℝ} {μ : Measure Ω}
-
-/-- A real function bounded by `M` in absolute value almost everywhere is integrable under a
-finite measure. -/
-theorem Integrable.of_ae_abs_le [IsFiniteMeasure μ] (hf : AEStronglyMeasurable f μ)
-    (h : ∀ᵐ x ∂μ, |f x| ≤ M) : Integrable f μ :=
-  .of_bound hf M (by simpa using h)
+  {S : Set (Measure Ω)} {f : Ω → ℝ} {g : Ω → E} {c : ℝ} {μ : Measure Ω}
 
 /-- A property that holds almost everywhere for every member of a set `S` of measures holds
 almost everywhere for every finite nonnegative combination of members of `S`. -/
