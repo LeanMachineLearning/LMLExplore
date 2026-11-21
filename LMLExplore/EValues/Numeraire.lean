@@ -55,7 +55,7 @@ almost surely positive.
   e-variable is the reverse information projection; for a simple null `{P}` with `P` equivalent
   to `Q`, the reverse information projection is `P`.
 * `ProbabilityTheory.isNumeraire_div_rnDeriv_iff`: **the dominated criterion** [LRR25,
-  Theorem 4.7]: for a null `S` of probability measures, with densities `q` of `Q` and `p` of
+  Theorem 4.7]: for a null `S` of measures of mass at most one, with densities `q` of `Q` and `p` of
   `P ∈ S` with respect to a σ-finite reference measure, and with `r` the density of a member `R`
   of the effective null with `Q ≪ R`, `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for
   every `P ∈ S`.
@@ -289,26 +289,25 @@ theorem ripr_eq_of_isEVar_rnDeriv [IsProbabilityMeasure Q] (hS : ∀ P ∈ S, P 
   _ = R := Measure.withDensity_rnDeriv_eq R Q hRQ
 
 /-- **The dominated criterion** [LRR25, Theorem 4.7]. Let `Q` and the members of a null `S` of
-probability measures be absolutely continuous with respect to a σ-finite measure `μ`, with
+measures of mass at most one be absolutely continuous with respect to a σ-finite measure `μ`, with
 densities `q` and `p`, and let `R` be a member of the effective null with density `r` and
 `Q ≪ R`. Then `q / r` is the numeraire exactly when `∫⁻ p / r ∂Q ≤ 1` for every `P ∈ S`. -/
 theorem isNumeraire_div_rnDeriv_iff [IsProbabilityMeasure Q] [SigmaFinite μ]
-    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSμ : ∀ P ∈ S, P ≪ μ) (hQμ : Q ≪ μ)
+    (hS : ∀ P ∈ S, P univ ≤ 1) (hSμ : ∀ P ∈ S, P ≪ μ) (hQμ : Q ≪ μ)
     (hR : R ∈ effectiveSet S) (hQR : Q ≪ R) :
     IsNumeraire (fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω) S Q ↔
       ∀ P ∈ S, ∫⁻ ω, P.rnDeriv μ ω / R.rnDeriv μ ω ∂Q ≤ 1 := by
-  have hS' : ∀ P ∈ S, P univ ≤ 1 := fun P hP ↦ (hS P hP).measure_univ.le
-  have := isFiniteMeasure_of_mem_effectiveSet hS' hR
+  have := isFiniteMeasure_of_mem_effectiveSet hS hR
   have hRμ : R ≪ μ := absolutelyContinuous_of_mem_effectiveSet hR hSμ
   have hX_meas : Measurable fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω := by fun_prop
   -- `q / r` is `Q`-almost surely the likelihood ratio `Q.rnDeriv R`.
   have h_eq : (fun ω ↦ Q.rnDeriv μ ω / R.rnDeriv μ ω) =ᵐ[Q] Q.rnDeriv R :=
     hQR.ae_le (Measure.rnDeriv_eq_div hQμ hRμ).symm
   rw [show IsNumeraire _ S Q ↔ _ from
-      ⟨IsNumeraire.isEVar, fun hX ↦ isNumeraire_of_ae_eq_rnDeriv hS' hX hR hQR h_eq⟩,
+      ⟨IsNumeraire.isEVar, fun hX ↦ isNumeraire_of_ae_eq_rnDeriv hS hX hR hQR h_eq⟩,
     isEVar_iff_lintegral_le_one, and_iff_right hX_meas]
   refine forall₂_congr fun P hP ↦ ?_
-  have := hS P hP
+  have : IsFiniteMeasure P := ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩
   -- `∫⁻ q / r ∂P = ∫⁻ p * (q / r) ∂μ = ∫⁻ q * (p / r) ∂μ = ∫⁻ p / r ∂Q`.
   rw [← lintegral_rnDeriv_mul (hSμ P hP) hX_meas.aemeasurable,
     ← lintegral_rnDeriv_mul hQμ

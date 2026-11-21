@@ -690,7 +690,7 @@ theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq (ι : Type
   -- no hypotheses, or level `0`: the constant test martingales `1`, no rejection
   by_cases hK : Fintype.card ι = 0 ∨ α = 0
   · refine ⟨Unit, inferInstance, Measure.dirac (), ⊥, fun _ ↦ 1, inferInstance,
-      fun _ ↦ isTestMartingale_one fun P hP ↦ by rw [Set.mem_singleton_iff.1 hP]; infer_instance,
+      fun _ ↦ isTestMartingale_one fun P hP ↦ by simp [Set.mem_singleton_iff.1 hP],
       ?_⟩
     have : {ω : Unit | ∃ R : Finset ι, R.Nonempty ∧
         ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, (1 : ℕ → Unit → ℝ≥0∞) n ω} =

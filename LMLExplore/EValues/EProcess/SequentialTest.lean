@@ -63,9 +63,8 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 * `ProbabilityTheory.isPProcess_iInf_iff`: an adapted process is a p-process exactly when its
   running infimum is one [RRLK, §4.1].
 * `ProbabilityTheory.IsEProcess.isPProcess_inv`,
-  `ProbabilityTheory.IsEProcess.isPProcess_inv_iSup`: for a null of probability measures, the
-  inverse of an e-process and the inverse of its running maximum are p-processes [RRLK,
-  Proposition 12 (1); RW, §7.4].
+  `ProbabilityTheory.IsEProcess.isPProcess_inv_iSup`: for every null, the inverse of an e-process
+  and the inverse of its running maximum are p-processes [RRLK, Proposition 12 (1); RW, §7.4].
 * `ProbabilityTheory.isSequentialTest_iff_forall_isStoppingTime`: a `{0, 1}`-valued adapted
   process is a level-`α` sequential test exactly when it rejects with probability at most `α` at
   every stopping time [RRLK, §4.1].
@@ -211,25 +210,24 @@ theorem isPProcess_iInf_iff (hp : Adapted ℱ p) :
 theorem IsPProcess.iInf (hp : IsPProcess p ℱ S) : IsPProcess (fun n ω ↦ ⨅ k ≤ n, p k ω) ℱ S :=
   (isPProcess_iInf_iff hp.adapted).2 hp
 
-/-- **E-to-p calibration of e-processes.** For a null of probability measures, the inverse
-`fun n ω ↦ (E n ω)⁻¹` of an e-process is a p-process, by Markov's inequality at each stopping
-time. -/
-theorem IsEProcess.isPProcess_inv (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEProcess E ℱ S) :
+/-- **E-to-p calibration of e-processes.** The inverse `fun n ω ↦ (E n ω)⁻¹` of an e-process is a
+p-process, by Markov's inequality at each stopping time. -/
+theorem IsEProcess.isPProcess_inv (hE : IsEProcess E ℱ S) :
     IsPProcess (fun n ω ↦ (E n ω)⁻¹) ℱ S :=
-  ⟨fun n ↦ (hE.adapted n).inv, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).isPVar_inv hS⟩
+  ⟨fun n ↦ (hE.adapted n).inv, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).isPVar_inv⟩
 
 /-- **The p-process of the running maximum of an e-process** [RRLK, Proposition 12 (1); RW, §7.4].
-For a null of probability measures, the inverse `(⨆ k ≤ n, E k)⁻¹` of the running maximum of an
-e-process is a p-process: the running infimum of the p-process `E⁻¹`. -/
-theorem IsEProcess.isPProcess_inv_iSup (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) : IsPProcess (fun n ω ↦ (⨆ k ≤ n, E k ω)⁻¹) ℱ S := by
-  simpa only [ENNReal.inv_iSup] using (hE.isPProcess_inv hS).iInf
+The inverse `(⨆ k ≤ n, E k)⁻¹` of the running maximum of an e-process is a p-process: the running
+infimum of the p-process `E⁻¹`. -/
+theorem IsEProcess.isPProcess_inv_iSup (hE : IsEProcess E ℱ S) :
+    IsPProcess (fun n ω ↦ (⨆ k ≤ n, E k ω)⁻¹) ℱ S := by
+  simpa only [ENNReal.inv_iSup] using hE.isPProcess_inv.iInf
 
 /-- **A p-to-e calibrator turns p-processes into e-processes** [RRLK, Proposition 14]. For a null
-of probability measures, a p-to-e calibrator `f` applied to a p-process gives the e-process
-`fun n ω ↦ f (p n ω)`. -/
+of measures of mass at most one, a p-to-e calibrator `f` applied to a p-process gives the
+e-process `fun n ω ↦ f (p n ω)`. -/
 theorem IsPProcess.isEProcess_comp {f : ℝ≥0∞ → ℝ≥0∞} (hf : IsPToECalibrator f)
-    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hp : IsPProcess p ℱ S) :
+    (hS : ∀ P ∈ S, P univ ≤ 1) (hp : IsPProcess p ℱ S) :
     IsEProcess (fun n ω ↦ f (p n ω)) ℱ S :=
   ⟨fun n ↦ hf.measurable.comp (hp.adapted n), fun τ hτ ↦
     hf.isEVar_comp hS (hp.isPVar_stoppedValue τ hτ)⟩
@@ -324,13 +322,12 @@ theorem IsPProcess.isSequentialTest (hp : IsPProcess p ℱ S) (α : ℝ≥0∞) 
   measure_exists_eq_one_le P hP := by
     simpa [indicator_apply] using hp.measure_exists_le_le hP α
 
-/-- **Thresholding an e-process** [RRLK, Proposition 11 (2); RW, Fact 7.6]. For a null of
-probability measures, rejecting the null at the times at which an e-process is at least `α⁻¹` is
-a level-`α` sequential test: this is Ville's inequality for e-processes. -/
-theorem IsEProcess.isSequentialTest (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) (α : ℝ≥0∞) :
+/-- **Thresholding an e-process** [RRLK, Proposition 11 (2); RW, Fact 7.6]. Rejecting the null at
+the times at which an e-process is at least `α⁻¹` is a level-`α` sequential test: this is Ville's
+inequality for e-processes. -/
+theorem IsEProcess.isSequentialTest (hE : IsEProcess E ℱ S) (α : ℝ≥0∞) :
     IsSequentialTest (fun n ↦ {ω | α⁻¹ ≤ E n ω}.indicator 1) ℱ S α := by
-  simpa only [ENNReal.inv_le_iff_inv_le] using (hE.isPProcess_inv hS).isSequentialTest α
+  simpa only [ENNReal.inv_le_iff_inv_le] using hE.isPProcess_inv.isSequentialTest α
 
 /-- **Sequential tests are e-processes** [RW, Proposition 7.8]. A level-`α` sequential test `φ`
 gives the e-process `α⁻¹ * φ`, whose expectation at every stopping time is `α⁻¹` times the
@@ -342,15 +339,14 @@ theorem IsSequentialTest.isEProcess_inv_mul (hφ : IsSequentialTest φ ℱ S α)
     calc α⁻¹ * ∫⁻ ω, φ (τ ω) ω ∂P ≤ α⁻¹ * α := by gcongr; exact hφ.lintegral_le τ hP
       _ ≤ 1 := ENNReal.inv_mul_le_one α
 
-/-- **Sequential tests are thresholded e-processes** [RW, Proposition 7.8 and Fact 7.6]. For a null
-of probability measures and a level `α ≠ ∞`, a process is a level-`α` sequential test exactly when
-it is the indicator of the times at which some e-process is at least `α⁻¹`. -/
-theorem isSequentialTest_iff_exists_isEProcess (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hα : α ≠ ∞) :
+/-- **Sequential tests are thresholded e-processes** [RW, Proposition 7.8 and Fact 7.6]. For a level
+`α ≠ ∞`, a process is a level-`α` sequential test exactly when it is the indicator of the times at
+which some e-process is at least `α⁻¹`. -/
+theorem isSequentialTest_iff_exists_isEProcess (hα : α ≠ ∞) :
     IsSequentialTest φ ℱ S α ↔
       ∃ E, IsEProcess E ℱ S ∧ φ = fun n ↦ {ω | α⁻¹ ≤ E n ω}.indicator 1 := by
   refine ⟨fun hφ ↦ ⟨_, hφ.isEProcess_inv_mul, ?_⟩, fun ⟨E, hE, hφE⟩ ↦
-    hφE ▸ hE.isSequentialTest hS α⟩
+    hφE ▸ hE.isSequentialTest α⟩
   -- `α⁻¹ * φ n ω` reaches `α⁻¹` exactly where `φ n ω = 1`, since `α⁻¹ ≠ 0`
   ext n ω
   rcases hφ.eq_zero_or_eq_one n ω with h | h <;> simp [h, hα]

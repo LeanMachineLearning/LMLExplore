@@ -195,10 +195,9 @@ theorem isPostHocValid_iff_forall_lintegral_div_le_one
 /-! ### Post-hoc validity and e-variables -/
 
 /-- The tests `min (α * E) 1` of an e-variable `E` are post-hoc valid. -/
-theorem IsEVar.isPostHocValid_min_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEVar E S) :
+theorem IsEVar.isPostHocValid_min_mul (hE : IsEVar E S) :
     IsPostHocValid (fun α ω ↦ min (α * E ω) 1) S where
   lintegral_iSup_div_le_one P hP := by
-    have := hS P hP
     refine le_trans (lintegral_mono fun ω ↦ iSup₂_le fun α hα ↦ ?_) (hE.lintegral_le_one hP)
     calc min (α * E ω) 1 / α
     _ ≤ E ω * α / α := by
@@ -209,10 +208,9 @@ theorem IsEVar.isPostHocValid_min_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
 
 /-- The tests `𝟙{α⁻¹ ≤ E}` that reject when an e-variable `E` reaches `α⁻¹` are post-hoc
 valid. -/
-theorem IsEVar.isPostHocValid_indicator (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEVar E S) :
+theorem IsEVar.isPostHocValid_indicator (hE : IsEVar E S) :
     IsPostHocValid (fun α ↦ {ω | α⁻¹ ≤ E ω}.indicator 1) S := by
-  refine (hE.isPostHocValid_min_mul hS).mono fun P _ ↦ ae_of_all _ fun ω α hα ↦ ?_
+  refine hE.isPostHocValid_min_mul.mono fun P _ ↦ ae_of_all _ fun ω α hα ↦ ?_
   by_cases hαE : α⁻¹ ≤ E ω
   · rw [indicator_of_mem (by exact hαE), Pi.one_apply, le_min_iff]
     refine ⟨?_, le_rfl⟩
@@ -237,18 +235,16 @@ theorem isPostHocValid_iff_isEVar_iSup (hφ : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1,
   rw [isEVar_iff_lintegral_le_one]
   exact ⟨fun h ↦ ⟨measurable_iSup_div hφ hmono, h.lintegral_iSup_div_le_one⟩, fun h ↦ ⟨h.2⟩⟩
 
-/-- **Post-hoc validity is testing with an e-variable.** For a null of probability measures, a
-family of measurable `[0, 1]`-valued tests nondecreasing in the level is post-hoc valid exactly
-when it is dominated by the tests `min (α * E) 1` of an e-variable `E`; one can take
-`E = ⨆ α ∈ Ioo 0 1, φ α / α`. -/
-theorem isPostHocValid_iff_exists_isEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hφ : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, Measurable (φ α))
+/-- **Post-hoc validity is testing with an e-variable.** A family of measurable `[0, 1]`-valued
+tests nondecreasing in the level is post-hoc valid exactly when it is dominated by the tests
+`min (α * E) 1` of an e-variable `E`; one can take `E = ⨆ α ∈ Ioo 0 1, φ α / α`. -/
+theorem isPostHocValid_iff_exists_isEVar (hφ : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, Measurable (φ α))
     (hmono : ∀ ω, MonotoneOn (φ · ω) (Ioo 0 1)) (hφ1 : ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, ∀ ω, φ α ω ≤ 1) :
     IsPostHocValid φ S ↔
       ∃ E, IsEVar E S ∧ ∀ α ∈ Ioo (0 : ℝ≥0∞) 1, ∀ ω, φ α ω ≤ min (α * E ω) 1 := by
   refine ⟨fun h ↦ ⟨_, (isPostHocValid_iff_isEVar_iSup hφ hmono).1 h,
     fun α hα ω ↦ le_min_mul_iSup_div hα (hφ1 α hα ω)⟩, fun ⟨E, hE, hφE⟩ ↦ ?_⟩
-  exact (hE.isPostHocValid_min_mul hS).mono fun P _ ↦ ae_of_all _ fun ω α hα ↦ hφE α hα ω
+  exact hE.isPostHocValid_min_mul.mono fun P _ ↦ ae_of_all _ fun ω α hα ↦ hφE α hα ω
 
 /-! ### Post-hoc p-variables -/
 
@@ -290,13 +286,12 @@ theorem isPostHocValid_indicator_iff_isEVar (hp : Measurable p) :
     funext (iSup_indicator_le_div_eq_indicator_inv p)]
 
 /-- A post-hoc p-variable is a p-variable: if the tests `𝟙{p ≤ α}` of a measurable `p` are
-post-hoc valid for a null of probability measures, then `p` is a p-variable. -/
-theorem isPVar_of_isPostHocValid_indicator (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+post-hoc valid for a null of measures of mass at most one, then `p` is a p-variable. -/
+theorem isPVar_of_isPostHocValid_indicator (hS : ∀ P ∈ S, P univ ≤ 1)
     (hp : Measurable p) (h : IsPostHocValid (fun α ↦ {ω | p ω ≤ α}.indicator 1) S) :
     IsPVar p S where
   measurable := hp
   measure_le_le P hP α := by
-    have := hS P hP
     -- `P {p ≤ α} ≤ ε` for every `ε > α`: at the level `ε` if `ε < 1`, and trivially otherwise
     refine le_of_forall_gt_imp_ge_of_dense fun ε hαε ↦ ?_
     rcases lt_or_ge ε 1 with hε1 | hε1
@@ -305,6 +300,6 @@ theorem isPVar_of_isPostHocValid_indicator (hS : ∀ P ∈ S, IsProbabilityMeasu
       _ = ∫⁻ ω, {ω | p ω ≤ ε}.indicator 1 ω ∂P :=
         (lintegral_indicator_one (measurableSet_le hp measurable_const)).symm
       _ ≤ ε := h.lintegral_le hP hε
-    · exact prob_le_one.trans hε1
+    · exact (measure_mono (subset_univ _)).trans ((hS P hP).trans hε1)
 
 end ProbabilityTheory

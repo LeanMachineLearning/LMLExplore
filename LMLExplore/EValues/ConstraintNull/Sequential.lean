@@ -357,8 +357,8 @@ theorem isTestSupermartingale_prod_ofReal_one_add_sum_mul (hg : ∀ i, Measurabl
       (fun n ω ↦ ∏ k ∈ Finset.range n, ENNReal.ofReal (1 + ∑ i, (π k ω i : ℝ) * g i (X k ω)))
       ℱ (sequentialConstraintNull (range g) X ℱ) := by
   refine isTestSupermartingale_prod
-    (fun _ ↦ isProbabilityMeasure_of_mem_sequentialConstraintNull) (fun k ↦ ?_) fun k ↦
-    isCondEVar_ofReal_one_add_sum_mul (ℱ.le k)
+    (fun _ hP ↦ (isProbabilityMeasure_of_mem_sequentialConstraintNull hP).measure_univ.le)
+    (fun k ↦ ?_) fun k ↦ isCondEVar_ofReal_one_add_sum_mul (ℱ.le k)
       (fun _ ↦ isFiniteMeasure_of_mem_sequentialConstraintNull)
       (fun i ↦ (hg i).comp ((hX k).mono (ℱ.le _) le_rfl))
       (fun P hP i ↦ integrable_of_mem_sequentialConstraintNull hP (mem_range_self i) k)
@@ -400,8 +400,8 @@ theorem isTestMartingale_prod_ofReal_one_add_sum_mul (hg : ∀ i, Measurable (g 
   have hmem : ∀ i, g i ∈ range g ∪ range (-g) := fun i ↦ .inl (mem_range_self i)
   have hmem' : ∀ i, -g i ∈ range g ∪ range (-g) := fun i ↦ .inr ⟨i, rfl⟩
   refine isTestMartingale_prod
-    (fun _ ↦ isProbabilityMeasure_of_mem_sequentialConstraintNull) (fun k ↦ ?_) fun k ↦
-    isExactCondEVar_ofReal_one_add_sum_mul (ℱ.le k)
+    (fun _ hP ↦ (isProbabilityMeasure_of_mem_sequentialConstraintNull hP).measure_univ.le)
+    (fun k ↦ ?_) fun k ↦ isExactCondEVar_ofReal_one_add_sum_mul (ℱ.le k)
       (fun _ ↦ isFiniteMeasure_of_mem_sequentialConstraintNull)
       (fun i ↦ (hg i).comp ((hX k).mono (ℱ.le _) le_rfl))
       (fun P hP i ↦ integrable_of_mem_sequentialConstraintNull hP (hmem i) k)

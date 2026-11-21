@@ -20,9 +20,9 @@ An e-process for a null `S` and a filtration `ℱ` (`ProbabilityTheory.IsEProces
 `S`. This file proves the operations under which e-processes are closed, beyond those of
 `LMLExplore.EValues.EProcess.Basic` (restriction of the null, domination, convex combinations):
 
-* **Enlarging the null.** An e-process for `S` is one for the probability measures of the
-  effective null of `S`; for a null of probability measures, this covers every mixture `κ ∘ₘ π`
-  of its members. It is one for `S ∪ T` exactly when it is one for `S` and for `T`.
+* **Enlarging the null.** A null and its effective null have the same e-processes; this covers
+  every mixture `κ ∘ₘ π` of members of the null over a probability measure. A process is an
+  e-process for `S ∪ T` exactly when it is one for `S` and for `T`.
 * **Minima.** The minimum of an e-process for `S` and one for `T` is an e-process for `S ∪ T`:
   a statistician who does not know which of two nulls to test can take the smaller evidence.
 * **Mixtures.** A mixture `∫⁻ θ, E θ n ω ∂π`, over a probability measure `π`, of a jointly
@@ -44,12 +44,10 @@ off it (`MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`).
 
 ## Main statements
 
-* `ProbabilityTheory.IsEProcess.effectiveSet_inter`,
-  `ProbabilityTheory.isEProcess_effectiveSet_inter_iff`: an e-process for `S` is one for the
-  probability measures of the effective null of `S`, and for a null of probability measures
-  conversely.
-* `ProbabilityTheory.IsEProcess.singleton_comp`: an e-process for a null of probability measures
-  is one for every mixture of its members.
+* `ProbabilityTheory.isEProcess_effectiveSet_iff`: a null and its effective null have the same
+  e-processes.
+* `ProbabilityTheory.IsEProcess.singleton_comp`: an e-process for a null is one for every mixture
+  of its members over a probability measure.
 * `ProbabilityTheory.IsEProcess.union`, `ProbabilityTheory.isEProcess_union_iff`: e-processes for
   a union of nulls.
 * `ProbabilityTheory.IsEProcess.inf`: the minimum of an e-process for `S` and one for `T` is an
@@ -88,31 +86,21 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S T
 
 /-! ### Enlarging the null -/
 
-/-- An e-process for `S` is an e-process for the probability measures of the effective null of
-`S`. -/
-theorem IsEProcess.effectiveSet_inter (hE : IsEProcess E ℱ S) :
-    IsEProcess E ℱ (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) :=
-  ⟨hE.adapted, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).effectiveSet_inter⟩
+/-- A null and its effective null have the same e-processes, as they have the same e-variables
+(Statlib's `isEVar_effectiveSet_iff`). -/
+@[simp]
+theorem isEProcess_effectiveSet_iff : IsEProcess E ℱ (effectiveSet S) ↔ IsEProcess E ℱ S :=
+  ⟨fun hE ↦ hE.anti_set subset_effectiveSet, fun hE ↦
+    ⟨hE.adapted, fun τ hτ ↦ isEVar_effectiveSet_iff.2 (hE.isEVar_stoppedValue τ hτ)⟩⟩
 
-/-- A null of probability measures and the probability measures of its effective null have the
-same e-processes. -/
-theorem isEProcess_effectiveSet_inter_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    IsEProcess E ℱ (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) ↔ IsEProcess E ℱ S :=
-  ⟨fun hE ↦ ⟨hE.adapted, fun τ hτ ↦ (isEVar_effectiveSet_inter_iff hS).1
-    (hE.isEVar_stoppedValue τ hτ)⟩, IsEProcess.effectiveSet_inter⟩
-
-/-- **Mixtures of the null.** An e-process for a null of probability measures is an e-process for
-every mixture `κ ∘ₘ π`, over a probability measure `π`, of a kernel with values `π`-almost surely
-in the null. -/
-theorem IsEProcess.singleton_comp (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measure Θ}
-    [IsProbabilityMeasure π] {κ : Kernel Θ Ω} (hκ : ∀ᵐ θ ∂π, κ θ ∈ S) :
-    IsEProcess E ℱ {κ ∘ₘ π} := by
-  have hprob : IsProbabilityMeasure (κ ∘ₘ π) :=
-    isProbabilityMeasure_bind κ.aemeasurable (hκ.mono fun θ hθ ↦ hS _ hθ)
-  refine hE.effectiveSet_inter.anti_set (singleton_subset_iff.2 (mem_inter ?_ hprob))
-  exact comp_mem_effectiveSet (by simp)
-    (hκ.mono fun θ hθ ↦ subset_effectiveSet hθ)
+/-- **Mixtures of the null.** An e-process for a null is an e-process for every mixture
+`κ ∘ₘ π`, over a probability measure `π`, of a kernel with values `π`-almost surely in the
+null. -/
+theorem IsEProcess.singleton_comp (hE : IsEProcess E ℱ S) {Θ : Type*} {mΘ : MeasurableSpace Θ}
+    {π : Measure Θ} [IsProbabilityMeasure π] {κ : Kernel Θ Ω} (hκ : ∀ᵐ θ ∂π, κ θ ∈ S) :
+    IsEProcess E ℱ {κ ∘ₘ π} :=
+  (isEProcess_effectiveSet_iff.2 hE).anti_set <| singleton_subset_iff.2 <|
+    comp_mem_effectiveSet (by simp) (hκ.mono fun _ hθ ↦ subset_effectiveSet hθ)
 
 /-- A process that is an e-process for `S` and for `T` is an e-process for `S ∪ T`. -/
 theorem IsEProcess.union (hS : IsEProcess E ℱ S) (hT : IsEProcess E ℱ T) :

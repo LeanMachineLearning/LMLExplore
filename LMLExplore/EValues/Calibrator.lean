@@ -46,7 +46,7 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
 
 ## Main statements
 
-* `ProbabilityTheory.IsPToECalibrator.isEVar_comp`: for a null of probability measures, a
+* `ProbabilityTheory.IsPToECalibrator.isEVar_comp`: for a null of measures of mass at most one, a
   calibrator turns every p-variable into an e-variable [VW21, Proposition 2.1], and
   `ProbabilityTheory.isPToECalibrator_iff_isEVar`: an antitone function vanishing on `(1, ∞]` is
   a calibrator as soon as it turns the identity of `[0, 1]`, under Lebesgue measure, into an
@@ -106,13 +106,12 @@ theorem IsPToECalibrator.measurable (hf : IsPToECalibrator f) : Measurable f :=
   hf.antitone.measurable
 
 /-- **A calibrator turns p-variables into e-variables** [VW21, Proposition 2.1]: for a null of
-probability measures, `f ∘ p` is an e-variable for every calibrator `f` and every
+measures of mass at most one, `f ∘ p` is an e-variable for every calibrator `f` and every
 p-variable `p`. -/
 theorem IsPToECalibrator.isEVar_comp (hf : IsPToECalibrator f)
-    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hp : IsPVar p S) : IsEVar (f ∘ p) S :=
+    (hS : ∀ P ∈ S, P univ ≤ 1) (hp : IsPVar p S) : IsEVar (f ∘ p) S :=
   ⟨hf.measurable.comp hp.measurable, fun P hP ↦
-    have := hS P hP
-    (hp.lintegral_comp_le hP prob_le_one hf.antitone).trans hf.lintegral_le_one⟩
+    (hp.lintegral_comp_le hP (hS P hP) hf.antitone).trans hf.lintegral_le_one⟩
 
 /-- **The converse**: an antitone function vanishing on `(1, ∞]` is a calibrator exactly when it
 turns the identity of `[0, 1]`, an exact p-variable under the Lebesgue measure on `[0, 1]`, into
@@ -123,8 +122,7 @@ theorem isPToECalibrator_iff_isEVar :
   have : IsProbabilityMeasure (volume.restrict (Icc (0 : ℝ) 1)) := ⟨by simp⟩
   refine ⟨fun hf ↦ ⟨hf.antitone, hf.eq_zero_of_one_lt, ?_⟩, fun ⟨h_anti, h_zero, hE⟩ ↦
     ⟨h_anti, h_zero, hE.lintegral_le_one (mem_singleton _)⟩⟩
-  exact hf.isEVar_comp (by simp only [mem_singleton_iff, forall_eq]; infer_instance)
-    isExactPVar_ofReal_volume.toIsPVar
+  exact hf.isEVar_comp (by simp) isExactPVar_ofReal_volume.toIsPVar
 
 /-- **Calibrators are the antitone bets against the super-uniform laws**: an antitone function
 vanishing on `(1, ∞]` is a calibrator exactly when it is an e-variable for the super-uniform null,

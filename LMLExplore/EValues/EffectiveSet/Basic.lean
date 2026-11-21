@@ -8,7 +8,7 @@ module
 public import Statlib.EValues.RIPr
 public import LMLExplore.EValues.KLInf
 public import LMLExplore.EValues.EVariable
-public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+public import LMLExplore.EValues.Null.Polar
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 
 /-!
@@ -22,7 +22,11 @@ effective null, and every measure outside its effective null is detected by a le
 
 This file proves the structural properties of the effective null on any measurable space, with no
 dominating measure and no convexity. Unless stated otherwise below, the results hold for any set of
-measures `S`.
+measures `S`. The effective null is the polar `polarNull {X | IsEVar X S}` of the e-variables of
+`S` (`effectiveSet_eq_polarNull`), so that its monotonicity, convexity, solidity and closure under
+setwise limits are those of every polar (`LMLExplore.EValues.Null.Polar`). Statlib's
+`isEVar_effectiveSet_iff` and `effectiveSet_effectiveSet` say that `S` and its effective null have
+the same e-variables and the same effective null.
 
 ## Main statements
 
@@ -36,9 +40,6 @@ measures `S`.
   `ProbabilityTheory.mem_effectiveSet_of_tendsto`: the effective null is closed under setwise
   convergence, along any filter, and more generally contains every measure `μ` with
   `μ s ≤ liminf (μs · s)` for every measurable `s`, for a net `μs` eventually in it.
-* `ProbabilityTheory.isEVar_effectiveSet_inter_iff`: for a null `S` of probability measures, `S`
-  and the probability measures of its effective null have the same e-variables, and hence
-  (`ProbabilityTheory.effectiveSet_effectiveSet_inter`) the same effective null.
 * `ProbabilityTheory.absolutelyContinuousSet_of_mem_effectiveSet`: every member of the effective
   null is absolutely continuous with respect to `S`
   (`MeasureTheory.Measure.AbsolutelyContinuousSet`).
@@ -73,8 +74,9 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S T : Set (Measure Ω)} {μ ν
 
 /-- The effective null is monotone in the null. -/
 @[gcongr]
-theorem effectiveSet_mono (hST : S ⊆ T) : effectiveSet S ⊆ effectiveSet T :=
-  fun _ hμ X hX ↦ hμ X (hX.anti_set hST)
+theorem effectiveSet_mono (hST : S ⊆ T) : effectiveSet S ⊆ effectiveSet T := by
+  rw [effectiveSet_eq_polarNull, effectiveSet_eq_polarNull]
+  exact polarNull_anti fun _ hX ↦ hX.anti_set hST
 
 /-- The effective null contains every mixture `κ ∘ₘ π` over a measure `π` of mass at most `1` of
 a kernel `κ` whose values are `π`-almost surely in the effective null. With
@@ -89,24 +91,20 @@ theorem comp_mem_effectiveSet {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Meas
   _ ≤ ∫⁻ _, 1 ∂π := lintegral_mono_ae (hκ.mono fun θ hθ ↦ hθ X hX)
   _ ≤ 1 := by simpa using hπ
 
-/-- The effective null is convex. -/
+/-- The effective null is convex, as every polar is. -/
 theorem convex_effectiveSet : Convex ℝ≥0∞ (effectiveSet S) := by
-  intro μ hμ ν hν a b _ _ hab
-  -- A convex combination is a mixture over the two-point space `Bool`.
-  have h_eq : Kernel.boolKernel μ ν ∘ₘ (a • Measure.dirac false + b • Measure.dirac true) =
-      a • μ + b • ν := by
-    simp [Measure.comp_add, Measure.comp_smul, Measure.dirac_bind (Kernel.measurable _)]
-  rw [← h_eq]
-  refine comp_mem_effectiveSet (by simp [hab]) (.of_forall fun x ↦ ?_)
-  cases x <;> simpa
+  rw [effectiveSet_eq_polarNull]
+  exact convex_polarNull _
 
 /-- The effective null contains the convex hull of the null. -/
 theorem convexHull_subset_effectiveSet : convexHull ℝ≥0∞ S ⊆ effectiveSet S :=
   convexHull_min subset_effectiveSet convex_effectiveSet
 
-/-- The effective null is solid: a measure below a member of the effective null is a member. -/
-theorem isLowerSet_effectiveSet : IsLowerSet (effectiveSet S) :=
-  fun _ _ hμν hν X hX ↦ (lintegral_mono' hμν le_rfl).trans (hν X hX)
+/-- The effective null is solid, as every polar is: a measure below a member of the effective
+null is a member. -/
+theorem isLowerSet_effectiveSet : IsLowerSet (effectiveSet S) := by
+  rw [effectiveSet_eq_polarNull]
+  exact isLowerSet_polarNull _
 
 /-- A measure below a member of the effective null is a member of the effective null. -/
 theorem mem_effectiveSet_of_le (hν : ν ∈ effectiveSet S) (hμν : μ ≤ ν) : μ ∈ effectiveSet S :=
@@ -117,19 +115,20 @@ inferior of `μs i s` for every measurable set `s`, then `μ` is in the effectiv
 theorem mem_effectiveSet_of_measure_le_liminf {ι : Type*} {l : Filter ι} [l.NeBot]
     {μs : ι → Measure Ω} (hμs : ∀ᶠ i in l, μs i ∈ effectiveSet S)
     (h : ∀ s, MeasurableSet s → μ s ≤ liminf (fun i ↦ μs i s) l) :
-    μ ∈ effectiveSet S := fun X hX ↦
-  (lintegral_le_liminf_lintegral_of_forall_measurableSet_measure_le_liminf_measure hX.measurable
-    h).trans (liminf_le_of_frequently_le (hμs.mono fun _ hi ↦ hi X hX).frequently)
+    μ ∈ effectiveSet S := by
+  rw [effectiveSet_eq_polarNull] at hμs ⊢
+  exact mem_polarNull_of_measure_le_liminf hμs h
 
-/-- The effective null is closed under setwise convergence: if `μs i s` tends to `μ s` along a
-filter for every measurable set `s`, and `μs i` is eventually in the effective null, then so is
-`μ`. The filter is arbitrary, so that the effective null is closed for the topology of setwise
-convergence and not only sequentially closed. -/
+/-- The effective null is closed under setwise convergence, as every polar is: if `μs i s` tends
+to `μ s` along a filter for every measurable set `s`, and `μs i` is eventually in the effective
+null, then so is `μ`. The filter is arbitrary, so that the effective null is closed for the
+topology of setwise convergence and not only sequentially closed. -/
 theorem mem_effectiveSet_of_tendsto {ι : Type*} {l : Filter ι} [l.NeBot] {μs : ι → Measure Ω}
     (hμs : ∀ᶠ i in l, μs i ∈ effectiveSet S)
     (h : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) :
-    μ ∈ effectiveSet S :=
-  mem_effectiveSet_of_measure_le_liminf hμs fun s hs ↦ (h s hs).liminf_eq.ge
+    μ ∈ effectiveSet S := by
+  rw [effectiveSet_eq_polarNull] at hμs ⊢
+  exact mem_polarNull_of_tendsto hμs h
 
 /-- A measurable set that is null for every member of `S` is null for every member of the
 effective null of `S`. -/
@@ -153,26 +152,6 @@ member of the effective null of `S`. -/
 theorem absolutelyContinuous_of_mem_effectiveSet (hμ : μ ∈ effectiveSet S)
     (hS : ∀ P ∈ S, P ≪ ν) : μ ≪ ν :=
   (absolutelyContinuousSet_of_mem_effectiveSet hμ).absolutelyContinuous hS
-
-/-- An e-variable for `S` is an e-variable for the probability measures of the effective null of
-`S`. -/
-theorem IsEVar.effectiveSet_inter {X : Ω → ℝ≥0∞} (hX : IsEVar X S) :
-    IsEVar X (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) :=
-  ⟨hX.measurable, fun _ hμ ↦ hμ.1 X hX⟩
-
-/-- A null of probability measures and the probability measures of its effective null have the
-same e-variables. -/
-theorem isEVar_effectiveSet_inter_iff (hS : ∀ P ∈ S, IsProbabilityMeasure P) {X : Ω → ℝ≥0∞} :
-    IsEVar X (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) ↔ IsEVar X S := by
-  refine ⟨fun hX ↦ hX.anti_set fun P hP ↦ ?_, IsEVar.effectiveSet_inter⟩
-  exact ⟨subset_effectiveSet hP, hS P hP⟩
-
-/-- A null of probability measures and the probability measures of its effective null have the
-same effective null. -/
-theorem effectiveSet_effectiveSet_inter (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    effectiveSet (effectiveSet S ∩ {μ | IsProbabilityMeasure μ}) = effectiveSet S := by
-  ext μ
-  simp only [mem_effectiveSet_iff, isEVar_effectiveSet_inter_iff hS]
 
 /-- The truncation `min X c` of an e-variable `X` for `S` at any level `c` is an e-variable for
 `S`. -/
@@ -244,19 +223,12 @@ theorem exists_powered_test_iff (Q : Measure Ω) :
               hYQ
 
 /-- For a null of measures of mass at most `1`, under a probability measure `P` of its effective
-null, no e-variable for `S` has a positive expected logarithm, by Jensen's inequality: the largest
-e-power is `0`.
-Statlib's `maxUtility_eq_zero_of_mem` is the analogue for the members of `S`. Adapted from the
-helper `maxUtility_log_nonpos_of_forall_lintegral_le_one` of
-`EValuesResearch/Results/RateVersusKL.lean` (commit `dd4072f`) in the paper project
-`RemyDegenne/evalues_research` (same author). -/
+null, no e-variable for `S` has a positive expected logarithm: the largest e-power is `0`. This
+extends Statlib's `maxUtility_eq_zero_of_mem` from the members of `S` to its effective null, which
+has the same e-variables (`maxEPower_effectiveSet`). -/
 theorem maxEPower_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMeasure P]
     (hS : ∀ μ ∈ S, μ univ ≤ 1) (hP : P ∈ effectiveSet S) : maxEPower P S = 0 := by
-  refine le_antisymm (maxEPower_le_iff.2 fun X hX ↦ ?_) (maxEPower_nonneg P hS)
-  calc ∫ᵉ ω, ENNReal.log (X ω) ∂P
-  _ ≤ ENNReal.log (∫⁻ ω, X ω ∂P) := by
-    simpa [logUtility_apply] using
-      Utility.eintegral_le_map logUtility hX.measurable.aemeasurable (μ := P)
-  _ ≤ 0 := by rw [ENNReal.log_le_zero_iff]; exact hP X hX
+  rw [← maxEPower_effectiveSet, maxEPower_def]
+  exact maxUtility_eq_zero_of_mem (fun _ hμ ↦ measure_univ_le_one_of_mem_effectiveSet hS hμ) hP
 
 end ProbabilityTheory
