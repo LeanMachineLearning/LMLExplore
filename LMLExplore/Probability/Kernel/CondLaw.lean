@@ -17,8 +17,9 @@ sub-σ-algebra `m` under `P` (`ProbabilityTheory.HasCondLaw`) when, for every fu
 also depend on the information in `m` amounts to integrating it out against `κ` with that
 information frozen. This is the form in which sequential statements use the conditional law of
 an observation given the past: no measurability of `κ` in `ω`, no regularity of `𝓧` and no
-integrability are assumed. For an s-finite kernel `κ` from `(Ω, m)`, it is Mathlib's
-`HasCondDistrib X id κ P`, with `id` the identity of `Ω` into `(Ω, m)`.
+integrability are assumed. For a sub-σ-algebra `m ≤ mΩ`, an a.e.-measurable `X`, an s-finite
+measure `P` and an s-finite kernel `κ` from `(Ω, m)`, it is Mathlib's `HasCondDistrib X id κ P`,
+with `id` the identity of `Ω` into `(Ω, m)`.
 
 ## Main statements
 
@@ -30,9 +31,9 @@ integrability are assumed. For an s-finite kernel `κ` from `(Ω, m)`, it is Mat
 * `ProbabilityTheory.HasCondLaw.measure_inter_preimage`: the identity on `m`-measurable
   rectangles, `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`.
 * `ProbabilityTheory.HasCondDistrib.hasCondLaw`,
-  `ProbabilityTheory.hasCondDistrib_id_iff_hasCondLaw`: a conditional distribution given the
-  identity of `Ω` into `(Ω, m)` is a conditional law given `m`, and conversely for s-finite
-  kernels.
+  `ProbabilityTheory.hasCondDistrib_id_iff_hasCondLaw`: under an s-finite measure, a conditional
+  distribution given the identity of `Ω` into `(Ω, m)` is a conditional law given `m`, and
+  conversely for s-finite kernels, `m ≤ mΩ` and an a.e.-measurable `X`.
 * `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: an `m`-measurable s-finite kernel
   satisfying the identity on rectangles is a conditional law of `X` given `m`.
 * `ProbabilityTheory.hasCondLaw_of_indep`: a random variable independent of `m`, of law `ν`, has

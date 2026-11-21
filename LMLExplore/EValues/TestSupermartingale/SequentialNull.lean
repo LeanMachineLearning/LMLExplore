@@ -23,7 +23,7 @@ observation `X k` has a conditional distribution `κ` given the past `ℱ k`, a 
 `(Ω, ℱ k)` (Mathlib's `HasCondDistrib (X k) id κ P`), with `κ ω ∈ S₁ k ω` almost surely.
 For a constant one-step null `S₁ k ω = N`, it contains the laws of the independent
 sequences with laws in `N`, in particular the i.i.d. laws of the members of `N`, but also every law
-under which each observation is drawn from a member of `N` chosen, in any way, from the past.
+under which each observation is drawn from a member of `N` chosen measurably from the past.
 The kernels of the definition give conditional laws in the set-integral form
 `ProbabilityTheory.HasCondLaw`, in which the proofs below are written. On sequences in a standard
 Borel space with the filtration `Filtration.piLT` of the strict past, Mathlib's `condDistrib` of
@@ -45,10 +45,11 @@ error of the test that rejects as soon as the product reaches `α⁻¹`, uniform
 The product of the numeraires generalizes the test supermartingale of [KG22, Theorem 12], stated
 there for i.i.d. data and a null of densities containing the reverse information projection of the
 alternative on its convex hull, in which case the numeraire is a likelihood ratio. Here `N` is any
-set of measures, the observation space is arbitrary, and the null contains every law whose
-conditional laws given the past lie in `N`.
+set of measures, the observation space is arbitrary, and the null contains every law with a
+conditional distribution (a kernel from `(Ω, ℱ k)`) given the past with values in `N`.
 
-The nulls of a constant one-step null `N` form a chain: the i.i.d. null `iidNull N` and the
+The nulls of a constant one-step null `N` form a chain, for a null `N` of probability measures:
+the i.i.d. null `iidNull N` and the
 independent null `indepNull N` of the coordinates are contained in the sequential null, which is
 contained in the *null of conditional bets* `ProbabilityTheory.condEVarNull 𝓔 X ℱ` of any set `𝓔`
 of e-variables for `N`: the probability measures under which every `e (X k)`, `e ∈ 𝓔`, is a
@@ -90,8 +91,9 @@ for which it holds.
   `ProbabilityTheory.indepNull_subset_sequentialNull`,
   `ProbabilityTheory.sequentialNull_subset_condEVarNull`: the chain
   `iidNull N ⊆ indepNull N ⊆ sequentialNull (fun _ _ ↦ N) X ℱ ⊆ condEVarNull 𝓔 X ℱ`, for the
-  coordinates with `Filtration.piLT` and bets `𝓔` that are e-variables for `N`; the last
-  inclusion holds for every one-step null whose e-variables include `𝓔`.
+  coordinates with `Filtration.piLT`, a null `N` of probability measures and bets `𝓔` that are
+  e-variables for `N`; the last inclusion holds, for measurable observations `X k`, for every
+  one-step null whose e-variables include `𝓔`.
 * `ProbabilityTheory.isTestSupermartingale_prod_condEVarNull`: products of bets of `𝓔` are test
   supermartingales for the null of conditional bets `𝓔`.
 
@@ -196,15 +198,15 @@ theorem mem_sequentialNull_of_indep [IsProbabilityMeasure P] (hX : ∀ k, AEMeas
     hmap k⟩⟩
 
 /-- **Independent sequences.** The law `Measure.infinitePi μ` of a sequence of independent
-observations on `ℕ → 𝓧`, with laws `μ k ∈ S₁ k ω`, belongs to the sequential null of the
-coordinates and the filtration `Filtration.piLT` of the strict past. With `μ k = μ₀` for every
-`k`, this contains the i.i.d. laws of the members of a one-step null. -/
+observations on `ℕ → 𝓧`, with laws `μ k ∈ S₁ k ω` for almost every `ω`, belongs to the
+sequential null of the coordinates and the filtration `Filtration.piLT` of the strict past. With
+`μ k = μ₀` for every `k`, this contains the i.i.d. laws of the members of a one-step null. -/
 theorem infinitePi_mem_sequentialNull {S₁ : ℕ → (ℕ → 𝓧) → Set (Measure 𝓧)} {μ : ℕ → Measure 𝓧}
-    [∀ k, IsProbabilityMeasure (μ k)] (hμ : ∀ k ω, μ k ∈ S₁ k ω) :
+    [∀ k, IsProbabilityMeasure (μ k)] (hμ : ∀ k, ∀ᵐ ω ∂Measure.infinitePi μ, μ k ∈ S₁ k ω) :
     Measure.infinitePi μ ∈ sequentialNull S₁ (fun k ω ↦ ω k) Filtration.piLT :=
   mem_sequentialNull_of_indep (fun k ↦ (measurable_pi_apply k).aemeasurable)
     (by rw [Filtration.piLT_eq_naturalLT]; exact Filtration.indep_naturalLT_infinitePi μ) fun k ↦
-      .of_forall fun ω ↦ (Measure.infinitePi_map_eval μ k).symm ▸ hμ k ω
+      (hμ k).mono fun _ h ↦ (Measure.infinitePi_map_eval μ k).symm ▸ h
 
 /-- **The sequential null of the coordinates, from Mathlib's conditional distributions.** On
 sequences in a standard Borel space, with the coordinates and the filtration `Filtration.piLT` of
@@ -307,7 +309,7 @@ theorem indepNull_subset_sequentialNull {N : Set (Measure 𝓧)}
   intro μ hμ
   obtain ⟨Q, hQ, rfl⟩ := mem_indepNull.1 hμ
   have := fun k ↦ hN _ (hQ k)
-  exact infinitePi_mem_sequentialNull fun k _ ↦ hQ k
+  exact infinitePi_mem_sequentialNull fun k ↦ .of_forall fun _ ↦ hQ k
 
 /-- **I.i.d. sequences form a sub-null of the sequential null.** For a null `N` of probability
 measures, the i.i.d. laws of the members of `N` belong to the sequential null of the constant
@@ -319,8 +321,8 @@ theorem iidNull_subset_sequentialNull {N : Set (Measure 𝓧)}
 
 /-- The **null of conditional bets** `𝓔` on the observations `X k`: the probability measures under
 which, for every round `k` and every bet `e ∈ 𝓔`, `e (X k)` is a conditional e-variable given the
-past `ℱ k`. This is the dual form of the sequential null: it contains the sequential null of every
-one-step null for which the bets of `𝓔` are e-variables
+past `ℱ k`. This is the dual form of the sequential null: for measurable observations `X k`, it
+contains the sequential null of every one-step null for which the bets of `𝓔` are e-variables
 (`ProbabilityTheory.sequentialNull_subset_condEVarNull`). -/
 def condEVarNull (𝓔 : Set (𝓧 → ℝ≥0∞)) (X : ℕ → Ω → 𝓧) (ℱ : Filtration ℕ mΩ) :
     Set (Measure Ω) :=
@@ -340,6 +342,7 @@ theorem isProbabilityMeasure_of_mem_condEVarNull (hP : P ∈ condEVarNull 𝓔 X
   hP.1
 
 /-- The null of conditional bets shrinks as the set of bets grows. -/
+@[gcongr]
 theorem condEVarNull_anti (h : 𝓔 ⊆ 𝓕) : condEVarNull 𝓕 X ℱ ⊆ condEVarNull 𝓔 X ℱ :=
   fun _ hP ↦ ⟨hP.1, fun k e he ↦ hP.2 k e (h he)⟩
 
@@ -356,12 +359,15 @@ sequential null `sequentialNull S₁ X ℱ` is contained in the null of conditio
 theorem sequentialNull_subset_condEVarNull (hX : ∀ k, Measurable (X k))
     (h𝓔 : ∀ e ∈ 𝓔, ∀ k ω, IsEVar e (S₁ k ω)) :
     sequentialNull S₁ X ℱ ⊆ condEVarNull 𝓔 X ℱ := by
-  refine fun P hP ↦ ⟨isProbabilityMeasure_of_mem_sequentialNull hP, fun k e he ↦ ?_⟩
+  intro P hP
   have := isProbabilityMeasure_of_mem_sequentialNull hP
+  refine ⟨this, fun k e he ↦ ?_⟩
+  -- `Ω` is nonempty under a probability measure, and a point `ω₀` yields the measurability of `e`
+  -- from the e-variable `e` for `S₁ k ω₀`.
   obtain ⟨ω₀⟩ := nonempty_of_isProbabilityMeasure P
-  have h := isCondEVar_comp_sequentialNull (ℱ := ℱ) (r := fun _ ↦ e) (hX k)
-    ((h𝓔 e he k ω₀).measurable.comp measurable_snd) fun ω ↦ h𝓔 e he k ω
-  exact ⟨h.measurable, fun _ hQ ↦ h.setLIntegral_le _ (mem_singleton_iff.1 hQ ▸ hP)⟩
+  exact (isCondEVar_comp_sequentialNull (ℱ := ℱ) (r := fun _ ↦ e) (hX k)
+    ((h𝓔 e he k ω₀).measurable.comp measurable_snd) fun ω ↦ h𝓔 e he k ω).anti_set
+    (singleton_subset_iff.2 hP)
 
 /-- **Products of conditional bets are test supermartingales for the null of conditional bets.**
 If `X k` is `ℱ (k + 1)`-measurable and `e k ∈ 𝓔` is measurable for every `k`, then
