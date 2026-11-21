@@ -112,22 +112,22 @@ theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
     (hν : ∀ᵐ Q' ∂ν, IsProbabilityMeasure Q')
     (hν_supp : ∀ ε : ℝ≥0∞, 0 < ε → ν {Q' | klDiv Q₁ Q' ≤ ε} ≠ 0)
     {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
-    (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) {ε : ℝ}
+    (hM : ∀ n, IsEVar (M n) (sampleNull S₁ n)) {ε : ℝ}
     (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ENNReal.log (M n (initSeg n ω)) ≤ ENNReal.log (numeraire
         (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
+        (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   -- the ratios to the mixture numeraires have mean at most `ν univ` under the mixtures
   have hbound (n : ℕ) : ∫⁻ x, M n x / numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
-      ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) x
+      (sampleNull S₁ n) x
         ∂(ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') ≤ ν .univ := by
     calc _ ≤ (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q') .univ :=
           lintegral_div_numeraire_le_measure_univ _
-            (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull hS₁ n)
+            (measure_univ_le_one_of_mem_sampleNull hS₁ n)
             (hM n)
     _ = ν .univ := by
       rw [Measure.bind_apply .univ
@@ -158,18 +158,18 @@ theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
     (hν_supp : ∀ ε : ℝ≥0∞, 0 < ε → ν {Q' | klDiv Q₁ Q' ≤ ε} ≠ 0) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω)) / (n : EReal)) atTop
+        (sampleNull S₁ n) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   have := nonempty_of_isProbabilityMeasure Q₁
   filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
-      (sampleNull_def S₁ n ▸ measure_univ_le_one_of_mem_sampleNull
+      (measure_univ_le_one_of_mem_sampleNull
         (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
-        ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁) (initSeg n ω))
+        (sampleNull S₁ n) (initSeg n ω))
       fun F hF hFn h_null ε hε ↦ by
         choose G hG hFG using fun n ↦
           exists_isEVar_eq_comp_initSeg hS₁ (hF n) (hFn n) fun P hP ↦ h_null P hP n

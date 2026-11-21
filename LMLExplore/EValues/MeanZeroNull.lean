@@ -47,7 +47,7 @@ Savage [BS56]:
   `ProbabilityTheory.bipolarRate_meanZeroPosVarNull`,
   `ProbabilityTheory.measure_pi_le_of_forall_meanZeroPosVarNull`: no growth and no power against
   i.i.d. alternatives.
-* `ProbabilityTheory.le_one_of_isEProcess_infinitePi_meanZeroPosVarNull`: e-processes for the laws
+* `ProbabilityTheory.le_one_of_isEProcess_indepNull_meanZeroPosVarNull`: e-processes for the laws
   of independent sequences with marginals in the null are at most `1`.
 
 ## Implementation notes
@@ -269,15 +269,13 @@ theorem measure_pi_le_of_forall_meanZeroPosVarNull {ι : Type*} [Fintype ι] {R 
 /-- **Independent sequences.** Every e-process, for any filtration, for the laws of the
 independent sequences of real observations whose marginals have mean `0` and a finite, positive
 variance is at most `1` at every time and on every sequence. -/
-theorem le_one_of_isEProcess_infinitePi_meanZeroPosVarNull
+theorem le_one_of_isEProcess_indepNull_meanZeroPosVarNull
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → ℝ))} {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
-    (hE : IsEProcess E ℱ
-      (Measure.infinitePi '' {P : ℕ → Measure ℝ | ∀ n, P n ∈ meanZeroPosVarNull}))
-    (n : ℕ) (x : ℕ → ℝ) :
+    (hE : IsEProcess E ℱ (indepNull meanZeroPosVarNull)) (n : ℕ) (x : ℕ → ℝ) :
     E n x ≤ 1 :=
   ((isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt
     (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
     (fun y _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt (Measure.dirac y) hε)).1
-      (hE.isEVar n)).2 x
+      (indepNull_def meanZeroPosVarNull ▸ hE.isEVar n)).2 x
 
 end ProbabilityTheory

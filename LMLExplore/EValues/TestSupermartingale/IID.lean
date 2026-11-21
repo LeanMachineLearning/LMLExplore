@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.ProductMeasure.Blocks
 public import Mathlib.Probability.ProductMeasure
@@ -60,16 +61,16 @@ supermartingale for the i.i.d. null `{P ^ ℕ | P ∈ S}` and `Filtration.piLE`.
 theorem IsEVar.isTestSupermartingale_prod_piLE (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     (he : IsEVar e S) :
     IsTestSupermartingale (fun n ω ↦ ∏ i : Fin (n + 1), e (ω i))
-      (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S) := by
-  set T := (fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S
+      (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) (iidNull S) := by
+  set T := iidNull S with hT
   have h0 : ∀ P ∈ T, ∫⁻ ω, e (ω 0) ∂P ≤ 1 := by
-    rintro _ ⟨P, hP, rfl⟩
+    refine hT ▸ forall_mem_iidNull.2 fun P hP ↦ ?_
     have := hS P hP
     rw [(measurePreserving_eval_infinitePi (fun _ ↦ P) 0).lintegral_comp he.measurable]
     exact he.lintegral_le_one hP
   have hF : ∀ k, IsCondEVar (fun ω : ℕ → 𝓧 ↦ e (ω (k + 1))) (Filtration.piLE k) T := by
     refine fun k ↦ ⟨he.measurable.comp (measurable_pi_apply _), ?_⟩
-    rintro _ ⟨P, hP, rfl⟩ s hs
+    refine hT ▸ forall_mem_iidNull.2 fun P hP s hs ↦ ?_
     have := hS P hP
     rw [setLIntegral_comp_eval_succ P he.measurable k hs]
     exact mul_le_of_le_one_right' (he.lintegral_le_one hP)
@@ -85,11 +86,8 @@ theorem IsEVar.isTestSupermartingale_prod_piLE (hS : ∀ P ∈ S, IsProbabilityM
 null `{P ^ ℕ | P ∈ S}` and `Filtration.piLE`. -/
 theorem IsEVar.isEProcess_prod_piLE (hS : ∀ P ∈ S, IsProbabilityMeasure P) (he : IsEVar e S) :
     IsEProcess (fun n ω ↦ ∏ i : Fin (n + 1), e (ω i))
-      (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S) :=
-  (he.isTestSupermartingale_prod_piLE hS).isEProcess <| by
-    rintro _ ⟨P, hP, rfl⟩
-    have := hS P hP
-    infer_instance
+      (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) (iidNull S) :=
+  (he.isTestSupermartingale_prod_piLE hS).isEProcess (isProbabilityMeasure_of_mem_iidNull hS)
 
 /-- **Ville's inequality for products over blocks.** If a function `V` of `m` observations has
 expectation at most `1` under the `m`-fold product of `P`, then under the i.i.d. law of `P` the
@@ -121,6 +119,6 @@ theorem measure_exists_le_seqBlockProd_le (P : Measure 𝓧) {m : ℕ} {V : (Fin
     exact MeasurableSet.iUnion fun n ↦ measurableSet_le measurable_const
       (Finset.measurable_prod _ fun i _ ↦ hV.comp (measurable_pi_apply _))
   rw [hset, hblocks.measure_preimage hmeas.nullMeasurableSet]
-  exact hE.measure_exists_le_le ⟨_, rfl, rfl⟩ c
+  exact hE.measure_exists_le_le (infinitePi_mem_iidNull rfl) c
 
 end ProbabilityTheory

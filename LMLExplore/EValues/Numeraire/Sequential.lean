@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.EValues.Null.Basic
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.EValues.Numeraire
 import LMLExplore.Algebra.Polynomial.Roots
@@ -245,7 +246,7 @@ private lemma isNumeraire_ofReal_div_mix {β : Type*} [MeasurableSpace β]
 `Q ^ n` against the mixture `w P₁ ^ n + (1 - w) P₂ ^ n` as soon as this ratio has expectation at
 most `1` under `P₁ ^ n` and `P₂ ^ n`. -/
 private lemma eq_ofReal_div_mix (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X : (Fin n → α) → ℝ≥0∞}
-    (hX : IsNumeraire X ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' {P₁, P₂})
+    (hX : IsNumeraire X (sampleNull {P₁, P₂} n)
       (Measure.pi fun _ ↦ Q)) {w : ℝ} (hw0 : 0 ≤ w) (hw1 : w ≤ 1)
     (hm : ∀ x : Fin n → α, 0 < w * piMass P₁ x + (1 - w) * piMass P₂ x)
     (hE₁ : ∑ x : Fin n → α,
@@ -258,7 +259,7 @@ private lemma eq_ofReal_div_mix (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X : (Fin n 
     (P₁ := Measure.pi fun _ : Fin n ↦ P₁) (P₂ := Measure.pi fun _ : Fin n ↦ P₂)
     (piMass_pos hQ) (piMass_nonneg P₁) (piMass_nonneg P₂) (pi_singleton_eq_ofReal_piMass Q)
     (pi_singleton_eq_ofReal_piMass P₁) (pi_singleton_eq_ofReal_piMass P₂) hw0 hw1 hm hE₁ hE₂
-  rw [Set.image_pair] at hX
+  rw [sampleNull_insert, sampleNull_singleton] at hX
   refine congrFun (hX.eq_of_countable hN fun y ↦ ?_) x
   rw [pi_singleton_eq_ofReal_piMass]
   exact (ENNReal.ofReal_pos.2 (piMass_pos hQ y)).ne'
@@ -268,7 +269,7 @@ i.i.d. null `{P₁, P₂}` is the likelihood ratio of `Q ^ n` against `P₁ ^ n`
 private lemma eq_ofReal_div_of_le (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hρ : ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}) ≤ 1) {n : ℕ}
     {X : (Fin n → α) → ℝ≥0∞}
-    (hX : IsNumeraire X ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' {P₁, P₂})
+    (hX : IsNumeraire X (sampleNull {P₁, P₂} n)
       (Measure.pi fun _ ↦ Q)) (x : Fin n → α) :
     X x = ENNReal.ofReal (piMass Q x / piMass P₁ x) := by
   have h1 : ∀ y : Fin n → α, (1 : ℝ) * piMass P₁ y + (1 - 1) * piMass P₂ y = piMass P₁ y :=
@@ -288,7 +289,7 @@ omit [Fintype α] in
 `{P₁, P₂}`, and the numeraires of `{P₁, P₂}` are the products of its copies. -/
 private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (h : ∫⁻ x, P₂ {x} / P₁ {x} ∂Q ≤ 1) {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
       (Measure.pi fun _ ↦ Q)) :
     IsEVar (fun y ↦ Q {y} / P₁ {y}) {P₁, P₂} ∧ ∀ n x, X n x = ∏ i, Q {x i} / P₁ {x i} := by
   have := Fintype.ofFinite α
@@ -554,7 +555,7 @@ that the first ratio at `x₀` is at most the expectation under `P` of the secon
 extended by one observation. -/
 private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
     (hE : IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' {P₁, P₂}))
+      (iidNull {P₁, P₂}))
     {k : ℕ} {w w' : ℝ} (hm' : ∀ z : Fin (k + 2) → α, 0 < w' * piMass P₁ z + (1 - w') * piMass P₂ z)
     (hN₁ : ∀ x : Fin (k + 1) → α,
       X k x = ENNReal.ofReal (piMass Q x / (w * piMass P₁ x + (1 - w) * piMass P₂ x)))
@@ -577,7 +578,7 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin (n + 1) →
     (T := fun x ↦ if x = x₀ then k else k + 1) Measurable.of_discrete
     fun x ↦ by split_ifs <;> omega
   simp only [initSeg_def] at hτ
-  have hle := hE.lintegral_le_one hτ ⟨P, hPS, rfl⟩
+  have hle := hE.lintegral_le_one hτ (infinitePi_mem_iidNull hPS)
   have hF₂ : ∫⁻ z, X (k + 1) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
     rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
       ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (piMass_nonneg _ _)
@@ -628,10 +629,10 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
     (hP₂ : ∀ x, P₂ {x} ≠ 0) (h₁ : 1 < ∑ y, P₂.real {y} * (Q.real {y} / P₁.real {y}))
     (h₂ : 1 < ∑ y, P₁.real {y} * (Q.real {y} / P₂.real {y}))
     {X : (n : ℕ) → (Fin (n + 1) → α) → ℝ≥0∞}
-    (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
       (Measure.pi fun _ ↦ Q)) :
     ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' {P₁, P₂}) := by
+      (iidNull {P₁, P₂}) := by
   classical
   intro hE
   set r : α → ℝ := fun y ↦ P₂.real {y} / P₁.real {y} with hr
@@ -729,10 +730,10 @@ the first observations, `fun n ω ↦ X n fun i ↦ ω i`, is an e-process for t
 [EVR26, Note 23, Theorem (3)]. -/
 theorem isEProcess_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
-    (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
       (Measure.pi fun _ ↦ Q₁)) :
     IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ α))
-        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' {P₁, P₂}) ↔
+        (iidNull {P₁, P₂}) ↔
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
   have := Fintype.ofFinite α
   have hS : ∀ P ∈ ({P₁, P₂} : Set (Measure α)), IsProbabilityMeasure P :=
@@ -757,7 +758,7 @@ numeraire of `n + 1` observations for the i.i.d. null `{P₁, P₂}` under `Q₁
 when `E_{Q₁}[p₂ / p₁] ≤ 1` or `E_{Q₁}[p₁ / p₂] ≤ 1` [EVR26, Note 23, Theorem (3)]. -/
 theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP₁ : ∀ x, P₁ {x} ≠ 0)
     (hP₂ : ∀ x, P₂ {x} ≠ 0)
-    (hX : ∀ n, IsNumeraire (X n) ((fun P ↦ Measure.pi fun _ : Fin (n + 1) ↦ P) '' {P₁, P₂})
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
       (Measure.pi fun _ ↦ Q₁)) :
     (∃ e : α → ℝ≥0∞, ∀ n (x : Fin (n + 1) → α), X n x = ∏ i, e (x i)) ↔
       ∫⁻ x, P₂ {x} / P₁ {x} ∂Q₁ ≤ 1 ∨ ∫⁻ x, P₁ {x} / P₂ {x} ∂Q₁ ≤ 1 := by
@@ -769,7 +770,7 @@ theorem exists_prod_eq_numeraires_pair_iff (hQ₁ : ∀ x, Q₁ {x} ≠ 0) (hP�
     have he : IsEVar e {P₁, P₂} := by
       refine ⟨Measurable.of_discrete, fun P hP ↦ ?_⟩
       have := hS P hP
-      have h0 := ((hX 0).isEVar).lintegral_le_one (Set.mem_image_of_mem _ hP)
+      have h0 := ((hX 0).isEVar).lintegral_le_one (pi_mem_sampleNull hP)
       rwa [lintegral_congr fun x ↦ (hXe 0 x).trans (Fin.prod_univ_one _),
         (measurePreserving_eval (fun _ : Fin 1 ↦ P) 0).lintegral_comp
           Measurable.of_discrete] at h0

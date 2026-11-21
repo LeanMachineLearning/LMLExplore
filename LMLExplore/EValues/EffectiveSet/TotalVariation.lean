@@ -31,13 +31,13 @@ laws: e-variables cannot tell it apart from the null of all laws, and they have 
   marginals can be chosen to miss masses of arbitrarily small sum.
 * **Finitely many i.i.d. observations.** Total variation is subadditive over products
   (`MeasureTheory.etvDist_pi_le_sum`), so if a probability measure `Q` is a limit in total
-  variation of members of `S`, then `Q ^ ι` is a limit of members of `S ^ ι` for every finite
-  `ι`, and lies in the effective null of the i.i.d. null `{P ^ ι | P ∈ S}`. If this holds for
-  every `Q`, an `ι`-sample function is an e-variable for the i.i.d. laws of `S` exactly when it is
-  one for the i.i.d. laws of all probability measures. Under the i.i.d. law of such a `Q`, the
-  maximal expected logarithm `maxLogGrowth Q S n` of an `n`-sample e-variable and the bipolar rate
-  `bipolarRate Q S` vanish, and a test of level `α` for the i.i.d. laws of `S` has power at most
-  `α`.
+  variation of members of `S`, then `Q ^ n` is a limit of members of `S ^ n` for every `n`, and
+  lies in the effective null of the null `sampleNull S n` of `n` i.i.d. observations. If this
+  holds for every `Q`, an `n`-sample function is an e-variable for the i.i.d. laws of `S` exactly
+  when it is one for the i.i.d. laws of all probability measures. Under the i.i.d. law of such a
+  `Q`, the maximal expected logarithm `maxLogGrowth Q S n` of an `n`-sample e-variable and the
+  bipolar rate `bipolarRate Q S` vanish, and a test of level `α` for the i.i.d. laws of `S` has
+  power at most `α`.
 
 The null on `ℝ` of the laws with mean `0` and a finite, positive variance
 (`ProbabilityTheory.meanZeroPosVarNull`) is the motivating instance; this is the form for
@@ -52,8 +52,10 @@ e-variables of the theorem of Bahadur and Savage [BS56].
   bounded by `1`.
 * `ProbabilityTheory.isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt`: the same for the
   laws of independent sequences with marginals in `S`.
-* `ProbabilityTheory.pi_mem_effectiveSet_of_forall_exists_etvDist_lt`: a limit `Q` in total
-  variation of members of `S` has `Q ^ ι` in the effective null of the i.i.d. null.
+* `ProbabilityTheory.pi_mem_effectiveSet_of_forall_exists_etvDist_lt`,
+  `ProbabilityTheory.pi_mem_effectiveSet_sampleNull_of_forall_exists_etvDist_lt`: a limit `Q` in
+  total variation of members of `S` has `Q ^ ι` in the effective null of the i.i.d. null, for every
+  finite `ι`, and in particular `Q ^ n` in the effective null of `sampleNull S n`.
 * `ProbabilityTheory.isEVar_pi_iff_of_forall_exists_etvDist_lt`: a null dense in total variation
   has, for every finite number of i.i.d. observations, the e-variables of the null of all laws.
 * `ProbabilityTheory.measure_pi_le_of_forall_exists_etvDist_lt`,
@@ -200,14 +202,6 @@ theorem isEVar_infinitePi_iff_of_forall_exists_etvDist_dirac_lt {ι : Type*} [Co
 
 variable {ι : Type*} [Fintype ι] {Q : Measure 𝓧}
 
-/-- The i.i.d. laws `P ^ ι` of the members `P` of a null of probability measures are probability
-measures. -/
-private lemma isProbabilityMeasure_of_mem_image_pi (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
-    ∀ R ∈ (fun P ↦ Measure.pi fun _ : ι ↦ P) '' S, IsProbabilityMeasure R := by
-  rintro _ ⟨P, hP, rfl⟩
-  have := hS P hP
-  infer_instance
-
 /-- If `Q` is a limit in total variation of members of a null `S` of probability measures, then
 `Q ^ ι` is a limit in total variation of the products `P ^ ι` of members of `S`. -/
 private lemma exists_etvDist_pi_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
@@ -232,6 +226,15 @@ theorem pi_mem_effectiveSet_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPro
   refine mem_effectiveSet_of_forall_exists_mem_etvDist_lt fun ε hε ↦ ?_
   obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ hε
   exact ⟨_, ⟨P, hP, rfl⟩, hPQ⟩
+
+/-- **`n` i.i.d. observations of a limit in total variation.** If a probability measure `Q` is a
+limit in total variation of members of a null `S` of probability measures, then for every `n` the
+product `Q ^ n` belongs to the effective null of the null `sampleNull S n` of `n` i.i.d.
+observations. This is `pi_mem_effectiveSet_of_forall_exists_etvDist_lt` for `ι = Fin n`. -/
+theorem pi_mem_effectiveSet_sampleNull_of_forall_exists_etvDist_lt
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) (n : ℕ) :
+    Measure.pi (fun _ : Fin n ↦ Q) ∈ effectiveSet (sampleNull S n) :=
+  sampleNull_def S n ▸ pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ
 
 /-- **A null dense in total variation has the e-variables of all laws.** If every probability
 measure is a limit in total variation of members of a null `S` of probability measures, then for
@@ -270,9 +273,8 @@ theorem maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsPr
   refine le_antisymm ?_ (maxLogGrowth_nonneg _ (fun P hP ↦ (hS P hP).measure_univ.le) _)
   rw [maxLogGrowth_def]
   exact (maxEPower_eq_zero_of_mem_effectiveSet
-    (sampleNull_def S n ▸ measure_univ_le_one_of_mem_sampleNull
-      (fun P hP ↦ (hS P hP).measure_univ.le) n)
-    (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)).le
+    (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS P hP).measure_univ.le) n)
+    (pi_mem_effectiveSet_sampleNull_of_forall_exists_etvDist_lt hS hQ n)).le
 
 /-- **The bipolar rate against a limit in total variation is zero.** If a probability measure `Q`
 is a limit in total variation of members of a null `S` of probability measures, the optimal growth

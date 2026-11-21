@@ -167,7 +167,7 @@ private lemma exists_log_one_sub_eq_neg {a : ℝ} (ha : 0 < a) :
 `Q ^ m`, so has the truncated logarithm of its mixture with a constant, which is bounded. -/
 private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {m : ℕ}
-    {E : (Fin m → 𝓧) → ℝ≥0∞} (hE : IsEVar E ((fun P ↦ Measure.pi fun _ : Fin m ↦ P) '' S₁))
+    {E : (Fin m → 𝓧) → ℝ≥0∞} (hE : IsEVar E (sampleNull S₁ m))
     {c : ℝ} (hc : (c : EReal) < ∫ᵉ x, ENNReal.log (E x) ∂Measure.pi (fun _ : Fin m ↦ Q)) :
     ∃ N : ℕ, ∃ f ∈ boundedLogEVarSet S₁ m N, c < ∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) := by
   obtain ⟨c', hcc', hc'⟩ := EReal.lt_iff_exists_real_btwn.1 hc
@@ -208,9 +208,9 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
     calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
     _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
       lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
-    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal (sampleNull_def S₁ m ▸
-      measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) hε0.le
-        hε1.le).lintegral_le_one ⟨P, hP, rfl⟩
+    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal
+      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) hε0.le
+        hε1.le).lintegral_le_one (pi_mem_sampleNull hP)
   · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) :=
       hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
     rw [EReal.coe_lt_coe_iff, hlogε] at h
@@ -221,7 +221,7 @@ some number of observations. -/
 private lemma exists_isEVar_lt_eintegral_of_lt_bipolarRate {Q : Measure 𝓧} {t : ℝ}
     (ht : (t : EReal) < bipolarRate Q S₁) :
     ∃ m : ℕ, ∃ E : (Fin (m + 1) → 𝓧) → ℝ≥0∞,
-      IsEVar E ((fun P ↦ Measure.pi fun _ : Fin (m + 1) ↦ P) '' S₁) ∧
+      IsEVar E (sampleNull S₁ (m + 1)) ∧
       ((t * (m + 1) : ℝ) : EReal) <
         ∫ᵉ x, ENNReal.log (E x) ∂Measure.pi (fun _ : Fin (m + 1) ↦ Q) := by
   rw [bipolarRate_def] at ht
@@ -605,7 +605,7 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
     ∃ E : ℕ → (ℕ → 𝓧) → ℝ≥0∞,
       IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-        ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) ∧ Monotone E ∧
+        (iidNull S₁) ∧ Monotone E ∧
       ∀ Q₁ : Measure 𝓧, Q₁ ≪ ρ → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
         Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
           (𝓝 (bipolarRate Q₁ S₁)) := by
@@ -623,7 +623,8 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     (fun n ↦ Filtration.measurable_piLE_of_dependsOn (hEm n)
       ((hEd n).mono (Set.Iio_subset_Iio n.le_succ))) ?_, monotone_blockMixture,
     fun Q₁ hQ₁ρ ↦ ?_⟩
-  · rintro τ - _ ⟨P, hP, rfl⟩
+  · rintro τ - _ hμ
+    obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
     exact hEnull P hP τ
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap

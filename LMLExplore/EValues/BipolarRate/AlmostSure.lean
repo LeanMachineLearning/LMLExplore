@@ -800,7 +800,7 @@ almost surely under the i.i.d. law of `Q₁`, `M n` evaluated at the first `n` o
 `limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. -/
 theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
-    (hM : ∀ n, IsEVar (M n) ((fun P ↦ Measure.pi fun _ : Fin n ↦ P) '' S₁)) :
+    (hM : ∀ n, IsEVar (M n) (sampleNull S₁ n)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       limsup (fun n : ℕ ↦ ENNReal.log (M n (initSeg n ω)) / (n : EReal)) atTop ≤
         bipolarRate Q₁ S₁ :=
@@ -809,7 +809,7 @@ theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     (fun n ↦ dependsOn_comp_initSeg (M n)) fun P hP n ↦ by
       have := hS₁ P hP
       rw [(measurePreserving_initSeg P n).lintegral_comp (hM n).measurable]
-      exact (hM n).lintegral_le_one ⟨P, hP, rfl⟩
+      exact (hM n).lintegral_le_one (pi_mem_sampleNull hP)
 
 /-- **No e-process for an i.i.d. null grows faster than the bipolar rate, almost surely.** For an
 e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration of the observations,
@@ -818,7 +818,7 @@ observations it has seen has `limsup` at most `bipolarRate Q₁ S₁`. -/
 theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁)) :
+      (iidNull S₁)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       limsup (fun n : ℕ ↦ ENNReal.log (E n ω) / ((n + 1 : ℕ) : EReal)) atTop ≤
         bipolarRate Q₁ S₁ := by
@@ -838,7 +838,7 @@ theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     · have := hS₁ P hP
       simp [F]
     · have := hS₁ P hP
-      simpa [F] using (hE.isEVar n).lintegral_le_one ⟨P, hP, rfl⟩
+      simpa [F] using (hE.isEVar n).lintegral_le_one (infinitePi_mem_iidNull hP)
   filter_upwards [ae_limsup_log_div_le_bipolarRate_of_dependsOn Q₁ hS₁ hF hFn h_null] with ω hω
   rw [← limsup_nat_add _ 1] at hω
   simpa [F] using hω

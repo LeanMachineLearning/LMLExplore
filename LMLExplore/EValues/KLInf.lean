@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.Null.Basic
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
 import LMLExplore.EValues.DPI
@@ -328,15 +329,15 @@ theorem maxEPower_prod_eq_add {Q₁ : Measure Ω} {Q₂ : Measure Ω'} [IsProbab
 /-- **Data processing** along a measurable map: pushing the measure and the null forward along `φ`
 does not increase the largest e-power. This is Statlib's `maxUtility_map_le`. -/
 theorem maxEPower_map_le (Q : Measure Ω) {φ : Ω → Ω'} (hφ : Measurable φ) :
-    maxEPower (Q.map φ) {P.map φ | P ∈ S} ≤ maxEPower Q S :=
-  maxUtility_map_le Q hφ
+    maxEPower (Q.map φ) (mapNull φ S) ≤ maxEPower Q S :=
+  mapNull_def φ S ▸ maxUtility_map_le Q hφ
 
 /-- Pushing the measure and the null forward along a measurable embedding preserves the largest
 e-power. This is Statlib's `MeasurableEmbedding.maxUtility_map_eq`. -/
 theorem _root_.MeasurableEmbedding.maxEPower_map_eq [Nonempty Ω] {φ : Ω → Ω'}
     (hφ : MeasurableEmbedding φ) (Q : Measure Ω) (S : Set (Measure Ω)) :
-    maxEPower (Q.map φ) {P.map φ | P ∈ S} = maxEPower Q S :=
-  MeasurableEmbedding.maxUtility_map_eq φ hφ Q S
+    maxEPower (Q.map φ) (mapNull φ S) = maxEPower Q S :=
+  mapNull_def φ S ▸ MeasurableEmbedding.maxUtility_map_eq φ hφ Q S
 
 /-! ### `klDiv` cannot replace `klIntegral` -/
 

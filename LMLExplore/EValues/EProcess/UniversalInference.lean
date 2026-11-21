@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConfidenceSequence
+public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.EValues.TestSupermartingale.LikelihoodRatio
 public import LMLExplore.EValues.TestSupermartingale.Predictor
 public import LMLExplore.MeasureTheory.Measure.Decomposition.RadonNikodym
@@ -156,16 +157,12 @@ theorem isEProcess_rnDeriv_trim_div_infinitePi [IsProbabilityMeasure ν]
       ≤ᵐ[Measure.infinitePi fun _ : ℕ ↦ ν] ℓ n) :
     IsEProcess (fun n ω ↦ (Q.trim ((piLE (X := fun _ : ℕ ↦ 𝓧)).le n)).rnDeriv
         ((Measure.infinitePi fun _ : ℕ ↦ ν).trim ((piLE (X := fun _ : ℕ ↦ 𝓧)).le n)) ω / ℓ n ω)
-      piLE ((fun P ↦ Measure.infinitePi fun _ : ℕ ↦ P) '' S₁) := by
-  refine isEProcess_rnDeriv_trim_div ?_ ?_ hQ hℓ ?_
-  · rintro _ ⟨P, hP, rfl⟩
-    have := hS₁ P hP
-    infer_instance
-  · rintro _ ⟨P, hP, rfl⟩ n
-    have := hS₁ P hP
+      piLE (iidNull S₁) := by
+  refine isEProcess_rnDeriv_trim_div (isProbabilityMeasure_of_mem_iidNull hS₁)
+    (forall_mem_iidNull.2 fun P hP n ↦ ?_) hQ hℓ (forall_mem_iidNull.2 fun P hP n ↦ ?_)
+  · have := hS₁ P hP
     exact absolutelyContinuous_trim_piLE_infinitePi (hS₁ν P hP) n
-  · rintro _ ⟨P, hP, rfl⟩ n
-    have := hS₁ P hP
+  · have := hS₁ P hP
     -- the density of `P^ℕ` on the observations so far is the product of the densities of `P`
     filter_upwards [ae_of_ae_trim _ (rnDeriv_trim_piLE_infinitePi (μ := P) (ν := ν) n),
       hle P hP n] with ω h1 h2
