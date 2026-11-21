@@ -28,6 +28,8 @@ members.
   `μ.rnDeriv ξ / ν.rnDeriv ξ`.
 * `MeasureTheory.Measure.rnDeriv_div_ae_le_rnDeriv`: for `ν ≪ ξ` and `ν.rnDeriv ξ ≤ f`
   `ξ`-a.e., `μ.rnDeriv ξ / f` is `ν`-a.e. at most `μ.rnDeriv ν`.
+* `MeasureTheory.Measure.rnDeriv_le_of_le_withDensity`: for `μ ≤ ν.withDensity f`,
+  `μ.rnDeriv ν` is `ν`-a.e. at most `f`.
 -/
 
 public section
@@ -57,5 +59,13 @@ theorem rnDeriv_div_ae_le_rnDeriv [SigmaFinite μ] [SigmaFinite ν] [SigmaFinite
   filter_upwards [hν.ae_le hf, rnDeriv_eq_div' (μ := μ) hν] with x h1 h2
   rw [h2]
   exact ENNReal.div_le_div_left h1 _
+
+/-- A measure below `ν.withDensity f` has a Radon–Nikodym derivative with respect to `ν` that is
+`ν`-almost everywhere at most `f`. Mathlib's `MeasureTheory.Measure.rnDeriv_le_one_of_le` is the
+case `f = 1`. -/
+theorem rnDeriv_le_of_le_withDensity [SigmaFinite ν] {f : α → ℝ≥0∞} (h : μ ≤ ν.withDensity f) :
+    μ.rnDeriv ν ≤ᵐ[ν] f :=
+  ae_le_of_forall_setLIntegral_le_of_sigmaFinite (μ.measurable_rnDeriv ν) fun s hs _ ↦
+    (setLIntegral_rnDeriv_le s).trans ((h s).trans_eq (withDensity_apply _ hs))
 
 end MeasureTheory.Measure
