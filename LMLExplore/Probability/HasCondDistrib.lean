@@ -77,6 +77,8 @@ given the past of a sequence of observations.
 * `ProbabilityTheory.hasCondDistrib_piLT_condDistrib`: on sequences in a standard Borel space,
   `condDistrib` of a coordinate given the previous ones is a conditional distribution given
   `Filtration.piLT`.
+* `ProbabilityTheory.HasCondDistrib.condExp_id_ae_eq_integral`: given a σ-algebra `m`,
+  `P[f (X) | m] = ∫ f dη` almost everywhere, for integrable `f (X)`.
 
 `hasCondDistrib_snd_compProd_comap` is adapted from the LMLPapers project (same author). The
 characterization, the Bochner integral, the conditional expectation,
@@ -230,6 +232,16 @@ lemma HasCondDistrib.ae_mem (h : HasCondDistrib Y X κ P) {t : Set 𝓨} (ht : M
     Measure.ae_compProd_of_ae_ae (ht.preimage measurable_snd) (.of_forall hκ)
   rw [← h.map_eq] at h_ae
   exact ae_of_ae_map h.aemeasurable h_ae
+
+omit [SFinite P] [IsSFiniteKernel κ] in
+/-- A conditional distribution under a nonzero measure is an s-finite kernel: for any other kernel
+the joint law `P.map X ⊗ₘ κ` vanishes, and so does `P`. -/
+lemma HasCondDistrib.isSFiniteKernel [NeZero P] (h : HasCondDistrib Y X κ P) :
+    IsSFiniteKernel κ := by
+  by_contra hκ
+  refine NeZero.ne P ?_
+  rw [← Measure.map_eq_zero_iff h.aemeasurable, h.map_eq,
+    Measure.compProd_of_not_isSFiniteKernel _ _ hκ]
 
 end JointMass
 
@@ -404,6 +416,39 @@ lemma hasCondDistrib_piLT_condDistrib [StandardBorelSpace 𝓧] [Nonempty 𝓧]
   (hasCondDistrib_of_condDistrib_ae_eq (measurable_initSeg k).aemeasurable
       (measurable_pi_apply k).aemeasurable .rfl).id_of_le_comap (Filtration.le _ k) _
     (Filtration.piLT_eq_comap_initSeg k).le
+
+section Integral
+
+variable {E : Type*} [NormedAddCommGroup E] {η : Kernel[m] Ω 𝓧} [IsSFiniteKernel η]
+  {f : 𝓧 → E}
+
+/-- **Integrability under a conditional distribution given a σ-algebra.** If the s-finite kernel
+`η` from `(Ω, m)` is a conditional distribution of `X` given `m` and `f (X)` is integrable, then
+`f` is `η ω`-integrable for almost every `ω`. -/
+lemma HasCondDistrib.ae_integrable_id [SFinite P] (hm : m ≤ mΩ)
+    (h : HasCondDistrib (m𝓧 := m) X id η P) (hf : StronglyMeasurable f)
+    (hint : Integrable (fun ω ↦ f (X ω)) P) :
+    ∀ᵐ ω ∂P, Integrable f (η ω) := by
+  have hg := (hf.comp_measurable (@measurable_snd Ω 𝓧 m m𝓧)).aestronglyMeasurable
+    (μ := @Measure.map Ω Ω mΩ m id P ⊗ₘ η)
+  exact ae_of_ae_map ⟨id, measurable_id'' hm, .rfl⟩
+    ((Measure.integrable_compProd_iff hg).1 ((h.integrable_comp_prodMk_iff hg).1 hint)).1
+
+/-- **Conditional expectations given a σ-algebra.** If the s-finite kernel `η` from `(Ω, m)` is a
+conditional distribution of `X` given `m` under the finite measure `P` and `f (X)` is integrable,
+then `P[f (X) | m] = ∫ f dη ω` almost everywhere. This is the case of the identity of `Ω` into
+`(Ω, m)` and of a function of `X` alone of `HasCondDistrib.condExp_prod_ae_eq_integral`. -/
+lemma HasCondDistrib.condExp_id_ae_eq_integral [NormedSpace ℝ E] [CompleteSpace E]
+    [IsFiniteMeasure P] (hm : m ≤ mΩ) (h : HasCondDistrib (m𝓧 := m) X id η P)
+    (hf : StronglyMeasurable f) (hint : Integrable (fun ω ↦ f (X ω)) P) :
+    P[fun ω ↦ f (X ω) | m] =ᵐ[P] fun ω ↦ ∫ x, f x ∂(η ω) := by
+  have hg := (hf.comp_measurable (@measurable_snd Ω 𝓧 m m𝓧)).aestronglyMeasurable
+    (μ := @Measure.map Ω Ω mΩ m id P ⊗ₘ η)
+  have := h.condExp_prod_ae_eq_integral (measurable_id'' hm)
+    ((h.integrable_comp_prodMk_iff hg).1 hint)
+  simpa only [MeasurableSpace.comap_id, id, Function.comp_apply] using this
+
+end Integral
 
 end SubSigmaAlgebra
 

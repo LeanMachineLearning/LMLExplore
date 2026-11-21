@@ -5,11 +5,10 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Probability.HasCondDistrib
-public import LMLExplore.Probability.Martingale.Basic
 public import LMLExplore.Probability.Martingale.Mixture
 public import LMLExplore.Probability.Martingale.Ville
 public import LMLExplore.SequentialLearning.Algorithm
+import LMLExplore.EValues.TestSupermartingale.Predictor
 
 /-!
 # Likelihood ratio supermartingales along a bandit run
@@ -25,6 +24,13 @@ probability that a mixture ever reaches `c` by `1 / c`. This replaces the change
 universal coding argument of [GK16, Appendix C.1] by a statement about the true measure only; with
 the Krichevsky–Trofimov prior on Bernoulli means, it gives the deviation inequality of
 `SequentialLearning/BernoulliDeviation.lean`.
+
+The supermartingale is the real form of a product of conditional e-variables: given the history
+and the action of round `k`, the feedback `Y k` has the conditional law `ν (A k)`
+(`Learning.IsAlgEnvSeq.hasCondLaw_feedback`), under which `exp (z (A k) ·)` has mean at most `1`,
+so that the likelihood ratio of the sequential predictor with densities `exp (z (A k) ·)` is a test
+supermartingale (`ProbabilityTheory.isTestSupermartingale_prod_of_hasCondLaw`) for `P` normalized
+to a probability measure.
 
 ## Main statements
 
@@ -56,33 +62,45 @@ variable {𝓐 𝓨 Ω : Type*} {m𝓐 : MeasurableSpace 𝓐} {m𝓨 : Measurab
 /-- **The likelihood ratio supermartingale of a bandit run.** Along a run against the stochastic
 bandit `ν`, if `∫ exp (z a y) dν a(y) ≤ 1` for every arm `a`, then
 `n ↦ exp (∑ k < n, z (A k) (Y k))` is a supermartingale for the filtration of the history and the
-next action. -/
+next action. This is the real form of the likelihood ratio of the sequential predictor with the
+densities `exp (z (A k) ·)` with respect to the conditional laws `ν (A k)` of the feedbacks
+(`ProbabilityTheory.isTestSupermartingale_prod_of_hasCondLaw`). -/
 lemma supermartingale_exp_sum_of_lintegral_exp_le_one [IsFiniteMeasure P]
     (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {z : 𝓐 → 𝓨 → ℝ}
     (hz : Measurable (Function.uncurry z))
     (hle : ∀ a, ∫⁻ y, ENNReal.ofReal (exp (z a y)) ∂ν a ≤ 1) :
     Supermartingale (fun n ω ↦ exp (∑ k ∈ range n, z (A k ω) (Y k ω))) h.filtrationAction P := by
-  refine supermartingale_exp_sum_of_lintegral_mul_exp_le (fun n ↦ ?_) (fun n g hg ↦ ?_)
-  · have hA : Measurable[h.filtrationAction (n + 1)] (A n) :=
-      (h.adapted_action_filtrationAction n).mono (h.filtrationAction.mono (Nat.le_succ n)) le_rfl
-    have hY : Measurable[h.filtrationAction (n + 1)] (Y n) :=
-      h.measurable_feedback_filtrationAction_of_lt (Nat.lt_succ_self n)
-    exact hz.comp (hA.prodMk hY)
-  · rw [h.filtrationAction_eq_comap n] at hg
-    obtain ⟨g', hg', rfl⟩ := hg.exists_eq_measurable_comp
-    have hzm : Measurable fun p : ((Hist Unit 𝓐 𝓨 n × Unit) × 𝓐) × 𝓨 ↦
-        g' p.1 * ENNReal.ofReal (exp (z p.1.2 p.2)) :=
-      (hg'.comp measurable_fst).mul
-        ((hz.comp ((measurable_snd.comp measurable_fst).prodMk measurable_snd)).exp.ennreal_ofReal)
-    have key := (h.hasCondDistrib_feedback n).lintegral_comp_prodMk_eq_lintegral_lintegral hzm
-    simp only [Function.comp_apply] at key ⊢
-    rw [key]
-    refine lintegral_mono fun ω ↦ ?_
-    have hm : Measurable fun y ↦ ENNReal.ofReal (exp (z (A n ω) y)) :=
-      (hz.comp (measurable_const.prodMk measurable_id)).exp.ennreal_ofReal
-    rw [lintegral_const_mul _ hm]
-    simpa only [feedback_bandit, Kernel.prodMkLeft_apply] using
-      mul_le_of_le_one_right' (hle (A n ω))
+  have hY (k : ℕ) : Measurable[h.filtrationAction (k + 1)] (Y k) :=
+    h.measurable_feedback_filtrationAction_of_lt k.lt_succ_self
+  have hr (k : ℕ) : Measurable[(h.filtrationAction k).prod m𝓨]
+      (Function.uncurry fun ω y ↦ ENNReal.ofReal (exp (z (A k ω) y))) :=
+    (hz.comp (((h.adapted_action_filtrationAction k).comp measurable_fst).prodMk
+      measurable_snd)).exp.ennreal_ofReal
+  have hκ (k : ℕ) : HasCondLaw (Y k) (fun ω ↦ ν (A k ω)) (h.filtrationAction k) P := by
+    simpa [Environment.feedbackKernel] using h.hasCondLaw_feedback k
+  -- the likelihood ratio is a supermartingale in `ℝ≥0∞` under `P`: a test supermartingale for `P`
+  -- normalized to a probability measure
+  have hM : IsENNSupermartingale
+      (fun n ω ↦ ∏ k ∈ range n, ENNReal.ofReal (exp (z (A k ω) (Y k ω)))) h.filtrationAction
+      {P} := by
+    rcases eq_zero_or_neZero P with rfl | hP
+    · refine ⟨fun n ↦ Finset.measurable_prod _ fun k hk ↦ ?_, by simp⟩
+      exact ((hr k).comp_prodMk_of_le (h.filtrationAction.mono k.le_succ) (hY k)).mono
+        (h.filtrationAction.mono (mem_range.1 hk)) le_rfl
+    have hc : (P Set.univ)⁻¹ ≠ 0 := ENNReal.inv_ne_zero.2 (measure_ne_top P Set.univ)
+    have hc' : (P Set.univ)⁻¹ ≠ ∞ := ENNReal.inv_ne_top.2 (Measure.measure_univ_ne_zero.2 hP.out)
+    have hT := isTestSupermartingale_prod_of_hasCondLaw (P := (P Set.univ)⁻¹ • P) hY
+      (fun k ↦ ⟨fun g hg ↦ by simp only [lintegral_smul_measure, (hκ k).lintegral_comp g hg]⟩)
+      hr fun k ↦ ae_of_all _ fun ω ↦ hle (A k ω)
+    refine ⟨hT.adapted, fun Q hQ n s hs ↦ ?_⟩
+    rw [Set.mem_singleton_iff.1 hQ]
+    have := hT.setLIntegral_succ_le _ rfl n s hs
+    simp only [Measure.restrict_smul, lintegral_smul_measure] at this
+    exact (ENNReal.mul_le_mul_iff_right hc hc').1 this
+  convert hM.supermartingale_toReal (Set.mem_singleton P) (by simp) using 1
+  ext n ω
+  rw [ENNReal.toReal_prod, Real.exp_sum]
+  exact prod_congr rfl fun k _ ↦ (ENNReal.toReal_ofReal (exp_pos _).le).symm
 
 /-- **Ville's inequality for mixtures of likelihood ratios along a bandit run.** Along a run
 against the stochastic bandit `ν`, let `z l a y` depend measurably on a parameter `l`, with

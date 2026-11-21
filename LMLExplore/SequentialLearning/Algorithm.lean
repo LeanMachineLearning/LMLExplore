@@ -9,6 +9,7 @@ public import LeanMachineLearning.SequentialLearning.Algorithm
 public import LeanMachineLearning.SequentialLearning.Means
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
 public import LMLExplore.Probability.HasCondDistrib
+public import LMLExplore.Probability.Kernel.CondLaw
 public import Mathlib.Probability.Kernel.CondDistrib
 
 import LMLExplore.Probability.Kernel.Composition.MeasureCompProd
@@ -61,6 +62,9 @@ the whole trajectory.
   measurable with respect to the past `h.filtrationObs n` of round `n`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_feedback`: on an event of `h.filtrationAction n`, the
   expectation of `g(Y_n)` is that of `∫ g` against the conditional law of `Y_n`, for `g ≥ 0`.
+* `Learning.IsAlgEnvSeq.hasCondLaw_feedback`: given `h.filtrationAction n`, the feedback of round
+  `n` has the conditional law `env.feedbackKernel O A Y n ω (A n ω)`, as a
+  `ProbabilityTheory.HasCondLaw`.
 * `Learning.IsAlgEnvSeq.ae_forall_feedback_mem_bandit`: along a run against a stochastic bandit
   whose arm laws are concentrated on a set, almost surely every feedback lies in that set.
 * `Learning.IsAlgEnvSeq.integrable_feedback`: the feedback of a round is integrable when its
@@ -180,6 +184,19 @@ lemma IsAlgEnvSeq.setLIntegral_comp_feedback [SFinite P] (h : IsAlgEnvSeq O A Y 
   obtain ⟨t, ht, rfl⟩ := hs
   simpa [Environment.feedbackKernel] using
     (h.hasCondDistrib_feedback n).setLIntegral_comp_eq_setLIntegral_lintegral ht hg
+
+/-- **The conditional law of the feedback.** Along a run, the feedback `Y n` has the conditional
+law `env.feedbackKernel O A Y n ω (A n ω)` given `h.filtrationAction n`, the history before round
+`n` with the observation and the action of round `n`, in the form
+`ProbabilityTheory.HasCondLaw` of the products of conditional e-variables. -/
+lemma IsAlgEnvSeq.hasCondLaw_feedback [IsFiniteMeasure P] (h : IsAlgEnvSeq O A Y alg env P)
+    (n : ℕ) :
+    HasCondLaw (Y n) (fun ω ↦ env.feedbackKernel O A Y n ω (A n ω)) (h.filtrationAction n) P := by
+  have := ((h.hasCondDistrib_feedback n).id_of_le_comap (h.filtrationAction.le n)
+    (measurable_iff_comap_le.2 le_rfl) le_rfl).hasCondLaw
+  convert this using 1
+  ext ω : 1
+  simp [Environment.feedbackKernel]
 
 /-- Along a run against the stochastic bandit `Environment.bandit ν` whose arm laws are all
 concentrated on a measurable set `s`, almost surely every feedback lies in `s`. -/

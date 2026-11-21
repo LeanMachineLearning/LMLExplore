@@ -56,6 +56,12 @@ of e-variables for `N`: the probability measures under which every `e (X k)`, `e
 conditional e-variable given `ℱ k`. A validity statement is made for the largest of these nulls
 for which it holds.
 
+The conditional nulls defined by set integrals are cases of the sequential null: the one-sided
+conditionally sub-Gaussian null is the sequential null of the one-sided sub-Gaussian null
+(`ProbabilityTheory.oneSidedCondSubgaussianNull_eq_sequentialNull`), and the sequential
+constraint null is that of the constraint null, with integrable constraints
+(`ProbabilityTheory.sequentialConstraintNull_eq_sequentialNull_inter`).
+
 ## Main definitions
 
 * `ProbabilityTheory.sequentialNull S₁ X ℱ`: the probability measures under which each `X k` has a
