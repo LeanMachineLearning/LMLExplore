@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.PVariable
+public import LMLExplore.EValues.Null.SuperUniform
 public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Topology.Semicontinuity.Defs
@@ -51,6 +51,9 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   `ProbabilityTheory.isPToECalibrator_iff_isEVar`: an antitone function vanishing on `(1, ∞]` is
   a calibrator as soon as it turns the identity of `[0, 1]`, under Lebesgue measure, into an
   e-variable.
+* `ProbabilityTheory.isPToECalibrator_iff_isEVar_superUniformNull`: the calibrators are the
+  antitone e-variables for the super-uniform null `ProbabilityTheory.superUniformNull` that vanish
+  on `(1, ∞]`.
 * `ProbabilityTheory.IsPToECalibrator.le_inv`: a calibrator is at most `x ↦ x⁻¹`.
 * `MonotoneOn.antitone_indicator_Iic_comp_inv` and
   `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A`
@@ -122,6 +125,16 @@ theorem isPToECalibrator_iff_isEVar :
     ⟨h_anti, h_zero, hE.lintegral_le_one (mem_singleton _)⟩⟩
   exact hf.isEVar_comp (by simp only [mem_singleton_iff, forall_eq]; infer_instance)
     isExactPVar_ofReal_volume.toIsPVar
+
+/-- **Calibrators are the antitone bets against the super-uniform laws**: an antitone function
+vanishing on `(1, ∞]` is a calibrator exactly when it is an e-variable for the super-uniform null,
+the null of the laws of all p-variables. -/
+theorem isPToECalibrator_iff_isEVar_superUniformNull :
+    IsPToECalibrator f ↔ Antitone f ∧ (∀ x, 1 < x → f x = 0) ∧ IsEVar f superUniformNull :=
+  ⟨fun hf ↦ ⟨hf.antitone, hf.eq_zero_of_one_lt,
+      (isEVar_superUniformNull_iff_of_antitone hf.antitone).2 hf.lintegral_le_one⟩,
+    fun ⟨h_anti, h_zero, hE⟩ ↦
+      ⟨h_anti, h_zero, (isEVar_superUniformNull_iff_of_antitone h_anti).1 hE⟩⟩
 
 /-- A calibrator is at most `x ↦ x⁻¹`: `x f x ≤ ∫₀ˣ f ≤ 1`. -/
 theorem IsPToECalibrator.le_inv (hf : IsPToECalibrator f) (x : ℝ≥0∞) : f x ≤ x⁻¹ := by
