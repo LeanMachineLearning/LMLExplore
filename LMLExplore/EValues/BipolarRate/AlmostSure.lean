@@ -35,12 +35,13 @@ trajectory.
 
 ## Main statements
 
-* `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_dependsOn`: the bound for functions `F n`
-  of the first `n` observations with expectation at most one under the i.i.d. laws of the null.
+* `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_adapted`: the bound for e-variables `F n`
+  of the i.i.d. null that are functions of the first `n` observations, that is, adapted to the
+  filtration `Filtration.piLT` of the observations.
 * `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate`: the bound for `n`-sample e-variables
   evaluated at the first `n` observations.
 * `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`: the bound for e-processes in the
-  filtration of the observations, per observation seen.
+  filtration `Filtration.piLT` of the observations, per observation seen.
 
 ## Implementation notes
 
@@ -509,10 +510,12 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
         (N / k₀ + K + badCount G N ω) * Real.log 2)]
       exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
     _ ≤ maxLogGrowth Q S N :=
-      eintegral_log_le_maxLogGrowth_of_dependsOn Q hS (measurable_coverMixture hMm N)
-        (dependsOn_coverMixture hMd N) fun P hP ↦ by
+      IsEVar.eintegral_log_le_maxLogGrowth Q hS
+        ⟨measurable_coverMixture hMm N, forall_mem_iidNull.2 fun P hP ↦ by
           have := hS P hP
-          exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N
+          exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N⟩
+        (Filtration.measurable_piLT_of_dependsOn (measurable_coverMixture hMm N)
+          (dependsOn_coverMixture hMd N))
     _ ≤ N * bipolarRate Q S := maxLogGrowth_le_mul_bipolarRate Q S (by omega)
   rwa [← coe_toReal_bipolarRate (fun P hP ↦ (hS P hP).measure_univ.le) hd, ← EReal.coe_natCast,
     ← EReal.coe_mul, EReal.coe_le_coe_iff] at hle
@@ -709,16 +712,21 @@ private lemma frequently_le_shiftMixture {L L' : ℝ} (hLL' : L' < L) {s : ℕ} 
 variable {Q₁ : Measure 𝓧} {S₁ : Set (Measure 𝓧)}
 
 /-- **No function of the first observations grows faster than the bipolar rate, almost surely.**
-Let `F n` be measurable functions of the first `n` observations with expectation at most `1`
-under the i.i.d. laws of the members of `S₁`. Almost surely under the i.i.d. law of `Q₁`,
+Let `F n` be e-variables for the i.i.d. laws of the members of `S₁` such that `F n` is a function
+of the first `n` observations: `F` is adapted to the filtration `Filtration.piLT` of the
+observations. Almost surely under the i.i.d. law of `Q₁`,
 `limsup (1/n) log (F n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. If `Q₁` is not a probability
 measure, its i.i.d. law `Measure.infinitePi` is `0` and the statement holds trivially. -/
-theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
+theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {F : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
-    (hF : ∀ n, Measurable (F n)) (hFn : ∀ n, DependsOn (F n) (Set.Iio n))
-    (h_null : ∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) :
+    (hF : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) F)
+    (hFe : ∀ n, IsEVar (F n) (iidNull S₁)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       limsup (fun n : ℕ ↦ ENNReal.log (F n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ := by
+  have hFm : ∀ n, Measurable (F n) := fun n ↦ (hFe n).measurable
+  have hFn : ∀ n, DependsOn (F n) (Set.Iio n) := fun n ↦ (hF n).dependsOn_of_piLT
+  have h_null : ∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 :=
+    fun P hP n ↦ (hFe n).lintegral_le_one (infinitePi_mem_iidNull hP)
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
@@ -738,7 +746,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
         simp [B, frequently_atTop]
       rw [this]
       exact .iInter fun N ↦ .iUnion fun n ↦ .iUnion fun _ ↦
-        measurableSet_le measurable_const (hF n)
+        measurableSet_le measurable_const (hFm n)
     have hB : μ B = 0 → ∀ᵐ ω ∂μ, ∀ᶠ n : ℕ in atTop,
         F n ω < ENNReal.ofReal (Real.exp (n * L)) := fun h0 ↦
       ae_iff.2 (measure_mono_null (fun ω hω ↦ by
@@ -764,10 +772,10 @@ theorem ae_limsup_log_div_le_bipolarRate_of_dependsOn (Q₁ : Measure 𝓧)
       filter_upwards [hUae] with ω hω
       obtain ⟨s, hs⟩ := Set.mem_iUnion.1 hω
       exact frequently_le_shiftMixture (by linarith) hs
-    have h := coe_le_bipolarRate_of_ae_frequently Q₁ hS₁ (measurable_shiftMixture hF)
+    have h := coe_le_bipolarRate_of_ae_frequently Q₁ hS₁ (measurable_shiftMixture hFm)
       (dependsOn_shiftMixture hFn) (fun P hP n ↦ by
         have := hS₁ P hP
-        exact lintegral_shiftMixture_le_one P hF (h_null P hP) n) hae
+        exact lintegral_shiftMixture_le_one P hFm (h_null P hP) n) hae
     rw [← hdeq, EReal.coe_le_coe_iff] at h
     linarith
   have key' : ∀ᵐ ω ∂μ, ∀ k : ℕ, ∀ᶠ n in atTop,
@@ -804,43 +812,20 @@ theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       limsup (fun n : ℕ ↦ ENNReal.log (M n (initSeg n ω)) / (n : EReal)) atTop ≤
         bipolarRate Q₁ S₁ :=
-  ae_limsup_log_div_le_bipolarRate_of_dependsOn Q₁ hS₁ (F := fun n ω ↦ M n (initSeg n ω))
-    (fun n ↦ (hM n).measurable.comp (measurable_initSeg n))
-    (fun n ↦ dependsOn_comp_initSeg (M n)) fun P hP n ↦ by
-      have := hS₁ P hP
-      rw [(measurePreserving_initSeg P n).lintegral_comp (hM n).measurable]
-      exact (hM n).lintegral_le_one (pi_mem_sampleNull hP)
+  ae_limsup_log_div_le_bipolarRate_of_adapted Q₁ hS₁ (F := fun n ω ↦ M n (initSeg n ω))
+    (fun n ↦ (hM n).measurable.comp (Filtration.measurable_piLT_initSeg le_rfl))
+    fun n ↦ (isEVar_mapNull_iff (measurable_initSeg n) (hM n).measurable).1
+      (mapNull_initSeg_iidNull hS₁ n ▸ hM n)
 
 /-- **No e-process for an i.i.d. null grows faster than the bipolar rate, almost surely.** For an
-e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration of the observations,
-almost surely under the i.i.d. law of `Q₁`, the logarithm of `E n` divided by the number `n + 1` of
-observations it has seen has `limsup` at most `bipolarRate Q₁ S₁`. -/
+e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT` of the
+observations, almost surely under the i.i.d. law of `Q₁`, the logarithm of `E n` divided by the
+number `n` of observations it has seen has `limsup` at most `bipolarRate Q₁ S₁`. -/
 theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
-    (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-      (iidNull S₁)) :
+    (hE : IsEProcess E (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
-      limsup (fun n : ℕ ↦ ENNReal.log (E n ω) / ((n + 1 : ℕ) : EReal)) atTop ≤
-        bipolarRate Q₁ S₁ := by
-  -- at time `n` the process has seen `n + 1` observations: start the sequence with `1`
-  set F : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun n ω ↦ if n = 0 then 1 else E (n - 1) ω
-  have hF : ∀ n, Measurable (F n) := by
-    rintro (_ | n)
-    · simp [F]
-    · simpa [F] using hE.measurable n
-  have hFn : ∀ n, DependsOn (F n) (Set.Iio n) := by
-    rintro (_ | n) ω ω' h
-    · simp [F]
-    · simpa [F] using (hE.adapted n).dependsOn_of_piLE
-        fun i hi ↦ h i (Nat.lt_succ_of_le (Set.mem_Iic.1 hi))
-  have h_null : ∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-    rintro P hP (_ | n)
-    · have := hS₁ P hP
-      simp [F]
-    · have := hS₁ P hP
-      simpa [F] using (hE.isEVar n).lintegral_le_one (infinitePi_mem_iidNull hP)
-  filter_upwards [ae_limsup_log_div_le_bipolarRate_of_dependsOn Q₁ hS₁ hF hFn h_null] with ω hω
-  rw [← limsup_nat_add _ 1] at hω
-  simpa [F] using hω
+      limsup (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ :=
+  ae_limsup_log_div_le_bipolarRate_of_adapted Q₁ hS₁ hE.adapted hE.isEVar
 
 end ProbabilityTheory
