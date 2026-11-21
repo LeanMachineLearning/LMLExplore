@@ -394,19 +394,15 @@ theorem exists_isExactEVar_isPivotal_twoPointEVar {S 𝒬 : Set (Measure 𝓧)}
 
 /-! ### Bounded exact e-variables force the separation -/
 
-/-- **The e-power is at most the expected gain**: `E_Q log X ≤ E_Q (X - 1)` for a measurable
-`X : Ω → ℝ≥0∞` that is almost everywhere finite with `|X - 1| ≤ M`, under a finite measure `Q`. -/
-theorem le_integral_toReal_sub_one_of_le_eintegral_log {Q : Measure Ω} [IsFiniteMeasure Q]
-    {X : Ω → ℝ≥0∞} (hX : Measurable X) {M c : ℝ}
-    (hXQ : ∀ᵐ x ∂Q, X x ≠ ∞ ∧ |(X x).toReal - 1| ≤ M)
+/-- **The e-power is at most the expected gain**: `E_Q log X ≤ E_Q (X - 1)` for
+`X : Ω → ℝ≥0∞` that is almost everywhere finite with `X - 1` integrable under `Q`. -/
+theorem le_integral_toReal_sub_one_of_le_eintegral_log {Q : Measure Ω} {X : Ω → ℝ≥0∞}
+    (hXQ : ∀ᵐ x ∂Q, X x ≠ ∞) (hint : Integrable (fun x ↦ (X x).toReal - 1) Q) {c : ℝ}
     (hc : (c : EReal) ≤ ∫ᵉ x, ENNReal.log (X x) ∂Q) :
     c ≤ ∫ x, ((X x).toReal - 1) ∂Q := by
-  have hint : Integrable (fun x ↦ (X x).toReal - 1) Q :=
-    .of_bound (hX.ennreal_toReal.sub_const 1).aestronglyMeasurable M
-      (hXQ.mono fun _ hx ↦ by simpa using hx.2)
   have hae : ∀ᵐ x ∂Q, (X x : EReal) - 1 = (((X x).toReal - 1 : ℝ) : EReal) := by
     filter_upwards [hXQ] with x hx
-    rw [EReal.coe_sub, EReal.coe_ennreal_toReal hx.1, EReal.coe_one]
+    rw [EReal.coe_sub, EReal.coe_ennreal_toReal hx, EReal.coe_one]
   have h := hc.trans (eintegral_mono fun x ↦ ENNReal.log_le_sub_one (X x))
   rwa [eintegral_congr_ae hae, eintegral_eq_integral hint, EReal.coe_le_coe_iff] at h
 
@@ -468,8 +464,9 @@ theorem le_mul_tvDist_of_isExactEVar_of_le_eintegral_log {S 𝒬 : Set (Measure 
     (hν : ν ∈ convexHull ℝ≥0 𝒬) :
     c ≤ M * tvDist (μ₁ + ν) μ₂ :=
   le_mul_tvDist_of_isExactEVar hS h𝒬 hX hXM (fun Q hQ ↦ have := h𝒬 Q hQ
-    le_integral_toReal_sub_one_of_le_eintegral_log hX.measurable
-      ((hX𝒬 Q hQ).and (hXM Q (.inr hQ))) (hc Q hQ)) hμ₁ hμ₂ hν
+    le_integral_toReal_sub_one_of_le_eintegral_log (hX𝒬 Q hQ)
+      (.of_bound (hX.measurable.ennreal_toReal.sub_const 1).aestronglyMeasurable M
+        (by simpa using hXM Q (.inr hQ))) (hc Q hQ)) hμ₁ hμ₂ hν
 
 /-! ### The characterization with external randomization -/
 
@@ -513,7 +510,8 @@ theorem exists_integral_eq_zero_of_isExactEVar_prod {S 𝒬 : Set (Measure 𝓧)
     exact hX.integral_toReal_sub_one_eq_zero ⟨P, hP, rfl⟩
   · have := h𝒬 Q hQ
     rw [← integral_prod f (hint Q (.inr hQ))]
-    exact le_integral_toReal_sub_one_of_le_eintegral_log hX.measurable (hfM Q (.inr hQ)) (hc Q hQ)
+    exact le_integral_toReal_sub_one_of_le_eintegral_log ((hfM Q (.inr hQ)).mono fun _ hp ↦ hp.1)
+      (hint Q (.inr hQ)) (hc Q hQ)
 
 /-- **Pivotal exact e-variables with external randomization** ([EVR26, Note 26, Theorem 1], for
 bounded e-variables; [ZRW24, Conjecture 6.8], with the separation condition in its dual form):
