@@ -330,7 +330,7 @@ theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilit
     split_ifs
     exacts [le_rfl, zero_le]
 
-/-- **The product of one-step numeraires is optimal at every stopping time**
+/-- **The product of one-step numeraires is optimal at every finite stopping time**
 [EVR26, Note 40, Theorem 5]. Let `S₁ i` be sets of probability measures on `𝓧`, `Q₁ i`
 probability measures, and `X i` a numeraire of `S₁ i` against `Q₁ i` that is `Q₁ i`-almost surely
 finite. Let `𝓝` be a null on the sequences that contains every product of members of the `S₁ i`
@@ -354,12 +354,12 @@ theorem isNumeraireAt_prod (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasur
       using ENNReal.prod_ne_top fun i _ ↦ hω i
   · filter_upwards [ae_forall_ne_zero hS₁ hX] with ω hω using prod_ne_zero_iff.2 fun i _ ↦ hω i
 
-/-- **For the sequential null, the product of one-step numeraires is optimal at every stopping
-time** [EVR26, Note 40, Theorem 5]. For the sequential null of the coordinates and one-step nulls
-`S₁ i` of probability measures, which contains the laws of independent observations with laws in
-the `S₁ i`, and for the product of probability measures `Q₁ i`, the product of numeraires `X i` of
-`S₁ i` against `Q₁ i` that are almost surely finite is optimal at every stopping time that is
-finite everywhere. -/
+/-- **For the sequential null, the product of one-step numeraires is optimal at every finite
+stopping time** [EVR26, Note 40, Theorem 5]. For the sequential null of the coordinates and
+one-step nulls `S₁ i` of probability measures, which contains the laws of independent
+observations with laws in the `S₁ i`, and for the product of probability measures `Q₁ i`, the
+product of numeraires `X i` of `S₁ i` against `Q₁ i` that are almost surely finite is optimal at
+every stopping time that is finite everywhere. -/
 theorem isNumeraireAt_prod_sequentialNull (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
     [∀ i, IsProbabilityMeasure (Q₁ i)] (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i))
     (hX_top : ∀ i, ∀ᵐ x ∂Q₁ i, X i x ≠ ∞) (hτ : IsStoppingTime piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
@@ -373,7 +373,7 @@ theorem isNumeraireAt_prod_sequentialNull (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsPr
       (fun i ↦ (hX i).measurable.comp measurable_snd) fun i _ ↦ (hX i).isEVar).isEProcess
       fun _ hP ↦ have := isProbabilityMeasure_of_mem_sequentialNull hP; inferInstance
 
-/-- **The likelihood ratio process is optimal at every stopping time**
+/-- **The likelihood ratio process is optimal at every finite stopping time**
 [EVR26, Note 40, Proposition 6]. For probability measures `Q₁ ≪ P₁`, the likelihood ratio
 process `∏ i < n, (dQ₁/dP₁) (ω i)` of the i.i.d. law of `Q₁` to the i.i.d. law of `P₁` is optimal
 at every stopping time that is finite everywhere, for the simple null of the i.i.d. law of `P₁`. -/
