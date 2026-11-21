@@ -37,6 +37,7 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
 
 * `LMLExplore.designOp_smul_one_apply`, `LMLExplore.inner_designOp_smul_one_apply_self`:
   `V_t(λ) v = λ • v + ∑_{s < t} ⟪x s, v⟫ • x s` and `⟪v, V_t(λ) v⟫ = λ ‖v‖² + ∑_{s < t} ⟪x s, v⟫²`.
+* `LMLExplore.inner_designOp_apply`: `⟪V_t(V₀) v, w⟫ = ⟪V₀ v, w⟫ + ∑_{s < t} ⟪x s, v⟫ ⟪x s, w⟫`.
 * `LMLExplore.designOp_congr`: `V_t(V₀)` only depends on the first `t` vectors.
 * `LMLExplore.toLinearMap_designOp`: `V_t(V₀) = V₀ + frameOperator ℝ (fun s : Fin t ↦ x s)`.
 * `LMLExplore.isPositive_designOp`: `V_t(V₀)` is positive for a positive `V₀`;
@@ -49,7 +50,8 @@ eigenvalues. The ridge regularizer `λ • 1` is one for `λ > 0`
   operator `V_t(0)` is the span of `x 0, …, x (t - 1)`.
 * `LMLExplore.mul_inner_ringInverse_designOp_apply_le`: `λ ‖v‖²_{V_t(λ)⁻¹} ≤ ‖v‖²` for `λ > 0`.
 * `LMLExplore.ringInverse_designOp_succ`: the rank-one update of the inverse
-  (Sherman–Morrison formula).
+  (Sherman–Morrison formula), and `LMLExplore.inner_ringInverse_designOp_succ`: its consequence
+  `‖x t‖²_{V_{t+1}⁻¹} = u / (1 + u)` with `u = ‖x t‖²_{V_t⁻¹}`.
 * `LMLExplore.det_designOp_succ`: `det V_{t+1} = det V_t * (1 + ‖x t‖²_{V_t⁻¹})`, and
   `LMLExplore.det_designOp_eq_mul_prod`: `det V_t = det V₀ * ∏_{s < t} (1 + ‖x s‖²_{V_s⁻¹})`.
 * `LMLExplore.trace_designOp`: `trace V_t(V₀) = trace V₀ + ∑_{s < t} ‖x s‖²`, and
@@ -113,6 +115,13 @@ theorem designOp_congr {x x' : ℕ → E} {t : ℕ} (h : ∀ s < t, x s = x' s) 
 theorem designOp_succ (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : ℕ) :
     designOp V₀ x (t + 1) = designOp V₀ x t + rankOne ℝ (x t) (x t) := by
   rw [designOp, designOp, sum_range_succ, add_assoc]
+
+/-- The bilinear form of the design operator:
+`⟪V_t(V₀) v, w⟫ = ⟪V₀ v, w⟫ + ∑_{s < t} ⟪x s, v⟫ ⟪x s, w⟫`. -/
+theorem inner_designOp_apply (V₀ : E →L[ℝ] E) (x : ℕ → E) (t : ℕ) (v w : E) :
+    ⟪designOp V₀ x t v, w⟫_ℝ = ⟪V₀ v, w⟫_ℝ + ∑ s ∈ range t, ⟪x s, v⟫_ℝ * ⟪x s, w⟫_ℝ := by
+  rw [designOp_apply, inner_add_left, sum_inner]
+  simp only [real_inner_smul_left]
 
 /-- The quadratic form of the design operator:
 `⟪v, V_t(V₀) v⟫ = ⟪v, V₀ v⟫ + ∑_{s < t} ⟪x s, v⟫²`. -/
@@ -205,6 +214,20 @@ theorem ringInverse_designOp_succ (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V�
   exact ringInverse_add_rankOne_of_isSymmetric (isUnit_designOp hV₀ hV₀u x t)
     (isPositive_designOp hV₀ x t).isSymmetric (x t) (x t)
     ((isPositive_designOp hV₀ x t).one_add_inner_ringInverse_pos _).ne'
+
+/-- The weighted norm of the current vector after the update: for a positive definite regularizer
+`V₀`, `‖x t‖²_{V_{t+1}⁻¹} = u / (1 + u)` with `u = ‖x t‖²_{V_t⁻¹}`. -/
+theorem inner_ringInverse_designOp_succ (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
+    (x : ℕ → E) (t : ℕ) :
+    ⟪x t, Ring.inverse (designOp V₀ x (t + 1)) (x t)⟫_ℝ =
+      ⟪x t, Ring.inverse (designOp V₀ x t) (x t)⟫_ℝ /
+        (1 + ⟪x t, Ring.inverse (designOp V₀ x t) (x t)⟫_ℝ) := by
+  have hpos := (isPositive_designOp hV₀ x t).one_add_inner_ringInverse_pos (x t)
+  rw [ringInverse_designOp_succ hV₀ hV₀u, sub_apply, smul_apply, rankOne_apply, inner_sub_right,
+    inner_smul_right, inner_smul_right]
+  rw [real_inner_comm (Ring.inverse (designOp V₀ x t) (x t))] at ⊢ hpos
+  field_simp
+  ring
 
 /-- If `∑_{s < t} ⟪x s, w⟫² = 0`, then `w` is orthogonal to the span of `x 0, …, x (t - 1)`. -/
 theorem span_le_orthogonal_singleton_of_sum_inner_sq_eq_zero {x : ℕ → E} {t : ℕ} {w : E}
