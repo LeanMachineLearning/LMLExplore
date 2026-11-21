@@ -58,7 +58,7 @@ e-variables of the theorem of Bahadur and Savage [BS56].
   finite `ι`, and in particular `Q ^ n` in the effective null of `sampleNull S n`.
 * `ProbabilityTheory.isEVar_pi_iff_of_forall_exists_etvDist_lt`: a null dense in total variation
   has, for every finite number of i.i.d. observations, the e-variables of the null of all laws.
-* `ProbabilityTheory.measure_pi_le_of_forall_exists_etvDist_lt`,
+* `ProbabilityTheory.lintegral_pi_le_of_forall_exists_etvDist_lt`,
   `ProbabilityTheory.maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt`,
   `ProbabilityTheory.bipolarRate_eq_zero_of_forall_exists_etvDist_lt`: against such a `Q`, tests
   have no power and evidence does not grow.
@@ -251,17 +251,14 @@ theorem isEVar_pi_iff_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabili
   exact pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS (hdense Q hQ) X hX
 
 /-- **No power against a limit in total variation.** If a probability measure `Q` is a limit in
-total variation of members of a null `S` of probability measures, a measurable set of `ι`
-observations with probability at most `α` under the i.i.d. law of every member of `S` has
-probability at most `α` under the i.i.d. law of `Q`. -/
-theorem measure_pi_le_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) {R : Set (ι → 𝓧)} (hR : MeasurableSet R)
-    {α : ℝ≥0∞} (hα : ∀ P ∈ S, Measure.pi (fun _ : ι ↦ P) R ≤ α) :
-    Measure.pi (fun _ : ι ↦ Q) R ≤ α := by
-  have := isProbabilityMeasure_of_forall_exists_etvDist_lt hS hQ
-  refine ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
-  obtain ⟨P, hP, hPQ⟩ := exists_etvDist_pi_lt (ι := ι) hS hQ (ENNReal.coe_pos.2 hε)
-  exact (measure_le_add_of_etvDist_le hR hPQ.le).trans (add_le_add (hα P hP) le_rfl)
+total variation of members of a null `S` of probability measures, a test of level `α` for the
+i.i.d. laws `P ^ ι` of the members of `S` has power at most `α` against the i.i.d. law of `Q`. -/
+theorem lintegral_pi_le_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+    (hQ : ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε) {φ : (ι → 𝓧) → ℝ≥0∞} {α : ℝ≥0∞}
+    (hφ : IsTest φ ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' S) α) :
+    ∫⁻ x, φ x ∂(Measure.pi fun _ : ι ↦ Q) ≤ α :=
+  (isTest_effectiveSet_iff.2 hφ).lintegral_le _
+    (pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS hQ)
 
 /-- **No growth against a limit in total variation.** If a probability measure `Q` is a limit in
 total variation of members of a null `S` of probability measures, the maximal expected logarithm

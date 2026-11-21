@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Selection
+public import LMLExplore.EValues.PVariable
 public import Statlib.EValues.EVariable
 
 /-!
@@ -427,21 +428,25 @@ theorem forall_measure_exists_not_disjoint_le_iff_exists_isECollection
     simpa only [hthr] using h𝓡e
 
 /-- The thresholded statistics `α⁻¹ * 𝟙 (A S)` of rejection events of level `α` for the true
-nulls form an e-collection [XSF+26, Corollary 13]. -/
-theorem isECollection_indicator {A : Finset ι → Set Ω} (hA : ∀ S, MeasurableSet (A S))
-    (hlevel : ∀ (P : Measure Ω) [IsProbabilityMeasure P],
-      (trueNulls H P).Nonempty → P (A (trueNulls H P)) ≤ α) :
+nulls form an e-collection [XSF+26, Corollary 13]: for each nonempty set `S` of hypotheses, the
+indicator of `A S` is a test of level `α` for the probability measures whose true nulls are `S`. -/
+theorem isECollection_indicator {A : Finset ι → Set Ω}
+    (hA : ∀ S : Finset ι, S.Nonempty →
+      IsTest ((A S).indicator 1) {P | IsProbabilityMeasure P ∧ trueNulls H P = S} α) :
     IsECollection (fun S ↦ if S = ∅ then 0 else (A S).indicator fun _ ↦ α⁻¹) H where
   measurable S := by
-    split_ifs
-    exacts [measurable_const, measurable_const.indicator (hA S)]
+    rcases S.eq_empty_or_nonempty with rfl | hS
+    · simpa using measurable_zero
+    · simpa [hS.ne_empty] using
+        measurable_const.indicator (isTest_indicator_iff.1 (hA S hS)).1
   apply_empty := by simp
   lintegral_le_one P _ := by
     rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
     · simp [hN]
-    · simp only [hN.ne_empty, ↓reduceIte]
-      rw [lintegral_indicator_const (hA _)]
-      calc α⁻¹ * P (A (trueNulls H P)) ≤ α⁻¹ * α := by gcongr; exact hlevel P hN
+    · obtain ⟨hAm, hAP⟩ := isTest_indicator_iff.1 (hA _ hN)
+      simp only [hN.ne_empty, ↓reduceIte]
+      rw [lintegral_indicator_const hAm]
+      calc α⁻¹ * P (A (trueNulls H P)) ≤ α⁻¹ * α := by gcongr; exact hAP P ⟨‹_›, rfl⟩
         _ ≤ 1 := ENNReal.inv_mul_le_one α
 
 /-- The closed testing rejection set and the e-closure for the family-wise loss

@@ -8,6 +8,7 @@ module
 public import Statlib.EValues.RIPr
 public import LMLExplore.EValues.KLInf
 public import LMLExplore.EValues.EVariable
+public import LMLExplore.EValues.PVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 
@@ -46,6 +47,8 @@ measures `S`.
   absolutely continuous with respect to `μ`, so is every member of the effective null.
 * `ProbabilityTheory.exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet`: a measure outside the
   effective null of `S` is detected by a bounded e-variable.
+* `ProbabilityTheory.isTest_effectiveSet_iff`: the tests of level `α` for the effective null of
+  `S` are the tests of level `α` for `S`.
 * `ProbabilityTheory.exists_powered_test_iff`: a measure `Q` admits, for some `α ∈ (0, 1)`, a
   level-`α` test for `S` with power larger than `α` under `Q` exactly when `Q` is not in the
   effective null of `S` [RW, Theorem 6.10].
@@ -200,48 +203,42 @@ theorem exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet (hQ : Q ∉ effecti
   exact ⟨fun ω ↦ min (X ω) N, N, hN2, hX.min_const N,
     fun ω ↦ min_le_right _ _, hNQ⟩
 
+/-- The tests of level `α` for the effective null of `S` are the tests of level `α` for `S`: a
+test for `S` keeps its level under every member of the effective null. This is the form for tests
+of Statlib's `isEVar_effectiveSet_iff`, through [RW, Fact 3.6]. -/
+@[simp]
+theorem isTest_effectiveSet_iff {φ : Ω → ℝ≥0∞} {α : ℝ≥0∞} :
+    IsTest φ (effectiveSet S) α ↔ IsTest φ S α := by
+  simp_rw [isTest_iff_measurable_isEVar_div, isEVar_effectiveSet_iff]
+
 /-- A measure `Q` is outside the effective null of a null `S` exactly when, for some level
-`α ∈ (0, 1)`, some level-`α` test `φ` for `S` (a measurable function with values in `[0, 1]` and
-expectation at most `α` under every member of `S`) has expectation larger than `α` under `Q`
+`α ∈ (0, 1)`, some test `φ` of level `α` for `S` has expectation larger than `α` under `Q`
 [RW, Theorem 6.10, for a null of probability measures]. -/
 theorem exists_powered_test_iff (Q : Measure Ω) :
-    (∃ α : ℝ≥0∞, 0 < α ∧ α < 1 ∧ ∃ φ : Ω → ℝ≥0∞, Measurable φ ∧ (∀ ω, φ ω ≤ 1) ∧
-      (∀ P ∈ S, ∫⁻ ω, φ ω ∂P ≤ α) ∧ α < ∫⁻ ω, φ ω ∂Q) ↔ Q ∉ effectiveSet S := by
-  -- Both directions pass between a level-`α` test `φ` and the `[0, α⁻¹]`-valued e-variable
-  -- `α⁻¹ * φ` [RW, Fact 3.6].
+    (∃ α : ℝ≥0∞, 0 < α ∧ α < 1 ∧ ∃ φ : Ω → ℝ≥0∞, IsTest φ S α ∧ α < ∫⁻ ω, φ ω ∂Q) ↔
+      Q ∉ effectiveSet S := by
   constructor
-  · rintro ⟨α, hα0, hα1, φ, hφ, -, hφS, hφQ⟩ hQ
-    -- `α⁻¹ * φ` is an e-variable for `S`, so its expectation under `Q` is at most `1`.
-    have hX : IsEVar (fun ω ↦ α⁻¹ * φ ω) S := by
-      refine ⟨measurable_const.mul hφ, fun P hP ↦ ?_⟩
-      rw [lintegral_const_mul _ hφ]
-      exact ENNReal.inv_mul_le_iff hα0.ne' (hα1.trans ENNReal.one_lt_top).ne |>.mpr <|
-        by simpa using hφS P hP
-    have h := hQ _ hX
-    rw [lintegral_const_mul _ hφ,
-      ENNReal.inv_mul_le_iff hα0.ne' (hα1.trans ENNReal.one_lt_top).ne, mul_one] at h
-    exact (h.trans_lt hφQ).false
+  · -- A test of level `α` for `S` has level `α` under every member of the effective null.
+    rintro ⟨α, -, -, φ, hφ, hφQ⟩ hQ
+    exact ((isTest_effectiveSet_iff.2 hφ).lintegral_le Q hQ).not_gt hφQ
   · -- A bounded e-variable with expectation larger than `1` under `Q`, divided by its bound `N`,
-    -- is a level-`N⁻¹` test with power larger than `N⁻¹` under `Q`.
+    -- is a level-`N⁻¹` test with power larger than `N⁻¹` under `Q` [RW, Fact 3.6].
     intro hQ
     obtain ⟨Y, N, hN2, hY, hYN, hYQ⟩ := exists_isEVar_le_lt_lintegral_of_notMem_effectiveSet hQ
-    have hYm := hY.measurable
     have hN0 : (N : ℝ≥0∞) ≠ 0 := by exact_mod_cast (by omega : N ≠ 0)
     have hNtop : (N : ℝ≥0∞) ≠ ∞ := ENNReal.natCast_ne_top N
-    refine ⟨(N : ℝ≥0∞)⁻¹, ENNReal.inv_pos.mpr hNtop, ENNReal.inv_lt_one.mpr
-      (by exact_mod_cast (by omega : 1 < N)), fun ω ↦ (N : ℝ≥0∞)⁻¹ * Y ω, by fun_prop,
-      fun ω ↦ ?_, fun P hP ↦ ?_, ?_⟩
-    · calc (N : ℝ≥0∞)⁻¹ * Y ω ≤ (N : ℝ≥0∞)⁻¹ * N := by gcongr; exact hYN ω
-      _ = 1 := ENNReal.inv_mul_cancel hN0 hNtop
-    · rw [lintegral_const_mul _ hYm]
-      calc (N : ℝ≥0∞)⁻¹ * ∫⁻ ω, Y ω ∂P ≤ (N : ℝ≥0∞)⁻¹ * 1 := by
-            gcongr; exact hY.lintegral_le_one hP
-      _ = (N : ℝ≥0∞)⁻¹ := mul_one _
-    · rw [lintegral_const_mul _ hYm]
-      calc (N : ℝ≥0∞)⁻¹ = (N : ℝ≥0∞)⁻¹ * 1 := (mul_one _).symm
-      _ < (N : ℝ≥0∞)⁻¹ * ∫⁻ ω, Y ω ∂Q :=
-            ENNReal.mul_lt_mul_right (ENNReal.inv_ne_zero.mpr hNtop) (ENNReal.inv_ne_top.mpr hN0)
-              hYQ
+    have hNinv : (N : ℝ≥0∞)⁻¹ ≠ 0 := ENNReal.inv_ne_zero.2 hNtop
+    have hNinv' : (N : ℝ≥0∞)⁻¹ ≠ ∞ := ENNReal.inv_ne_top.2 hN0
+    -- `Y / N` divided by the level `N⁻¹` is the e-variable `Y`.
+    have hφ : IsTest (fun ω ↦ Y ω / N) S (N : ℝ≥0∞)⁻¹ := by
+      refine (isTest_iff_isEVar_div hNinv hNinv').2 ⟨fun ω ↦ ?_, ?_⟩
+      · exact ENNReal.div_le_of_le_mul (by simpa using hYN ω)
+      · simpa [div_eq_mul_inv, mul_assoc, ENNReal.inv_mul_cancel hN0 hNtop] using hY
+    refine ⟨(N : ℝ≥0∞)⁻¹, pos_iff_ne_zero.2 hNinv, ENNReal.inv_lt_one.2
+      (by exact_mod_cast (by omega : 1 < N)), _, hφ, ?_⟩
+    simp_rw [div_eq_mul_inv]
+    rw [lintegral_mul_const _ hY.measurable]
+    simpa [mul_comm] using ENNReal.mul_lt_mul_right hNinv hNinv' hYQ
 
 /-- For a null of measures of mass at most `1`, under a probability measure `P` of its effective
 null, no e-variable for `S` has a positive expected logarithm, by Jensen's inequality: the largest
