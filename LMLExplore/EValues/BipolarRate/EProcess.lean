@@ -35,11 +35,11 @@ product law (`MeasureTheory.measurePreserving_initSeg`), and time `n` of `Filtra
   at most `maxLogGrowth Q₁ S₁ n` under the i.i.d. law of `Q₁`.
 * `ProbabilityTheory.IsEProcess.eintegral_log_le_maxLogGrowth`,
   `ProbabilityTheory.IsEProcess.eintegral_log_le_mul_bipolarRate`: the bound for the value of an
-  e-process at time `n`, by `maxLogGrowth Q₁ S₁ n` and by `n * bipolarRate Q₁ S₁`.
+  e-process at time `n`, by `maxLogGrowth Q₁ S₁ n` and, for `n ≠ 0`, by `n * bipolarRate Q₁ S₁`.
 * `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bipolarRate`,
   `ProbabilityTheory.IsEProcess.limsup_eintegral_log_div_le_bipolarRate`: the expected logarithm
-  of an e-process at time `n`, divided by the number `n` of observations it has seen, is at most the
-  bipolar rate, and so is its `limsup` [RR26, Lemma 3.3].
+  of an e-process at a time `n ≠ 0`, divided by the number `n` of observations it has seen, is at
+  most the bipolar rate, and so is its `limsup` [RR26, Lemma 3.3].
 
 ## References
 

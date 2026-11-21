@@ -23,8 +23,8 @@ entropy from `Q₁` to the null (`ProbabilityTheory.bipolarRate_le_klInf`), the 
 relative entropy follows [WSJ26, Proposition 2.2, for portfolio nulls].
 
 The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bipolarRate`
-[RR26, Lemma 3.3], holds for each `n` separately; the almost sure bound is about the whole
-trajectory.
+[RR26, Lemma 3.3], holds for each time `n ≠ 0` separately; the almost sure bound is about the
+whole trajectory.
 
 ## Main definitions
 
