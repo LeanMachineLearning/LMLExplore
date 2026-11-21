@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.EValues.KLInf
 public import Mathlib.MeasureTheory.Group.Convolution
-import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.InformationTheory.KullbackLeibler.Domination
 import LMLExplore.MeasureTheory.Group.Convolution
 import LMLExplore.Probability.Distributions.Laplace
@@ -79,8 +78,8 @@ remainder, given the direction, by the logarithm of the largest density ratio, w
 exponential moment of `u` under `Q`. Here the data-processing inequality first adds `u` itself to
 the observation: the remainder is at most the relative entropy from the law of `(u + t, (u, m))`
 to `N ⊗ Q`, whose log-likelihood ratio is at most `b |u| + b E_ν |u|`, because the translate of
-`ρ` by `u` is at most `exp (b |u|) • ρ` and `N ≥ exp (-b E_ν |u|) • ρ`
-(`MeasureTheory.Measure.lintegral_smul_le_conv_of_forall_map_add_le` and Jensen's inequality).
+`ρ` by `u` is at most `exp (b |u|) • ρ` and `N ≥ exp (-b E_ν |u|) • ρ` by Jensen's inequality
+(`MeasureTheory.Measure.ofReal_mul_exp_smul_le_conv_of_forall_map_add_le`).
 Only first moments are needed.
 
 The iterated integral `∫ E_{Q_t} [log X] ρ(dt)` is the expected logarithm under the mixture,
@@ -146,20 +145,20 @@ theorem snd_scaleNull (ν : Measure ℝ) [IsProbabilityMeasure ν] (π₀ : Meas
 /-- The direction has the same law `Q.snd` under every alternative. -/
 @[simp]
 theorem snd_scaleAlt (Q : Measure (ℝ × M)) (t : ℝ) : (scaleAlt Q t).snd = Q.snd := by
-  rw [scaleAlt_def, Measure.snd, Measure.map_map measurable_snd (by fun_prop), Measure.snd]
-  rfl
+  rw [scaleAlt_def, Measure.snd_map_prodMk (by fun_prop) measurable_snd, Measure.snd]
 
 /-! ### Mixtures over the log-scale -/
 
 /-- The alternative depends measurably on the log-scale. -/
+@[fun_prop]
 theorem measurable_scaleAlt (Q : Measure (ℝ × M)) [SFinite Q] : Measurable (scaleAlt Q) := by
   refine Measure.measurable_of_measurable_coe _ fun s hs ↦ ?_
   have hF : Measurable fun p : ℝ × (ℝ × M) ↦ (p.2.1 + p.1, p.2.2) := by fun_prop
   convert measurable_measure_prodMk_left (ν := Q) (hF hs) using 2 with t
-  rw [scaleAlt_def, Measure.map_apply (by fun_prop) hs]
-  rfl
+  rw [scaleAlt_def, Measure.map_apply (by fun_prop) hs, Set.preimage_preimage]
 
 /-- The null depends measurably on the log-scale. -/
+@[fun_prop]
 theorem measurable_scaleNull (ν : Measure ℝ) [SFinite ν] (π₀ : Measure M) [SFinite π₀] :
     Measurable (scaleNull ν π₀) := by
   refine Measure.measurable_of_measurable_coe _ fun s hs ↦ ?_
@@ -176,11 +175,10 @@ theorem bind_scaleAlt (Q : Measure (ℝ × M)) [SFinite Q] (ρ : Measure ℝ) :
     ρ.bind (scaleAlt Q) = (ρ.prod Q).map fun p ↦ (p.2.1 + p.1, p.2.2) := by
   have hF : Measurable fun p : ℝ × (ℝ × M) ↦ (p.2.1 + p.1, p.2.2) := by fun_prop
   ext s hs
-  rw [Measure.bind_apply hs (measurable_scaleAlt Q).aemeasurable, Measure.map_apply hF hs,
+  rw [Measure.bind_apply hs (by fun_prop), Measure.map_apply hF hs,
     Measure.prod_apply (hF hs)]
   refine lintegral_congr fun t ↦ ?_
-  rw [scaleAlt_def, Measure.map_apply (by fun_prop) hs]
-  rfl
+  rw [scaleAlt_def, Measure.map_apply (by fun_prop) hs, Set.preimage_preimage]
 
 /-- The `ρ`-mixture of the nulls is the product of the convolution `ρ ∗ ν`, the law of `t + u` for
 `t ∼ ρ` and `u ∼ ν` independent, and of `π₀`. -/
@@ -235,13 +233,13 @@ private lemma map_prod_le_prod_withDensity
     simp [sx, add_comm]
   have h2 : ρ sx ≤ ENNReal.ofReal (Real.exp k) * N sx := by
     have h := hN sx
-    rw [FunLike.coe_smul, Pi.smul_apply, smul_eq_mul] at h
+    rw [smul_apply, smul_eq_mul] at h
     calc ρ sx = ENNReal.ofReal (Real.exp k) * (ENNReal.ofReal (Real.exp (-k)) * ρ sx) := by
-          rw [← mul_assoc, ← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add,
-            add_neg_cancel, Real.exp_zero, ENNReal.ofReal_one, one_mul]
+          rw [← mul_assoc]
+          simp [← ENNReal.ofReal_mul, Real.exp_nonneg, ← Real.exp_add]
     _ ≤ ENNReal.ofReal (Real.exp k) * N sx := by gcongr
   have h3 := hρ x.1 sx
-  rw [FunLike.coe_smul, Pi.smul_apply, smul_eq_mul] at h3
+  rw [smul_apply, smul_eq_mul] at h3
   rw [h1]
   calc (ρ.map (· + x.1)) sx ≤ ENNReal.ofReal (Real.exp (b * |x.1|)) * ρ sx := h3
   _ ≤ ENNReal.ofReal (Real.exp (b * |x.1|)) * (ENNReal.ofReal (Real.exp k) * N sx) := by gcongr
@@ -263,12 +261,11 @@ private lemma klDiv_map_prod_le
   have hH : Measurable fun p : ℝ × (ℝ × M) ↦ (p.1, p.2.2) := by fun_prop
   have hR : ((ρ.prod Q).map fun p ↦ (p.2.1 + p.1, p.2)).map (fun p ↦ (p.1, p.2.2)) =
       (ρ.prod Q).map (fun p ↦ (p.2.1 + p.1, p.2.2)) := by
-    rw [Measure.map_map hH hG]
-    rfl
+    simp only [Measure.map_map hH hG, Function.comp_def]
   have hNQ : (N.prod Q).map (fun p ↦ (p.1, p.2.2)) = N.prod Q.snd := by
     rw [Measure.snd, ← Measure.map_id (μ := N), Measure.map_prod_map _ _ measurable_id
-      measurable_snd, Measure.map_id]
-    rfl
+      measurable_snd, Measure.map_id, Prod.map_def]
+    simp only [id_eq]
   rw [← hR, ← hNQ]
   refine (klDiv_map_le _ _ hH).trans ?_
   have h := coe_klDiv_le_eintegral_of_le_withDensity (map_prod_le_prod_withDensity hρ Q hN)
@@ -305,18 +302,14 @@ theorem klDiv_bind_scaleAlt_le (ν : Measure ℝ) [IsProbabilityMeasure ν] (π�
   have hk0 : 0 ≤ k := by positivity
   -- the convolution `N = ρ ∗ ν` dominates `exp (-k) • ρ`, by Jensen's inequality
   have hN : ENNReal.ofReal (Real.exp (-k)) • ρ ≤ ρ ∗ ν := by
-    refine le_trans ?_ (Measure.lintegral_smul_le_conv_of_forall_map_add_le hρ ν)
-    gcongr
     rcases hfin with h0 | hA'
-    · simp [hk, h0]
-    have hint : Integrable (fun u : ℝ ↦ -(b * |u|)) ν :=
-      ((Integrable.abs ⟨aestronglyMeasurable_id, hA'.lt_top⟩).const_mul b).neg
-    have h := ofReal_measureReal_mul_exp_average_le_lintegral hint
+    · simpa [hk, h0] using Measure.lintegral_smul_le_conv_of_forall_map_add_le hρ ν
+    have h := Measure.ofReal_mul_exp_smul_le_conv_of_forall_map_add_le hρ
+      (ν := ν) ⟨aestronglyMeasurable_id, hA'.lt_top⟩
     have h_eq : ∫ u, |u| ∂ν = A.toReal := by
       rw [integral_eq_lintegral_of_nonneg_ae (ae_of_all _ fun u ↦ abs_nonneg u) (by fun_prop)]
       simp_rw [hA, Real.eNorm_eq_ofReal_abs]
-    rwa [probReal_univ, one_mul, average_eq_integral, integral_neg, integral_const_mul,
-      h_eq] at h
+    rwa [probReal_univ, one_mul, average_eq_integral, h_eq] at h
   have h_pt (x : ℝ × M) :
       ENNReal.ofReal (b * |x.1| + k) = ENNReal.ofReal b * ‖x.1‖ₑ + ENNReal.ofReal k := by
     rw [ENNReal.ofReal_add (by positivity) hk0, ENNReal.ofReal_mul hb, Real.eNorm_eq_ofReal_abs]
@@ -343,7 +336,7 @@ end Mixture
 /-- **The averaged bound.** If the log-radius has a first moment under `ν` and under `Q`, then
 for every `ε > 0` there is a prior `ρ` on the log-scale such that every e-variable `X` for the
 null satisfies `∫ E_{Q_t} [log X] ρ(dt) ≤ D + ε`, where `D` is the relative entropy of the laws of
-the direction. The prior is a Laplace law and does not depend on `X`. [EVR26, Note 29] -/
+the direction. The prior does not depend on `X`. [EVR26, Note 29] -/
 theorem exists_eintegral_eintegral_log_scaleAlt_le (ν : Measure ℝ) [IsProbabilityMeasure ν]
     (π₀ : Measure M) [IsProbabilityMeasure π₀] (Q : Measure (ℝ × M)) [IsProbabilityMeasure Q]
     (hν : Integrable id ν) (hQ : Integrable Prod.fst Q) {ε : ℝ} (hε : 0 < ε) :

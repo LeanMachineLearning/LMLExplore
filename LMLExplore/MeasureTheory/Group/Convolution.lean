@@ -7,6 +7,8 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Exp
 public import Mathlib.MeasureTheory.Group.Convolution
+public import Mathlib.MeasureTheory.Integral.Average
+import LMLExplore.Analysis.Convex.Integral
 
 /-!
 # Convolution with a measure whose translates are controlled
@@ -28,6 +30,8 @@ under translation compares the mixtures of a location family with the prior itse
   `exp (-b |u|) • ρ ≤ ρ.map (· + u)`.
 * `MeasureTheory.Measure.lintegral_smul_le_conv_of_forall_map_add_le`:
   `(∫⁻ exp (-b |u|) ∂ν) • ρ ≤ ρ ∗ ν`.
+* `MeasureTheory.Measure.ofReal_mul_exp_smul_le_conv_of_forall_map_add_le`:
+  `ν(ℝ) exp (-b ⨍ |u| ∂ν) • ρ ≤ ρ ∗ ν` when `ν` has a first moment, by Jensen's inequality.
 -/
 
 public section
@@ -44,7 +48,7 @@ theorem nonneg_of_forall_map_add_le [IsFiniteMeasure ρ] [NeZero ρ]
     (hρ : ∀ u, ρ.map (· + u) ≤ ENNReal.ofReal (Real.exp (b * |u|)) • ρ) : 0 ≤ b := by
   have h := hρ 1 Set.univ
   rw [map_apply (measurable_add_const 1) MeasurableSet.univ, Set.preimage_univ,
-    FunLike.coe_smul, Pi.smul_apply, smul_eq_mul, abs_one, mul_one] at h
+    smul_apply, smul_eq_mul, abs_one, mul_one] at h
   have h1 : 1 ≤ ENNReal.ofReal (Real.exp b) :=
     (ENNReal.mul_le_mul_iff_left (measure_univ_ne_zero.2 (NeZero.ne ρ))
       (measure_ne_top ρ _)).1 (by rwa [one_mul])
@@ -64,8 +68,8 @@ theorem smul_le_map_add_of_forall_map_add_le
       ≤ ENNReal.ofReal (Real.exp (-(b * |u|))) •
         ENNReal.ofReal (Real.exp (b * |u|)) • ρ.map (· + u) := by gcongr
   _ = ρ.map (· + u) := by
-    rw [smul_smul, ← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add, neg_add_cancel,
-      Real.exp_zero, ENNReal.ofReal_one, one_smul]
+    rw [smul_smul]
+    simp [← ENNReal.ofReal_mul, Real.exp_nonneg, ← Real.exp_add]
 
 /-- If every translate of `ρ` by `u` is at most `exp (b |u|) • ρ`, then the convolution of `ρ`
 with any measure `ν` is at least `(∫⁻ exp (-b |u|) ∂ν) • ρ`. -/
@@ -78,12 +82,23 @@ theorem lintegral_smul_le_conv_of_forall_map_add_le
   rw [conv, map_apply hF hs, prod_apply_symm (hF hs)]
   have h_sec (u : ℝ) : ρ ((fun t ↦ (t, u)) ⁻¹' ((fun p : ℝ × ℝ ↦ p.1 + p.2) ⁻¹' s)) =
       ρ.map (· + u) s := by
-    rw [map_apply (measurable_add_const u) hs]
-    rfl
+    rw [map_apply (measurable_add_const u) hs, Set.preimage_preimage]
   simp_rw [h_sec]
-  rw [FunLike.coe_smul, Pi.smul_apply, smul_eq_mul, ← lintegral_mul_const _ (by fun_prop)]
+  rw [smul_apply, smul_eq_mul, ← lintegral_mul_const _ (by fun_prop)]
   refine lintegral_mono fun u ↦ ?_
   have h := smul_le_map_add_of_forall_map_add_le hρ u s
-  rwa [FunLike.coe_smul, Pi.smul_apply, smul_eq_mul] at h
+  rwa [smul_apply, smul_eq_mul] at h
+
+/-- If every translate of `ρ` by `u` is at most `exp (b |u|) • ρ`, then the convolution of `ρ`
+with a finite measure `ν` with a first moment is at least `ν(ℝ) exp (-b ⨍ |u| ∂ν) • ρ`: by
+Jensen's inequality, `ν(ℝ) exp (-b ⨍ |u| ∂ν) ≤ ∫⁻ exp (-b |u|) ∂ν`. -/
+theorem ofReal_mul_exp_smul_le_conv_of_forall_map_add_le
+    (hρ : ∀ u, ρ.map (· + u) ≤ ENNReal.ofReal (Real.exp (b * |u|)) • ρ) [SFinite ρ]
+    {ν : Measure ℝ} [IsFiniteMeasure ν] (hν : Integrable id ν) :
+    ENNReal.ofReal (ν.real Set.univ * Real.exp (-(b * ⨍ u, |u| ∂ν))) • ρ ≤ ρ ∗ ν := by
+  refine le_trans ?_ (lintegral_smul_le_conv_of_forall_map_add_le hρ ν)
+  gcongr
+  have h := ofReal_measureReal_mul_exp_average_le_lintegral (hν.abs.const_mul b).neg
+  rwa [average_neg, average_const_mul] at h
 
 end MeasureTheory.Measure
