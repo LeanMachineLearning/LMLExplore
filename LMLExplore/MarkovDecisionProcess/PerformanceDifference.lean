@@ -44,6 +44,9 @@ reinforcement learning.
 * `Learning.MDP.runValue_sub_integral_value`: the performance difference lemma [AJKS, Lemma 1.16];
   `Learning.MDP.integral_value_sub_integral_value`: its form for two stationary policies, with the
   advantage averaged over the actions of the first one.
+* `Learning.MDP.integral_integral_advantage_le_integral_value_sub`: if the advantage of `π` has
+  nonnegative mean under `π'` in every state, the values increase from `π` to `π'` by at least
+  the integral of that mean against the initial law.
 * `Learning.MDP.integral_integral_sub_integral_value`: the discounted extended value-difference
   identity [JYW21, Lemma A.1].
 
@@ -111,6 +114,31 @@ theorem integral_value_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     (ρ := M.occupancy γ (Algorithm.markov fun _ ↦ π') μ) (ρCond := π')]
   rw [Measure.integral_compProd
     (integrable_of_abs_le (measurable_advantage hγ hR) (abs_advantage_le hγ hR) _)]
+
+/-- **Improvement lower bound**: with bounded rewards and `γ < 1`, if the advantage of the
+stationary policy `π` has nonnegative mean `g s = ∫ A^π (s, ·) dπ' s` under the stationary policy
+`π'` in every state, then `∫ g dμ ≤ ∫ v^π' dμ - ∫ v^π dμ` for every initial law `μ`. By the
+performance difference lemma the right-hand side is `(1 - γ)⁻¹ ∫ g dd`, for the state occupancy
+measure `d` of `π'` from `μ`, and `d` dominates `(1 - γ) • μ`. -/
+theorem integral_integral_advantage_le_integral_value_sub (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {π π' : Kernel 𝓢 𝓐} [IsMarkovKernel π]
+    [IsMarkovKernel π'] (hA : ∀ s, 0 ≤ ∫ a, M.advantage γ π (s, a) ∂(π' s)) :
+    ∫ s, ∫ a, M.advantage γ π (s, a) ∂(π' s) ∂μ ≤
+      ∫ s, M.value γ π' s ∂μ - ∫ s, M.value γ π s ∂μ := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π') (μ := μ) hγ
+  have hg : Measurable fun s ↦ ∫ a, M.advantage γ π (s, a) ∂(π' s) :=
+    ((measurable_advantage hγ hR).stronglyMeasurable.integral_kernel_prod_right'
+      (κ := π')).measurable
+  have h_int : Integrable (fun s ↦ ∫ a, M.advantage γ π (s, a) ∂(π' s))
+      (M.occupancy γ (Algorithm.markov fun _ ↦ π') μ).fst :=
+    integrable_of_abs_le hg (fun _ ↦ abs_integral_le_of_abs_le fun _ ↦ abs_advantage_le hγ hR _) _
+  -- the state occupancy measure of `π'` dominates `(1 - γ) • μ`
+  have h_dom := integral_mono_measure smul_le_occupancy_fst (ae_of_all _ hA) h_int
+  simp only [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ.le,
+    NNReal.coe_one, smul_eq_mul] at h_dom
+  rw [integral_value_sub_integral_value hγ hR π π', le_inv_mul_iff₀ h1γ]
+  exact h_dom
 
 /-- **Extended value-difference identity**, discounted form [JYW21, Lemma A.1]: let `Q̂` be bounded
 and measurable, `π'` a stationary policy and `V̂ s = ∫ Q̂ (s, a) ∂π' s`. With bounded rewards and
