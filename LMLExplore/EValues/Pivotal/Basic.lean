@@ -190,7 +190,7 @@ private lemma measureReal_prod_randomizedEvent_halfShift {P : Measure 𝓧} [IsP
     {h : 𝓧 → ℝ} (hh : Measurable h) {c : ℝ} (hc : ∀ᵐ x ∂P, |h x| ≤ c) :
     (P.prod volume).real (randomizedEvent (halfShift h c)) =
       1 / 2 + (∫ x, h x ∂P) / (2 * c) := by
-  have hint : Integrable h P := .of_bound hh.aestronglyMeasurable c (by simpa using hc)
+  have hint : Integrable h P := .of_ae_abs_le hh.aestronglyMeasurable hc
   rw [measureReal_prod_randomizedEvent P (measurable_halfShift hh c),
     integral_congr_ae (hc.mono fun x hx ↦ coe_halfShift hx),
     integral_add (integrable_const _) (hint.div_const _), integral_const, integral_div]
@@ -276,11 +276,11 @@ theorem isExactEVar_twoPointEVar {S : Set (Measure Ω)} (hS : ∀ P ∈ S, IsPro
   refine .of_lintegral_eq_one (measurable_twoPointEVar hB η) fun P hP ↦ ?_
   have := hS P hP
   rw [abs_le] at hη
-  rw [lintegral_twoPointEVar P hB, ← ofReal_measureReal, ← ofReal_measureReal,
-    probReal_compl_eq_one_sub hB, hSB P hP, ← ENNReal.ofReal_mul (by linarith),
-    ← ENNReal.ofReal_mul (by linarith), ← ENNReal.ofReal_add (by nlinarith) (by nlinarith),
-    ← ENNReal.ofReal_one]
-  congr 1
+  rw [lintegral_twoPointEVar P hB, ← ENNReal.toReal_eq_one_iff,
+    ENNReal.toReal_add (by finiteness) (by finiteness)]
+  simp [ENNReal.toReal_ofReal (by linarith : 0 ≤ 1 + η),
+    ENNReal.toReal_ofReal (by linarith : 0 ≤ 1 - η), ← measureReal_def,
+    probReal_compl_eq_one_sub hB, hSB P hP]
   ring
 
 /-- **The two-valued e-variable is pivotal** ([EVR26, Note 26, Theorem 1 (2)]): for an event `B`
@@ -296,19 +296,10 @@ theorem isPivotal_twoPointEVar {S : Set (Measure Ω)} (hS : ∀ P ∈ S, IsProba
   -- the preimage of `s` is `∅`, `B`, `Bᶜ` or the whole space
   have hpre : twoPointEVar B η ⁻¹' s = ∅ ∨ twoPointEVar B η ⁻¹' s = B ∨
       twoPointEVar B η ⁻¹' s = Bᶜ ∨ twoPointEVar B η ⁻¹' s = univ := by
-    by_cases ha : ENNReal.ofReal (1 + η) ∈ s <;> by_cases hb : ENNReal.ofReal (1 - η) ∈ s
-    · refine .inr (.inr (.inr ?_))
-      ext ω
-      by_cases hω : ω ∈ B <;> simp [hω, twoPointEVar_of_mem, twoPointEVar_of_notMem, ha, hb]
-    · refine .inr (.inl ?_)
-      ext ω
-      by_cases hω : ω ∈ B <;> simp [hω, twoPointEVar_of_mem, twoPointEVar_of_notMem, ha, hb]
-    · refine .inr (.inr (.inl ?_))
-      ext ω
-      by_cases hω : ω ∈ B <;> simp [hω, twoPointEVar_of_mem, twoPointEVar_of_notMem, ha, hb]
-    · refine .inl ?_
-      ext ω
-      by_cases hω : ω ∈ B <;> simp [hω, twoPointEVar_of_mem, twoPointEVar_of_notMem, ha, hb]
+    by_cases ha : ENNReal.ofReal (1 + η) ∈ s <;> by_cases hb : ENNReal.ofReal (1 - η) ∈ s <;>
+      [refine .inr (.inr (.inr ?_)); refine .inr (.inl ?_); refine .inr (.inr (.inl ?_));
+        refine .inl ?_] <;>
+      ext ω <;> by_cases hω : ω ∈ B <;> simp [hω, ha, hb]
   rcases hpre with h | h | h | h <;> rw [h]
   · simp
   · exact hSB P hP P' hP'
@@ -411,12 +402,11 @@ theorem le_integral_toReal_sub_one_of_le_eintegral_log {Q : Measure Ω} [IsFinit
     (hc : (c : EReal) ≤ ∫ᵉ x, ENNReal.log (X x) ∂Q) :
     c ≤ ∫ x, ((X x).toReal - 1) ∂Q := by
   have hint : Integrable (fun x ↦ (X x).toReal - 1) Q :=
-    .of_bound (hX.ennreal_toReal.sub_const 1).aestronglyMeasurable M
-      (hXQ.mono fun x hx ↦ by rw [Real.norm_eq_abs]; exact hx.2)
+    .of_ae_abs_le (hX.ennreal_toReal.sub_const 1).aestronglyMeasurable (hXQ.mono fun _ hx ↦ hx.2)
   have hae : ∀ᵐ x ∂Q, (X x : EReal) - 1 = (((X x).toReal - 1 : ℝ) : EReal) := by
     filter_upwards [hXQ] with x hx
     rw [EReal.coe_sub, EReal.coe_ennreal_toReal hx.1, EReal.coe_one]
-  have h := hc.trans (eintegral_mono fun x ↦ ENNReal.log_le_coe_sub_one (X x))
+  have h := hc.trans (eintegral_mono fun x ↦ ENNReal.log_le_sub_one (X x))
   rwa [eintegral_congr_ae hae, eintegral_eq_integral hint, EReal.coe_le_coe_iff] at h
 
 /-- **A bounded exact e-variable with positive power separates the null from the alternative**
@@ -438,23 +428,28 @@ theorem le_mul_tvDist_of_isExactEVar {S 𝒬 : Set (Measure 𝓧)}
     have := hS P hP
     hX.integral_toReal_sub_one_eq_zero hP
   have hSf : ∀ P ∈ S, IsFiniteMeasure P := fun P hP ↦ have := hS P hP; inferInstance
-  obtain ⟨_, h1M, h10⟩ :=
-    integral_eq_zero_of_mem_span hSf hf (fun P hP ↦ hXM P (.inl hP)) hS0 hμ₁
-  obtain ⟨_, h2M, h20⟩ :=
-    integral_eq_zero_of_mem_span hSf hf (fun P hP ↦ hXM P (.inl hP)) hS0 hμ₂
-  obtain ⟨_, hνM, hνc⟩ :=
-    le_integral_of_mem_convexHull h𝒬 hf (fun Q hQ ↦ hXM Q (.inr hQ)) hc hν
+  have hSM : ∀ P ∈ S, ∀ᵐ x ∂P, |(X x).toReal - 1| ≤ M := fun P hP ↦ hXM P (.inl hP)
+  have h𝒬M : ∀ Q ∈ 𝒬, ∀ᵐ x ∂Q, |(X x).toReal - 1| ≤ M := fun Q hQ ↦ hXM Q (.inr hQ)
+  have hSi : ∀ P ∈ S, Integrable (fun x ↦ (X x).toReal - 1) P := fun P hP ↦
+    have := hSf P hP
+    .of_ae_abs_le hf.aestronglyMeasurable (hSM P hP)
+  have h𝒬i : ∀ Q ∈ 𝒬, Integrable (fun x ↦ (X x).toReal - 1) Q := fun Q hQ ↦
+    have := h𝒬 Q hQ
+    .of_ae_abs_le hf.aestronglyMeasurable (h𝒬M Q hQ)
+  have := isFiniteMeasure_of_mem_span hSf hμ₁
+  have := isFiniteMeasure_of_mem_span hSf hμ₂
+  have := isFiniteMeasure_of_mem_convexHull h𝒬 hν
+  have h1M := ae_of_mem_span hSM hμ₁
+  have hνM := ae_of_mem_convexHull h𝒬M hν
   -- the integral of `X - 1` against `μ₁ - μ₂ + ν` is at least `c`
   have key := norm_integral_sub_integral_le_mul_tvDist (μ := μ₁ + ν) (ν := μ₂)
     hf.aestronglyMeasurable hf.aestronglyMeasurable
     ((ae_add_measure_iff.2 ⟨h1M, hνM⟩).mono fun x hx ↦ by rwa [Real.norm_eq_abs])
-    (h2M.mono fun x hx ↦ by rwa [Real.norm_eq_abs])
-  have hint {μ : Measure 𝓧} [IsFiniteMeasure μ] (hμ : ∀ᵐ x ∂μ, |(X x).toReal - 1| ≤ M) :
-      Integrable (fun x ↦ (X x).toReal - 1) μ :=
-    .of_bound hf.aestronglyMeasurable M (hμ.mono fun x hx ↦ by rwa [Real.norm_eq_abs])
-  rw [integral_add_measure (hint h1M) (hint hνM), h10, h20, zero_add, sub_zero,
-    Real.norm_eq_abs] at key
-  exact hνc.trans ((le_abs_self _).trans key)
+    ((ae_of_mem_span hSM hμ₂).mono fun x hx ↦ by rwa [Real.norm_eq_abs])
+  rw [integral_add_measure (integrable_of_mem_span hSi hμ₁)
+    (.of_ae_abs_le hf.aestronglyMeasurable hνM), integral_eq_zero_of_mem_span hSi hS0 hμ₁,
+    integral_eq_zero_of_mem_span hSi hS0 hμ₂, zero_add, sub_zero, Real.norm_eq_abs] at key
+  exact (le_integral_of_mem_convexHull h𝒬i hc hν).trans ((le_abs_self _).trans key)
 
 /-- **A bounded exact e-variable with positive e-power separates the null from the alternative**
 ([EVR26, Note 26, Theorem 1, (3) ⇒ (1)], bounded case): let `X` be an exact e-variable for a null
@@ -503,8 +498,7 @@ theorem exists_integral_eq_zero_of_isExactEVar_prod {S 𝒬 : Set (Measure 𝓧)
     · linarith [le_max_right (K : ℝ) 1, (X p).toReal_nonneg]
   have hint : ∀ P ∈ S ∪ 𝒬, Integrable f (P.prod volume) := fun P hP ↦
     have := hfin P hP
-    .of_bound hf.aestronglyMeasurable (max (K : ℝ) 1)
-      ((hfM P hP).mono fun p hp ↦ by rw [Real.norm_eq_abs]; exact hp.2)
+    .of_ae_abs_le hf.aestronglyMeasurable ((hfM P hP).mono fun _ hp ↦ hp.2)
   refine ⟨fun x ↦ ∫ u, f (x, u),
     (hf.stronglyMeasurable.integral_prod_right' (ν := volume)).measurable,
     fun P hP ↦ ?_, fun P hP ↦ ?_, fun Q hQ ↦ ?_⟩

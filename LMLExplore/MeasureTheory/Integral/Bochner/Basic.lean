@@ -10,7 +10,8 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 
 /-!
-# Expectations of finite suprema, of finite sums, of shifts by constants and of positive parts
+# Expectations of finite suprema, of finite sums, of shifts by constants, of positive parts and
+under combinations of measures
 
 ## Main statements
 
@@ -33,11 +34,18 @@ import Mathlib.MeasureTheory.Integral.IntegrableOn
   most the integral of the positive part.
 * `MeasureTheory.integral_posPart_sub_posPart_le`: under a probability measure,
   `𝔼 f⁺ - c⁺ ≤ 𝔼 |f - c|`, the positive part being `1`-Lipschitz.
+* `MeasureTheory.Integrable.of_ae_abs_le`: a real function bounded almost everywhere in absolute
+  value is integrable under a finite measure.
+* `MeasureTheory.ae_of_mem_span`, `MeasureTheory.isFiniteMeasure_of_mem_span`,
+  `MeasureTheory.integrable_of_mem_span`: almost everywhere properties, finiteness and
+  integrability pass from a set `S` of measures to the finite nonnegative combinations of members
+  of `S`; `MeasureTheory.ae_of_mem_convexHull`, `MeasureTheory.isFiniteMeasure_of_mem_convexHull`:
+  the same for convex combinations.
 * `MeasureTheory.integral_eq_zero_of_mem_span`, `MeasureTheory.le_integral_of_mem_convexHull`: a
-  bounded function whose integral vanishes (is at least `c`) under every member of a set of finite
-  measures stays bounded and has integral `0` (at least `c`) under the finite nonnegative (convex)
-  combinations of these measures. They bound integrals against signed combinations of measures by
-  the total variation.
+  function whose integral vanishes (is at least `c`) under every member of `S` has integral `0`
+  (at least `c`) under the finite nonnegative (convex) combinations of members of `S`. They are
+  used to bound integrals against signed combinations by the total variation
+  (`ProbabilityTheory.le_mul_tvDist_of_isExactEVar`).
 -/
 
 public section
@@ -163,55 +171,81 @@ section Combination
 
 open scoped NNReal
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)} {f : Ω → ℝ} {M c : ℝ}
-  {μ : Measure Ω}
+variable {Ω E : Type*} {mΩ : MeasurableSpace Ω} [NormedAddCommGroup E]
+  {S : Set (Measure Ω)} {f : Ω → ℝ} {g : Ω → E} {M c : ℝ} {μ : Measure Ω}
 
-/-- **Integrals against nonnegative combinations of measures**: if a measurable `f` is bounded by
-`M` almost everywhere and has integral `0` under every member of a set `S` of finite measures,
-then every finite nonnegative combination `μ` of members of `S` is a finite measure under which
-`f` is bounded by `M` almost everywhere and has integral `0`. -/
-theorem integral_eq_zero_of_mem_span (hS : ∀ P ∈ S, IsFiniteMeasure P) (hf : Measurable f)
-    (hSM : ∀ P ∈ S, ∀ᵐ x ∂P, |f x| ≤ M) (hS0 : ∀ P ∈ S, ∫ x, f x ∂P = 0)
-    (hμ : μ ∈ Submodule.span ℝ≥0 S) :
-    IsFiniteMeasure μ ∧ (∀ᵐ x ∂μ, |f x| ≤ M) ∧ ∫ x, f x ∂μ = 0 := by
-  have hint {ν : Measure Ω} [IsFiniteMeasure ν] (hν : ∀ᵐ x ∂ν, |f x| ≤ M) : Integrable f ν :=
-    .of_bound hf.aestronglyMeasurable M (hν.mono fun x hx ↦ by rwa [Real.norm_eq_abs])
+/-- A real function bounded by `M` in absolute value almost everywhere is integrable under a
+finite measure. -/
+theorem Integrable.of_ae_abs_le [IsFiniteMeasure μ] (hf : AEStronglyMeasurable f μ)
+    (h : ∀ᵐ x ∂μ, |f x| ≤ M) : Integrable f μ :=
+  .of_bound hf M (by simpa using h)
+
+/-- A property that holds almost everywhere for every member of a set `S` of measures holds
+almost everywhere for every finite nonnegative combination of members of `S`. -/
+theorem ae_of_mem_span {p : Ω → Prop} (hS : ∀ P ∈ S, ∀ᵐ x ∂P, p x)
+    (hμ : μ ∈ Submodule.span ℝ≥0 S) : ∀ᵐ x ∂μ, p x := by
   induction hμ using Submodule.span_induction with
-  | mem P hP => exact ⟨hS P hP, hSM P hP, hS0 P hP⟩
-  | zero => exact ⟨inferInstance, by simp, by simp⟩
-  | add μ ν _ _ hμ hν =>
-    obtain ⟨_, hμM, hμ0⟩ := hμ
-    obtain ⟨_, hνM, hν0⟩ := hν
-    refine ⟨inferInstance, ae_add_measure_iff.2 ⟨hμM, hνM⟩, ?_⟩
-    rw [integral_add_measure (hint hμM) (hint hνM), hμ0, hν0, add_zero]
-  | smul r μ _ hμ =>
-    obtain ⟨_, hμM, hμ0⟩ := hμ
-    exact ⟨inferInstance, Measure.ae_smul_measure hμM r,
-      by rw [integral_smul_nnreal_measure, hμ0, smul_zero]⟩
+  | mem P hP => exact hS P hP
+  | zero => simp
+  | add μ ν _ _ hμ hν => exact ae_add_measure_iff.2 ⟨hμ, hν⟩
+  | smul r μ _ hμ => exact Measure.ae_smul_measure hμ r
 
-/-- **Integrals against convex combinations of measures**: if a measurable `f` is bounded by `M`
-almost everywhere and has integral at least `c` under every member of a set `S` of finite
-measures, then every convex combination `μ` of members of `S` is a finite measure under which
-`f` is bounded by `M` almost everywhere and has integral at least `c`. -/
-theorem le_integral_of_mem_convexHull (hS : ∀ P ∈ S, IsFiniteMeasure P) (hf : Measurable f)
-    (hSM : ∀ P ∈ S, ∀ᵐ x ∂P, |f x| ≤ M) (hSc : ∀ P ∈ S, c ≤ ∫ x, f x ∂P)
-    (hμ : μ ∈ convexHull ℝ≥0 S) :
-    IsFiniteMeasure μ ∧ (∀ᵐ x ∂μ, |f x| ≤ M) ∧ c ≤ ∫ x, f x ∂μ := by
-  have hint {ν : Measure Ω} [IsFiniteMeasure ν] (hν : ∀ᵐ x ∂ν, |f x| ≤ M) : Integrable f ν :=
-    .of_bound hf.aestronglyMeasurable M (hν.mono fun x hx ↦ by rwa [Real.norm_eq_abs])
-  refine convexHull_min (t := {ν | IsFiniteMeasure ν ∧ (∀ᵐ x ∂ν, |f x| ≤ M) ∧
-    c ≤ ∫ x, f x ∂ν}) (fun P hP ↦ ⟨hS P hP, hSM P hP, hSc P hP⟩) ?_ hμ
-  intro ν₁ hν₁ ν₂ hν₂ a b _ _ hab
-  obtain ⟨_, h1M, h1c⟩ := hν₁
-  obtain ⟨_, h2M, h2c⟩ := hν₂
-  have h1M' := Measure.ae_smul_measure h1M a
-  have h2M' := Measure.ae_smul_measure h2M b
-  refine ⟨inferInstance, ae_add_measure_iff.2 ⟨h1M', h2M'⟩, ?_⟩
-  rw [integral_add_measure (hint h1M') (hint h2M'), integral_smul_nnreal_measure,
-    integral_smul_nnreal_measure, NNReal.smul_def, NNReal.smul_def, smul_eq_mul, smul_eq_mul]
-  have hab' : (a : ℝ) * c + b * c = c := by
+/-- A property that holds almost everywhere for every member of a set `S` of measures holds
+almost everywhere for every convex combination of members of `S`. -/
+theorem ae_of_mem_convexHull {p : Ω → Prop} (hS : ∀ P ∈ S, ∀ᵐ x ∂P, p x)
+    (hμ : μ ∈ convexHull ℝ≥0 S) : ∀ᵐ x ∂μ, p x :=
+  ae_of_mem_span hS (convexHull_min Submodule.subset_span (Submodule.convex _) hμ)
+
+/-- A finite nonnegative combination of finite measures is a finite measure. -/
+theorem isFiniteMeasure_of_mem_span (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    (hμ : μ ∈ Submodule.span ℝ≥0 S) : IsFiniteMeasure μ := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS P hP
+  | zero | add | smul => infer_instance
+
+/-- A convex combination of finite measures is a finite measure. -/
+theorem isFiniteMeasure_of_mem_convexHull (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    (hμ : μ ∈ convexHull ℝ≥0 S) : IsFiniteMeasure μ :=
+  isFiniteMeasure_of_mem_span hS (convexHull_min Submodule.subset_span (Submodule.convex _) hμ)
+
+/-- A function integrable under every member of a set `S` of measures is integrable under every
+finite nonnegative combination of members of `S`. -/
+theorem integrable_of_mem_span (hS : ∀ P ∈ S, Integrable g P) (hμ : μ ∈ Submodule.span ℝ≥0 S) :
+    Integrable g μ := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS P hP
+  | zero => exact integrable_zero_measure
+  | add μ ν _ _ hμ hν => exact hμ.add_measure hν
+  | smul r μ _ hμ => exact hμ.smul_measure_nnreal
+
+/-- **Integrals against nonnegative combinations of measures**: a function that is integrable with
+integral `0` under every member of a set `S` of measures has integral `0` under every finite
+nonnegative combination of members of `S`. -/
+theorem integral_eq_zero_of_mem_span [NormedSpace ℝ E] (hS : ∀ P ∈ S, Integrable g P)
+    (hS0 : ∀ P ∈ S, ∫ x, g x ∂P = 0) (hμ : μ ∈ Submodule.span ℝ≥0 S) : ∫ x, g x ∂μ = 0 := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS0 P hP
+  | zero => simp
+  | add μ ν hμ' hν' hμ hν =>
+    rw [integral_add_measure (integrable_of_mem_span hS hμ') (integrable_of_mem_span hS hν'), hμ,
+      hν, add_zero]
+  | smul r μ _ hμ => rw [integral_smul_nnreal_measure, hμ, smul_zero]
+
+/-- **Integrals against convex combinations of measures**: a real function that is integrable
+with integral at least `c` under every member of a set `S` of measures has integral at least `c`
+under every convex combination of members of `S`. -/
+theorem le_integral_of_mem_convexHull (hS : ∀ P ∈ S, Integrable f P)
+    (hSc : ∀ P ∈ S, c ≤ ∫ x, f x ∂P) (hμ : μ ∈ convexHull ℝ≥0 S) : c ≤ ∫ x, f x ∂μ := by
+  refine (convexHull_min (t := {ν | Integrable f ν ∧ c ≤ ∫ x, f x ∂ν})
+    (fun P hP ↦ ⟨hS P hP, hSc P hP⟩) ?_ hμ).2
+  rintro ν₁ ⟨hν₁, h1c⟩ ν₂ ⟨hν₂, h2c⟩ a b - - hab
+  refine ⟨hν₁.smul_measure_nnreal.add_measure hν₂.smul_measure_nnreal, ?_⟩
+  rw [integral_add_measure hν₁.smul_measure_nnreal hν₂.smul_measure_nnreal,
+    integral_smul_nnreal_measure, integral_smul_nnreal_measure, NNReal.smul_def, NNReal.smul_def,
+    smul_eq_mul, smul_eq_mul]
+  have hab' : c = a * c + b * c := by
     rw [← add_mul, ← NNReal.coe_add, hab, NNReal.coe_one, one_mul]
-  nlinarith [mul_le_mul_of_nonneg_left h1c a.coe_nonneg, mul_le_mul_of_nonneg_left h2c b.coe_nonneg]
+  linarith [mul_le_mul_of_nonneg_left h1c a.coe_nonneg, mul_le_mul_of_nonneg_left h2c b.coe_nonneg]
 
 end Combination
 

@@ -10,6 +10,7 @@ import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Probability.ConditionalProbability
+import TauCeti.MeasureTheory.Measure.ProbabilityMeasure.Convex
 
 /-!
 # Pivotal exact e-variables: what fails without boundedness or uniformity
@@ -34,8 +35,8 @@ which every random variable is pivotal.
 
 ## Main statements
 
-* `ProbabilityTheory.exists_isExactEVar_le_eintegral_log_of_tendsto_tvDist`: the first example.
-* `ProbabilityTheory.exists_isExactEVar_eintegral_log_pos_of_tendsto_tvDist`: the second example.
+* `ProbabilityTheory.exists_isExactEVar_le_eintegral_log_and_tendsto_tvDist`: the first example.
+* `ProbabilityTheory.exists_isExactEVar_eintegral_log_eq_and_tendsto_tvDist`: the second example.
 
 ## Implementation notes
 
@@ -57,15 +58,6 @@ open MeasureTheory Filter Set
 open scoped ENNReal NNReal Topology unitInterval
 
 namespace ProbabilityTheory
-
-/-- The mixture `(1 - 1 / n) μ + (1 / n) ν` of two probability measures is a probability
-measure. -/
-private lemma isProbabilityMeasure_mixture (μ ν : Measure I) [IsProbabilityMeasure μ]
-    [IsProbabilityMeasure ν] (n : ℕ) :
-    IsProbabilityMeasure ((1 - (n : ℝ≥0)⁻¹) • μ + (n : ℝ≥0)⁻¹ • ν) :=
-  ⟨by rw [add_apply, Measure.coe_nnreal_smul_apply, Measure.coe_nnreal_smul_apply, measure_univ,
-    measure_univ, mul_one, mul_one, ← ENNReal.coe_add,
-    tsub_add_cancel_of_le (Nat.cast_inv_le_one n), ENNReal.coe_one]⟩
 
 /-- The weights `1 / n` tend to `0`. -/
 private lemma tendsto_natCast_inv_nnreal : Tendsto (fun n : ℕ ↦ (n : ℝ≥0)⁻¹) atTop (𝓝 0) :=
@@ -141,27 +133,23 @@ private lemma isExactEVar_bumpEVar : IsExactEVar bumpEVar {(volume : Measure I)}
   have hterm (n : ℕ) : ∫⁻ x, (bumpSet (n + 1)).indicator
       (fun _ ↦ ENNReal.ofReal (Real.exp (2 * (n + 1)))) x ∂volume = 2⁻¹ ^ (n + 2) := by
     rw [lintegral_indicator_const (measurableSet_bumpSet _), volume_bumpSet (by omega),
-      ← ENNReal.ofReal_mul (Real.exp_pos _).le, bumpMass, ← ENNReal.inv_pow,
-      ← ENNReal.ofReal_ofNat 2, ← ENNReal.ofReal_pow (by norm_num),
-      ← ENNReal.ofReal_inv_of_pos (by positivity)]
-    congr 1
-    push_cast
-    rw [mul_left_comm, ← Real.exp_add, show 2 * ((n : ℝ) + 1) + -(2 * ((n : ℝ) + 1)) = 0 by ring,
-      Real.exp_zero, mul_one, pow_succ]
+      ← ENNReal.ofReal_mul (Real.exp_pos _).le]
+    simp [bumpMass, mul_left_comm (Real.exp _), ← Real.exp_add, ENNReal.ofReal_inv_of_pos,
+      ENNReal.ofReal_pow, ENNReal.inv_pow]
   unfold bumpEVar
-  rw [lintegral_add_left measurable_const, lintegral_const, measure_univ, mul_one,
-    lintegral_tsum fun _ ↦ (measurable_const.indicator (measurableSet_bumpSet _)).aemeasurable]
-  simp_rw [hterm, pow_add, ENNReal.tsum_mul_right, ENNReal.tsum_geometric, ENNReal.one_sub_inv_two,
-    inv_inv]
-  rw [pow_two, ← mul_assoc, ENNReal.mul_inv_cancel two_ne_zero ENNReal.ofNat_ne_top, one_mul,
-    ENNReal.inv_two_add_inv_two]
+  rw [lintegral_add_left measurable_const, lintegral_tsum fun _ ↦
+    (measurable_const.indicator (measurableSet_bumpSet _)).aemeasurable]
+  simp_rw [hterm, pow_add, ENNReal.tsum_mul_right, ENNReal.tsum_geometric]
+  simp [pow_two, ← mul_assoc, ENNReal.mul_inv_cancel, ENNReal.inv_two_add_inv_two]
 
 private lemma isProbabilityMeasure_bumpAlt (n : ℕ) : IsProbabilityMeasure (bumpAlt n) := by
   rcases n.eq_zero_or_pos with rfl | hn
   · simp only [bumpAlt, CharP.cast_eq_zero, inv_zero, tsub_zero, one_smul, zero_smul, add_zero]
     infer_instance
   have := cond_isProbabilityMeasure (volume_bumpSet_ne_zero hn)
-  exact isProbabilityMeasure_mixture _ _ n
+  rw [bumpAlt, ← Measure.coe_nnreal_smul, ← Measure.coe_nnreal_smul]
+  exact TauCeti.MeasureTheory.isProbabilityMeasure_smul_add_smul
+    (by norm_cast; exact tsub_add_cancel_of_le (Nat.cast_inv_le_one n)) _ _
 
 /-- The alternative `Q_n` gives mass at least `1 / n` to `A_n`. -/
 private lemma inv_le_measureReal_bumpAlt_bumpSet {n : ℕ} (hn : 1 ≤ n) :
@@ -237,7 +225,7 @@ tending to it in total variation, so that the separation condition fails, and an
 e-variable `X`, pivotal since the null is simple, with `E_{Q_n} log X ≥ 2 - log 2 > 0` for every
 `n ≥ 1`. Every bounded exact e-variable `Y` with `E_{Q_n} log Y ≥ c` for every `n ≥ 1` has
 `c ≤ 0`, so `X` is necessarily unbounded. -/
-theorem exists_isExactEVar_le_eintegral_log_of_tendsto_tvDist :
+theorem exists_isExactEVar_le_eintegral_log_and_tendsto_tvDist :
     ∃ (X : I → ℝ≥0∞) (Q : ℕ → Measure I), IsExactEVar X {(volume : Measure I)} ∧
       IsPivotal X {(volume : Measure I)} ∧ (∀ n, IsProbabilityMeasure (Q n)) ∧
       (∀ n, 1 ≤ n → ((2 - Real.log 2 : ℝ) : EReal) ≤ ∫ᵉ x, ENNReal.log (X x) ∂(Q n)) ∧
@@ -308,18 +296,18 @@ private instance isProbabilityMeasure_cond_compl_lowHalf :
     IsProbabilityMeasure ((volume : Measure I)[|lowHalfᶜ]) :=
   cond_isProbabilityMeasure volume_compl_lowHalf_ne_zero
 
-private instance isProbabilityMeasure_halfAlt (n : ℕ) : IsProbabilityMeasure (halfAlt n) :=
-  isProbabilityMeasure_mixture _ _ n
+private instance isProbabilityMeasure_halfAlt (n : ℕ) : IsProbabilityMeasure (halfAlt n) := by
+  rw [halfAlt, ← Measure.coe_nnreal_smul, ← Measure.coe_nnreal_smul]
+  exact TauCeti.MeasureTheory.isProbabilityMeasure_smul_add_smul
+    (by norm_cast; exact tsub_add_cancel_of_le (Nat.cast_inv_le_one n)) _ _
 
 private lemma halfLow_compl : halfLow lowHalfᶜ = 0 := by
   rw [halfLow, cond_apply measurableSet_lowHalf, inter_compl_self, measure_empty, mul_zero]
 
 /-- The alternative `Q_n` gives mass `1 / n` to `(1 / 2, 1]`. -/
 private lemma measureReal_halfAlt_compl (n : ℕ) : (halfAlt n).real lowHalfᶜ = (n : ℝ)⁻¹ := by
-  rw [measureReal_def, halfAlt, add_apply, Measure.coe_nnreal_smul_apply,
-    Measure.coe_nnreal_smul_apply, halfLow_compl,
-    cond_apply_self volume_compl_lowHalf_ne_zero (measure_ne_top _ _), mul_zero, zero_add, mul_one,
-    ENNReal.coe_toReal, NNReal.coe_inv, NNReal.coe_natCast]
+  simp [measureReal_def, halfAlt, halfLow_compl,
+    cond_apply_self volume_compl_lowHalf_ne_zero (measure_ne_top _ _)]
 
 private lemma measurable_halfEVar : Measurable halfEVar :=
   (measurable_one.indicator measurableSet_lowHalf.compl).const_add 1
@@ -338,7 +326,7 @@ positivity, first example]): for the uniform law `P` on `[0, 1 / 2]`, there are 
 measures `Q_n` tending to `P` in total variation, so that the separation condition fails, and an
 exact e-variable `X ≤ 2`, pivotal since the null is simple, with `E_{Q_n} log X = (log 2) / n`,
 positive for every `n ≥ 1`. -/
-theorem exists_isExactEVar_eintegral_log_pos_of_tendsto_tvDist :
+theorem exists_isExactEVar_eintegral_log_eq_and_tendsto_tvDist :
     ∃ (P : Measure I) (X : I → ℝ≥0∞) (Q : ℕ → Measure I), IsProbabilityMeasure P ∧
       IsExactEVar X {P} ∧ IsPivotal X {P} ∧ (∀ x, X x ≤ 2) ∧ (∀ n, IsProbabilityMeasure (Q n)) ∧
       (∀ n, ∫ᵉ x, ENNReal.log (X x) ∂(Q n) = ((Real.log 2 / n : ℝ) : EReal)) ∧
