@@ -37,6 +37,8 @@ exact means `∫⁻ E ∂P = 1`.
 
 * `ProbabilityTheory.isAdmissibleEVar_iff_forall_le`: admissibility can be tested on the
   e-variables that dominate `E` everywhere.
+* `ProbabilityTheory.IsAdmissibleEVar.congr`: a measurable function quasi-surely equal to an
+  admissible e-variable is an admissible e-variable.
 * `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
   almost surely under a member of the null under which `E` is exact is equal to `E` almost surely
   under that member.
@@ -91,6 +93,12 @@ theorem isAdmissibleEVar_iff_forall_le :
       (hEF.mono fun ω hω ↦ (max_eq_right hω).symm)
   filter_upwards [h _ h_max (fun ω ↦ le_max_left _ _)] with ω hω
   exact (le_max_right _ _).trans hω.le
+
+/-- A measurable function quasi-surely equal to an admissible e-variable is an admissible
+e-variable: `Filter.IsAdmissible.congr`, with `IsEVar.congr_quasiSure` for the membership. -/
+theorem IsAdmissibleEVar.congr (hE : IsAdmissibleEVar E S) (hF : Measurable F)
+    (hEF : E =ᶠ[quasiSure S] F) : IsAdmissibleEVar F S :=
+  Filter.IsAdmissible.congr hE (hE.mem.congr_quasiSure hF hEF) hEF
 
 /-! ### Strongly admissible e-variables -/
 

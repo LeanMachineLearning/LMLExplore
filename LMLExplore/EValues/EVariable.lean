@@ -38,7 +38,7 @@ e-variables are `ℝ≥0∞`-valued.
 
 * `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: the
   e-variables and the exact e-variables in terms of `∫⁻`.
-* `ProbabilityTheory.IsEVar.congr_quasiSure`, `ProbabilityTheory.IsEVar.mono_quasiSure`: the set
+* `ProbabilityTheory.IsEVar.congr_quasiSure`, `ProbabilityTheory.IsEVar.mono_ae`: the set
   of e-variables is closed under quasi-sure equality and solid in the quasi-sure order
   (`ProbabilityTheory.quasiSure`), among measurable functions.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` of a probability
@@ -122,7 +122,7 @@ theorem IsEVar.congr_quasiSure (hE : IsEVar E S) (hF : Measurable F) (hEF : E =�
 /-- The set of e-variables is solid in the quasi-sure order: a measurable function quasi-surely
 below an e-variable is an e-variable. Measurability cannot be dropped, as every e-variable is
 measurable. -/
-theorem IsEVar.mono_quasiSure (hF : IsEVar F S) (hE : Measurable E) (hEF : E ≤ᶠ[quasiSure S] F) :
+theorem IsEVar.mono_ae (hF : IsEVar F S) (hE : Measurable E) (hEF : E ≤ᶠ[quasiSure S] F) :
     IsEVar E S :=
   ⟨hE, fun _ hP ↦ (lintegral_mono_ae (ae_of_eventually_quasiSure hEF hP)).trans
     (hF.lintegral_le_one hP)⟩

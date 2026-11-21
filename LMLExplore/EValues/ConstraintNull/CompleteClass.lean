@@ -695,7 +695,7 @@ theorem isEVar_constraintNull_iff (hg : ∀ i, Measurable (g i)) :
       E ≤ᶠ[quasiSure (constraintNull (range g))]
         fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) :=
   ⟨fun hE ↦ ⟨hE.measurable, hE.exists_mem_constraintBets_ae_le hg⟩, fun ⟨hEm, _, hπ, hEπ⟩ ↦
-    (isEVar_ofReal_one_add_of_mem_constraintBets hg hπ).mono_quasiSure hEm hEπ⟩
+    (isEVar_ofReal_one_add_of_mem_constraintBets hg hπ).mono_ae hEm hEπ⟩
 
 /-! ### Completion into a member of the null -/
 
