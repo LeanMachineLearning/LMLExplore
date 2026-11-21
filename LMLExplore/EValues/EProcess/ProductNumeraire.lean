@@ -12,7 +12,7 @@ import LMLExplore.EValues.Numeraire
 import LMLExplore.Probability.ProductMeasure
 
 /-!
-# The product of one-step numeraires is optimal at every stopping time
+# The product of one-step numeraires is optimal at every finite stopping time
 
 Let `S₁ i` be sets of probability measures on `𝓧`, the one-step nulls, `Q₁ i` probability
 measures, the one-step alternatives, and `X i` a numeraire of `S₁ i` against `Q₁ i`. On sequences
@@ -29,7 +29,8 @@ Tonelli's theorem (`lintegral_sum_mul_prod_inv_le`): no dominating measure, no m
 of the null laws and no finiteness of the numeraires is used for the bound
 `∫⁻ F_τ / E_τ ∂Q₁^ℕ ≤ 1` on the e-processes `F` (`lintegral_div_prod_le_one`). For a simple
 i.i.d. null `P₁` and an alternative `Q₁ ≪ P₁`, this makes the likelihood ratio process optimal at
-every stopping time (`isNumeraireAt_prod_rnDeriv`) [EVR26, Note 40, Proposition 6].
+every stopping time that is finite everywhere (`isNumeraireAt_prod_rnDeriv`)
+[EVR26, Note 40, Proposition 6].
 
 ## Main statements
 
@@ -38,14 +39,14 @@ every stopping time (`isNumeraireAt_prod_rnDeriv`) [EVR26, Note 40, Proposition 
   observations, then `∑ k < N, g k * ∏ i < k, (X i (ω i))⁻¹` has integral at most `c` under the
   product of the alternatives.
 * `ProbabilityTheory.lintegral_div_prod_le_one`: the ratio of an e-process to the product of the
-  numeraires, at a stopping time, has expectation at most `1` under the product of the
-  alternatives.
+  numeraires, at a stopping time that is finite everywhere, has expectation at most `1` under the
+  product of the alternatives.
 * `ProbabilityTheory.isNumeraireAt_prod`: the product of almost surely finite one-step numeraires
-  is optimal at every stopping time [EVR26, Note 40, Theorem 5].
+  is optimal at every stopping time that is finite everywhere [EVR26, Note 40, Theorem 5].
 * `ProbabilityTheory.isNumeraireAt_prod_sequentialNull`: the same for the sequential null of the
   one-step nulls.
 * `ProbabilityTheory.isNumeraireAt_prod_rnDeriv`: the likelihood ratio process of i.i.d. laws is
-  optimal at every stopping time.
+  optimal at every stopping time that is finite everywhere.
 
 ## Implementation notes
 

@@ -46,10 +46,12 @@ stopping time is the numeraire of a null on one σ-algebra.
 * `ProbabilityTheory.IsNumeraireAt.ae_eq`: two e-processes that are optimal at the same measurable
   time are almost surely equal at that time.
 * `ProbabilityTheory.isEProcess_indicator_le`,
-  `ProbabilityTheory.exists_isEProcess_stoppedValue_eq_iff`: the values at a stopping time `σ` of
-  the e-processes are the e-variables that are measurable for the σ-algebra at `σ`.
-* `ProbabilityTheory.isNumeraireAt_iff_isNumeraire_mapNull`: optimality at one stopping time is
-  the optimality of the value at that time for the null trimmed to the σ-algebra at that time.
+  `ProbabilityTheory.exists_isEProcess_stoppedValue_eq_iff`: the values of the e-processes at a
+  stopping time `σ` that is finite everywhere are the e-variables that are measurable for the
+  σ-algebra at `σ`.
+* `ProbabilityTheory.isNumeraireAt_iff_isNumeraire_mapNull`: optimality at one stopping time that
+  is finite everywhere is the optimality of the value at that time for the null trimmed to the
+  σ-algebra at that time.
 
 ## Implementation notes
 
