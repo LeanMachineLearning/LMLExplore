@@ -344,10 +344,11 @@ theorem martingale_toReal (hM : IsTestMartingale M ℱ S) (hP : P ∈ S) [IsFini
 
 end IsTestMartingale
 
-/-- The constant process `1` is a test martingale for every null of probability measures. -/
-theorem isTestMartingale_one (hS : ∀ P ∈ S, IsProbabilityMeasure P) :
+/-- The constant process `1` is a test martingale for every null of measures of mass at most
+one. -/
+theorem isTestMartingale_one (hS : ∀ P ∈ S, P univ ≤ 1) :
     IsTestMartingale 1 ℱ S :=
-  ⟨fun _ ↦ measurable_const, fun P hP ↦ by have := hS P hP; simp, fun _ _ _ _ _ ↦ rfl⟩
+  ⟨fun _ ↦ measurable_const, fun P hP ↦ by simpa using hS P hP, fun _ _ _ _ _ ↦ rfl⟩
 
 /-- An almost surely nonnegative real supermartingale is, through `ENNReal.ofReal`, an
 `ℝ≥0∞`-valued supermartingale under `P`. -/
@@ -479,37 +480,37 @@ theorem isTestMartingale_portfolio [Fintype ι] {M₀ : Ω → ℝ≥0∞}
 
 /-- **Products of sequential e-variables** [RW, Proposition 7.20; GdHK24, Proposition 2]. For
 conditional e-variables `E k` given `ℱ k` that are `ℱ (k + 1)`-measurable, `∏ k < n, E k` is a
-test supermartingale for every null of probability measures. -/
-theorem isTestSupermartingale_prod (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+test supermartingale for every null of measures of mass at most one. -/
+theorem isTestSupermartingale_prod (hS : ∀ P ∈ S, P univ ≤ 1)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsCondEVar (E k) (ℱ k) S) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, E k ω) ℱ S := by
   simpa using isTestSupermartingale_portfolio (ℱ := ℱ) (ι := Unit) (M₀ := 1) (w := fun _ _ _ ↦ 1)
-    measurable_const (fun P hP ↦ by have := hS P hP; simp) (fun k _ ↦ hE_meas k)
+    measurable_const (fun P hP ↦ by simpa using hS P hP) (fun k _ ↦ hE_meas k)
     (fun k _ ↦ hE k) (fun _ _ ↦ measurable_const) (fun _ _ ↦ by simp)
 
 /-- **Products of sequential e-variables, exact case.** For exact conditional e-variables `E k`
 given `ℱ k` that are `ℱ (k + 1)`-measurable, `∏ k < n, E k` is a test martingale for every null
-of probability measures. -/
-theorem isTestMartingale_prod (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+of measures of mass at most one. -/
+theorem isTestMartingale_prod (hS : ∀ P ∈ S, P univ ≤ 1)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsExactCondEVar (E k) (ℱ k) S) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, E k ω) ℱ S := by
   simpa using isTestMartingale_portfolio (ℱ := ℱ) (ι := Unit) (M₀ := 1) (w := fun _ _ _ ↦ 1)
-    measurable_const (fun P hP ↦ by have := hS P hP; simp) (fun k _ ↦ hE_meas k)
+    measurable_const (fun P hP ↦ by simpa using hS P hP) (fun k _ ↦ hE_meas k)
     (fun k _ ↦ hE k) (fun _ _ ↦ measurable_const) (fun _ _ ↦ by simp)
 
 /-- **Betting** [RW, Definition 7.21; WSR24]. For conditional e-variables `E k` given `ℱ k` that
 are `ℱ (k + 1)`-measurable, and `ℱ k`-measurable bets `c k ≤ 1`, the wealth
-`∏ k < n, (1 - c k + c k * E k)` is a test supermartingale for every null of probability
-measures. -/
-theorem isTestSupermartingale_betting_condEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+`∏ k < n, (1 - c k + c k * E k)` is a test supermartingale for every null of measures of mass at
+most one. -/
+theorem isTestSupermartingale_betting_condEVar (hS : ∀ P ∈ S, P univ ≤ 1)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsCondEVar (E k) (ℱ k) S) {c : ℕ → Ω → ℝ≥0∞}
     (hc : ∀ k, Measurable[ℱ k] (c k)) (hc_le : ∀ k ω, c k ω ≤ 1) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, (1 - c k ω + c k ω * E k ω)) ℱ S := by
   have := isTestSupermartingale_portfolio (ℱ := ℱ) (M₀ := 1) (w := fun k ω ↦ ![1 - c k ω, c k ω])
-    (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by have := hS P hP; simp)
+    (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by simpa using hS P hP)
     (fun k i ↦ by fin_cases i <;> simp [measurable_one, hE_meas k])
     (fun k i ↦ by fin_cases i <;> simp [hE k])
     (fun k i ↦ by fin_cases i <;> simp [(hc k).const_sub, hc k])
@@ -518,14 +519,15 @@ theorem isTestSupermartingale_betting_condEVar (hS : ∀ P ∈ S, IsProbabilityM
 
 /-- **Betting, exact case.** For exact conditional e-variables `E k` given `ℱ k` that are
 `ℱ (k + 1)`-measurable, and `ℱ k`-measurable bets `c k ≤ 1`, the wealth
-`∏ k < n, (1 - c k + c k * E k)` is a test martingale for every null of probability measures. -/
-theorem isTestMartingale_betting_condEVar (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+`∏ k < n, (1 - c k + c k * E k)` is a test martingale for every null of measures of mass at most
+one. -/
+theorem isTestMartingale_betting_condEVar (hS : ∀ P ∈ S, P univ ≤ 1)
     {E : ℕ → Ω → ℝ≥0∞} (hE_meas : ∀ k, Measurable[ℱ (k + 1)] (E k))
     (hE : ∀ k, IsExactCondEVar (E k) (ℱ k) S) {c : ℕ → Ω → ℝ≥0∞}
     (hc : ∀ k, Measurable[ℱ k] (c k)) (hc_le : ∀ k ω, c k ω ≤ 1) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, (1 - c k ω + c k ω * E k ω)) ℱ S := by
   have := isTestMartingale_portfolio (ℱ := ℱ) (M₀ := 1) (w := fun k ω ↦ ![1 - c k ω, c k ω])
-    (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by have := hS P hP; simp)
+    (E := fun k ↦ ![1, E k]) measurable_const (fun P hP ↦ by simpa using hS P hP)
     (fun k i ↦ by fin_cases i <;> simp [measurable_one, hE_meas k])
     (fun k i ↦ by fin_cases i <;> simp [hE k])
     (fun k i ↦ by fin_cases i <;> simp [(hc k).const_sub, hc k])

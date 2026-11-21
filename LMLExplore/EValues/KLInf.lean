@@ -51,6 +51,8 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
 * `ProbabilityTheory.klIntegral_map_le`: data processing for `klIntegral` along a measurable map.
 * `ProbabilityTheory.klInf_eq_iInf_klDiv`: for a null whose members have the mass of `Q`, `klInf`
   is the smallest `klDiv`.
+* `ProbabilityTheory.maxEPower_effectiveSet`: a null and its effective null have the same largest
+  e-power.
 * `ProbabilityTheory.maxEPower_eq_klInf_effectiveSet`: Statlib's duality,
   `maxEPower Q S = klInf Q (effectiveSet S)`, and `ProbabilityTheory.maxEPower_le_klInf`.
 * `ProbabilityTheory.maxEPower_singleton`: the simple null, `maxEPower Q {P} = klIntegral Q P` for
@@ -260,6 +262,12 @@ theorem maxEPower_anti (hST : S ⊆ T) : maxEPower Q T ≤ maxEPower Q S :=
 constant `1` is an e-variable. -/
 theorem maxEPower_nonneg (Q : Measure Ω) (hS : ∀ P ∈ S, P univ ≤ 1) : 0 ≤ maxEPower Q S :=
   maxUtility_nonneg Q hS
+
+/-- A null and its effective null have the same e-variables, hence the same largest e-power. -/
+@[simp]
+theorem maxEPower_effectiveSet (Q : Measure Ω) (S : Set (Measure Ω)) :
+    maxEPower Q (effectiveSet S) = maxEPower Q S := by
+  simp only [maxEPower_def, maxUtility_eq_sSup, isEVar_effectiveSet_iff]
 
 /-- **Duality** [LRR25]: the largest e-power of `S` is the smallest relative entropy to its
 effective null. This is Statlib's `maxUtility_eq_iInf_klIntegral_effectiveSet`. -/

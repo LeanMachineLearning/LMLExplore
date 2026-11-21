@@ -24,8 +24,8 @@ This file defines p-variables, exact p-variables and tests. It proves that, for 
 tests of level `α` are the functions `α * X` for e-variables `X` with values in `[0, α⁻¹]`, that
 Markov's inequality and its smoothed form give tests of level `α` from an e-variable, and that a
 p-variable is a family of rejection regions, one of level `α` for every `α`. It also proves that,
-for a null of probability measures, the inverse `E⁻¹` of an e-variable is a p-variable (the e-to-p
-calibration, with `0⁻¹ = ∞` and no truncation at `1`), and that a p-variable is stochastically
+for every null, the inverse `E⁻¹` of an e-variable is a p-variable (the e-to-p calibration, with
+`0⁻¹ = ∞` and no truncation at `1`), and that a p-variable is stochastically
 larger than the uniform law on `[0, 1]`.
 
 ## Main definitions
@@ -47,8 +47,8 @@ larger than the uniform law on `[0, 1]`.
   e-variable `E`, the indicator of `{α⁻¹ ≤ E}` and `min (α * E) 1` are tests of level `α`.
 * `ProbabilityTheory.isPVar_iff_forall_isTest_indicator`: `p` is a p-variable exactly when, for
   every `α`, the indicator of `{p ≤ α}` is a test of level `α`.
-* `ProbabilityTheory.IsEVar.isPVar_inv`: for a null of probability measures, the inverse of an
-  e-variable is a p-variable.
+* `ProbabilityTheory.IsEVar.isPVar_inv`: for every null, the inverse of an e-variable is a
+  p-variable.
 * `ProbabilityTheory.isExactPVar_ofReal_volume`: the identity of `[0, 1]` under Lebesgue measure is
   an exact p-variable, and `ProbabilityTheory.isExactPVar_ofReal_of_map_eq`: so is every random
   variable uniformly distributed on `[0, 1]` under every member of the null.
@@ -128,13 +128,12 @@ theorem IsPVar.comp {q : 𝓨 → ℝ≥0∞} {φ : Ω → 𝓨} (hφ : Measurab
     have h_le := h.measure_le_le (P.map φ) ⟨P, hP, rfl⟩ α
     rwa [Measure.map_apply hφ (measurableSet_le h.measurable measurable_const)] at h_le
 
-/-- **E-to-p calibration**: for a null of probability measures, the inverse `E⁻¹` of an
-e-variable `E` is a p-variable. -/
-theorem IsEVar.isPVar_inv (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : IsEVar E S) :
+/-- **E-to-p calibration**: the inverse `E⁻¹` of an e-variable `E` is a p-variable, for every
+null, by Markov's inequality. -/
+theorem IsEVar.isPVar_inv (hE : IsEVar E S) :
     IsPVar (fun ω ↦ (E ω)⁻¹) S where
   measurable := hE.measurable.inv
   measure_le_le P hP α := by
-    have := hS P hP
     have h_set : {ω | (E ω)⁻¹ ≤ α} = {ω | α⁻¹ ≤ E ω} :=
       Set.ext fun _ ↦ ENNReal.inv_le_iff_inv_le
     rw [h_set]

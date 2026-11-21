@@ -26,10 +26,10 @@ the adapted `{0, 1}`-valued process `𝟙{τ ≤ n}`, which rejects from time `�
 sequential test in the sense of `IsSequentialTest`; conversely the rejection events of a
 `{0, 1}`-valued sequential test `φ` are those of the first time `hittingAfter φ {1} 0` at which it
 rejects, and the first rejection time of `𝟙{τ ≤ n}` is `τ`
-(`MeasureTheory.hittingAfter_indicator_setOf_le_apply`). For a null of probability measures, the
-first time an e-process reaches `α⁻¹` is a level-`α` sequential test, at every level `α`, `0`
-included, by Ville's inequality for e-processes; for such a null and `α ≠ ∞` every level-`α`
-sequential test is of this form, with the e-process `α⁻¹ * 𝟙{τ ≤ n}` [RW, Proposition 7.8]. The
+(`MeasureTheory.hittingAfter_indicator_setOf_le_apply`). For every null, the first time an
+e-process reaches `α⁻¹` is a level-`α` sequential test, at every level `α`, `0` included, by
+Ville's inequality for e-processes; for `α ≠ ∞` every level-`α` sequential test is of this
+form, with the e-process `α⁻¹ * 𝟙{τ ≤ n}` [RW, Proposition 7.8]. The
 first time a p-process is at most `α` is a level-`α` sequential test [RRLK, Proposition 11]. The
 minimum of two sequential tests for one null is a sequential test at the sum of their levels, and
 their maximum is a sequential test for the union of their nulls at the common level.
@@ -191,16 +191,15 @@ theorem IsSequentialTest.isLevelStoppingTime_hittingAfter (hφ : IsSequentialTes
 
 /-! ### Sequential tests from e-processes and p-processes -/
 
-/-- **Thresholding an e-process** [RW, Fact 7.6]. For a null of probability measures, the first
-time an e-process reaches `α⁻¹` is a level-`α` sequential test, at every level `α`, `0` included:
-this is Ville's inequality for e-processes. -/
-theorem IsEProcess.isLevelStoppingTime_hittingAfter (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) (α : ℝ≥0∞) :
+/-- **Thresholding an e-process** [RW, Fact 7.6]. The first time an e-process reaches `α⁻¹` is a
+level-`α` sequential test, at every level `α`, `0` included: this is Ville's inequality for
+e-processes, through the p-process `E⁻¹`. -/
+theorem IsEProcess.isLevelStoppingTime_hittingAfter (hE : IsEProcess E ℱ S) (α : ℝ≥0∞) :
     IsLevelStoppingTime (hittingAfter E (Ici α⁻¹) 0) ℱ S α where
   isStoppingTime := hE.adapted.isStoppingTime_hittingAfter measurableSet_Ici
   measure_lt_top_le P hP := by
-    have := hS P hP
-    simpa [hittingAfter_lt_top_iff] using hE.measure_exists_inv_le_le hP α
+    simpa [hittingAfter_lt_top_iff, ENNReal.inv_le_iff_inv_le] using
+      hE.isPProcess_inv.measure_exists_le_le hP α
 
 /-- **The e-process of a sequential test** [RW, Proposition 7.8]. A level-`α` sequential test `τ`
 gives the e-process `α⁻¹ * 𝟙{τ ≤ n}`. -/
@@ -209,26 +208,24 @@ theorem IsLevelStoppingTime.isEProcess_inv_mul_indicator (hτ : IsLevelStoppingT
   hτ.isSequentialTest.isEProcess_inv_mul
 
 /-- **Sequential tests are thresholded e-processes** [RW, Proposition 7.8 and Fact 7.6]. For a
-null of probability measures and a level `α ≠ ∞`, a random time is a level-`α` sequential test
-exactly when it is the first time some e-process reaches `α⁻¹`. -/
-theorem isLevelStoppingTime_iff_exists_isEProcess (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hα : α ≠ ∞) :
+level `α ≠ ∞`, a random time is a level-`α` sequential test exactly when it is the first time some
+e-process reaches `α⁻¹`. -/
+theorem isLevelStoppingTime_iff_exists_isEProcess (hα : α ≠ ∞) :
     IsLevelStoppingTime τ ℱ S α ↔ ∃ E, IsEProcess E ℱ S ∧ τ = hittingAfter E (Ici α⁻¹) 0 := by
   refine ⟨fun hτ ↦ ⟨_, hτ.isEProcess_inv_mul_indicator, ?_⟩, fun ⟨E, hE, hτE⟩ ↦
-    hτE ▸ hE.isLevelStoppingTime_hittingAfter hS α⟩
+    hτE ▸ hE.isLevelStoppingTime_hittingAfter α⟩
   -- `α⁻¹ * 𝟙{τ ≤ n}` reaches `α⁻¹` exactly from time `τ` on, since `α⁻¹ ≠ 0`
   ext1 ω
   refine (hittingAfter_apply_eq_of_forall_mem_iff (by simp) fun n _ ↦ ?_).symm
   by_cases h : τ ω ≤ n <;> simp [h, hα]
 
-/-- **Power one from an unbounded e-process.** For a null of probability measures and a level
-`α ≠ 0`, the first time an e-process reaches `α⁻¹` is a level-`α` sequential test that is finite
-almost surely under every measure under which the e-process is almost surely unbounded. -/
-theorem IsEProcess.exists_isLevelStoppingTime_ae_lt_top (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) (hα : α ≠ 0) :
+/-- **Power one from an unbounded e-process.** For a level `α ≠ 0`, the first time an e-process
+reaches `α⁻¹` is a level-`α` sequential test that is finite almost surely under every measure under
+which the e-process is almost surely unbounded. -/
+theorem IsEProcess.exists_isLevelStoppingTime_ae_lt_top (hE : IsEProcess E ℱ S) (hα : α ≠ 0) :
     ∃ τ, IsLevelStoppingTime τ ℱ S α ∧
       ∀ Q : Measure Ω, (∀ᵐ ω ∂Q, ⨆ n, E n ω = ∞) → ∀ᵐ ω ∂Q, τ ω < ⊤ := by
-  refine ⟨_, hE.isLevelStoppingTime_hittingAfter hS α, fun Q hQ ↦ ?_⟩
+  refine ⟨_, hE.isLevelStoppingTime_hittingAfter α, fun Q hQ ↦ ?_⟩
   filter_upwards [hQ] with ω hω
   -- the threshold `α⁻¹` is finite, so it is exceeded by some value of the unbounded process
   obtain ⟨n, hn⟩ := lt_iSup_iff.1 (hω ▸ ENNReal.inv_lt_top.2 (pos_iff_ne_zero.2 hα))

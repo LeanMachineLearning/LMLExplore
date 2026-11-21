@@ -21,7 +21,7 @@ null is an arbitrary set of measures, with no dominating measure, and the filtra
 arbitrary. [RW] also allows stopping times that never stop; validity at the stopping times with
 values in `ℕ` is the form used here.
 
-Every test supermartingale for a null of probability measures is an e-process, by optional
+Every test supermartingale for a null of finite measures is an e-process, by optional
 stopping (`ProbabilityTheory.IsTestSupermartingale.isEVar_stoppedValueLimsup`), but not
 conversely. This file also proves the closure properties of e-processes that follow from those of
 e-variables at each stopping time: restricting the null, passing to an adapted process that is
@@ -64,7 +64,7 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   `1` is an e-process for a null of measures of mass at most `1`, and the e-processes for a null
   form a convex set.
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
-  probability measures is an e-process [RW, Fact 7.5].
+  finite measures is an e-process [RW, Fact 7.5].
 * `ProbabilityTheory.IsEProcess.shift`, `ProbabilityTheory.isEProcess_shift_iff`: for filtrations
   with `𝒢 0 = ⊥` and `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, and a
   null of measures of mass at most `1`, a process `E` with `E 0 = 1` is an e-process for `𝒢`
@@ -203,9 +203,9 @@ theorem convex_isEProcess (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) :
     convex_isEVar S (hE.isEVar_stoppedValue τ hτ) (hF.isEVar_stoppedValue τ hτ) ha hb hab⟩
 
 /-- **Test supermartingales are e-processes** [RW, Fact 7.5]. By optional stopping, a test
-supermartingale for a null of probability measures has expectation at most `1` at every stopping
-time, so it is an e-process. -/
-theorem IsTestSupermartingale.isEProcess (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+supermartingale for a null of finite measures has expectation at most `1` at every stopping time,
+so it is an e-process. -/
+theorem IsTestSupermartingale.isEProcess (hS : ∀ P ∈ S, IsFiniteMeasure P)
     {M : ℕ → Ω → ℝ≥0∞} (hM : IsTestSupermartingale M ℱ S) : IsEProcess M ℱ S :=
   ⟨hM.adapted, fun τ hτ ↦ by simpa using hM.isEVar_stoppedValueLimsup hS hτ⟩
 

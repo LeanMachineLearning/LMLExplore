@@ -104,7 +104,7 @@ theorem isTestSupermartingale_prod_of_hasCondLaw [IsProbabilityMeasure P]
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k, ∀ᵐ ω ∂P, ∫⁻ x, r k ω x ∂(κ k ω) ≤ 1) :
     IsTestSupermartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ {P} :=
-  isTestSupermartingale_prod (by simpa) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
+  isTestSupermartingale_prod (by simp) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
     fun k ↦ (hκ k).isCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
 
 /-- **The likelihood ratio of a probability predictor is a test martingale** [RW, §7.5]. Let `X k`
@@ -117,7 +117,7 @@ theorem isTestMartingale_prod_of_hasCondLaw [IsProbabilityMeasure P]
     (hr : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (r k)))
     (hr1 : ∀ k, ∀ᵐ ω ∂P, ∫⁻ x, r k ω x ∂(κ k ω) = 1) :
     IsTestMartingale (fun n ω ↦ ∏ k ∈ range n, r k ω (X k ω)) ℱ {P} :=
-  isTestMartingale_prod (by simpa) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
+  isTestMartingale_prod (by simp) (fun k ↦ (hr k).comp_prodMk_of_le (ℱ.mono k.le_succ) (hX k))
     fun k ↦ (hκ k).isExactCondEVar_comp (ℱ.le k) ((hX k).mono (ℱ.le _) le_rfl) (hr k) (hr1 k)
 
 end Predictor

@@ -204,8 +204,7 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
   have hint : Integrable f μ := Integrable.of_bound hfm.aestronglyMeasurable _
     (ae_of_all _ fun x ↦ by rw [Real.norm_eq_abs]; exact hfb x)
   refine ⟨N, f, ⟨hfm, hfb, fun P hP ↦ ?_⟩, ?_⟩
-  · have := hS₁ P hP
-    calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
+  · calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
     _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
       lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
     _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal

@@ -98,7 +98,7 @@ theorem isEProcess_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have := hS P hP
   -- under `P`, the ratio is dominated by the likelihood ratio process of `Q` against `P`
   refine ((isTestSupermartingale_rnDeriv_trim (P := P) (ℱ := ℱ) hQ).isEProcess
-    (by simpa using this)).mono_ae hE ?_
+    (by rintro _ rfl; infer_instance)).mono_ae hE ?_
   intro P' hP' n
   rw [mem_singleton_iff.1 hP']
   refine ae_le_of_ae_le_trim (hm := ℱ.le n) (Measure.rnDeriv_div_ae_le_rnDeriv (hSμ P hP n) ?_)
@@ -116,7 +116,7 @@ theorem isPProcess_inv_iSup_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMea
     (hle : ∀ P ∈ S, ∀ n, (P.trim (ℱ.le n)).rnDeriv (μ.trim (ℱ.le n)) ≤ᵐ[μ] ℓ n) :
     IsPProcess
       (fun n ω ↦ (⨆ k ≤ n, (Q.trim (ℱ.le k)).rnDeriv (μ.trim (ℱ.le k)) ω / ℓ k ω)⁻¹) ℱ S :=
-  (isEProcess_rnDeriv_trim_div hS hSμ hQ hℓ hle).isPProcess_inv_iSup hS
+  (isEProcess_rnDeriv_trim_div hS hSμ hQ hℓ hle).isPProcess_inv_iSup
 
 end EProcess
 
@@ -133,7 +133,7 @@ theorem isConfSeq_rnDeriv_trim_div {Θ : Type*} {S : Θ → Set (Measure Ω)}
     (α : ℝ≥0∞) :
     IsConfSeq
       (fun n ω ↦ {θ | (Q.trim (ℱ.le n)).rnDeriv (μ.trim (ℱ.le n)) ω / ℓ θ n ω < α⁻¹}) ℱ S α :=
-  isConfSeq_of_isEProcess hS
+  isConfSeq_of_isEProcess
     (fun θ ↦ isEProcess_rnDeriv_trim_div (hS θ) (hSμ θ) hQ (hℓ θ) (hle θ)) α
 
 /-! ### I.i.d. nulls -/

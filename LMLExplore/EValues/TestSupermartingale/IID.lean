@@ -87,7 +87,8 @@ null `{P ^ ℕ | P ∈ S}` and `Filtration.piLE`. -/
 theorem IsEVar.isEProcess_prod_piLE (hS : ∀ P ∈ S, IsProbabilityMeasure P) (he : IsEVar e S) :
     IsEProcess (fun n ω ↦ ∏ i : Fin (n + 1), e (ω i))
       (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧)) (iidNull S) :=
-  (he.isTestSupermartingale_prod_piLE hS).isEProcess (isProbabilityMeasure_of_mem_iidNull hS)
+  (he.isTestSupermartingale_prod_piLE hS).isEProcess fun P hP ↦
+    have := isProbabilityMeasure_of_mem_iidNull hS P hP; inferInstance
 
 /-- **Ville's inequality for products over blocks.** If a function `V` of `m` observations has
 expectation at most `1` under the `m`-fold product of `P`, then under the i.i.d. law of `P` the
