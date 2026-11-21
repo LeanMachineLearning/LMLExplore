@@ -33,12 +33,12 @@ output), for an admissible calibrator `h`:
 
 Admissibility is domination on `[0, 1] × [0, ∞]`, the domain of the combiners of [IWR24]: p-values
 above `1` carry no evidence, and a combiner may be improved there without changing it on that
-domain (for instance `h p * e` vanishes for `p > 1`), so domination is only asked there. For the
-e-combiners it is `Filter.IsAdmissible` along `𝓟 (Iic 1 ×ˢ univ)`; for the p-combiners, which
-are better when smaller, it is the dual statement that a combiner below the given one on
-`[0, 1] × [0, ∞]` equals it there. The proofs follow [IWR24, Supplement]: a combiner that strictly
-improves on one of the four somewhere is improved on a rectangle of positive probability under the
-uniform law and a law of mean `1`, which makes it invalid.
+domain, so domination is only asked there. For the e-combiners it is `Filter.IsAdmissible` along
+`𝓟 (Iic 1 ×ˢ univ)`; for the p-combiners, which are better when smaller, it is the dual statement
+that a combiner below the given one on `[0, 1] × [0, ∞]` equals it there. The proofs follow
+[IWR24, Supplement]: a combiner that strictly improves on one of the four somewhere is improved on
+a rectangle of positive probability under the uniform law and a law of mean `1`, which makes it
+invalid.
 
 ## Main definitions
 
@@ -440,30 +440,6 @@ theorem isPEToPCombiner_bonferroniCombiner : IsPEToPCombiner peNull bonferroniCo
     fun _ hμ ↦ (isProbabilityMeasure_of_mem_peNull hμ).measure_univ.le
 
 /-! ### Admissibility of the e-combiners -/
-
-/-- Every finite `e` is charged by a probability measure on `ℝ≥0∞` of mean `1`: a Bernoulli law
-on `e` and a second point. -/
-theorem exists_lintegral_id_eq_one {e : ℝ≥0∞} (he : e ≠ ∞) :
-    ∃ ρ : Measure ℝ≥0∞, IsProbabilityMeasure ρ ∧ ∫⁻ x, x ∂ρ = 1 ∧ ρ {e} ≠ 0 := by
-  rcases le_or_gt e 1 with he1 | he1
-  · -- the law with weights `1 / 2` on `e` and on `2 - e`
-    refine ⟨Ber(e, 2 - e, ⟨2⁻¹, by norm_num, by norm_num⟩), inferInstance, ?_, ?_⟩
-    · have h2 : e + (2 - e) = 2 := add_tsub_cancel_of_le (he1.trans one_le_two)
-      rw [lintegral_bernoulliMeasure, show (1 : ℝ) - 2⁻¹ = 2⁻¹ by norm_num,
-        ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat, ← mul_add, h2,
-        ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top]
-    · rw [bernoulliMeasure_apply _ (measurableSet_singleton e)]
-      split_ifs <;> norm_num [unitInterval.coe_toNNReal_eq_ofReal] at *
-  · -- the law with weights `1 / e` on `e` and `1 - 1 / e` on `0`
-    have he0 : e ≠ 0 := (zero_lt_one.trans he1).ne'
-    have hpos : 0 < e.toReal := ENNReal.toReal_pos he0 he
-    refine ⟨Ber(e, 0, ⟨e.toReal⁻¹, by positivity, inv_le_one_of_one_le₀ ?_⟩), inferInstance, ?_,
-      ?_⟩
-    · simpa using (ENNReal.toReal_le_toReal ENNReal.one_ne_top he).2 he1.le
-    · rw [lintegral_bernoulliMeasure, mul_zero, add_zero, ENNReal.ofReal_inv_of_pos hpos,
-        ENNReal.ofReal_toReal he, ENNReal.inv_mul_cancel he0 he]
-    · rw [bernoulliMeasure_apply_singleton_left he0]
-      exact (ENNReal.ofReal_pos.2 (inv_pos.2 hpos)).ne'
 
 /-- **The admissibility argument of [IWR24, Theorem 3.1] for e-combiners.** Let `F` be antitone
 in the p-value, infinite at `p = 0` and at `e = ∞`, upper semicontinuous in the p-value, and of

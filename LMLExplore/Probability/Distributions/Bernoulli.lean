@@ -47,6 +47,8 @@ means.
   `p` at `true` and `1 - p` at `false`.
 * `ProbabilityTheory.lintegral_id_bernoulliMeasure_ofReal`: the mean of a Bernoulli law on two
   points of `ℝ≥0∞`.
+* `ProbabilityTheory.exists_lintegral_id_eq_one`: every finite `e : ℝ≥0∞` is charged by a
+  Bernoulli law on `ℝ≥0∞` of mean `1`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_of_imp`: if `q = 0 → p = 0` and
   `q = 1 → p = 1`, then `Ber(x, y, p) ≪ Ber(x, y, q)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
@@ -121,6 +123,30 @@ lemma lintegral_id_bernoulliMeasure_ofReal {a b : ℝ} (ha : 0 ≤ a) (hb : 0 �
   have hp : 0 ≤ (1 : ℝ) - p := sub_nonneg.2 p.2.2
   rw [lintegral_bernoulliMeasure, ← ENNReal.ofReal_mul p.2.1, ← ENNReal.ofReal_mul hp,
     ← ENNReal.ofReal_add (mul_nonneg p.2.1 ha) (mul_nonneg hp hb)]
+
+/-- Every finite `e` is charged by a probability measure on `ℝ≥0∞` of mean `1`: a Bernoulli law
+on `e` and a second point. -/
+theorem exists_lintegral_id_eq_one {e : ℝ≥0∞} (he : e ≠ ∞) :
+    ∃ ρ : Measure ℝ≥0∞, IsProbabilityMeasure ρ ∧ ∫⁻ x, x ∂ρ = 1 ∧ ρ {e} ≠ 0 := by
+  rcases le_or_gt e 1 with he1 | he1
+  · -- the law with weights `1 / 2` on `e` and on `2 - e`
+    refine ⟨Ber(e, 2 - e, ⟨2⁻¹, by norm_num, by norm_num⟩), inferInstance, ?_, ?_⟩
+    · have h2 : e + (2 - e) = 2 := add_tsub_cancel_of_le (he1.trans one_le_two)
+      rw [lintegral_bernoulliMeasure, show (1 : ℝ) - 2⁻¹ = 2⁻¹ by norm_num,
+        ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat, ← mul_add, h2,
+        ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top]
+    · rw [bernoulliMeasure_apply _ (measurableSet_singleton e)]
+      split_ifs <;> norm_num [unitInterval.coe_toNNReal_eq_ofReal] at *
+  · -- the law with weights `1 / e` on `e` and `1 - 1 / e` on `0`
+    have he0 : e ≠ 0 := (zero_lt_one.trans he1).ne'
+    have hpos : 0 < e.toReal := ENNReal.toReal_pos he0 he
+    refine ⟨Ber(e, 0, ⟨e.toReal⁻¹, by positivity, inv_le_one_of_one_le₀ ?_⟩), inferInstance, ?_,
+      ?_⟩
+    · simpa using (ENNReal.toReal_le_toReal ENNReal.one_ne_top he).2 he1.le
+    · rw [lintegral_bernoulliMeasure, mul_zero, add_zero, ENNReal.ofReal_inv_of_pos hpos,
+        ENNReal.ofReal_toReal he, ENNReal.inv_mul_cancel he0 he]
+    · rw [bernoulliMeasure_apply_singleton_left he0]
+      exact (ENNReal.ofReal_pos.2 (inv_pos.2 hpos)).ne'
 
 /-- Every real function has exponential moments of all orders under a Bernoulli law. -/
 @[simp]
