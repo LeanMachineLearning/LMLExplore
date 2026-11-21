@@ -45,7 +45,7 @@ Savage [BS56]:
   measurable functions bounded by `1`.
 * `ProbabilityTheory.maxLogGrowth_meanZeroPosVarNull`,
   `ProbabilityTheory.bipolarRate_meanZeroPosVarNull`,
-  `ProbabilityTheory.measure_pi_le_of_forall_meanZeroPosVarNull`: no growth and no power against
+  `ProbabilityTheory.lintegral_pi_le_of_isTest_meanZeroPosVarNull`: no growth and no power against
   i.i.d. alternatives.
 * `ProbabilityTheory.le_one_of_isEProcess_infinitePi_meanZeroPosVarNull`: e-processes for the laws
   of independent sequences with marginals in the null are at most `1`.
@@ -255,16 +255,17 @@ theorem bipolarRate_meanZeroPosVarNull (Q : Measure ℝ) [IsProbabilityMeasure Q
     (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
     fun _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε
 
-/-- **No power.** A measurable set of `ι` real observations with probability at most `α` under
-the i.i.d. law of every member of the mean-zero null has probability at most `α` under the
-i.i.d. law of every probability measure on `ℝ`. -/
-theorem measure_pi_le_of_forall_meanZeroPosVarNull {ι : Type*} [Fintype ι] {R : Set (ι → ℝ)}
-    (hR : MeasurableSet R) {α : ℝ≥0∞}
-    (hα : ∀ P ∈ meanZeroPosVarNull, Measure.pi (fun _ : ι ↦ P) R ≤ α) (Q : Measure ℝ)
+/-- **No power.** A test of level `α` for the i.i.d. laws of `ι` real observations with
+marginals in the mean-zero null has power at most `α` against the i.i.d. law of every probability
+measure on `ℝ`. -/
+theorem lintegral_pi_le_of_isTest_meanZeroPosVarNull {ι : Type*} [Fintype ι]
+    {φ : (ι → ℝ) → ℝ≥0∞} {α : ℝ≥0∞}
+    (hφ : IsTest φ ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' meanZeroPosVarNull) α) (Q : Measure ℝ)
     [IsProbabilityMeasure Q] :
-    Measure.pi (fun _ : ι ↦ Q) R ≤ α :=
-  measure_pi_le_of_forall_exists_etvDist_lt (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
-    (fun _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε) hR hα
+    ∫⁻ x, φ x ∂(Measure.pi fun _ : ι ↦ Q) ≤ α :=
+  lintegral_pi_le_of_forall_exists_etvDist_lt
+    (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
+    (fun _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε) hφ
 
 /-- **Independent sequences.** Every e-process, for any filtration, for the laws of the
 independent sequences of real observations whose marginals have mean `0` and a finite, positive

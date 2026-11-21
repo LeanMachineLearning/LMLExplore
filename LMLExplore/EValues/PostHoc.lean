@@ -36,8 +36,8 @@ measurable as soon as each test is, and no measurable selection theorem is neede
 
 ## Main statements
 
-* `ProbabilityTheory.IsPostHocValid.lintegral_le`: each test `φ α` of a post-hoc valid family has
-  level `α`.
+* `ProbabilityTheory.IsPostHocValid.isTest`: each measurable `[0, 1]`-valued test `φ α` of a
+  post-hoc valid family is a test of level `α`.
 * `ProbabilityTheory.isPostHocValid_iff_forall_lintegral_div_le_one`: for a family of measurable
   tests nondecreasing in the level, post-hoc validity is validity at every measurable random
   level.
@@ -101,16 +101,20 @@ theorem IsPostHocValid.lintegral_div_le_one (h : IsPostHocValid φ S) (hP : P �
   le_trans (lintegral_mono fun ω ↦ le_iSup₂ (f := fun α _ ↦ φ α ω / α) (ℓ ω) (hℓ ω))
     (h.lintegral_iSup_div_le_one P hP)
 
-/-- Each test `φ α` of a post-hoc valid family has level `α`. -/
-theorem IsPostHocValid.lintegral_le (h : IsPostHocValid φ S) (hP : P ∈ S) {α : ℝ≥0∞}
-    (hα : α ∈ Ioo 0 1) :
-    ∫⁻ ω, φ α ω ∂P ≤ α := by
-  have h_le : ∫⁻ ω, φ α ω / α ∂P ≤ 1 := h.lintegral_div_le_one hP (ℓ := fun _ ↦ α) fun _ ↦ hα
-  calc ∫⁻ ω, φ α ω ∂P = (∫⁻ ω, φ α ω / α ∂P) * α := by
-        rw [← lintegral_mul_const' _ _ (ne_top_of_lt hα.2)]
-        simp_rw [ENNReal.div_mul_cancel hα.1.ne' (ne_top_of_lt hα.2)]
-  _ ≤ 1 * α := by gcongr
-  _ = α := one_mul α
+/-- Each test `φ α` of a post-hoc valid family has level `α`: a measurable `φ α` with values in
+`[0, 1]` is a test of level `α` for the null. -/
+theorem IsPostHocValid.isTest (h : IsPostHocValid φ S) {α : ℝ≥0∞} (hα : α ∈ Ioo 0 1)
+    (hφ : Measurable (φ α)) (hφ1 : ∀ ω, φ α ω ≤ 1) :
+    IsTest (φ α) S α where
+  measurable := hφ
+  le_one := hφ1
+  lintegral_le P hP := by
+    have h_le : ∫⁻ ω, φ α ω / α ∂P ≤ 1 := h.lintegral_div_le_one hP (ℓ := fun _ ↦ α) fun _ ↦ hα
+    calc ∫⁻ ω, φ α ω ∂P = (∫⁻ ω, φ α ω / α ∂P) * α := by
+          rw [← lintegral_mul_const' _ _ (ne_top_of_lt hα.2)]
+          simp_rw [ENNReal.div_mul_cancel hα.1.ne' (ne_top_of_lt hα.2)]
+    _ ≤ 1 * α := by gcongr
+    _ = α := one_mul α
 
 /-! ### Reduction to countably many levels -/
 
@@ -301,10 +305,11 @@ theorem isPVar_of_isPostHocValid_indicator (hS : ∀ P ∈ S, IsProbabilityMeasu
     refine le_of_forall_gt_imp_ge_of_dense fun ε hαε ↦ ?_
     rcases lt_or_ge ε 1 with hε1 | hε1
     · have hε : ε ∈ Ioo (0 : ℝ≥0∞) 1 := ⟨zero_le.trans_lt hαε, hε1⟩
-      calc P {ω | p ω ≤ α} ≤ P {ω | p ω ≤ ε} := measure_mono fun ω hω ↦ le_trans hω hαε.le
-      _ = ∫⁻ ω, {ω | p ω ≤ ε}.indicator 1 ω ∂P :=
-        (lintegral_indicator_one (measurableSet_le hp measurable_const)).symm
-      _ ≤ ε := h.lintegral_le hP hε
+      have hm : MeasurableSet {ω | p ω ≤ ε} := measurableSet_le hp measurable_const
+      have hφ : IsTest ({ω | p ω ≤ ε}.indicator 1) S ε :=
+        h.isTest hε (measurable_one.indicator hm) (indicator_le_self' fun _ _ ↦ zero_le)
+      exact (measure_mono fun ω hω ↦ le_trans hω hαε.le).trans
+        ((isTest_indicator_iff.1 hφ).2 P hP)
     · exact prob_le_one.trans hε1
 
 end ProbabilityTheory
