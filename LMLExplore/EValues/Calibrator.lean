@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.Null.SuperUniform
-public import LMLExplore.Order.Filter.CompleteClass
 public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Topology.Semicontinuity.Defs

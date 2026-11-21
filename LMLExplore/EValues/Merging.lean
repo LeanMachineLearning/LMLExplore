@@ -9,6 +9,7 @@ public import LMLExplore.Analysis.Convex.LagrangeDuality
 public import Statlib.EValues.EVariable
 public import LMLExplore.Order.Filter.CompleteClass
 import LMLExplore.Algebra.BigOperators.Perm
+import LMLExplore.Order.Filter.Basic
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 import Mathlib.Algebra.BigOperators.Field
 
@@ -346,25 +347,16 @@ structure IsAdmissibleEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop e
 
 omit [Fintype ι] in
 open Filter in
-/-- The order at finite arguments of functions of `ι → ℝ≥0∞`, as the eventual order along the
-principal filter of the finite vectors. -/
-private theorem eventuallyLE_principal_range_coe_iff {G H : (ι → ℝ≥0∞) → ℝ≥0∞} :
-    G ≤ᶠ[𝓟 (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))] H ↔
-      ∀ e : ι → ℝ≥0, G (fun i ↦ e i) ≤ H (fun i ↦ e i) := by
-  simp only [EventuallyLE, eventually_principal, Set.forall_mem_range]
-
-omit [Fintype ι] in
-open Filter in
 /-- An e-merging function is admissible exactly when it is admissible among the e-merging functions
 (`Filter.IsAdmissible`) for the order at finite arguments, the eventual order along the principal
 filter of the finite vectors. -/
 theorem isAdmissibleEMerging_iff_isAdmissible :
     IsAdmissibleEMerging F ↔
       (𝓟 (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))).IsAdmissible {G | IsEMerging G} F :=
-  ⟨fun hF ↦ ⟨hF.toIsEMerging, fun G hG hFG ↦ eventuallyLE_principal_range_coe_iff.2
-      fun e ↦ (hF.eq_of_le G hG (eventuallyLE_principal_range_coe_iff.1 hFG) e).le⟩,
-    fun hF ↦ ⟨hF.mem, fun _ hG hFG e ↦ (eventuallyLE_principal_range_coe_iff.1
-      (hF.eventuallyLE hG (eventuallyLE_principal_range_coe_iff.2 hFG)) e).antisymm (hFG e)⟩⟩
+  ⟨fun hF ↦ ⟨hF.toIsEMerging, fun G hG hFG ↦ eventuallyLE_principal_range_iff.2
+      fun e ↦ (hF.eq_of_le G hG (eventuallyLE_principal_range_iff.1 hFG) e).le⟩,
+    fun hF ↦ ⟨hF.mem, fun _ hG hFG e ↦ (eventuallyLE_principal_range_iff.1
+      (hF.eventuallyLE hG (eventuallyLE_principal_range_iff.2 hFG)) e).antisymm (hFG e)⟩⟩
 
 /-- **The admissible e-merging functions are the weighted means** [Wan25, Theorem 1; RW,
 Theorem 8.4]: a function is an admissible e-merging function exactly when it is measurable and
@@ -420,7 +412,7 @@ theorem isMinimalCompleteClass_add_sum_mul :
   · rintro _ ⟨w₀, w, hw, rfl⟩
     exact isEMerging_add_sum_mul hw.le
   · obtain ⟨w₀, w, hw, hle⟩ := IsEMerging.exists_le_add_sum_mul hF
-    exact ⟨_, ⟨w₀, w, hw, rfl⟩, eventuallyLE_principal_range_coe_iff.2 hle⟩
+    exact ⟨_, ⟨w₀, w, hw, rfl⟩, eventuallyLE_principal_range_iff.2 hle⟩
   · rintro _ ⟨w₀, w, hw, rfl⟩
     exact isAdmissibleEMerging_iff_isAdmissible.1
       (isAdmissibleEMerging_iff.2 ⟨by fun_prop, w₀, w, hw, fun e ↦ rfl⟩)

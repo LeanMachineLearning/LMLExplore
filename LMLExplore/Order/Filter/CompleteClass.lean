@@ -72,18 +72,14 @@ the preorder of germs along `l` (`isAdmissible_iff_maximal_germ`), and Mathlib's
 pointwise order when `l = ⊤` (`isAdmissible_top_iff`). -/
 structure IsAdmissible (l : Filter α) (𝓑 : Set (α → β)) (f : α → β) : Prop where
   mem : f ∈ 𝓑
-  eventuallyLE_of_eventuallyLE : ∀ g ∈ 𝓑, f ≤ᶠ[l] g → g ≤ᶠ[l] f
-
-/-- A bet that dominates an admissible bet is dominated by it. -/
-theorem IsAdmissible.eventuallyLE (hf : IsAdmissible l 𝓑 f) (hg : g ∈ 𝓑) (hfg : f ≤ᶠ[l] g) :
-    g ≤ᶠ[l] f :=
-  hf.eventuallyLE_of_eventuallyLE g hg hfg
+  /-- A bet that dominates an admissible bet is dominated by it. -/
+  eventuallyLE ⦃g : α → β⦄ : g ∈ 𝓑 → f ≤ᶠ[l] g → g ≤ᶠ[l] f
 
 /-- A version of an admissible bet, a bet equal to it `l`-eventually, is admissible. -/
 theorem IsAdmissible.congr (hf : IsAdmissible l 𝓑 f) (hg : g ∈ 𝓑) (hfg : f =ᶠ[l] g) :
     IsAdmissible l 𝓑 g where
   mem := hg
-  eventuallyLE_of_eventuallyLE _ hh hgh :=
+  eventuallyLE _ hh hgh :=
     (hf.eventuallyLE hh (hfg.trans_le hgh)).trans_eq hfg
 
 /-- Admissibility is maximality, among the germs of the bets, in the preorder of germs along
