@@ -25,10 +25,11 @@ For the coordinates of `Π i, X i`, this is `Filtration.piLT`. On sequences `ℕ
 has seen the `n` observations `ω 0, …, ω (n - 1)`, so that it counts observations: time `0` is
 trivial and `piLT (n + 1) = piLE n`.
 
-For Mathlib's filtration `Filtration.piLE` of the first coordinates of a sequence, whose time `n`
-has seen the coordinates `0, …, n`, functions of the first coordinates are measurable and
-adapted, and random times that are functions of the first `k + 1` coordinates and are at least `k`
-are stopping times.
+Functions of the first coordinates are measurable and adapted for `piLT`, and random times that
+are functions of the first `k` coordinates and are at least `k` are stopping times. For
+Mathlib's filtration `Filtration.piLE` of the first coordinates of a sequence, whose time `n` has
+seen the coordinates `0, …, n`, functions of the first `n + 1` coordinates are measurable at
+time `n`.
 
 ## Main definitions
 
@@ -55,12 +56,12 @@ are stopping times.
 * `Measurable.dependsOn_of_piLT`, `MeasureTheory.Filtration.measurable_piLT_of_dependsOn`: a
   function measurable at time `n` of `piLT` only depends on the first `n` coordinates, and a
   measurable function of the first `n` coordinates is measurable at time `n` of `piLT`.
-* `MeasureTheory.Filtration.measurable_piLE_initSeg`,
-  `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
-  `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
-  at time `n` of `Filtration.piLE` for `k ≤ n + 1`, functions of the first `n + 1` terms form an
-  adapted process, and a function of the first `k + 1` terms that is at least `k` is a stopping
-  time.
+* `MeasureTheory.Filtration.adapted_piLT_comp_initSeg`,
+  `MeasureTheory.Filtration.isStoppingTime_piLT_comp_initSeg`: functions of the first `n` terms
+  form a process adapted to `piLT`, and a function of the first `k` terms that is at least `k` is a
+  stopping time of `piLT`.
+* `MeasureTheory.Filtration.measurable_piLE_initSeg`: the first `k` terms are measurable at time
+  `n` of `Filtration.piLE` for `k ≤ n + 1`.
 * `MeasureTheory.Filtration.measurable_piLE_of_dependsOn`: a measurable function that depends only
   on the first `n + 1` terms is measurable at time `n` of `Filtration.piLE`.
 -/
@@ -181,6 +182,28 @@ lemma piLT_eq_comap_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] (n : ℕ) :
   rw [piLT_eq_naturalLT, initSeg_def]
   exact naturalLT_eval_le_comap n
 
+/-- The process of the values of measurable functions `X n` of the first `n` terms of a sequence
+is adapted to `Filtration.piLT`. -/
+lemma adapted_piLT_comp_initSeg {𝓧 β : Type*} [MeasurableSpace 𝓧] [MeasurableSpace β]
+    {X : (n : ℕ) → (Fin n → 𝓧) → β} (hX : ∀ n, Measurable (X n)) :
+    Adapted (piLT (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n (initSeg n ω) :=
+  fun n ↦ (hX n).comp (measurable_piLT_initSeg le_rfl)
+
+/-- A random time that is a measurable function, at least `k`, of the first `k` terms of a
+sequence is a stopping time of `Filtration.piLT`. -/
+lemma isStoppingTime_piLT_comp_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] {k : ℕ}
+    {T : (Fin k → 𝓧) → ℕ} (hT : Measurable T) (hTk : ∀ x, k ≤ T x) :
+    IsStoppingTime (piLT (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (T (initSeg k ω) : WithTop ℕ) := by
+  intro i
+  by_cases hi : k ≤ i
+  · exact measurable_piLT_initSeg hi
+      (hT (MeasurableSet.of_discrete (s := {m : ℕ | (m : WithTop ℕ) ≤ i})))
+  · -- before time `k` the random time has not stopped yet
+    convert @MeasurableSet.empty _ (piLT (X := fun _ : ℕ ↦ 𝓧) i) using 1
+    ext ω
+    simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
+    exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
+
 /-- A function that is measurable at time `n` of the strict past `Filtration.piLT` of the
 coordinates of a sequence only depends on the first `n` coordinates, as
 `Measurable.dependsOn_of_piLE` for Mathlib's `Filtration.piLE`. -/
@@ -225,34 +248,12 @@ lemma measurable_piLE_initSeg {k n : ℕ} (hk : k ≤ n + 1) :
   rw [initSeg_def]
   exact @Measurable.of_eval _ _ _ (piLE n) _ _ fun i ↦ measurable_piLE_apply (by have := i.2; omega)
 
-/-- The process of the values of measurable functions `X n` of the first `n + 1` terms of a
-sequence is adapted to `Filtration.piLE`. -/
-lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
-    {X : (n : ℕ) → (Fin (n + 1) → 𝓧) → β} (hX : ∀ n, Measurable (X n)) :
-    Adapted (piLE (X := fun _ : ℕ ↦ 𝓧)) fun n ω ↦ X n (initSeg (n + 1) ω) :=
-  fun n ↦ (hX n).comp (measurable_piLE_initSeg le_rfl)
-
 /-- A measurable function of the first `n + 1` terms of a sequence is measurable at time `n` of
 `Filtration.piLE`. -/
 lemma measurable_piLE_of_dependsOn {β : Type*} [MeasurableSpace β]
     {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio (n + 1))) :
     Measurable[piLE n] f :=
   piLT_add_one (X := fun _ : ℕ ↦ 𝓧) n ▸ measurable_piLT_of_dependsOn hf hfn
-
-/-- A random time that is a measurable function, at least `k`, of the first `k + 1` terms of a
-sequence is a stopping time of `Filtration.piLE`. -/
-lemma isStoppingTime_piLE_comp_initSeg {k : ℕ} {T : (Fin (k + 1) → 𝓧) → ℕ}
-    (hT : Measurable T) (hTk : ∀ x, k ≤ T x) :
-    IsStoppingTime (piLE (X := fun _ : ℕ ↦ 𝓧)) fun ω ↦ (T (initSeg (k + 1) ω) : WithTop ℕ) := by
-  intro i
-  by_cases hi : k ≤ i
-  · exact measurable_piLE_initSeg (by omega)
-      (hT (MeasurableSet.of_discrete (s := {m : ℕ | (m : WithTop ℕ) ≤ i})))
-  · -- before time `k` the random time has not stopped yet
-    convert @MeasurableSet.empty _ (piLE (X := fun _ : ℕ ↦ 𝓧) i) using 1
-    ext ω
-    simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
-    exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
 
 end piLE
 
