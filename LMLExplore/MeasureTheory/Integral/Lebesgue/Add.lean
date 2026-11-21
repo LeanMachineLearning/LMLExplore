@@ -27,6 +27,9 @@ public import TauCeti.Topology.Instances.ENNReal
   `a * (∫⁻ g ∂μ).toReal + b * (∫⁻ g ∂ν).toReal`.
 * `MeasureTheory.lintegral_eq_top_of_le_add`: against a finite measure, if `f ≤ g + C` almost
   everywhere with `C` finite and `∫⁻ f = ∞`, then `∫⁻ g = ∞`.
+* `MeasureTheory.lintegral_le_of_tendsto_of_eventually_le`: **Fatou's lemma** as a bound: the
+  integral of an almost everywhere limit of functions is at most every eventual bound of their
+  integrals.
 * `MeasureTheory.SimpleFunc.tendsto_lintegral_of_tendsto_measure`: the integral of a simple function
   with finite values is continuous for the setwise convergence of measures.
 * `MeasureTheory.SimpleFunc.lintegral_le_liminf_lintegral`: the integral of a simple function with
@@ -104,6 +107,18 @@ lemma lintegral_eq_top_of_le_add [IsFiniteMeasure μ] {f g : α → ℝ≥0∞} 
   have h := (lintegral_mono_ae hfg).trans_eq (lintegral_add_right g measurable_const)
   rw [hf, lintegral_const, top_le_iff, ENNReal.add_eq_top] at h
   exact h.resolve_right (ENNReal.mul_ne_top hC (measure_ne_top _ _))
+
+/-- **Fatou's lemma**, as a bound. If the functions `f i` converge almost everywhere to `g` along a
+countably generated filter and their integrals are eventually at most `c`, then the integral of
+`g` is at most `c`. -/
+theorem lintegral_le_of_tendsto_of_eventually_le {l : Filter ι} [l.IsCountablyGenerated] [l.NeBot]
+    {f : ι → α → ℝ≥0∞} {g : α → ℝ≥0∞} {c : ℝ≥0∞} (hf : ∀ i, AEMeasurable (f i) μ)
+    (hfg : ∀ᵐ a ∂μ, Tendsto (fun i ↦ f i a) l (𝓝 (g a)))
+    (hc : ∀ᶠ i in l, ∫⁻ a, f i a ∂μ ≤ c) : ∫⁻ a, g a ∂μ ≤ c :=
+  calc ∫⁻ a, g a ∂μ = ∫⁻ a, liminf (fun i ↦ f i a) l ∂μ :=
+        lintegral_congr_ae (hfg.mono fun _ h ↦ h.liminf_eq.symm)
+    _ ≤ liminf (fun i ↦ ∫⁻ a, f i a ∂μ) l := lintegral_liminf_le' hf
+    _ ≤ c := liminf_le_of_frequently_le' hc.frequently
 
 section Setwise
 
