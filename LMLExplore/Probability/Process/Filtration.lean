@@ -52,8 +52,9 @@ are stopping times.
   sequence are measurable at time `n` of `piLT`.
 * `MeasureTheory.Filtration.piLT_eq_comap_initSeg`: time `n` of `piLT` is the σ-algebra generated
   by the first `n` terms of a sequence.
-* `Measurable.dependsOn_of_piLT`: a function measurable at time `n` of `piLT` only depends on the
-  first `n` coordinates.
+* `Measurable.dependsOn_of_piLT`, `MeasureTheory.Filtration.measurable_piLT_of_dependsOn`: a
+  function measurable at time `n` of `piLT` only depends on the first `n` coordinates, and a
+  measurable function of the first `n` coordinates is measurable at time `n` of `piLT`.
 * `MeasureTheory.Filtration.measurable_piLE_initSeg`,
   `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
   `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
@@ -197,6 +198,18 @@ lemma _root_.Measurable.dependsOn_of_piLT {Z : Type*} [MeasurableSpace Z]
     rw [piLT_add_one] at hf
     exact hf.dependsOn_of_piLE fun i hi ↦ h i (Nat.lt_succ_of_le hi)
 
+/-- A measurable function of the first `n` terms of a sequence is measurable at time `n` of
+`Filtration.piLT`: the converse of `Measurable.dependsOn_of_piLT`. -/
+lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [MeasurableSpace β]
+    {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio n)) :
+    Measurable[piLT n] f := by
+  -- `exists_measurable_eq_comp_initSeg` needs `[Nonempty 𝓧]`; the empty case is trivial
+  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
+  · let : MeasurableSpace (ℕ → 𝓧) := piLT n
+    exact Subsingleton.measurable
+  obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
+  exact Measurable.comp (mα := piLT n) hg (measurable_piLT_initSeg le_rfl)
+
 end piLTNat
 
 /-! ### The filtration of the first coordinates -/
@@ -223,13 +236,8 @@ lemma adapted_piLE_comp_initSeg {β : Type*} [MeasurableSpace β]
 `Filtration.piLE`. -/
 lemma measurable_piLE_of_dependsOn {β : Type*} [MeasurableSpace β]
     {f : (ℕ → 𝓧) → β} {n : ℕ} (hf : Measurable f) (hfn : DependsOn f (Set.Iio (n + 1))) :
-    Measurable[piLE n] f := by
-  -- `exists_measurable_eq_comp_initSeg` needs `[Nonempty 𝓧]`; the empty case is trivial
-  rcases isEmpty_or_nonempty 𝓧 with h𝓧 | h𝓧
-  · let : MeasurableSpace (ℕ → 𝓧) := piLE n
-    exact Subsingleton.measurable
-  obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
-  exact Measurable.comp (mα := piLE n) hg (measurable_piLE_initSeg le_rfl)
+    Measurable[piLE n] f :=
+  piLT_add_one (X := fun _ : ℕ ↦ 𝓧) n ▸ measurable_piLT_of_dependsOn hf hfn
 
 /-- A random time that is a measurable function, at least `k`, of the first `k + 1` terms of a
 sequence is a stopping time of `Filtration.piLE`. -/

@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
@@ -15,14 +16,12 @@ import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
 import LMLExplore.Probability.ProductMeasure
-import LMLExplore.Probability.Process.Filtration
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.MeasureTheory.Measure.SeparableMeasure
 import Mathlib.MeasureTheory.Measure.WithDensityFinite
 import Mathlib.Probability.StrongLaw
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
-import Statlib.ForMathlib.Probability.Process.Filtration
 import TauCeti.MeasureTheory.Measure.PiWithDensity
 import TauCeti.Probability.Process.PathLaw.Shift
 
@@ -31,8 +30,9 @@ import TauCeti.Probability.Process.PathLaw.Shift
 
 Let `S₁` be a set of probability measures on a countably generated measurable space `𝓧` (the
 null), and `ρ` an s-finite measure on `𝓧`. The observations are the coordinates of `ℕ → 𝓧`, with
-the i.i.d. laws `Measure.infinitePi fun _ ↦ P` and the filtration `Filtration.piLE` of the
-observations. There is a single e-process `E` for the i.i.d. null, nondecreasing in time, such
+the i.i.d. laws `Measure.infinitePi fun _ ↦ P` and the filtration `Filtration.piLT` of the
+observations, whose time `n` has seen `n` observations. There is a single e-process `E` for the
+i.i.d. null, nondecreasing in time, such
 that for every probability measure `Q₁ ≪ ρ`, almost surely under the i.i.d. law of `Q₁`,
 `(1/n) log (E n)` tends to the bipolar rate `bipolarRate Q₁ S₁` of Ram and Ramdas [RR26], the
 optimal growth rate of e-processes against the i.i.d. null. No e-process grows faster
@@ -70,7 +70,7 @@ The proof has three steps.
   expectation at most `1` under the null, so the value at every stopping time is an e-variable.
   The weight of the number of blocks costs `o(n)` in the logarithm, which gives the lower bound
   on the growth; the upper bound is
-  `ProbabilityTheory.ae_limsup_log_div_le_bipolarRate_of_dependsOn`.
+  `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`.
 
 The statement is the theorem of [EVR26, Note 13] (`results/13-universal-eprocess.md` there). The
 note builds the e-process from the running maxima of the block products, passed through an
@@ -595,16 +595,15 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
 
 /-- **One e-process at the bipolar rate for every dominated alternative.** For a countably
 generated space, a null `S₁` of probability measures and an s-finite measure `ρ`, there is one
-e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration of the observations,
-nondecreasing in time, such that for every `Q₁ ≪ ρ`, almost surely under the i.i.d. law of `Q₁`,
-`(1/n) log (E n)` tends to the bipolar rate `bipolarRate Q₁ S₁`. If `Q₁` is not a probability
-measure, its i.i.d. law is `0` and the convergence holds trivially. This is the theorem of
-[EVR26, Note 13]. -/
+e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT` of
+the observations, nondecreasing in time, such that for every `Q₁ ≪ ρ`, almost surely under the
+i.i.d. law of `Q₁`, `(1/n) log (E n)` tends to the bipolar rate `bipolarRate Q₁ S₁`; at time `n`,
+`E n` is a function of the first `n` observations. If `Q₁` is not a probability measure, its
+i.i.d. law is `0` and the convergence holds trivially. This is the theorem of [EVR26, Note 13]. -/
 theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.CountablyGenerated 𝓧]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
     ∃ E : ℕ → (ℕ → 𝓧) → ℝ≥0∞,
-      IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-        (iidNull S₁) ∧ Monotone E ∧
+      IsEProcess E (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁) ∧ Monotone E ∧
       ∀ Q₁ : Measure 𝓧, Q₁ ≪ ρ → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
         Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
           (𝓝 (bipolarRate Q₁ S₁)) := by
@@ -618,13 +617,14 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     have := hS₁ P hP
     exact (lintegral_mono fun ω ↦ blockMixture_le_tsum _ ω).trans
       (lintegral_tsum_blockMixtureTerm_le_one P hgm hgd fun i ↦ hgnull i P hP)
-  refine ⟨blockMixture len g, IsEProcess.of_lintegral_le_one
-    (fun n ↦ Filtration.measurable_piLE_of_dependsOn (hEm n)
-      ((hEd n).mono (Set.Iio_subset_Iio n.le_succ))) ?_, monotone_blockMixture,
-    fun Q₁ hQ₁ρ ↦ ?_⟩
-  · rintro τ - _ - _ hμ
+  have hE : IsEProcess (blockMixture len g) (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧))
+      (iidNull S₁) := by
+    refine IsEProcess.of_lintegral_le_one
+      (fun n ↦ Filtration.measurable_piLT_of_dependsOn (hEm n) (hEd n)) ?_
+    rintro τ - _ - _ hμ
     obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
     exact hEnull P hP fun ω ↦ (τ ω).untopA
+  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ρ ↦ ?_⟩
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap
   · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0)
@@ -636,8 +636,7 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     ae_all_iff.2 fun i ↦
       le_liminf_log_blockMixture Q₁ (hlen i) (hgm i) (hgd i) (hgb i).choose_spec
   -- the upper bound holds for every e-process
-  filter_upwards [ae_limsup_log_div_le_bipolarRate_of_dependsOn Q₁ hS₁ hEm hEd
-    (fun P hP n ↦ hEnull P hP fun _ ↦ n), hlow] with ω hωup hωlow
+  filter_upwards [hE.ae_limsup_log_div_le_bipolarRate Q₁ hS₁, hlow] with ω hωup hωlow
   refine tendsto_of_le_liminf_of_limsup_le (EReal.ge_of_forall_gt_iff_ge.1 fun t ht ↦ ?_) hωup
   obtain ⟨i, hi⟩ := hrate Q₁ hQ₁ hQ₁ρ t ht
   have hL : (0 : ℝ) < len i := by exact_mod_cast hlen i
