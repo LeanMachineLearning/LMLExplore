@@ -95,6 +95,11 @@ theorem measure_Iic_le_of_mem_superUniformNull (hμ : μ ∈ superUniformNull) (
     μ (Iic α) ≤ α :=
   hμ.2 α
 
+/-- A super-uniform law gives no mass to `0`. -/
+theorem measure_singleton_zero_of_mem_superUniformNull (hμ : μ ∈ superUniformNull) : μ {0} = 0 :=
+  nonpos_iff_eq_zero.1
+    ((measure_mono (by simp)).trans (measure_Iic_le_of_mem_superUniformNull hμ 0))
+
 /-- The identity of `ℝ≥0∞` is a p-variable for the super-uniform null. -/
 theorem isPVar_id_superUniformNull : IsPVar id superUniformNull :=
   ⟨measurable_id, fun _ hμ ↦ hμ.2⟩
@@ -145,6 +150,28 @@ theorem map_mem_superUniformNull_of_ofReal_le {q : ℝ → ℝ≥0∞} (hq : Mea
 theorem map_ofReal_mem_superUniformNull :
     (volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal ∈ superUniformNull :=
   map_mem_superUniformNull_of_ofReal_le ENNReal.measurable_ofReal fun _ _ ↦ le_rfl
+
+/-- The uniform law on `[0, 1]`, as a law on `ℝ≥0∞`, gives mass `min a 1` to `[0, a]`. -/
+theorem map_ofReal_volume_restrict_Icc_Iic (a : ℝ≥0∞) :
+    (volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal (Iic a) = min a 1 := by
+  rw [Measure.map_apply ENNReal.measurable_ofReal measurableSet_Iic]
+  exact volume_restrict_Icc_ofReal_le a
+
+/-- The uniform law on `[0, 1]`, as a law on `ℝ≥0∞`, gives mass `b - a` to `(a, b]` for
+`a ≤ b ≤ 1`. -/
+theorem map_ofReal_volume_restrict_Icc_Ioc {a b : ℝ≥0∞} (hab : a ≤ b) (hb : b ≤ 1) :
+    (volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal (Ioc a b) = b - a := by
+  have h := measure_union (μ := (volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal)
+    (Iic_disjoint_Ioc (le_refl a) (c := b)) measurableSet_Ioc
+  rw [Iic_union_Ioc_eq_Iic hab, map_ofReal_volume_restrict_Icc_Iic,
+    map_ofReal_volume_restrict_Icc_Iic, min_eq_left hb, min_eq_left (hab.trans hb), add_comm] at h
+  exact ENNReal.eq_sub_of_add_eq (ne_top_of_le_ne_top ENNReal.one_ne_top (hab.trans hb)) h.symm
+
+/-- The uniform law on `[0, 1]`, as a law on `ℝ≥0∞`, is supported on `[0, 1]`. -/
+theorem ae_map_ofReal_volume_restrict_Icc_le_one :
+    ∀ᵐ q ∂(volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal, q ≤ 1 := by
+  rw [ae_map_iff (p := (· ≤ 1)) ENNReal.measurable_ofReal.aemeasurable measurableSet_Iic]
+  exact ae_restrict_of_forall_mem measurableSet_Icc fun x hx ↦ ENNReal.ofReal_le_one.2 hx.2
 
 /-- **A super-uniform law dominates the uniform law stochastically**: the integral of an antitone
 function against a super-uniform law is at most its integral against the uniform law on

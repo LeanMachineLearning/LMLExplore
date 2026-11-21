@@ -45,6 +45,8 @@ means.
 
 * `ProbabilityTheory.bernoulliMeasure_true_false_real_singleton`: `Ber(true, false, p)` has mass
   `p` at `true` and `1 - p` at `false`.
+* `ProbabilityTheory.lintegral_id_bernoulliMeasure_ofReal`: the mean of a Bernoulli law on two
+  points of `ℝ≥0∞`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_of_imp`: if `q = 0 → p = 0` and
   `q = 1 → p = 1`, then `Ber(x, y, p) ≪ Ber(x, y, q)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
@@ -110,6 +112,15 @@ lemma bernoulliMeasure_true_false_real_singleton (p : I) (b : Bool) :
       (by simp)
   · exact bernoulliMeasure_real_apply_of_mem_of_notMem p (measurableSet_singleton _) (by simp)
       (by simp)
+
+/-- The mean of the Bernoulli law on two points `ENNReal.ofReal a` and `ENNReal.ofReal b` of
+`ℝ≥0∞`, for `a, b ≥ 0`, is `ENNReal.ofReal (p a + (1 - p) b)`. -/
+lemma lintegral_id_bernoulliMeasure_ofReal {a b : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b) (p : I) :
+    ∫⁻ z, z ∂Ber(ENNReal.ofReal a, ENNReal.ofReal b, p) =
+      ENNReal.ofReal (p * a + (1 - p) * b) := by
+  have hp : 0 ≤ (1 : ℝ) - p := sub_nonneg.2 p.2.2
+  rw [lintegral_bernoulliMeasure, ← ENNReal.ofReal_mul p.2.1, ← ENNReal.ofReal_mul hp,
+    ← ENNReal.ofReal_add (mul_nonneg p.2.1 ha) (mul_nonneg hp hb)]
 
 /-- Every real function has exponential moments of all orders under a Bernoulli law. -/
 @[simp]

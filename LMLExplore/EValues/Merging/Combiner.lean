@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.Calibrator
 public import LMLExplore.Order.Filter.CompleteClass
 public import Mathlib.Probability.Independence.Basic
+import LMLExplore.Probability.Distributions.Bernoulli
 
 /-!
 # Combining a p-value and an e-value
@@ -19,8 +20,8 @@ the bets of a null on the space of values: `peNull`, the joint laws of a p-value
 the products of such marginals. A **p-and-e-to-e combiner** for one of them is an e-variable for
 it that is antitone in the p-value and monotone in the e-value; a **p-and-e-to-p combiner** is a
 p-variable that is monotone in the p-value and antitone in the e-value. The laws of `(p, E)` under
-the members of any null are in `peNull`, and in `indepPENull` when `p` and `E` are independent, so
-combiners combine p-variables and e-variables on every measurable space.
+the members of any null of probability measures are in `peNull`, and in `indepPENull` when `p` and
+`E` are independent, so combiners combine p-variables and e-variables on every measurable space.
 
 Ignatiadis, Wang and Ramdas [IWR24, Theorem 3.1] give four admissible combiners, one for each of
 the four questions (independent or arbitrarily dependent inputs, an e-value or a p-value as
@@ -52,7 +53,8 @@ uniform law and a law of mean `1`, which makes it invalid.
 ## Main statements
 
 * `ProbabilityTheory.IsEVar.comp_isPVar_isEVar`, `ProbabilityTheory.IsPVar.comp_isPVar_isEVar` and
-  their versions `_of_indepFun`: combiners combine p-variables and e-variables of every null.
+  their versions `_of_indepFun`: combiners combine p-variables and e-variables of every null of
+  probability measures.
 * `ProbabilityTheory.isPEToECombiner_prodCombiner`, `ProbabilityTheory.isAdmissible_prodCombiner`:
   the product combiner is valid and admissible for independent inputs.
 * `ProbabilityTheory.isPEToPCombiner_quotCombiner`,
@@ -320,9 +322,8 @@ theorem isPEToECombiner_prodCombiner (hh : IsPToECalibrator h) :
     refine ⟨measurable_prodCombiner hh.measurable, ?_⟩
     rintro _ ⟨ν, hν, ρ, ⟨hρ, hρ1⟩, rfl⟩
     have := isProbabilityMeasure_of_mem_superUniformNull hν
-    have hν0 : ν {0} = 0 := nonpos_iff_eq_zero.1 ((measure_mono (by simp)).trans
-      (measure_Iic_le_of_mem_superUniformNull hν 0))
-    rw [lintegral_prodCombiner_prod hh hν0 (ne_top_of_le_ne_top ENNReal.one_ne_top hρ1)]
+    rw [lintegral_prodCombiner_prod hh (measure_singleton_zero_of_mem_superUniformNull hν)
+      (ne_top_of_le_ne_top ENNReal.one_ne_top hρ1)]
     exact mul_le_one' ((isPToECalibrator_iff_isEVar_superUniformNull.1 hh).2.2.lintegral_le_one
       hν) hρ1
 
@@ -384,6 +385,11 @@ theorem meanCombiner_def (h : ℝ≥0∞ → ℝ≥0∞) (w : ℝ≥0∞) (x : �
     meanCombiner h w x = w * h x.1 + (1 - w) * x.2 :=
   (rfl)
 
+theorem measurable_meanCombiner (hh : Measurable h) (w : ℝ≥0∞) :
+    Measurable (meanCombiner h w) := by
+  unfold meanCombiner
+  fun_prop
+
 /-- The integral of the mean combiner is the weighted mean of the integrals of `h` against the
 first marginal and of the second coordinate. -/
 theorem lintegral_meanCombiner (hh : Measurable h) (w : ℝ≥0∞) (μ : Measure (ℝ≥0∞ × ℝ≥0∞)) :
@@ -400,7 +406,7 @@ theorem isPEToECombiner_meanCombiner (hh : IsPToECalibrator h) (hw : w ≤ 1) :
   antitone_fst e a b hab := add_le_add_left (mul_le_mul_right (hh.antitone hab) w) _
   monotone_snd q a b hab := add_le_add_right (mul_le_mul_right hab _) _
   isEVar := by
-    refine ⟨by unfold meanCombiner; have := hh.measurable; fun_prop, fun μ hμ ↦ ?_⟩
+    refine ⟨measurable_meanCombiner hh.measurable w, fun μ hμ ↦ ?_⟩
     rw [lintegral_meanCombiner hh.measurable]
     calc w * ∫⁻ q, h q ∂μ.map Prod.fst + (1 - w) * ∫⁻ x, x.2 ∂μ ≤ w * 1 + (1 - w) * 1 :=
           add_le_add (mul_le_mul_right ((isPToECalibrator_iff_isEVar_superUniformNull.1
@@ -420,6 +426,10 @@ theorem bonferroniCombiner_def (x : ℝ≥0∞ × ℝ≥0∞) :
     bonferroniCombiner x = min (2 * min x.1 x.2⁻¹) 1 :=
   (rfl)
 
+theorem measurable_bonferroniCombiner : Measurable bonferroniCombiner := by
+  unfold bonferroniCombiner
+  fun_prop
+
 /-- **The Bonferroni combiner is valid for arbitrary dependence** [IWR24, Theorem 3.1]: `e⁻¹` is
 a p-variable by Markov's inequality, and Bonferroni's correction of two p-variables is one. -/
 theorem isPEToPCombiner_bonferroniCombiner : IsPEToPCombiner peNull bonferroniCombiner where
@@ -431,52 +441,29 @@ theorem isPEToPCombiner_bonferroniCombiner : IsPEToPCombiner peNull bonferroniCo
 
 /-! ### Admissibility of the e-combiners -/
 
-/-- The uniform law on `[0, 1]`, as a law on `ℝ≥0∞`. -/
-private noncomputable def unif : Measure ℝ≥0∞ :=
-  (volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal
-
-private lemma unif_mem : unif ∈ superUniformNull :=
-  map_ofReal_mem_superUniformNull
-
-private instance : IsProbabilityMeasure unif :=
-  isProbabilityMeasure_of_mem_superUniformNull unif_mem
-
-private lemma unif_Iic (a : ℝ≥0∞) : unif (Iic a) = min a 1 := by
-  rw [unif, Measure.map_apply ENNReal.measurable_ofReal measurableSet_Iic]
-  exact volume_restrict_Icc_ofReal_le a
-
-private lemma unif_Ioc {a b : ℝ≥0∞} (hab : a ≤ b) (hb : b ≤ 1) : unif (Ioc a b) = b - a := by
-  have h := measure_union (μ := unif) (Iic_disjoint_Ioc (le_refl a) (c := b)) measurableSet_Ioc
-  rw [Iic_union_Ioc_eq_Iic hab, unif_Iic, unif_Iic, min_eq_left hb, min_eq_left (hab.trans hb),
-    add_comm] at h
-  exact ENNReal.eq_sub_of_add_eq (ne_top_of_le_ne_top ENNReal.one_ne_top (hab.trans hb)) h.symm
-
-private lemma ae_unif_le_one : ∀ᵐ q ∂unif, q ≤ 1 := by
-  rw [unif, ae_map_iff (p := (· ≤ 1)) ENNReal.measurable_ofReal.aemeasurable measurableSet_Iic]
-  exact ae_restrict_of_forall_mem measurableSet_Icc fun x hx ↦ ENNReal.ofReal_le_one.2 hx.2
-
-private lemma lintegral_unif (hf : Measurable f) :
-    ∫⁻ q, f q ∂unif = ∫⁻ x in Icc (0 : ℝ) 1, f (ENNReal.ofReal x) :=
-  lintegral_map hf ENNReal.measurable_ofReal
-
-/-- Every finite `e` is charged by a probability measure on `ℝ≥0∞` of mean `1`. -/
-private lemma exists_lintegral_id_eq_one {e : ℝ≥0∞} (he : e ≠ ∞) :
+/-- Every finite `e` is charged by a probability measure on `ℝ≥0∞` of mean `1`: a Bernoulli law
+on `e` and a second point. -/
+theorem exists_lintegral_id_eq_one {e : ℝ≥0∞} (he : e ≠ ∞) :
     ∃ ρ : Measure ℝ≥0∞, IsProbabilityMeasure ρ ∧ ∫⁻ x, x ∂ρ = 1 ∧ ρ {e} ≠ 0 := by
   rcases le_or_gt e 1 with he1 | he1
   · -- the law with weights `1 / 2` on `e` and on `2 - e`
-    refine ⟨(2⁻¹ : ℝ≥0∞) • Measure.dirac e + (2⁻¹ : ℝ≥0∞) • Measure.dirac (2 - e),
-      ⟨by simp [ENNReal.inv_two_add_inv_two]⟩,
-      ?_, ?_⟩
+    refine ⟨Ber(e, 2 - e, ⟨2⁻¹, by norm_num, by norm_num⟩), inferInstance, ?_, ?_⟩
     · have h2 : e + (2 - e) = 2 := add_tsub_cancel_of_le (he1.trans one_le_two)
-      simp [lintegral_add_measure, ← mul_add, h2, ENNReal.inv_mul_cancel two_ne_zero
-        ENNReal.ofNat_ne_top]
-    · simp
+      rw [lintegral_bernoulliMeasure, show (1 : ℝ) - 2⁻¹ = 2⁻¹ by norm_num,
+        ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat, ← mul_add, h2,
+        ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top]
+    · rw [bernoulliMeasure_apply _ (measurableSet_singleton e)]
+      split_ifs <;> norm_num [unitInterval.coe_toNNReal_eq_ofReal] at *
   · -- the law with weights `1 / e` on `e` and `1 - 1 / e` on `0`
     have he0 : e ≠ 0 := (zero_lt_one.trans he1).ne'
-    refine ⟨e⁻¹ • Measure.dirac e + (1 - e⁻¹) • Measure.dirac 0, ⟨?_⟩, ?_, ?_⟩
-    · simp [add_tsub_cancel_of_le (ENNReal.inv_le_one.2 he1.le)]
-    · simp [lintegral_add_measure, ENNReal.inv_mul_cancel he0 he]
-    · simp [he0, he]
+    have hpos : 0 < e.toReal := ENNReal.toReal_pos he0 he
+    refine ⟨Ber(e, 0, ⟨e.toReal⁻¹, by positivity, inv_le_one_of_one_le₀ ?_⟩), inferInstance, ?_,
+      ?_⟩
+    · simpa using (ENNReal.toReal_le_toReal ENNReal.one_ne_top he).2 he1.le
+    · rw [lintegral_bernoulliMeasure, mul_zero, add_zero, ENNReal.ofReal_inv_of_pos hpos,
+        ENNReal.ofReal_toReal he, ENNReal.inv_mul_cancel he0 he]
+    · rw [bernoulliMeasure_apply_singleton_left he0]
+      exact (ENNReal.ofReal_pos.2 (inv_pos.2 hpos)).ne'
 
 /-- **The admissibility argument of [IWR24, Theorem 3.1] for e-combiners.** Let `F` be antitone
 in the p-value, infinite at `p = 0` and at `e = ∞`, upper semicontinuous in the p-value, and of
@@ -488,7 +475,7 @@ private lemma eventuallyLE_of_isPEToECombiner (hF_anti : ∀ e, Antitone fun p �
     (hF_top : ∀ p e, p = 0 ∨ e = ∞ → F (p, e) = ∞)
     (hF_usc : ∀ p e, p ≠ 0 → e ≠ ∞ → UpperSemicontinuousAt (fun q ↦ F (q, e)) p)
     (hF_int : ∀ ρ : Measure ℝ≥0∞, IsProbabilityMeasure ρ → ∫⁻ x, x ∂ρ = 1 →
-      ∫⁻ x, F x ∂unif.prod ρ = 1)
+      ∫⁻ x, F x ∂((volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal).prod ρ = 1)
     (hG : IsPEToECombiner indepPENull G) (hFG : F ≤ᶠ[𝓟 (Iic 1 ×ˢ univ)] G) :
     G ≤ᶠ[𝓟 (Iic 1 ×ˢ univ)] F := by
   simp only [EventuallyLE, eventually_principal] at hFG ⊢
@@ -501,15 +488,16 @@ private lemma eventuallyLE_of_isPEToECombiner (hF_anti : ∀ e, Antitone fun p �
   have : NeBot (𝓝[<] p) := nhdsLT_neBot_of_exists_lt ⟨0, pos_iff_ne_zero.2 hp0⟩
   obtain ⟨p', hp'F, hp'p : p' < p⟩ := ((((hF_usc p e hp0 he) _ hlt).filter_mono
     (nhdsWithin_le_nhds (s := Iio p))).and self_mem_nhdsWithin).exists
-  have hp'p : p' < p := hp'p
   obtain ⟨ρ, hρ, hρ1, hρe⟩ := exists_lintegral_id_eq_one he
-  -- `G ≥ F + c` on `A = (p', p] × {e}`, almost surely under `unif.prod ρ`
+  -- `G ≥ F + c` on `A = (p', p] × {e}`, almost surely under the uniform law times `ρ`
   set c := G (p, e) - F (p', e)
   have hc : c ≠ 0 := (tsub_pos_of_lt hp'F).ne'
   set A := Ioc p' p ×ˢ ({e} : Set ℝ≥0∞)
   have hA : MeasurableSet A := measurableSet_Ioc.prod (measurableSet_singleton e)
-  have h_le : ∀ᵐ x ∂unif.prod ρ, F x + A.indicator (fun _ ↦ c) x ≤ G x := by
-    filter_upwards [Measure.quasiMeasurePreserving_fst.ae ae_unif_le_one] with x hx
+  have h_le : ∀ᵐ x ∂((volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal).prod ρ,
+      F x + A.indicator (fun _ ↦ c) x ≤ G x := by
+    filter_upwards [Measure.quasiMeasurePreserving_fst.ae
+      ae_map_ofReal_volume_restrict_Icc_le_one] with x hx
     by_cases hxA : x ∈ A
     · rw [indicator_of_mem hxA]
       obtain ⟨q, e'⟩ := x
@@ -522,9 +510,10 @@ private lemma eventuallyLE_of_isPEToECombiner (hF_anti : ∀ e, Antitone fun p �
       exact hFG x ⟨hx, mem_univ _⟩
   -- so its integral is more than `1`
   have h_int := (lintegral_mono_ae h_le).trans
-    (hG.isEVar.lintegral_le_one (prod_mem_indepPENull unif_mem hρ1.le))
+    (hG.isEVar.lintegral_le_one (prod_mem_indepPENull map_ofReal_mem_superUniformNull hρ1.le))
   rw [lintegral_add_right _ (measurable_const.indicator hA), hF_int ρ hρ hρ1,
-    lintegral_indicator_const hA, Measure.prod_prod, unif_Ioc hp'p.le hp1] at h_int
+    lintegral_indicator_const hA, Measure.prod_prod,
+    map_ofReal_volume_restrict_Icc_Ioc hp'p.le hp1] at h_int
   have h_zero : c * ((p - p') * ρ {e}) = 0 :=
     nonpos_iff_eq_zero.1 (ENNReal.le_of_add_le_add_left ENNReal.one_ne_top (by simpa using h_int))
   simp only [mul_eq_zero, hc, hρe, or_false, false_or] at h_zero
@@ -557,10 +546,9 @@ theorem isAdmissible_prodCombiner (hh : IsAdmissiblePToECalibrator h) :
       · simp [hy]
       · simp [hy, ne_top_of_le_ne_top hy hxy, mul_le_mul_left hxy e]
   · intro ρ hρ hρ1
-    have hunif0 : unif {0} = 0 := nonpos_iff_eq_zero.1 ((measure_mono (by simp)).trans
-      (measure_Iic_le_of_mem_superUniformNull unif_mem 0))
-    rw [lintegral_prodCombiner_prod hh hunif0 (by simp [hρ1]), hρ1, mul_one,
-      lintegral_unif hh.measurable, h_int]
+    rw [lintegral_prodCombiner_prod hh
+      (measure_singleton_zero_of_mem_superUniformNull map_ofReal_mem_superUniformNull)
+      (by simp [hρ1]), hρ1, mul_one, lintegral_map hh.measurable ENNReal.measurable_ofReal, h_int]
 
 /-- **The mean combiner is admissible** [IWR24, Theorem 3.1]: for an admissible calibrator `h`
 and `0 < w < 1`, no combiner for arbitrary dependence dominates `meanCombiner h w` strictly on
@@ -585,8 +573,9 @@ theorem isAdmissible_meanCombiner (hh : IsAdmissiblePToECalibrator h) (hw0 : w �
       |>.comp_upperSemicontinuousAt (h_usc p) fun x y hxy ↦
         add_le_add_left (mul_le_mul_right hxy w) _
   · intro ρ hρ hρ1
+    have := isProbabilityMeasure_of_mem_superUniformNull map_ofReal_mem_superUniformNull
     rw [lintegral_meanCombiner hh.measurable, Measure.map_fst_prod, measure_univ, one_smul,
-      lintegral_unif hh.measurable, h_int, lintegral_prod _ (by fun_prop)]
+      lintegral_map hh.measurable ENNReal.measurable_ofReal, h_int, lintegral_prod _ (by fun_prop)]
     simp [hρ1, add_tsub_cancel_of_le hw1.le]
 
 /-! ### Admissibility of the p-combiners -/
@@ -625,17 +614,12 @@ private lemma false_of_le_quotCombiner (hG : IsPEToPCombiner indepPENull G)
     (ha1 : a < 1) (he : 0 < e) (hae : a * e < p)
     (hGa : G (ENNReal.ofReal p, ENNReal.ofReal e) ≤ ENNReal.ofReal a) : False := by
   obtain ⟨θ, b, hθ0, hθ1, hb0, hab, hbe, hmean, hbound⟩ := exists_twoPoint_quot ha0 ha1 he hae
-  set ρ := ENNReal.ofReal θ • Measure.dirac (ENNReal.ofReal e) +
-    ENNReal.ofReal (1 - θ) • Measure.dirac (ENNReal.ofReal b)
-  have hρ : IsProbabilityMeasure ρ :=
-    ⟨by simp [ρ, ← ENNReal.ofReal_add hθ0 (sub_nonneg.2 hθ1)]⟩
+  set ρ := Ber(ENNReal.ofReal e, ENNReal.ofReal b, ⟨θ, hθ0, hθ1⟩)
   have hρ1 : ∫⁻ x, x ∂ρ ≤ 1 := by
-    simp only [ρ, lintegral_add_measure, lintegral_smul_measure, lintegral_dirac, smul_eq_mul]
-    rw [← ENNReal.ofReal_mul hθ0, ← ENNReal.ofReal_mul (sub_nonneg.2 hθ1),
-      ← ENNReal.ofReal_add (mul_nonneg hθ0 he.le) (mul_nonneg (sub_nonneg.2 hθ1) hb0)]
+    rw [lintegral_id_bernoulliMeasure_ofReal he.le hb0]
     exact ENNReal.ofReal_le_one.2 hmean
-  have hne : ENNReal.ofReal b ≠ ENNReal.ofReal e := by
-    rwa [Ne, ENNReal.ofReal_eq_ofReal_iff hb0 he.le]
+  have hne : ENNReal.ofReal e ≠ ENNReal.ofReal b := by
+    rwa [Ne, ENNReal.ofReal_eq_ofReal_iff he.le hb0, eq_comm]
   -- `G ≤ a` on `[0, p] × {e}` and on `[0, a b] × {b}`
   have h_sub : Iic (ENNReal.ofReal p) ×ˢ {ENNReal.ofReal e} ∪
       Iic (ENNReal.ofReal (a * b)) ×ˢ {ENNReal.ofReal b} ⊆ {x | G x ≤ ENNReal.ofReal a} := by
@@ -647,22 +631,24 @@ private lemma false_of_le_quotCombiner (hG : IsPEToPCombiner indepPENull G)
         _ ≤ q / ENNReal.ofReal b := min_le_left _ _
         _ ≤ ENNReal.ofReal a :=
             ENNReal.div_le_of_le_mul (hq.trans_eq (ENNReal.ofReal_mul ha0.le))
-  have h_le := (measure_mono (μ := unif.prod ρ) h_sub).trans
-    (hG.isPVar.measure_le_le _ (prod_mem_indepPENull unif_mem hρ1) (ENNReal.ofReal a))
-  rw [measure_union (disjoint_prod.2 (.inr (disjoint_singleton.2 hne.symm)))
+  have h_le := (measure_mono (μ := ((volume.restrict (Icc (0 : ℝ) 1)).map ENNReal.ofReal).prod ρ)
+    h_sub).trans
+    (hG.isPVar.measure_le_le _ (prod_mem_indepPENull map_ofReal_mem_superUniformNull hρ1)
+      (ENNReal.ofReal a))
+  rw [measure_union (disjoint_prod.2 (.inr (disjoint_singleton.2 hne)))
     (measurableSet_Iic.prod (measurableSet_singleton _)), Measure.prod_prod, Measure.prod_prod,
-    unif_Iic, unif_Iic, min_eq_left (ENNReal.ofReal_le_one.2 hp1),
-    min_eq_left (ENNReal.ofReal_le_one.2 hab)] at h_le
-  simp only [ρ, add_apply, smul_apply, smul_eq_mul, Measure.dirac_apply,
-    indicator_of_mem (mem_singleton _), Pi.one_apply, mul_one,
-    indicator_of_notMem (mt mem_singleton_iff.1 hne),
-    indicator_of_notMem (mt mem_singleton_iff.1 hne.symm), mul_zero,
-    add_zero, zero_add] at h_le
+    map_ofReal_volume_restrict_Icc_Iic, map_ofReal_volume_restrict_Icc_Iic,
+    min_eq_left (ENNReal.ofReal_le_one.2 hp1), min_eq_left (ENNReal.ofReal_le_one.2 hab),
+    bernoulliMeasure_apply_singleton_left hne, bernoulliMeasure_apply_singleton_right hne] at h_le
+  -- in real numbers, `p θ + a b (1 - θ) ≤ a`
   have hp0 : 0 < p := (mul_pos ha0 he).trans hae
-  rw [← ENNReal.ofReal_mul hp0.le, ← ENNReal.ofReal_mul (mul_nonneg ha0.le hb0),
-    ← ENNReal.ofReal_add (mul_nonneg hp0.le hθ0)
-      (mul_nonneg (mul_nonneg ha0.le hb0) (sub_nonneg.2 hθ1)),
-    ENNReal.ofReal_le_ofReal_iff ha0.le] at h_le
+  have h_real := ENNReal.toReal_le_of_le_ofReal ha0.le h_le
+  have hfin {x y : ℝ} : ENNReal.ofReal x * ENNReal.ofReal y ≠ ∞ :=
+    ENNReal.mul_ne_top ENNReal.ofReal_ne_top ENNReal.ofReal_ne_top
+  rw [ENNReal.toReal_add hfin hfin] at h_real
+  simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal hp0.le, ENNReal.toReal_ofReal hθ0,
+    ENNReal.toReal_ofReal (mul_nonneg ha0.le hb0), ENNReal.toReal_ofReal (sub_nonneg.2 hθ1)]
+    at h_real
   linarith
 
 /-- **The quotient combiner is admissible** [IWR24, Theorem 3.1]: a p-combiner for independent
