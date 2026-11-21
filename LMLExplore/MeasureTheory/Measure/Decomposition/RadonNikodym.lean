@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
+import LMLExplore.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
 # Radon–Nikodym derivatives as ratios of densities
@@ -82,8 +83,9 @@ theorem rnDeriv_le_of_le_withDensity [SigmaFinite ν] {f : α → ℝ≥0∞} (h
 integral `∫⁻ (dμ/dν) ^ a dν`, the affinity of order `a` between `μ` and `ν`, is
 `∫⁻ f ^ (1 - a) dμ`. Where `f` vanishes, `ν` charges nothing and `f ^ (1 - a) = 0`. -/
 theorem lintegral_rpow_rnDeriv_withDensity [SigmaFinite μ] {f : α → ℝ≥0∞} (hf : AEMeasurable f μ)
-    (hf_top : ∀ᵐ x ∂μ, f x ≠ ∞) [SigmaFinite (μ.withDensity f)] {a : ℝ} (ha : a < 1) :
+    (hf_top : ∀ᵐ x ∂μ, f x ≠ ∞) {a : ℝ} (ha : a < 1) :
     ∫⁻ x, μ.rnDeriv (μ.withDensity f) x ^ a ∂(μ.withDensity f) = ∫⁻ x, f x ^ (1 - a) ∂μ := by
+  have : SigmaFinite (μ.withDensity f) := SigmaFinite.withDensity_of_ne_top hf_top
   have hac : μ.withDensity f ≪ μ := withDensity_absolutelyContinuous _ _
   calc ∫⁻ x, μ.rnDeriv (μ.withDensity f) x ^ a ∂(μ.withDensity f)
   _ = ∫⁻ x, ((μ.withDensity f).rnDeriv μ x)⁻¹ ^ a ∂(μ.withDensity f) := by
@@ -98,7 +100,7 @@ theorem lintegral_rpow_rnDeriv_withDensity [SigmaFinite μ] {f : α → ℝ≥0�
     rw [hx]
     rcases eq_or_ne (f x) 0 with h0 | h0
     · rw [h0, zero_mul, ENNReal.zero_rpow_of_pos (by linarith)]
-    rw [ENNReal.inv_rpow, ← ENNReal.rpow_neg, sub_eq_add_neg, ENNReal.rpow_add _ _ h0 hx_top,
-      ENNReal.rpow_one]
+    rw [ENNReal.inv_rpow, ← ENNReal.rpow_neg, sub_eq_neg_add, ENNReal.rpow_add_one h0 hx_top,
+      mul_comm]
 
 end MeasureTheory.Measure

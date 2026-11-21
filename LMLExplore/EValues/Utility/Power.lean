@@ -8,6 +8,7 @@ module
 public import Statlib.Divergence.Renyi.Basic
 public import Statlib.EValues.RIPr
 import LMLExplore.Analysis.Convex.SpecificFunctions.Pow
+import LMLExplore.Analysis.SpecialFunctions.Pow.NNReal
 import LMLExplore.MeasureTheory.Measure.Decomposition.RadonNikodym
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 import Mathlib.Analysis.SpecialFunctions.Pow.Deriv
@@ -76,6 +77,10 @@ namespace ProbabilityTheory
 
 variable {γ : ℝ}
 
+/-- The constant `(γ - 1)⁻¹` of the power utility is nonzero in `ℝ≥0∞`. -/
+private lemma ofReal_inv_sub_one_ne_zero (hγ : 1 < γ) : ENNReal.ofReal (γ - 1)⁻¹ ≠ 0 :=
+  (ENNReal.ofReal_pos.2 (inv_pos.2 (by linarith))).ne'
+
 /-- On `(0, ∞)`, the power utility is the real function `x ↦ -((γ - 1)⁻¹ * x ^ (1 - γ))`. -/
 private lemma toReal_neg_ofReal_mul_rpow (hγ : 1 < γ) {x : ℝ} (hx : 0 < x) :
     (-((ENNReal.ofReal (γ - 1)⁻¹ * ENNReal.ofReal x ^ (1 - γ) : ℝ≥0∞) : EReal)).toReal
@@ -129,7 +134,7 @@ lemma powerUtility_apply (x : ℝ≥0∞) :
 @[simp]
 lemma powerUtility_zero : powerUtility γ hγ 0 = ⊥ := by
   rw [powerUtility_apply, ENNReal.zero_rpow_of_neg (by linarith),
-    ENNReal.mul_top (ENNReal.ofReal_pos.2 (inv_pos.2 (by linarith))).ne', EReal.coe_ennreal_top,
+    ENNReal.mul_top (ofReal_inv_sub_one_ne_zero hγ), EReal.coe_ennreal_top,
     EReal.neg_top]
 
 @[simp]
@@ -161,6 +166,7 @@ lemma deriv_real_powerUtility {x : ℝ} (hx : 0 < x) :
 
 /-- The derivative of the power utility is `x ↦ x ^ (-γ)`, with `0 ^ (-γ) = ∞` and
 `∞ ^ (-γ) = 0`. -/
+@[simp]
 lemma deriv_powerUtility (x : ℝ≥0∞) :
     (powerUtility γ hγ).deriv x = ((x ^ (-γ) : ℝ≥0∞) : EReal) := by
   have hγ0 : -γ < 0 := by linarith
@@ -208,6 +214,12 @@ section MaxUtility
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {Q P : Measure Ω} {S : Set (Measure Ω)}
   {X Y Z : Ω → ℝ≥0∞}
+
+/-- A numeraire `Y` for the power utility among the e-variables of a null of masses at most `1`
+is almost surely positive, since the derivative of the power utility is `∞` at `0`. -/
+lemma IsNumeraireFor.ae_ne_zero_powerUtility (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hY : IsNumeraireFor (powerUtility γ hγ) Y {X | IsEVar X S} Q) : ∀ᵐ ω ∂Q, Y ω ≠ 0 :=
+  hY.ae_ne_zero deriv_powerUtility_zero (isEVar_one hS) hY.mem.measurable.aemeasurable
 
 /-- **Weak duality** for the power utility: if `∫⁻ X ∂P ≤ 1`, the affinity
 `∫⁻ (dQ/dP) ^ γ⁻¹ ∂P` of order `γ⁻¹` between `Q` and `P`, raised to the power `γ`, is at most the
@@ -271,12 +283,11 @@ lemma IsNumeraireFor.lintegral_rpow_neg_mul_le (hS : ∀ P ∈ S, P univ ≤ 1)
     ∫⁻ ω, Y ω ^ (-γ) * Z ω ∂Q ≤ ∫⁻ ω, Y ω ^ (1 - γ) ∂Q := by
   have hYm : Measurable Y := hY.mem.measurable
   have hYY : ∀ᵐ ω ∂Q, Y ω ^ (-γ) * Y ω = Y ω ^ (1 - γ) := by
-    filter_upwards [hY.ae_ne_zero deriv_powerUtility_zero (isEVar_one hS) hYm.aemeasurable]
-      with ω hω
+    filter_upwards [hY.ae_ne_zero_powerUtility hS] with ω hω
     rcases eq_or_ne (Y ω) ∞ with h | h
     · simp [h, ENNReal.top_rpow_of_neg (show -γ < 0 by linarith),
         ENNReal.top_rpow_of_neg (show 1 - γ < 0 by linarith)]
-    · rw [show 1 - γ = -γ + 1 by ring, ENNReal.rpow_add _ _ hω h, ENNReal.rpow_one]
+    · rw [show 1 - γ = -γ + 1 by ring, ENNReal.rpow_add_one hω h]
   have h := hY.lintegral_deriv_mul_le hZ hYm.aemeasurable hZ.measurable.aemeasurable
   simp only [toENNReal_deriv_powerUtility] at h
   exact h.trans (lintegral_congr_ae hYY).le
@@ -290,8 +301,8 @@ lemma IsNumeraireFor.lintegral_rpow_le_measure_univ (hS : ∀ P ∈ S, P univ �
     aemeasurable_const
   rw [eintegral_powerUtility, eintegral_powerUtility, EReal.neg_le_neg_iff,
     EReal.coe_ennreal_le_coe_ennreal_iff] at h
-  have hk : ENNReal.ofReal (γ - 1)⁻¹ ≠ 0 := (ENNReal.ofReal_pos.2 (inv_pos.2 (by linarith))).ne'
-  simpa using (ENNReal.mul_le_mul_iff_right hk ENNReal.ofReal_ne_top).1 h
+  simpa using (ENNReal.mul_le_mul_iff_right (ofReal_inv_sub_one_ne_zero hγ)
+    ENNReal.ofReal_ne_top).1 h
 
 /-- **Strong duality** for the power utility [LRR25, Theorem 6.1]: some e-variable `X` and some
 member `P` of the effective null make the two sides of
@@ -309,8 +320,7 @@ theorem exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq (hγ : 1 < γ)
   refine ⟨Y, hYS, ?_⟩
   set c := ∫⁻ ω, Y ω ^ (1 - γ) ∂Q
   have ha1 : γ⁻¹ < 1 := inv_lt_one_of_one_lt₀ hγ
-  have hY0 : ∀ᵐ ω ∂Q, Y ω ≠ 0 :=
-    hY.ae_ne_zero deriv_powerUtility_zero (isEVar_one hS) hYm.aemeasurable
+  have hY0 : ∀ᵐ ω ∂Q, Y ω ≠ 0 := hY.ae_ne_zero_powerUtility hS
   have hc_le : c ≤ Q univ := hY.lintegral_rpow_le_measure_univ hS
   rcases eq_or_ne c 0 with hc0 | hc0
   · refine ⟨0, fun X _ ↦ by simp, ?_⟩
@@ -341,9 +351,8 @@ theorem exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq (hγ : 1 < γ)
     refine lintegral_congr fun ω ↦ ?_
     rw [hg_def, ENNReal.mul_rpow_of_nonneg _ _ (by linarith), ← ENNReal.rpow_mul,
       show -γ * (1 - γ⁻¹) = 1 - γ by field_simp; ring]
-  rw [hH, ENNReal.inv_rpow, ← ENNReal.rpow_neg]
-  nth_rw 2 [← ENNReal.rpow_one c]
-  rw [← ENNReal.rpow_add _ _ hc0 hctop, ← ENNReal.rpow_mul,
+  rw [hH, ENNReal.inv_rpow, ← ENNReal.rpow_neg, ← ENNReal.rpow_add_one hc0 hctop,
+    ← ENNReal.rpow_mul,
     show (-(1 - γ⁻¹) + 1) * γ = 1 by field_simp; ring, ENNReal.rpow_one]
 
 /-- **The maximal expected power utility** [LRR25, Theorem 6.1]: over the e-variables of a null of
@@ -393,26 +402,29 @@ theorem maxUtility_powerUtility_eq_iSup_renyiDiv (hγ : 1 < γ) (hS : ∀ P ∈ 
     maxUtility Q S (powerUtility γ hγ) = -((ENNReal.ofReal (γ - 1)⁻¹ * ⨆ P ∈ effectiveSet S,
       Q univ * P univ ^ (γ - 1) * EReal.exp (((1 - γ : ℝ) : EReal) * renyiDiv γ⁻¹ Q P) : ℝ≥0∞) :
         EReal) := by
-  rw [maxUtility_powerUtility hγ hS Q]
-  congr 3
-  refine iSup_congr fun P ↦ iSup_congr fun hP ↦ ?_
-  have : IsFiniteMeasure P := isFiniteMeasure_of_mem_effectiveSet hS hP
   have hγ0 : 0 < γ := by linarith
-  rw [lintegral_rpow_rnDeriv_eq_mul_exp_renyiDiv (inv_pos.2 hγ0) (inv_lt_one_of_one_lt₀ hγ),
-    ENNReal.mul_rpow_of_nonneg _ _ hγ0.le, ENNReal.mul_rpow_of_nonneg _ _ hγ0.le,
-    ← ENNReal.rpow_mul, ← ENNReal.rpow_mul, ← EReal.exp_mul, inv_mul_cancel₀ hγ0.ne',
-    ENNReal.rpow_one, show (1 - γ⁻¹) * γ = γ - 1 by field_simp]
-  congr 2
-  induction renyiDiv γ⁻¹ Q P using ENNReal.recTopCoe with
-  | top =>
-    rw [EReal.coe_ennreal_top,
-      EReal.coe_mul_top_of_pos (by simpa using inv_lt_one_of_one_lt₀ hγ), EReal.neg_top,
-      EReal.bot_mul_coe_of_pos hγ0, EReal.coe_mul_top_of_neg (by linarith)]
-  | coe r =>
-    rw [EReal.coe_nnreal_eq_coe_real]
-    norm_cast
-    field_simp
-    ring
+  -- the exponent: `-((1 - γ⁻¹) * r) * γ = (1 - γ) * r`, with `r = ∞` handled by the signs
+  have h_exp (r : ℝ≥0∞) :
+      -(((1 - γ⁻¹ : ℝ) : EReal) * r) * ((γ : ℝ) : EReal) = ((1 - γ : ℝ) : EReal) * r := by
+    induction r using ENNReal.recTopCoe with
+    | top =>
+      have h1 : 0 < 1 - γ⁻¹ := by simpa using inv_lt_one_of_one_lt₀ hγ
+      simp only [EReal.coe_ennreal_top, EReal.coe_mul_top_of_pos h1, EReal.neg_top,
+        EReal.bot_mul_coe_of_pos hγ0, EReal.coe_mul_top_of_neg (show 1 - γ < 0 by linarith)]
+    | coe r =>
+      rw [EReal.coe_nnreal_eq_coe_real]
+      norm_cast
+      field_simp
+      ring
+  -- the power `γ` of the affinity, through the Rényi divergence
+  have h_aff (P : Measure Ω) (hP : P ∈ effectiveSet S) : (∫⁻ ω, Q.rnDeriv P ω ^ γ⁻¹ ∂P) ^ γ
+      = Q univ * P univ ^ (γ - 1) * EReal.exp (((1 - γ : ℝ) : EReal) * renyiDiv γ⁻¹ Q P) := by
+    have : IsFiniteMeasure P := isFiniteMeasure_of_mem_effectiveSet hS hP
+    rw [lintegral_rpow_rnDeriv_eq_mul_exp_renyiDiv (inv_pos.2 hγ0) (inv_lt_one_of_one_lt₀ hγ),
+      ENNReal.mul_rpow_of_nonneg _ _ hγ0.le, ENNReal.mul_rpow_of_nonneg _ _ hγ0.le,
+      ← ENNReal.rpow_mul, ← ENNReal.rpow_mul, ← EReal.exp_mul, inv_mul_cancel₀ hγ0.ne',
+      ENNReal.rpow_one, show (1 - γ⁻¹) * γ = γ - 1 by field_simp, h_exp]
+  rw [maxUtility_powerUtility hγ hS Q, iSup_congr fun P ↦ iSup_congr (h_aff P)]
 
 end MaxUtility
 
