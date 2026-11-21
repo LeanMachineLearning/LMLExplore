@@ -674,10 +674,12 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     _ ≤ ∫ᵉ ω, ENNReal.log (restartMixture σ V r N ω) ∂μ :=
       eintegral_mono fun ω ↦ log_restartMixture_ge hδ hVδ c hr0 hr1 N ω
     _ ≤ maxLogGrowth Q₁ S₁ N :=
-      eintegral_log_le_maxLogGrowth_of_dependsOn Q₁ hS₁ (measurable_restartMixture hσm hVm r N)
-        (dependsOn_restartMixture hσ hV r N) fun P hP ↦ by
+      IsEVar.eintegral_log_le_maxLogGrowth Q₁ hS₁
+        ⟨measurable_restartMixture hσm hVm r N, forall_mem_iidNull.2 fun P hP ↦ by
           have := hS₁ P hP
-          exact lintegral_restartMixture_le_one hσ hV hσm hVm P (h_null P hP) hr0.le hr1.le N
+          exact lintegral_restartMixture_le_one hσ hV hσm hVm P (h_null P hP) hr0.le hr1.le N⟩
+        (Filtration.measurable_piLT_of_dependsOn (measurable_restartMixture hσm hVm r N)
+          (dependsOn_restartMixture hσ hV r N))
     _ ≤ N * bipolarRate Q₁ S₁ := maxLogGrowth_le_mul_bipolarRate Q₁ S₁ (by omega)
   rw [← coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd, ← EReal.coe_natCast,
     ← EReal.coe_mul, EReal.coe_le_coe_iff] at hle
