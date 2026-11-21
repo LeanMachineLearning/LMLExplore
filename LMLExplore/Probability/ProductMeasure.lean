@@ -389,7 +389,7 @@ theorem lintegral_infinitePi_congr_of_dependsOn {μ μ' : (i : ι) → Measure (
   · simp [lintegral_of_isEmpty]
   set g : (Π i : s, X i) → ℝ≥0∞ := fun y ↦ f (Function.updateFinset x₀ s y)
   have hfg (ω : Π i, X i) : f ω = g (s.restrict ω) :=
-    hfs fun i hi ↦ by simp [Function.updateFinset, show i ∈ s from hi]
+    hfs fun i hi ↦ by simp [Function.updateFinset, Finset.mem_coe.1 hi]
   have hg : Measurable g := hf.comp measurable_updateFinset
   simp_rw [hfg]
   rw [lintegral_restrict_infinitePi μ hg, lintegral_restrict_infinitePi μ' hg]

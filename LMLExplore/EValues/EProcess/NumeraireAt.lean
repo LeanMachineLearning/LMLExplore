@@ -36,13 +36,13 @@ numeraire of a null on one σ-algebra.
 
 ## Main statements
 
-* `ProbabilityTheory.isNumeraireAt_iff`: optimality at a stopping time, in terms of the
-  e-processes.
+* `ProbabilityTheory.isNumeraireAt_iff`: optimality at a measurable time, for instance a stopping
+  time, in terms of the e-processes.
 * `ProbabilityTheory.exists_isNumeraireAt`: for a null of measures of mass at most one and a finite
   alternative, some e-process is optimal at a given time.
-* `ProbabilityTheory.IsNumeraireAt.eintegral_log_le`: an e-process that is optimal at a stopping
+* `ProbabilityTheory.IsNumeraireAt.eintegral_log_le`: an e-process that is optimal at a measurable
   time maximizes the expected logarithm at that time.
-* `ProbabilityTheory.IsNumeraireAt.ae_eq`: two e-processes that are optimal at the same stopping
+* `ProbabilityTheory.IsNumeraireAt.ae_eq`: two e-processes that are optimal at the same measurable
   time are almost surely equal at that time.
 * `ProbabilityTheory.isEProcess_indicator_le`,
   `ProbabilityTheory.exists_isEProcess_apply_eq_iff`: the values at a stopping time `σ` of the
@@ -79,7 +79,7 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S :
 
 /-- The process `E` is **optimal at the time `τ`** for the null `S` against `Q`: on the space of
 stopped paths, `Function.uncurry E` is a numeraire of the stopped null `stoppedNull ℱ S` against
-the stopped law `stoppedLaw ℱ Q τ`. For a finite measure `Q` and a stopping time `τ`, this says
+the stopped law `stoppedLaw ℱ Q τ`. For a finite measure `Q` and a measurable time `τ`, this says
 that `E` is an e-process and that `∫⁻ F_τ / E_τ ∂Q ≤ Q {0 < E_τ < ∞}` for every e-process `F`
 (`isNumeraireAt_iff`). -/
 def IsNumeraireAt (E : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω))
@@ -97,23 +97,22 @@ theorem isNumeraireAt_def :
 theorem IsNumeraireAt.isEProcess (hE : IsNumeraireAt E ℱ S Q τ) : IsEProcess E ℱ S :=
   isEProcess_iff_isEVar_stoppedNull.2 (isNumeraireAt_def.1 hE).isEVar
 
-/-- **Optimality at a stopping time, in terms of the e-processes.** Against a finite measure `Q`,
-a process `E` is optimal at a stopping time `τ` exactly when it is an e-process and
-`∫⁻ F_τ / E_τ ∂Q ≤ Q {0 < E_τ < ∞}` for every e-process `F`. -/
-theorem isNumeraireAt_iff [IsFiniteMeasure Q] (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
+/-- **Optimality at a time, in terms of the e-processes.** Against a finite measure `Q`, a process
+`E` is optimal at a measurable time `τ`, for instance a stopping time, exactly when it is an
+e-process and `∫⁻ F_τ / E_τ ∂Q ≤ Q {0 < E_τ < ∞}` for every e-process `F`. -/
+theorem isNumeraireAt_iff [IsFiniteMeasure Q] (hτ : Measurable τ) :
     IsNumeraireAt E ℱ S Q τ ↔ IsEProcess E ℱ S ∧ ∀ F : ℕ → Ω → ℝ≥0∞, IsEProcess F ℱ S →
       ∫⁻ ω, F (τ ω) ω / E (τ ω) ω ∂Q ≤ Q (fun ω ↦ E (τ ω) ω).fsupport := by
   rw [isNumeraireAt_def, isNumeraire_iff (m𝓧 := ℱ.progressive),
     ← isEProcess_iff_isEVar_stoppedNull]
   refine and_congr_right fun hE ↦ ?_
-  have hEm := Filtration.measurable_uncurry_progressive_iff.2 hE.adapted
-  rw [stoppedLaw_apply hτ.measurable_nat (Measurable.measurable_fsupport (m𝓧 := ℱ.progressive) hEm)]
+  have hEm := hE.measurable_uncurry
+  rw [stoppedLaw_apply hτ (Measurable.measurable_fsupport (m𝓧 := ℱ.progressive) hEm)]
   refine ⟨fun h F hF ↦ ?_, fun h Y hY ↦ ?_⟩
-  · have hFm := Filtration.measurable_uncurry_progressive_iff.2 hF.adapted
-    have h' := h (isEProcess_iff_isEVar_stoppedNull.1 hF)
-    rwa [lintegral_stoppedLaw hτ.measurable_nat (f := fun x ↦ Function.uncurry F x /
-      Function.uncurry E x) (hFm.div hEm)] at h'
-  · rw [lintegral_stoppedLaw hτ.measurable_nat (f := fun x ↦ Y x / Function.uncurry E x)
+  · have h' := h (isEProcess_iff_isEVar_stoppedNull.1 hF)
+    rwa [lintegral_stoppedLaw hτ (f := fun x ↦ Function.uncurry F x /
+      Function.uncurry E x) (hF.measurable_uncurry.div hEm)] at h'
+  · rw [lintegral_stoppedLaw hτ (f := fun x ↦ Y x / Function.uncurry E x)
       (hY.measurable.div hEm)]
     rw [← Function.uncurry_curry Y] at hY
     exact h _ (isEProcess_iff_isEVar_stoppedNull.2 hY)
@@ -127,43 +126,40 @@ theorem exists_isNumeraireAt (hS : ∀ P ∈ S, P univ ≤ 1) (Q : Measure Ω) [
   exact ⟨E, hE⟩
 
 /-- **An optimal e-process maximizes the expected logarithm at its time.** If `E` is optimal at a
-stopping time `τ` against `Q`, then `∫ᵉ log F_τ ∂Q ≤ ∫ᵉ log E_τ ∂Q` for every e-process `F`. -/
+measurable time `τ` against `Q`, then `∫ᵉ log F_τ ∂Q ≤ ∫ᵉ log E_τ ∂Q` for every e-process `F`. -/
 theorem IsNumeraireAt.eintegral_log_le (hE : IsNumeraireAt E ℱ S Q τ) (hF : IsEProcess F ℱ S)
-    (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hτ : Measurable τ) :
     ∫ᵉ ω, ENNReal.log (F (τ ω) ω) ∂Q ≤ ∫ᵉ ω, ENNReal.log (E (τ ω) ω) ∂Q := by
   have h := IsNumeraire.eintegral_log_le (m𝓧 := ℱ.progressive) hE
     (isEProcess_iff_isEVar_stoppedNull.1 hF)
   have hlog {G : ℕ → Ω → ℝ≥0∞} (hG : IsEProcess G ℱ S) :
       Measurable[ℱ.progressive] fun x ↦ (ENNReal.log (Function.uncurry G x) : EReal) :=
-    ENNReal.measurable_log.comp (Filtration.measurable_uncurry_progressive_iff.2 hG.adapted)
-  rwa [eintegral_stoppedLaw hτ.measurable_nat (hlog hF),
-    eintegral_stoppedLaw hτ.measurable_nat (hlog hE.isEProcess)] at h
+    ENNReal.measurable_log.comp hG.measurable_uncurry
+  rwa [eintegral_stoppedLaw hτ (hlog hF), eintegral_stoppedLaw hτ (hlog hE.isEProcess)] at h
 
-/-- Two processes that are optimal at the same stopping time are almost surely equal at that
+/-- Two processes that are optimal at the same measurable time are almost surely equal at that
 time. -/
 theorem IsNumeraireAt.ae_eq (hE : IsNumeraireAt E ℱ S Q τ) (hF : IsNumeraireAt F ℱ S Q τ)
-    (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hτ : Measurable τ) :
     ∀ᵐ ω ∂Q, E (τ ω) ω = F (τ ω) ω := by
   have h := IsNumeraire.ae_unique (m𝓧 := ℱ.progressive) hE hF
-  refine (ae_stoppedLaw_iff hτ.measurable_nat
+  refine (ae_stoppedLaw_iff hτ
     (p := fun x ↦ Function.uncurry E x = Function.uncurry F x) ?_).1 h
-  exact measurableSet_eq_fun (m := ℱ.progressive)
-    (Filtration.measurable_uncurry_progressive_iff.2 hE.isEProcess.adapted)
-    (Filtration.measurable_uncurry_progressive_iff.2 hF.isEProcess.adapted)
+  exact measurableSet_eq_fun (m := ℱ.progressive) hE.isEProcess.measurable_uncurry
+    hF.isEProcess.measurable_uncurry
 
-/-- A process that is optimal at a stopping time is almost surely infinite at that time where some
-e-process is infinite. -/
+/-- A process that is optimal at a measurable time is almost surely infinite at that time where
+some e-process is infinite. -/
 theorem IsNumeraireAt.ae_eq_top_of_eq_top (hE : IsNumeraireAt E ℱ S Q τ) (hF : IsEProcess F ℱ S)
-    (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hτ : Measurable τ) :
     ∀ᵐ ω ∂Q, F (τ ω) ω = ∞ → E (τ ω) ω = ∞ := by
   have h := IsNumeraire.ae_eq_top_of_eq_top (m𝓧 := ℱ.progressive) hE
     (isEProcess_iff_isEVar_stoppedNull.1 hF)
-  refine (ae_stoppedLaw_iff hτ.measurable_nat
+  refine (ae_stoppedLaw_iff hτ
     (p := fun x ↦ Function.uncurry F x = ∞ → Function.uncurry E x = ∞) ?_).1 h
-  have hFm := Filtration.measurable_uncurry_progressive_iff.2 hF.adapted
-  have hEm := Filtration.measurable_uncurry_progressive_iff.2 hE.isEProcess.adapted
   simp only [imp_iff_not_or, ofPred_or]
-  exact (hFm (measurableSet_singleton ∞)).compl.union (hEm (measurableSet_singleton ∞))
+  exact (hF.measurable_uncurry (measurableSet_singleton ∞)).compl.union
+    (hE.isEProcess.measurable_uncurry (measurableSet_singleton ∞))
 
 /-! ### One stopping time -/
 
@@ -208,7 +204,7 @@ theorem isNumeraireAt_iff_isNumeraire_mapNull [IsFiniteMeasure Q]
       IsNumeraire (m𝓧 := hσ.measurableSpace) (fun ω ↦ E (σ ω) ω)
         (@mapNull _ _ _ hσ.measurableSpace id S) (Q.trim hσ.measurableSpace_le) := by
   have hEσ := hE.adapted.measurable_measurableSpace_apply_stoppingTime hσ
-  rw [isNumeraireAt_iff hσ, isNumeraire_iff (m𝓧 := hσ.measurableSpace),
+  rw [isNumeraireAt_iff hσ.measurable_nat, isNumeraire_iff (m𝓧 := hσ.measurableSpace),
     isEVar_mapNull_id_iff hσ.measurableSpace_le,
     trim_measurableSet_eq _ (Measurable.measurable_fsupport (m𝓧 := hσ.measurableSpace) hEσ)]
   simp only [hE, true_and, hE.isEVar_stoppedValue σ hσ, hEσ, and_self]

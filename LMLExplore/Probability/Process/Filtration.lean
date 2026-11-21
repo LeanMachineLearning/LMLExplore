@@ -190,10 +190,9 @@ lemma _root_.Measurable.dependsOn_of_piLT {Z : Type*} [MeasurableSpace Z]
   cases n with
   | zero =>
     rw [piLT_zero] at hf
-    rcases MeasurableSpace.measurableSet_bot_iff.1 (hf (measurableSet_singleton (f ω'))) with
-      h' | h'
-    · exact absurd (show ω' ∈ f ⁻¹' {f ω'} from rfl) (h' ▸ Set.notMem_empty ω')
-    · exact (show ω ∈ f ⁻¹' {f ω'} from h' ▸ Set.mem_univ ω)
+    have : Nonempty Z := ⟨f ω⟩
+    obtain ⟨c, rfl⟩ := eq_const_of_measurable_bot hf
+    rfl
   | succ n =>
     rw [piLT_add_one] at hf
     exact hf.dependsOn_of_piLE fun i hi ↦ h i (Nat.lt_succ_of_le hi)

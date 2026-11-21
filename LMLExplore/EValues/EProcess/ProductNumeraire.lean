@@ -20,9 +20,9 @@ measures, the one-step alternatives, and `X i` a numeraire of `S₁ i` against `
 `E n ω = ∏ i < n, X i (ω i)` is optimal at every stopping time `τ` with values in `ℕ`, bounded or
 not, against the law `Measure.infinitePi Q₁` of independent observations from the alternatives,
 for every null `𝓝` that contains the products of members of the `S₁ i` and for which `E` is an
-e-process [EVR26, Note 40, Theorem 5], as soon as the numeraires are almost surely finite. The
-largest such null is the sequential null of the one-step nulls
-(`isNumeraireAt_prod_sequentialNull`), for which the product is a test supermartingale.
+e-process [EVR26, Note 40, Theorem 5], as soon as the numeraires are almost surely finite. One
+such null is the sequential null of the one-step nulls (`isNumeraireAt_prod_sequentialNull`), for
+which the product is a test supermartingale.
 
 The proof replaces the laws of the observations by the alternatives one coordinate at a time, by
 Tonelli's theorem (`lintegral_sum_mul_prod_inv_le`): no dominating measure, no measurable choice
@@ -72,6 +72,22 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : ℕ → Set (Meas
   {Q₁ : ℕ → Measure 𝓧} {X : ℕ → 𝓧 → ℝ≥0∞}
 
 /-! ### Replacing the null laws by the alternatives, one coordinate at a time -/
+
+/-- The family in which the observations `j ≤ i < N` have the laws of the alternatives and the
+others have laws in the one-step nulls consists of probability measures. -/
+private lemma isProbabilityMeasure_ite (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
+    [∀ i, IsProbabilityMeasure (Q₁ i)] {P : ℕ → Measure 𝓧} (hP : ∀ i, P i ∈ S₁ i) (j N i : ℕ) :
+    IsProbabilityMeasure (if j ≤ i ∧ i < N then Q₁ i else P i) := by
+  split_ifs
+  exacts [inferInstance, hS₁ i _ (hP i)]
+
+/-- Under the product of the alternatives, the one-step numeraires of nulls of probability
+measures are almost surely positive at every observation. -/
+private lemma ae_forall_ne_zero (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
+    [∀ i, IsProbabilityMeasure (Q₁ i)] (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i)) :
+    ∀ᵐ ω ∂Measure.infinitePi Q₁, ∀ i, X i (ω i) ≠ 0 :=
+  Measure.ae_forall_apply_infinitePi Q₁ fun i ↦
+    (hX i).ae_ne_zero fun P hP ↦ (hS₁ i P hP).measure_univ.le
 
 /-- **One coordinate.** Let `A` and `B` be functions of a sequence, `A` not depending on the
 coordinate `j`, such that `A + B` has integral at most `c` under every product of the
@@ -166,10 +182,6 @@ private lemma lintegral_sum_mul_prod_Ico_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i
     ∀ j, j + m = N → ∀ P : ℕ → Measure 𝓧, (∀ i, P i ∈ S₁ i) →
       ∫⁻ ω, ∑ k ∈ range N, g k ω * ∏ i ∈ Ico j k, (X i (ω i))⁻¹
         ∂Measure.infinitePi (fun i ↦ if j ≤ i ∧ i < N then Q₁ i else P i) ≤ c := by
-  have hν (j : ℕ) {P : ℕ → Measure 𝓧} (hP : ∀ i, P i ∈ S₁ i) (i : ℕ) :
-      IsProbabilityMeasure (if j ≤ i ∧ i < N then Q₁ i else P i) := by
-    split_ifs
-    exacts [inferInstance, hS₁ i _ (hP i)]
   have hY (i : ℕ) : Measurable fun ω : ℕ → 𝓧 ↦ (X i (ω i))⁻¹ :=
     ((hX i).comp (measurable_pi_apply i)).inv
   induction m with
@@ -184,7 +196,7 @@ private lemma lintegral_sum_mul_prod_Ico_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i
     rw [Finset.Ico_eq_empty (by have := mem_range.1 hk; omega), Finset.prod_empty, mul_one]
   | succ m ih =>
     rintro j hj P hP
-    have := hν (j + 1) hP
+    have := isProbabilityMeasure_ite (Q₁ := Q₁) hS₁ hP (j + 1) N
     set μ : ℕ → Measure 𝓧 := fun i ↦ if j + 1 ≤ i ∧ i < N then Q₁ i else P i
     -- the observation `j` has the law of the alternative here, and of `P'` in the induction
     -- hypothesis for `Function.update P j P'`
@@ -204,8 +216,8 @@ private lemma lintegral_sum_mul_prod_Ico_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i
       · simp only [Function.update_of_ne hij, μ]
     have hA_upd (ω : ℕ → 𝓧) (x : 𝓧) :
         ∑ k ∈ range N with k ≤ j, g k (Function.update ω j x) = ∑ k ∈ range N with k ≤ j, g k ω :=
-      sum_congr rfl fun k hk ↦ hg_dep k fun i (hi : i < k) ↦
-        Function.update_of_ne (by have := (mem_filter.1 hk).2; omega) _ _
+      sum_congr rfl fun k hk ↦ hg_dep k fun i hi ↦ Function.update_of_ne
+        (by have := (mem_filter.1 hk).2; have := Set.mem_Iio.1 hi; omega) _ _
     have hA : Measurable fun ω ↦ ∑ k ∈ range N with k ≤ j, g k ω :=
       Finset.measurable_fun_sum _ fun k _ ↦ hg k
     have hB : Measurable fun ω ↦
@@ -242,9 +254,7 @@ theorem lintegral_sum_mul_prod_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbab
       ∫⁻ ω, ∑ k ∈ range N, g k ω ∂Measure.infinitePi P ≤ c) :
     ∫⁻ ω, ∑ k ∈ range N, g k ω * ∏ i ∈ range k, (X i (ω i))⁻¹ ∂Measure.infinitePi Q₁ ≤ c := by
   choose P₀ hP₀ using hS₁_ne
-  have : ∀ i, IsProbabilityMeasure (if 0 ≤ i ∧ i < N then Q₁ i else P₀ i) := fun i ↦ by
-    split_ifs
-    exacts [inferInstance, hS₁ i _ (hP₀ i)]
+  have := isProbabilityMeasure_ite (Q₁ := Q₁) hS₁ hP₀ 0 N
   have h0 := lintegral_sum_mul_prod_Ico_inv_le hS₁ (fun i ↦ ⟨P₀ i, hP₀ i⟩) hX hX_le hg hg_dep
     hg_le N 0 (zero_add N) P₀ hP₀
   simp only [Nat.Ico_zero_eq_range] at h0
@@ -255,7 +265,7 @@ theorem lintegral_sum_mul_prod_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbab
   · exact Finset.measurable_fun_sum _ fun k _ ↦ (hg k).mul
       (Finset.measurable_fun_prod _ fun i _ ↦ ((hX i).comp (measurable_pi_apply i)).inv)
   · have hkN := mem_range.1 hk
-    rw [hg_dep k fun i (hi : i < k) ↦ h i (by simpa using hi.trans hkN)]
+    rw [hg_dep k fun i hi ↦ h i (by simpa using (Set.mem_Iio.1 hi).trans hkN)]
     exact congrArg _ (prod_congr rfl fun i hi ↦ by
       rw [h i (by simpa using (mem_range.1 hi).trans hkN)])
 
@@ -287,12 +297,9 @@ theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilit
       Measurable fun ω : ℕ → 𝓧 ↦ g k ω * ∏ i ∈ range k, (X i (ω i))⁻¹ :=
     (hg k).mul (Finset.measurable_fun_prod _ fun i _ ↦
       ((hX i).measurable.comp (measurable_pi_apply i)).inv)
-  have h_ne : ∀ᵐ ω ∂Measure.infinitePi Q₁, ∀ i, X i (ω i) ≠ 0 :=
-    Measure.ae_forall_apply_infinitePi Q₁ fun i ↦
-      (hX i).ae_ne_zero fun P hP ↦ (hS₁ i P hP).measure_univ.le
   have h_ae : (fun ω ↦ F (τ ω) ω / ∏ i ∈ range (τ ω), X i (ω i)) =ᵐ[Measure.infinitePi Q₁]
       fun ω ↦ ∑' k, g k ω * ∏ i ∈ range k, (X i (ω i))⁻¹ := by
-    filter_upwards [h_ne] with ω hω
+    filter_upwards [ae_forall_ne_zero hS₁ hX] with ω hω
     rw [tsum_eq_single (τ ω) fun k hk ↦ by
       simp [g, Ne.symm hk]]
     have hg_τ : g (τ ω) ω = F (τ ω) ω := by simp [g]
@@ -329,24 +336,15 @@ theorem isNumeraireAt_prod (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasur
     (hE : IsEProcess (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝)
     (hτ : IsStoppingTime piLT fun ω ↦ (τ ω : WithTop ℕ)) :
     IsNumeraireAt (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝 (Measure.infinitePi Q₁) τ := by
-  -- a null with an almost surely finite numeraire is not empty
-  have hS₁_ne (i : ℕ) : (S₁ i).Nonempty := by
-    refine nonempty_iff_ne_empty.2 fun h_empty ↦ ?_
-    have hY : IsEVar (fun _ : 𝓧 ↦ ∞) (S₁ i) := ⟨measurable_const, by simp [h_empty]⟩
-    have h_false : ∀ᵐ x ∂Q₁ i, False := by
-      filter_upwards [(hX i).ae_eq_top_of_eq_top hY, hX_top i] with x h1 h2 using h2 (h1 rfl)
-    exact IsProbabilityMeasure.ne_zero (Q₁ i) (ae_eq_bot.1 (Filter.eventually_false_iff_eq_bot.1
-      h_false))
-  rw [isNumeraireAt_iff hτ]
+  rw [isNumeraireAt_iff hτ.measurable_nat]
   refine ⟨hE, fun F hF ↦ ?_⟩
   -- the product is almost surely positive and finite
   rw [measure_fsupport_eq_measure_univ ?_ ?_, measure_univ]
-  · exact lintegral_div_prod_le_one hS₁ hS₁_ne hX h𝓝 hF hτ
+  · exact lintegral_div_prod_le_one hS₁ (fun i ↦ (hX i).nonempty_of_ae_ne_top (hX_top i)) hX h𝓝
+      hF hτ
   · filter_upwards [Measure.ae_forall_apply_infinitePi Q₁ hX_top] with ω hω
       using ENNReal.prod_ne_top fun i _ ↦ hω i
-  · filter_upwards [Measure.ae_forall_apply_infinitePi Q₁ fun i ↦
-      (hX i).ae_ne_zero fun P hP ↦ (hS₁ i P hP).measure_univ.le] with ω hω
-      using prod_ne_zero_iff.2 fun i _ ↦ hω i
+  · filter_upwards [ae_forall_ne_zero hS₁ hX] with ω hω using prod_ne_zero_iff.2 fun i _ ↦ hω i
 
 /-- **For the sequential null, the product of one-step numeraires is optimal at every stopping
 time** [EVR26, Note 40, Theorem 5]. For the sequential null of the coordinates and one-step nulls
