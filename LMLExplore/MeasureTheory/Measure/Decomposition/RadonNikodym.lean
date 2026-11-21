@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
 
 /-!
@@ -30,6 +31,9 @@ members.
   `ξ`-a.e., `μ.rnDeriv ξ / f` is `ν`-a.e. at most `μ.rnDeriv ν`.
 * `MeasureTheory.Measure.rnDeriv_le_of_le_withDensity`: for `μ ≤ ν.withDensity f`,
   `μ.rnDeriv ν` is `ν`-a.e. at most `f`.
+* `MeasureTheory.Measure.lintegral_rpow_rnDeriv_withDensity`: for an almost everywhere finite
+  density `f` and `a < 1`, `∫⁻ (dμ/dν) ^ a dν = ∫⁻ f ^ (1 - a) dμ` with `ν = μ.withDensity f`,
+  the affinity of order `a` between `μ` and a measure with a density with respect to it.
 
 ## Implementation notes
 
@@ -73,5 +77,28 @@ theorem rnDeriv_le_of_le_withDensity [SigmaFinite ν] {f : α → ℝ≥0∞} (h
     μ.rnDeriv ν ≤ᵐ[ν] f :=
   ae_le_of_forall_setLIntegral_le_of_sigmaFinite (μ.measurable_rnDeriv ν) fun s hs _ ↦
     (setLIntegral_rnDeriv_le s).trans ((h s).trans_eq (withDensity_apply _ hs))
+
+/-- For a measure `ν = μ.withDensity f` with an almost everywhere finite density and `a < 1`, the
+integral `∫⁻ (dμ/dν) ^ a dν`, the affinity of order `a` between `μ` and `ν`, is
+`∫⁻ f ^ (1 - a) dμ`. Where `f` vanishes, `ν` charges nothing and `f ^ (1 - a) = 0`. -/
+theorem lintegral_rpow_rnDeriv_withDensity [SigmaFinite μ] {f : α → ℝ≥0∞} (hf : AEMeasurable f μ)
+    (hf_top : ∀ᵐ x ∂μ, f x ≠ ∞) [SigmaFinite (μ.withDensity f)] {a : ℝ} (ha : a < 1) :
+    ∫⁻ x, μ.rnDeriv (μ.withDensity f) x ^ a ∂(μ.withDensity f) = ∫⁻ x, f x ^ (1 - a) ∂μ := by
+  have hac : μ.withDensity f ≪ μ := withDensity_absolutelyContinuous _ _
+  calc ∫⁻ x, μ.rnDeriv (μ.withDensity f) x ^ a ∂(μ.withDensity f)
+  _ = ∫⁻ x, ((μ.withDensity f).rnDeriv μ x)⁻¹ ^ a ∂(μ.withDensity f) := by
+    refine lintegral_congr_ae ?_
+    filter_upwards [inv_rnDeriv hac] with x hx
+    rw [← hx, Pi.inv_apply]
+  _ = ∫⁻ x, (μ.withDensity f).rnDeriv μ x * ((μ.withDensity f).rnDeriv μ x)⁻¹ ^ a ∂μ :=
+    (lintegral_rnDeriv_mul hac (by fun_prop)).symm
+  _ = ∫⁻ x, f x ^ (1 - a) ∂μ := by
+    refine lintegral_congr_ae ?_
+    filter_upwards [rnDeriv_withDensity₀ μ hf, hf_top] with x hx hx_top
+    rw [hx]
+    rcases eq_or_ne (f x) 0 with h0 | h0
+    · rw [h0, zero_mul, ENNReal.zero_rpow_of_pos (by linarith)]
+    rw [ENNReal.inv_rpow, ← ENNReal.rpow_neg, sub_eq_add_neg, ENNReal.rpow_add _ _ h0 hx_top,
+      ENNReal.rpow_one]
 
 end MeasureTheory.Measure
