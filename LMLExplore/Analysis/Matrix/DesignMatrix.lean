@@ -11,6 +11,8 @@ public import LMLExplore.Analysis.InnerProductSpace.PiL2
 public import LMLExplore.Analysis.InnerProductSpace.Ridge
 public import Mathlib.Algebra.Order.Star.Real
 
+import TauCeti.Analysis.Matrix.EuclideanLin
+
 /-!
 # Design matrices of regularized least squares
 
@@ -167,8 +169,9 @@ theorem det_designMatrix_succ (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t 
       (designMatrix V₀ x t).det * (1 + x t ⬝ᵥ (designMatrix V₀ x t)⁻¹ *ᵥ x t) := by
   have h := det_designOp_succ hV₀.isPositive_toEuclideanCLM
     hV₀.isUnit_toEuclideanCLM (fun s ↦ toLp 2 (x s)) t
-  rwa [← toEuclideanCLM_designMatrix, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
-    det_toEuclideanCLM, inner_ringInverse_toEuclideanCLM, ofLp_toLp] at h
+  rwa [← toEuclideanCLM_designMatrix, ← toEuclideanCLM_designMatrix, ← ContinuousLinearMap.det,
+    det_toEuclideanCLM, ← ContinuousLinearMap.det, det_toEuclideanCLM,
+    inner_ringInverse_toEuclideanCLM, ofLp_toLp] at h
 
 /-- For a positive definite regularizer `V₀`,
 `det V_t = det V₀ * ∏_{s < t} (1 + ‖x s‖²_{V_s⁻¹})`. -/
@@ -202,8 +205,9 @@ theorem log_det_designMatrix_div_le (hV₀ : V₀.PosDef) (x : ℕ → ι → �
         (Fintype.card ι * V₀.det ^ (Fintype.card ι : ℝ)⁻¹)) := by
   have h := log_det_designOp_div_le hV₀.isPositive_toEuclideanCLM hV₀.isUnit_toEuclideanCLM
     (fun s ↦ toLp 2 (x s)) fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
-  rwa [← toEuclideanCLM_designMatrix, det_toEuclideanCLM, det_toEuclideanCLM,
-    trace_toEuclideanCLM, finrank_euclideanSpace, sq_abs] at h
+  rwa [← toEuclideanCLM_designMatrix, ← ContinuousLinearMap.det, det_toEuclideanCLM,
+    ← ContinuousLinearMap.det, det_toEuclideanCLM, trace_toEuclideanCLM, finrank_euclideanSpace,
+    sq_abs] at h
 
 /-- [LS, (20.9)]: for `λ > 0`, if `x s ⬝ᵥ x s ≤ L ^ 2` for all `s < t`, then
 `det V_t(λ) / λ ^ d ≤ (1 + t L² / (λ d)) ^ d`, with `d = Fintype.card ι`. -/
@@ -213,8 +217,8 @@ theorem det_designMatrix_div_pow_le (hlam : 0 < lam) (x : ℕ → ι → ℝ) {t
       (1 + t * L ^ 2 / (lam * Fintype.card ι)) ^ Fintype.card ι := by
   have h := det_designOp_div_pow_le hlam (fun s ↦ toLp 2 (x s))
     fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
-  rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
-    finrank_euclideanSpace, sq_abs] at h
+  rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, ← ContinuousLinearMap.det,
+    det_toEuclideanCLM, finrank_euclideanSpace, sq_abs] at h
 
 /-- [LS, (20.9)] in logarithmic form: for `λ > 0`, if `x s ⬝ᵥ x s ≤ L ^ 2` for all `s < t`, then
 `log (det V_t(λ) / λ ^ d) ≤ d log (1 + t L² / (λ d))`, with `d = Fintype.card ι`. -/
@@ -224,8 +228,8 @@ theorem log_det_designMatrix_div_pow_le (hlam : 0 < lam) (x : ℕ → ι → ℝ
       Fintype.card ι * log (1 + t * L ^ 2 / (lam * Fintype.card ι)) := by
   have h := log_det_designOp_div_pow_le hlam (fun s ↦ toLp 2 (x s))
     fun s hs ↦ EuclideanSpace.norm_toLp_le_abs_of_dotProduct_le_sq (hx s hs)
-  rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, det_toEuclideanCLM,
-    finrank_euclideanSpace, sq_abs] at h
+  rwa [← toEuclideanCLM_smul_one, ← toEuclideanCLM_designMatrix, ← ContinuousLinearMap.det,
+    det_toEuclideanCLM, finrank_euclideanSpace, sq_abs] at h
 
 /-- **Elliptical potential lemma** for matrices, log-determinant form [LS, Lemma 19.4]: for a
 positive definite regularizer `V₀` and the design matrices `V_t = designMatrix V₀ x t`,

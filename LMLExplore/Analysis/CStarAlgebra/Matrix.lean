@@ -25,7 +25,8 @@ space specialize to matrices.
   field with trivial star, such as `ℝ`.
 * `Matrix.toEuclideanCLM_inv`: the matrix inverse acts as the inverse operator (`Ring.inverse`,
   both being `0` for singular matrices).
-* `Matrix.det_toEuclideanCLM`, `Matrix.trace_toEuclideanCLM`: determinant and trace are preserved.
+* `Matrix.trace_toEuclideanCLM`: the trace is preserved (Tau Ceti's `Matrix.det_toEuclideanCLM`
+  is the corresponding statement for the determinant).
 * `Matrix.isPositive_toEuclideanCLM_iff`: `A` acts as a positive operator if and only if it is
   positive semidefinite; `Matrix.PosDef.isPositive_toEuclideanCLM` and
   `Matrix.PosDef.isUnit_toEuclideanCLM`: a positive definite matrix acts as a positive invertible
@@ -73,14 +74,6 @@ matrix. -/
 theorem toEuclideanCLM_inv (A : Matrix n n 𝕜) :
     toEuclideanCLM (n := n) (𝕜 := 𝕜) A⁻¹ = Ring.inverse (toEuclideanCLM (n := n) (𝕜 := 𝕜) A) := by
   rw [nonsing_inv_eq_ringInverse, map_ringInverse]
-
-/-- The determinant of the action of a matrix on Euclidean space is its determinant. -/
-@[simp]
-theorem det_toEuclideanCLM (A : Matrix n n 𝕜) :
-    LinearMap.det (toEuclideanCLM (n := n) (𝕜 := 𝕜) A :
-      EuclideanSpace 𝕜 n →ₗ[𝕜] EuclideanSpace 𝕜 n) = A.det := by
-  rw [coe_toEuclideanCLM_eq_toEuclideanLin, toEuclideanLin_eq_toLin_orthonormal,
-    LinearMap.det_toLin]
 
 /-- The trace of the action of a matrix on Euclidean space is its trace. -/
 @[simp]

@@ -13,6 +13,8 @@ public import LMLExplore.Probability.Martingale.SubGaussian
 public import LMLExplore.Probability.Martingale.Ville
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Inner
 
+import TauCeti.Analysis.Matrix.EuclideanLin
+
 /-!
 # The self-normalized bound for vector-valued martingales
 
