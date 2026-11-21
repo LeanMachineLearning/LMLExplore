@@ -78,6 +78,11 @@ import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 * `Real.log_one_add_two_mul_sub_log_one_sub_two_mul_le`:
   `log (1 + 2 x) - log (1 - 2 x) ≤ 4 x + 32 x³ / 3` for `0 ≤ x` with `8 x² ≤ 1`. It bounds the
   binary relative entropy near `1 / 2`.
+* `Real.two_mul_le_log_one_add_sub_log_one_sub`: `2 x ≤ log (1 + x) - log (1 - x)` for
+  `0 ≤ x < 1`, the first term of the series of `log ((1 + x) / (1 - x))`.
+* `Real.neg_four_div_three_mul_sq_le_log_one_add_add_log_one_sub`:
+  `-(4 / 3) x² ≤ log (1 + x) + log (1 - x)` for `|x| ≤ 1 / 2`. With the previous bound, it gives
+  the expected logarithm of the two-valued variable `1 ± x`.
 * `Real.tendsto_sub_one_sub_log_atTop`, `Real.tendsto_sub_one_sub_log_nhdsGT_zero`:
   `t - 1 - log t → ∞` as `t → ∞` and as `t → 0⁺`. The divergences of the Poisson and gamma
   families are multiples of this function of a ratio of means.
@@ -759,5 +764,25 @@ theorem log_one_add_two_mul_sub_log_one_sub_two_mul_le {x : ℝ} (hx : 8 * x ^ 2
     (fun y hy ↦ absurd (hy.1.trans hy.2) hx0.not_gt)
   norm_num at h
   linarith
+
+/-- `2 x ≤ log (1 + x) - log (1 - x)` for `0 ≤ x < 1`: the first term of the series
+`log (1 + x) - log (1 - x) = 2 ∑ x ^ (2 k + 1) / (2 k + 1)` of nonnegative terms. -/
+theorem two_mul_le_log_one_add_sub_log_one_sub {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x < 1) :
+    2 * x ≤ log (1 + x) - log (1 - x) := by
+  have h := hasSum_log_sub_log_of_abs_lt_one (x := x) (by rwa [abs_of_nonneg hx0])
+  simpa using le_hasSum h 0 fun j _ ↦ by positivity
+
+/-- `-(4 / 3) x² ≤ log (1 + x) + log (1 - x) = log (1 - x²)` for `|x| ≤ 1 / 2`, from
+`log y ≥ 1 - 1 / y` and `1 / (1 - x²) ≤ 1 + (4 / 3) x²` for `x² ≤ 1 / 4`. -/
+theorem neg_four_div_three_mul_sq_le_log_one_add_add_log_one_sub {x : ℝ} (hx : |x| ≤ 1 / 2) :
+    -(4 / 3 * x ^ 2) ≤ log (1 + x) + log (1 - x) := by
+  rw [abs_le] at hx
+  have hx2 : x ^ 2 ≤ 1 / 4 := by nlinarith
+  have hpos : 0 < 1 - x ^ 2 := by linarith
+  have hinv : (1 - x ^ 2)⁻¹ ≤ 1 + 4 / 3 * x ^ 2 := by
+    rw [inv_le_iff_one_le_mul₀ hpos]
+    nlinarith [mul_nonneg (sq_nonneg x) (by linarith : (0 : ℝ) ≤ 1 / 3 - 4 / 3 * x ^ 2)]
+  rw [← log_mul (by linarith) (by linarith), show (1 + x) * (1 - x) = 1 - x ^ 2 by ring]
+  linarith [one_sub_inv_le_log_of_pos hpos]
 
 end Real
