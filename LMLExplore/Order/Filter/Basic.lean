@@ -8,15 +8,14 @@ module
 public import Mathlib.Order.Filter.Basic
 
 /-!
-# Eventual relations along the principal filter of a range
+# The eventual order along the principal filter of a range
 
-Along the principal filter of the range of a map `φ`, the eventual order and the eventual equality
-of two functions are the order and the equality of their compositions with `φ`, everywhere.
+Along the principal filter of the range of a map `φ`, the eventual order of two functions is the
+order of their compositions with `φ`, everywhere.
 
 ## Main statements
 
 * `Filter.eventuallyLE_principal_range_iff`: `G ≤ᶠ[𝓟 (range φ)] H ↔ ∀ x, G (φ x) ≤ H (φ x)`.
-* `Filter.eventuallyEq_principal_range_iff`: `G =ᶠ[𝓟 (range φ)] H ↔ ∀ x, G (φ x) = H (φ x)`.
 -/
 
 public section
@@ -32,10 +31,5 @@ order of their compositions with `φ`. -/
 theorem eventuallyLE_principal_range_iff [LE β] :
     G ≤ᶠ[𝓟 (range φ)] H ↔ ∀ x, G (φ x) ≤ H (φ x) := by
   simp only [EventuallyLE, eventually_principal, forall_mem_range]
-
-/-- Along the principal filter of the range of `φ`, the eventual equality of two functions is the
-equality of their compositions with `φ`. -/
-theorem eventuallyEq_principal_range_iff : G =ᶠ[𝓟 (range φ)] H ↔ ∀ x, G (φ x) = H (φ x) := by
-  simp only [EventuallyEq, eventually_principal, forall_mem_range]
 
 end Filter
