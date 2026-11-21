@@ -197,12 +197,12 @@ private lemma isEProcess_expProcess :
     IsEProcess expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
       (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
-  have hM := isTestSupermartingale_expProcess (N := {μ : Measure ℝ | IsProbabilityMeasure μ ∧
+  refine (isTestSupermartingale_expProcess (N := {μ : Measure ℝ | IsProbabilityMeasure μ ∧
     NullSingletonClass μ ∧ HasSubgaussianMGF id 1 μ}) fun μ hμ ↦
-      ⟨hμ.1, lintegral_expFactor_le_one hμ.2.2⟩
-  exact hM.isEProcess fun P hP ↦
-    (isProbabilityMeasure_of_mem_iidNull (fun μ (hμ : IsProbabilityMeasure μ ∧ _) ↦ hμ.1) P
-      hP).measure_univ.le
+      ⟨hμ.1, lintegral_expFactor_le_one hμ.2.2⟩).isEProcess fun P hP ↦ ?_
+  have :=
+    isProbabilityMeasure_of_mem_iidNull (fun μ (hμ : IsProbabilityMeasure μ ∧ _) ↦ hμ.1) P hP
+  infer_instance
 
 /-! ### The Kearns–Saul gap
 

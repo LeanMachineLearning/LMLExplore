@@ -22,9 +22,9 @@ the value of the process at a random time is `MeasureTheory.stoppedValueLimsup`,
 the time is infinite, and
 `∫⁻ ω in s, stoppedValueLimsup M τ ω ∂P ≤ ∫⁻ ω in s, stoppedValueLimsup M σ ω ∂P` for every set `s`
 measurable for the σ-algebra at `σ` [RW, Fact 7.5; ShSVV11]. For a test supermartingale for a null
-of measures of mass at most one, the value at every stopping time is therefore an e-variable;
-this is the validity of test supermartingales at stopping times on which e-processes and
-anytime-valid tests rest.
+of finite measures, the value at every stopping time is therefore an e-variable; this is the
+validity of test supermartingales at stopping times on which e-processes and anytime-valid tests
+rest.
 
 For stopping times bounded by a constant, optional stopping needs neither the finiteness of the
 initial expectation nor the convergence of the process, and holds for every `ℝ≥0∞`-valued
@@ -358,14 +358,13 @@ theorem lintegral_stoppedValueLimsup_le_one (hM : IsTestSupermartingale M ℱ S)
     [IsFiniteMeasure P] (hτ : IsStoppingTime ℱ τ) : ∫⁻ ω, stoppedValueLimsup M τ ω ∂P ≤ 1 :=
   (hM.lintegral_stoppedValueLimsup_le hP hτ).trans (hM.lintegral_zero_le P hP)
 
-/-- The value of a test supermartingale for a null of measures of mass at most one at a stopping
-time with values in `WithTop ℕ` is an e-variable. -/
-theorem isEVar_stoppedValueLimsup (hS : ∀ P ∈ S, P univ ≤ 1)
+/-- The value of a test supermartingale for a null of finite measures at a stopping time with
+values in `WithTop ℕ` is an e-variable. -/
+theorem isEVar_stoppedValueLimsup (hS : ∀ P ∈ S, IsFiniteMeasure P)
     (hM : IsTestSupermartingale M ℱ S) (hτ : IsStoppingTime ℱ τ) :
     IsEVar (stoppedValueLimsup M τ) S :=
-  ⟨measurable_stoppedValueLimsup hM.measurable hτ.measurable', fun P hP ↦
-    have : IsFiniteMeasure P := ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩
-    hM.lintegral_stoppedValueLimsup_le_one hP hτ⟩
+  ⟨measurable_stoppedValueLimsup hM.measurable hτ.measurable',
+    fun P hP ↦ have := hS P hP; hM.lintegral_stoppedValueLimsup_le_one hP hτ⟩
 
 end IsTestSupermartingale
 

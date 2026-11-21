@@ -134,8 +134,7 @@ theorem IsEVar.isPVar_inv (hE : IsEVar E S) :
     IsPVar (fun ω ↦ (E ω)⁻¹) S where
   measurable := hE.measurable.inv
   measure_le_le P hP α := by
-    have h_set
- : {ω | (E ω)⁻¹ ≤ α} = {ω | α⁻¹ ≤ E ω} :=
+    have h_set : {ω | (E ω)⁻¹ ≤ α} = {ω | α⁻¹ ≤ E ω} :=
       Set.ext fun _ ↦ ENNReal.inv_le_iff_inv_le
     rw [h_set]
     exact hE.measure_inv_le_le hP α

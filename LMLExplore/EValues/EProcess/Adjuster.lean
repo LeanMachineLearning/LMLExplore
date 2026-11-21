@@ -178,7 +178,8 @@ This is the case `𝒢 = ℱ` of e-lifting. -/
 theorem IsTestSupermartingale.isEProcess_comp_max_iSup (hA : IsAdjuster A)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hM : IsTestSupermartingale M ℱ S) :
     IsEProcess (fun n ω ↦ A (max 1 (⨆ k ≤ n, M k ω))) ℱ S :=
-  (hM.isEProcess hS).isEProcess_comp_max_iSup hA hS le_rfl
+  (hM.isEProcess fun P hP ↦ ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩).isEProcess_comp_max_iSup hA
+    hS le_rfl
 
 /-- **The game-theoretic form of adjusters** [CR26, (26); ShSVV11, Theorem 4]: for an adjuster
 `A`, a test supermartingale `M` for a null `S` and a probability measure `P ∈ S`, the adjusted
@@ -286,7 +287,7 @@ theorem isAdjuster_iff_forall_isEProcess :
     isAdjuster_of_forall_lintegral_le_one hA fun Ω mΩ ℱ P hP M hM n ↦ ?_⟩
   have hS : ∀ Q ∈ ({P} : Set (Measure Ω)), IsProbabilityMeasure Q := by simpa using hP
   exact ((h Ω mΩ ℱ ℱ le_rfl {P} hS M
-    (hM.isEProcess fun Q hQ ↦ (hS Q hQ).measure_univ.le)).isEVar n).lintegral_le_one
+    (hM.isEProcess fun Q hQ ↦ have := hS Q hQ; inferInstance)).isEVar n).lintegral_le_one
     (mem_singleton P)
 
 end ProbabilityTheory
