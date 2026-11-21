@@ -56,10 +56,8 @@ e-variables of the theorem of Bahadur and Savage [BS56].
   `ProbabilityTheory.pi_mem_effectiveSet_sampleNull_of_forall_exists_etvDist_lt`: a limit `Q` in
   total variation of members of `S` has `Q ^ ι` in the effective null of the i.i.d. null, for every
   finite `ι`, and in particular `Q ^ n` in the effective null of `sampleNull S n`.
-* `ProbabilityTheory.isEVar_pi_iff_of_forall_exists_etvDist_lt`,
-  `ProbabilityTheory.isEVar_sampleNull_iff_of_forall_exists_etvDist_lt`: a null dense in total
-  variation has, for every finite number of i.i.d. observations, the e-variables of the null of all
-  laws.
+* `ProbabilityTheory.isEVar_pi_iff_of_forall_exists_etvDist_lt`: a null dense in total variation
+  has, for every finite number of i.i.d. observations, the e-variables of the null of all laws.
 * `ProbabilityTheory.measure_pi_le_of_forall_exists_etvDist_lt`,
   `ProbabilityTheory.maxLogGrowth_eq_zero_of_forall_exists_etvDist_lt`,
   `ProbabilityTheory.bipolarRate_eq_zero_of_forall_exists_etvDist_lt`: against such a `Q`, tests
@@ -251,19 +249,6 @@ theorem isEVar_pi_iff_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabili
   rintro _ ⟨Q, hQ, rfl⟩
   have : IsProbabilityMeasure Q := hQ
   exact pi_mem_effectiveSet_of_forall_exists_etvDist_lt hS (hdense Q hQ) X hX
-
-/-- **`n` i.i.d. observations from a null dense in total variation.** If every probability measure
-is a limit in total variation of members of a null `S` of probability measures, then for every `n`
-a function is an e-variable for `sampleNull S n` exactly when it is one for the null of `n` i.i.d.
-observations of all probability measures. This is `isEVar_pi_iff_of_forall_exists_etvDist_lt` for
-`ι = Fin n`. -/
-theorem isEVar_sampleNull_iff_of_forall_exists_etvDist_lt (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hdense : ∀ Q : Measure 𝓧, IsProbabilityMeasure Q → ∀ ε > 0, ∃ P ∈ S, etvDist P Q < ε)
-    {n : ℕ} {X : (Fin n → 𝓧) → ℝ≥0∞} :
-    IsEVar X (sampleNull S n) ↔
-      IsEVar X (sampleNull {P : Measure 𝓧 | IsProbabilityMeasure P} n) := by
-  rw [sampleNull_def, sampleNull_def]
-  exact isEVar_pi_iff_of_forall_exists_etvDist_lt hS hdense
 
 /-- **No power against a limit in total variation.** If a probability measure `Q` is a limit in
 total variation of members of a null `S` of probability measures, a measurable set of `ι`

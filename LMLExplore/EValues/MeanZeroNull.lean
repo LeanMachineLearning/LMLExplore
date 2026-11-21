@@ -39,9 +39,8 @@ Savage [BS56]:
 
 * `ProbabilityTheory.exists_mem_meanZeroPosVarNull_etvDist_lt`: the null is dense in total
   variation.
-* `ProbabilityTheory.isEVar_pi_meanZeroPosVarNull_iff`,
-  `ProbabilityTheory.isEVar_sampleNull_meanZeroPosVarNull_iff`: its `ι`-sample (in particular
-  `n`-sample) e-variables are those of the i.i.d. laws of all probability measures.
+* `ProbabilityTheory.isEVar_pi_meanZeroPosVarNull_iff`: its `ι`-sample e-variables are those of
+  the i.i.d. laws of all probability measures.
 * `ProbabilityTheory.isEVar_meanZeroPosVarNull_iff`: its one-observation e-variables are the
   measurable functions bounded by `1`.
 * `ProbabilityTheory.maxLogGrowth_meanZeroPosVarNull`,
@@ -227,17 +226,6 @@ theorem isEVar_pi_meanZeroPosVarNull_iff {ι : Type*} [Fintype ι] {X : (ι → 
     IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' meanZeroPosVarNull) ↔
       IsEVar X ((fun P ↦ Measure.pi fun _ : ι ↦ P) '' {P | IsProbabilityMeasure P}) :=
   isEVar_pi_iff_of_forall_exists_etvDist_lt (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
-    fun Q _ _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε
-
-/-- **Same `n`-sample e-variables as for all laws.** For every number `n` of i.i.d. real
-observations, a function is an e-variable for `sampleNull meanZeroPosVarNull n` exactly when it is
-one for the null of `n` i.i.d. observations of all probability measures on `ℝ`: the
-`sampleNull` form of `isEVar_pi_meanZeroPosVarNull_iff`. -/
-theorem isEVar_sampleNull_meanZeroPosVarNull_iff {n : ℕ} {X : (Fin n → ℝ) → ℝ≥0∞} :
-    IsEVar X (sampleNull meanZeroPosVarNull n) ↔
-      IsEVar X (sampleNull {P : Measure ℝ | IsProbabilityMeasure P} n) :=
-  isEVar_sampleNull_iff_of_forall_exists_etvDist_lt
-    (fun _ ↦ isProbabilityMeasure_of_mem_meanZeroPosVarNull)
     fun Q _ _ hε ↦ exists_mem_meanZeroPosVarNull_etvDist_lt Q hε
 
 /-- **One observation.** The e-variables for the laws on `ℝ` with mean `0` and a finite, positive
