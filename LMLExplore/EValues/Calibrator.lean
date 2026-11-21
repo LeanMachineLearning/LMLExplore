@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.Null.SuperUniform
+public import LMLExplore.Order.Filter.CompleteClass
 public import Mathlib.Analysis.SpecialFunctions.Pow.NNReal
 public import Mathlib.Analysis.SpecialFunctions.Log.Basic
 public import Mathlib.Topology.Semicontinuity.Defs
@@ -59,6 +60,8 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A`
   monotone on `[1, ∞]` gives the antitone `p ↦ A p⁻¹` on `[0, 1]`, whose integral is
   `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
+* `ProbabilityTheory.isAdmissiblePToECalibrator_iff_maximal`: the admissible calibrators are the
+  maximal ones for the pointwise order.
 * `ProbabilityTheory.isAdmissiblePToECalibrator_iff`: the characterization of admissible
   calibrators [RW, Proposition 2.5].
 * `ProbabilityTheory.IsPToECalibrator.const_mul_comp_mul` and its admissible version: the
@@ -266,6 +269,14 @@ calibrator `g ≥ f` is `f` [RW, Definition 2.3]. They are characterized in
 `isAdmissiblePToECalibrator_iff`. -/
 structure IsAdmissiblePToECalibrator (f : ℝ≥0∞ → ℝ≥0∞) : Prop extends IsPToECalibrator f where
   eq_of_le : ∀ g, IsPToECalibrator g → f ≤ g → g = f
+
+/-- A calibrator is admissible exactly when it is maximal among the calibrators for the pointwise
+order: admissibility of calibrators is the case of the filter `⊤` of `Filter.IsAdmissible`
+(`Filter.isAdmissible_top_iff`). -/
+theorem isAdmissiblePToECalibrator_iff_maximal :
+    IsAdmissiblePToECalibrator f ↔ Maximal IsPToECalibrator f :=
+  ⟨fun hf ↦ ⟨hf.toIsPToECalibrator, fun g hg hfg ↦ (hf.eq_of_le g hg hfg).le⟩,
+    fun hf ↦ ⟨hf.prop, fun _ hg hfg ↦ (hf.2 hg hfg).antisymm hfg⟩⟩
 
 /-- Adding the constant `1 - ∫₀¹ f` on `[0, 1]` to a calibrator gives a calibrator of integral
 `1`. -/
