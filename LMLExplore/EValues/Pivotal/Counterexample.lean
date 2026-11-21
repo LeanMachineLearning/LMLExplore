@@ -59,10 +59,6 @@ open scoped ENNReal NNReal Topology unitInterval
 
 namespace ProbabilityTheory
 
-/-- The weights `1 / n` tend to `0`. -/
-private lemma tendsto_natCast_inv_nnreal : Tendsto (fun n : ℕ ↦ (n : ℝ≥0)⁻¹) atTop (𝓝 0) :=
-  tendsto_inv_atTop_nhds_zero_nat
-
 /-! ### Without boundedness, the separation is not necessary -/
 
 /-- The mass `δ_n = 2 ^ (-n - 1) e ^ (-2 n)` of the set `A_n`. -/
@@ -211,7 +207,7 @@ private lemma le_eintegral_log_bumpEVar {n : ℕ} (hn : 1 ≤ n) :
 
 private lemma tendsto_tvDist_bumpAlt :
     Tendsto (fun n ↦ tvDist (bumpAlt n) (volume : Measure I)) atTop (𝓝 0) :=
-  tendsto_tvDist_one_sub_smul_add_smul tendsto_natCast_inv_nnreal
+  tendsto_tvDist_one_sub_smul_add_smul (tendsto_inv_atTop_nhds_zero_nat (𝕜 := ℝ≥0))
     (.of_forall Nat.cast_inv_le_one)
     ((eventually_ge_atTop 1).mono fun _ hn ↦ cond_isProbabilityMeasure (volume_bumpSet_ne_zero hn))
 
@@ -343,7 +339,7 @@ theorem exists_isExactEVar_eintegral_log_eq_and_tendsto_tvDist :
       eintegral_eq_integral ((integrable_const _).indicator measurableSet_lowHalf.compl),
       integral_indicator_const _ measurableSet_lowHalf.compl, smul_eq_mul,
       measureReal_halfAlt_compl, inv_mul_eq_div]
-  · exact tendsto_tvDist_one_sub_smul_add_smul tendsto_natCast_inv_nnreal
+  · exact tendsto_tvDist_one_sub_smul_add_smul (tendsto_inv_atTop_nhds_zero_nat (𝕜 := ℝ≥0))
       (.of_forall Nat.cast_inv_le_one) (.of_forall fun _ ↦ inferInstance)
 
 end ProbabilityTheory
