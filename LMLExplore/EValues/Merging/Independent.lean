@@ -9,6 +9,7 @@ public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.Independence.Basic
 public import Statlib.EValues.EVariable
 import LMLExplore.EValues.Merging
+import LMLExplore.Probability.Distributions.Bernoulli
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
@@ -653,30 +654,6 @@ private lemma isIEMerging_fourCellMerging : IsIEMerging fourCellMerging := by
     linarith [fourCellTable_bilinear_le (hP 0) (hP 1) (hP 2) (hP 3) hPs (by linarith) (hQ 0)
       (hQ 1) (hQ 2) (hQ 3) hQs (by linarith)]
 
-/-- The two-point law on `ℝ≥0∞` with weight `p` on `a` and `1 - p` on `b`. -/
-private noncomputable def twoPointLaw (p a b : ℝ) : Measure ℝ≥0∞ :=
-  ENNReal.ofReal p • Measure.dirac (ENNReal.ofReal a) +
-    ENNReal.ofReal (1 - p) • Measure.dirac (ENNReal.ofReal b)
-
-/-- The integral against `twoPointLaw p a b`. -/
-private lemma lintegral_twoPointLaw (p a b : ℝ) (f : ℝ≥0∞ → ℝ≥0∞) :
-    ∫⁻ x, f x ∂twoPointLaw p a b =
-      ENNReal.ofReal p * f (ENNReal.ofReal a) + ENNReal.ofReal (1 - p) * f (ENNReal.ofReal b) := by
-  simp [twoPointLaw, lintegral_add_measure, lintegral_smul_measure, lintegral_dirac]
-
-/-- `twoPointLaw p a b` is a probability measure when `0 ≤ p ≤ 1`. -/
-private lemma isProbabilityMeasure_twoPointLaw {p : ℝ} (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) (a b : ℝ) :
-    IsProbabilityMeasure (twoPointLaw p a b) := by
-  constructor
-  simp [twoPointLaw, ← ENNReal.ofReal_add hp₀ (sub_nonneg.2 hp₁)]
-
-/-- The expectation of `twoPointLaw p a b` is `p * a + (1 - p) * b`. -/
-private lemma lintegral_id_twoPointLaw {p a b : ℝ} (hp₀ : 0 ≤ p) (hp₁ : p ≤ 1) (ha : 0 ≤ a)
-    (hb : 0 ≤ b) (h : p * a + (1 - p) * b = 1) : ∫⁻ x, x ∂twoPointLaw p a b = 1 := by
-  rw [lintegral_twoPointLaw, ← ENNReal.ofReal_mul hp₀, ← ENNReal.ofReal_mul (sub_nonneg.2 hp₁),
-    ← ENNReal.ofReal_add (mul_nonneg hp₀ ha) (mul_nonneg (sub_nonneg.2 hp₁) hb), h,
-    ENNReal.ofReal_one]
-
 /-- If `∑ wᵢ xᵢ = 1` in `ℝ≥0∞` with nonzero weights, then the `xᵢ` are finite and the same
 identity holds in real numbers. -/
 private lemma toReal_of_sum_four_eq_one {w₁ w₂ w₃ w₄ x₁ x₂ x₃ x₄ : ℝ≥0∞} (h₁ : w₁ ≠ 0)
@@ -698,7 +675,7 @@ private lemma toReal_of_sum_four_eq_one {w₁ w₂ w₃ w₄ x₁ x₂ x₃ x₄
 
 /-- A precise merging function for two independent e-values is finite on the support of a product
 of two two-point laws with mean `1`, and integrates to `1` against it, in real numbers. -/
-private lemma sum_toReal_twoPointLaw_eq_one {G : (Fin 2 → ℝ≥0∞) → ℝ≥0∞}
+private lemma sum_toReal_bernoulliMeasure_eq_one {G : (Fin 2 → ℝ≥0∞) → ℝ≥0∞}
     (hG : IsPreciseIEMerging G) {p q a b c d : ℝ} (hp₀ : 0 < p) (hp₁ : p < 1) (hq₀ : 0 < q)
     (hq₁ : q < 1) (ha : 0 ≤ a) (hb : 0 ≤ b) (hc : 0 ≤ c) (hd : 0 ≤ d)
     (hpm : p * a + (1 - p) * b = 1) (hqm : q * c + (1 - q) * d = 1) :
@@ -708,14 +685,15 @@ private lemma sum_toReal_twoPointLaw_eq_one {G : (Fin 2 → ℝ≥0∞) → ℝ�
       p * (1 - q) * (G ![ENNReal.ofReal a, ENNReal.ofReal d]).toReal +
       (1 - p) * q * (G ![ENNReal.ofReal b, ENNReal.ofReal c]).toReal +
       (1 - p) * (1 - q) * (G ![ENNReal.ofReal b, ENNReal.ofReal d]).toReal = 1 := by
-  have hμ : ∀ i, IsProbabilityMeasure (![twoPointLaw p a b, twoPointLaw q c d] i) :=
-    Fin.forall_fin_two.2 ⟨isProbabilityMeasure_twoPointLaw hp₀.le hp₁.le a b,
-      isProbabilityMeasure_twoPointLaw hq₀.le hq₁.le c d⟩
-  have h := hG.lintegral_eq_one ![twoPointLaw p a b, twoPointLaw q c d] (Fin.forall_fin_two.2
-    ⟨lintegral_id_twoPointLaw hp₀.le hp₁.le ha hb hpm,
-      lintegral_id_twoPointLaw hq₀.le hq₁.le hc hd hqm⟩)
+  have hμ : ∀ i, IsProbabilityMeasure (![Ber(ENNReal.ofReal a, ENNReal.ofReal b,
+      ⟨p, hp₀.le, hp₁.le⟩), Ber(ENNReal.ofReal c, ENNReal.ofReal d, ⟨q, hq₀.le, hq₁.le⟩)] i) :=
+    fun i ↦ by fin_cases i <;> dsimp <;> infer_instance
+  have h := hG.lintegral_eq_one ![Ber(ENNReal.ofReal a, ENNReal.ofReal b, ⟨p, hp₀.le, hp₁.le⟩),
+    Ber(ENNReal.ofReal c, ENNReal.ofReal d, ⟨q, hq₀.le, hq₁.le⟩)] (Fin.forall_fin_two.2
+    ⟨by simp [lintegral_id_bernoulliMeasure_ofReal ha hb, hpm],
+      by simp [lintegral_id_bernoulliMeasure_ofReal hc hd, hqm]⟩)
   rw [lintegral_pi_fin_two _ hG.measurable.aemeasurable] at h
-  simp only [Matrix.cons_val_zero, Matrix.cons_val_one, lintegral_twoPointLaw, mul_add,
+  simp only [Matrix.cons_val_zero, Matrix.cons_val_one, lintegral_bernoulliMeasure, mul_add,
     ← mul_assoc] at h
   have wp := (ENNReal.ofReal_pos.2 hp₀).ne'
   have wp' := (ENNReal.ofReal_pos.2 (sub_pos.2 hp₁)).ne'
@@ -752,16 +730,16 @@ theorem exists_isIEMerging_monotone_not_le_isPreciseIEMerging :
   -- `G` integrates to `1` against four products of two-point laws with mean `1` on
   -- `{0, 1/2, 2, 3}`; the combination `(16 E₁ - 12 E₂ + 9 E₃ + 30 E₄) / 43` is a law on eight
   -- points against which `fourCellMerging` integrates to `47/43`
-  obtain ⟨⟨-, h02, -, h22⟩, E₁⟩ := sum_toReal_twoPointLaw_eq_one hG (p := 1 / 2) (q := 1 / 2)
+  obtain ⟨⟨-, h02, -, h22⟩, E₁⟩ := sum_toReal_bernoulliMeasure_eq_one hG (p := 1 / 2) (q := 1 / 2)
     (a := 0) (b := 2) (c := 0) (d := 2) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     le_rfl zero_le_two le_rfl zero_le_two (by norm_num) (by norm_num)
-  obtain ⟨-, E₂⟩ := sum_toReal_twoPointLaw_eq_one hG (p := 1 / 2) (q := 2 / 3)
+  obtain ⟨-, E₂⟩ := sum_toReal_bernoulliMeasure_eq_one hG (p := 1 / 2) (q := 2 / 3)
     (a := 0) (b := 2) (c := 0) (d := 3) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     le_rfl zero_le_two le_rfl zero_le_three (by norm_num) (by norm_num)
-  obtain ⟨⟨-, -, h30, h33⟩, E₃⟩ := sum_toReal_twoPointLaw_eq_one hG (p := 2 / 3) (q := 2 / 3)
+  obtain ⟨⟨-, -, h30, h33⟩, E₃⟩ := sum_toReal_bernoulliMeasure_eq_one hG (p := 2 / 3) (q := 2 / 3)
     (a := 0) (b := 3) (c := 0) (d := 3) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     le_rfl zero_le_three le_rfl zero_le_three (by norm_num) (by norm_num)
-  obtain ⟨⟨hhh, hh3, h2h, -⟩, E₄⟩ := sum_toReal_twoPointLaw_eq_one hG (p := 2 / 3) (q := 4 / 5)
+  obtain ⟨⟨hhh, hh3, h2h, -⟩, E₄⟩ := sum_toReal_bernoulliMeasure_eq_one hG (p := 2 / 3) (q := 4 / 5)
     (a := 1 / 2) (b := 2) (c := 1 / 2) (d := 3) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) (by norm_num) zero_le_two (by norm_num) zero_le_three (by norm_num) (by norm_num)
   simp only [ENNReal.ofReal_zero, ENNReal.ofReal_ofNat] at h02 h22 h30 h33
