@@ -16,6 +16,9 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
   finitely many integrable real functions is integrable, and its integral is at least the
   supremum of their integrals. Regrets against the best of finitely many comparators, whose
   expectation is compared with the best expected regret, use them.
+* `MeasureTheory.integral_le_mul_integral_of_le_smul`,
+  `MeasureTheory.mul_integral_le_integral_of_smul_le`: comparing integrals of a nonnegative real
+  function against measures dominated by, or dominating, a multiple `c • μ` with `c : ℝ≥0`.
 * `MeasureTheory.integral_le_const`: under a probability measure, an integrable real function that
   is almost surely at most `c` has expectation at most `c`.
 * `MeasureTheory.integral_sub_const`, `MeasureTheory.integral_const_sub`: under a probability
@@ -36,6 +39,7 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public section
 
 open Finset
+open scoped NNReal
 
 namespace MeasureTheory
 
@@ -80,6 +84,26 @@ lemma posPart_integral_le_integral_posPart (f : Ω → ℝ) :
     exact integral_nonneg fun ω ↦ posPart_nonneg _
 
 end PositivePart
+
+section SMulMeasure
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ ν : Measure Ω} {f : Ω → ℝ} {c : ℝ≥0}
+
+/-- If `ν ≤ c • μ`, then the integral against `ν` of a nonnegative integrable real function is at
+most `c` times its integral against `μ`. -/
+lemma integral_le_mul_integral_of_le_smul (h : ν ≤ c • μ) (hf0 : 0 ≤ᵐ[c • μ] f)
+    (hf : Integrable f (c • μ)) : ∫ ω, f ω ∂ν ≤ c * ∫ ω, f ω ∂μ :=
+  (integral_mono_measure h hf0 hf).trans_eq <| by
+    rw [integral_smul_nnreal_measure, NNReal.smul_def, smul_eq_mul]
+
+/-- If `c • μ ≤ ν`, then `c` times the integral against `μ` of a nonnegative integrable real
+function is at most its integral against `ν`. -/
+lemma mul_integral_le_integral_of_smul_le (h : c • μ ≤ ν) (hf0 : 0 ≤ᵐ[ν] f)
+    (hf : Integrable f ν) : c * ∫ ω, f ω ∂μ ≤ ∫ ω, f ω ∂ν :=
+  (integral_mono_measure h hf0 hf).trans_eq' <| by
+    rw [integral_smul_nnreal_measure, NNReal.smul_def, smul_eq_mul]
+
+end SMulMeasure
 
 variable {Ω ι : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
   {s : Finset ι}
