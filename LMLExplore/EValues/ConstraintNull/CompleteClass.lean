@@ -641,16 +641,10 @@ theorem exists_mem_nonredundantWeights_toReal_le_of_isEVar (hg : ∀ i, Measurab
     (hY : NoArbitrageOn g Y) (hE : IsEVar E (constraintNull (range g))) :
     ∃ π ∈ nonredundantWeights g Y, ∀ x ∈ Y, (E x).toReal ≤ 1 + ∑ i, π i * g i x := by
   obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_noArbitrageOn hY
-    (f := fun x ↦ (E x).toReal - 1) fun α _ x w hxY hw hwg ↦ by
-      have hfin : ∀ k, E (x k) ≠ ∞ := fun k ↦
-        (lt_top_of_isEVar_of_noArbitrageOn hg hY hE (hxY k)).ne
-      have := ENNReal.toReal_mono ENNReal.one_ne_top
+    (f := fun x ↦ (E x).toReal - 1) fun _ _ _ _ hxY hw hwg ↦
+      sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one hw
+        (fun k ↦ (lt_top_of_isEVar_of_noArbitrageOn hg hY hE (hxY k)).ne)
         (sum_ofReal_mul_le_one_of_isEVar (forall_mem_range.2 hg) hE hw (forall_mem_range.2 hwg))
-      rw [ENNReal.toReal_sum fun k _ ↦ ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hfin k)] at this
-      have hw0 := (mem_simplex_iff.1 hw).1
-      simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal (hw0 _), ENNReal.toReal_one] at this
-      simp only [mul_sub, mul_one, Finset.sum_sub_distrib, (mem_simplex_iff.1 hw).2]
-      linarith
   exact ⟨π, hπK, fun x hx ↦ by linarith [hπ x hx]⟩
 
 /-- **The complete class theorem for finitely many constraints** [LRR26, Theorem 3.1]: for
