@@ -9,6 +9,7 @@ public import Mathlib.Probability.HasCondDistrib
 public import LeanMachineLearning.ForMathlib.Probability.HasCondDistrib
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
 public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
+public import LMLExplore.Probability.Process.Filtration
 
 /-!
 # Conditional distributions: joint masses, integrals and composition-products
@@ -23,6 +24,12 @@ then `∫ g(X, y) dκ(X)(y)`, with no assumption on the space of `Y`: the kernel
 than obtained from the disintegration theorem as Mathlib's `condDistrib`. The second coordinate of
 a composition-product `μ ⊗ₘ η.comap f` has conditional distribution `η` given `f` of the first
 coordinate, and conditional distributions under each `κ a` glue into one under `μ ⊗ₘ κ`.
+
+A conditional distribution given a sub-σ-algebra `m` of `Ω` is a conditional distribution given
+the identity of `Ω` into `(Ω, m)`, with a kernel from `(Ω, m)`: this is how sequential statements
+condition on the past `ℱ k` of a filtration. Conditioning on a random variable is conditioning on
+the σ-algebra it generates, so that Mathlib's `condDistrib` provides conditional distributions
+given the past of a sequence of observations.
 
 ## Main statements
 
@@ -60,6 +67,16 @@ coordinate, and conditional distributions under each `κ a` glue into one under 
 * `ProbabilityTheory.HasCondDistrib.of_comp_hasLaw`: a conditional distribution of `Y ∘ f` given
   `X ∘ f` under `P` is one of `Y` given `X` under the law of `f`, the converse of LML's
   `HasCondDistrib.comp_hasLaw`.
+* `ProbabilityTheory.hasCondDistrib_id_of_measure_inter_preimage`: a kernel `η` from `(Ω, m)`
+  with `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` on rectangles is a conditional distribution of `X`
+  given the identity of `Ω` into `(Ω, m)`, that is, given the σ-algebra `m`.
+* `ProbabilityTheory.hasCondDistrib_id_const_of_indep`: a random variable independent of `m` has
+  its law as constant conditional distribution given `m`.
+* `ProbabilityTheory.HasCondDistrib.id_of_le_comap`: a conditional distribution `η` given a random
+  variable `R` gives the conditional distribution `η.comap R` given the σ-algebra of `R`.
+* `ProbabilityTheory.hasCondDistrib_piLT_condDistrib`: on sequences in a standard Borel space,
+  `condDistrib` of a coordinate given the previous ones is a conditional distribution given
+  `Filtration.piLT`.
 
 `hasCondDistrib_snd_compProd_comap` is adapted from the LMLPapers project (same author). The
 characterization, the Bochner integral, the conditional expectation,
@@ -321,5 +338,73 @@ lemma HasCondDistrib.condExp_prod_ae_eq_integral (h : HasCondDistrib Y X κ P) (
     by_cases hω : X ω ∈ t <;> simp [hω]
 
 end CondExp
+
+section SubSigmaAlgebra
+
+/-! ### Conditional distributions given a σ-algebra
+
+A conditional distribution of `X` given a sub-σ-algebra `m` of `Ω` is a conditional distribution
+`HasCondDistrib X id κ P` given the identity of `Ω` into `(Ω, m)`, with `κ` a kernel from
+`(Ω, m)`. -/
+
+variable {Ω 𝓧 𝓨 : Type*} {m mΩ : MeasurableSpace Ω} {m𝓧 : MeasurableSpace 𝓧}
+  {m𝓨 : MeasurableSpace 𝓨} {P : Measure Ω} {X : Ω → 𝓧}
+
+/-- **A conditional distribution given a σ-algebra from its values on rectangles.** If `η` is an
+s-finite kernel from `(Ω, m)` and `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` for every
+`m`-measurable `s` and measurable `t`, then `η` is a conditional distribution of `X` given `m`
+under the finite measure `P`. -/
+lemma hasCondDistrib_id_of_measure_inter_preimage [IsFiniteMeasure P] (hm : m ≤ mΩ)
+    (hX : AEMeasurable X P) {η : Kernel[m] Ω 𝓧} [IsSFiniteKernel η]
+    (h : ∀ s t, MeasurableSet[m] s → MeasurableSet t → P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P) :
+    HasCondDistrib (m𝓧 := m) X id η P := by
+  -- the σ-algebra on `Ω × 𝓧` is the one built from `m`, not from `mΩ`
+  let : MeasurableSpace (Ω × 𝓧) := m.prod m𝓧
+  have hΦ : AEMeasurable (fun ω ↦ (id ω, X ω)) P :=
+    ⟨fun ω ↦ (ω, hX.mk X ω), (measurable_id'' hm).prodMk hX.measurable_mk,
+      hX.ae_eq_mk.mono fun ω hω ↦ by simp only [id, hω]⟩
+  refine ⟨hΦ, ?_⟩
+  rw [← trim_eq_map hm]
+  refine Measure.ext_prod fun {s t} hs ht ↦ ?_
+  rw [Measure.map_apply_of_aemeasurable hΦ (hs.prod ht), Measure.compProd_apply_prod hs ht,
+    Set.mk_preimage_prod, Set.preimage_id, h s t hs ht,
+    setLIntegral_trim hm (η.measurable_coe ht) hs]
+
+/-- **Independence gives a constant conditional distribution.** If `X` is independent of the
+sub-σ-algebra `m` under a finite measure `P` and has law `ν`, then the constant kernel `ν` is a
+conditional distribution of `X` given `m`. -/
+lemma hasCondDistrib_id_const_of_indep [IsFiniteMeasure P] (hm : m ≤ mΩ)
+    (hind : Indep (MeasurableSpace.comap X m𝓧) m P) {ν : Measure 𝓧} (hlaw : HasLaw X ν P) :
+    HasCondDistrib (m𝓧 := m) X id (@Kernel.const Ω 𝓧 m _ ν) P := by
+  have : IsFiniteMeasure ν := hlaw.map_eq ▸ inferInstance
+  refine IndepFun.hasCondDistrib_const (mβ := m) ?_ ⟨id, measurable_id'' hm, .rfl⟩ hlaw
+  rw [IndepFun_iff_Indep (mβ := m), MeasurableSpace.comap_id]
+  exact hind.symm
+
+/-- **Conditioning on a random variable is conditioning on the σ-algebra it generates.** If `η` is
+a conditional distribution of `X` given `R`, then `η.comap R` is a conditional distribution of `X`
+given every sub-σ-algebra `m` for which `R` is measurable and which `R` generates. -/
+lemma HasCondDistrib.id_of_le_comap [IsFiniteMeasure P] {R : Ω → 𝓨} {η : Kernel 𝓨 𝓧}
+    [IsSFiniteKernel η] (h : HasCondDistrib X R η P) (hm : m ≤ mΩ) (hR : Measurable[m] R)
+    (hmR : m ≤ m𝓨.comap R) :
+    HasCondDistrib (m𝓧 := m) X id (η.comap R hR) P :=
+  hasCondDistrib_id_of_measure_inter_preimage hm h.aemeasurable_snd fun s t hs ht ↦ by
+    obtain ⟨s', hs', rfl⟩ := hmR s hs
+    exact h.measure_preimage_inter_eq_setLIntegral hs' ht
+
+/-- **The conditional law of a coordinate given the strict past.** For a finite measure `P` on
+sequences in a standard Borel space, Mathlib's `condDistrib` of the coordinate `ω k` given the
+first `k` coordinates `initSeg k ω`, composed with `initSeg k`, is a conditional distribution of
+`ω k` given time `k` of the filtration `Filtration.piLT` of the strict past. -/
+lemma hasCondDistrib_piLT_condDistrib [StandardBorelSpace 𝓧] [Nonempty 𝓧]
+    (P : Measure (ℕ → 𝓧)) [IsFiniteMeasure P] (k : ℕ) :
+    HasCondDistrib (m𝓧 := Filtration.piLT k) (fun ω ↦ ω k) id
+      ((condDistrib (fun ω ↦ ω k) (initSeg k) P).comap (initSeg k)
+        (Filtration.measurable_piLT_initSeg le_rfl)) P :=
+  (hasCondDistrib_of_condDistrib_ae_eq (measurable_initSeg k).aemeasurable
+      (measurable_pi_apply k).aemeasurable .rfl).id_of_le_comap (Filtration.le _ k) _
+    (Filtration.piLT_eq_comap_initSeg k).le
+
+end SubSigmaAlgebra
 
 end ProbabilityTheory

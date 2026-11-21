@@ -5,10 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.MeasureTheory.Measure.Prod
-public import Mathlib.Probability.HasLaw
-public import Mathlib.Probability.Independence.Basic
-public import Mathlib.Probability.Kernel.Composition.MeasureCompProd
+public import LMLExplore.Probability.HasCondDistrib
 
 /-!
 # Conditional laws given a σ-algebra
@@ -20,8 +17,9 @@ sub-σ-algebra `m` under `P` (`ProbabilityTheory.HasCondLaw`) when, for every fu
 also depend on the information in `m` amounts to integrating it out against `κ` with that
 information frozen. This is the form in which sequential statements use the conditional law of
 an observation given the past: no measurability of `κ` in `ω`, no regularity of `𝓧` and no
-integrability are assumed. Mathlib's `HasCondDistrib` conditions on a random variable rather
-than on a σ-algebra.
+integrability are assumed. For a sub-σ-algebra `m ≤ mΩ`, an a.e.-measurable `X`, an s-finite
+measure `P` and an s-finite kernel `κ` from `(Ω, m)`, it is Mathlib's `HasCondDistrib X id κ P`,
+with `id` the identity of `Ω` into `(Ω, m)`.
 
 ## Main statements
 
@@ -32,8 +30,12 @@ than on a σ-algebra.
   `m`-measurable sets, `∫⁻ ω in s, κ ω univ ∂P = P s`.
 * `ProbabilityTheory.HasCondLaw.measure_inter_preimage`: the identity on `m`-measurable
   rectangles, `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, κ ω t ∂P`.
-* `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: conversely, an `m`-measurable s-finite
-  kernel satisfying the identity on rectangles is a conditional law of `X` given `m`.
+* `ProbabilityTheory.HasCondDistrib.hasCondLaw`,
+  `ProbabilityTheory.hasCondDistrib_id_iff_hasCondLaw`: under an s-finite measure, a conditional
+  distribution given the identity of `Ω` into `(Ω, m)` is a conditional law given `m`, and
+  conversely for s-finite kernels, `m ≤ mΩ` and an a.e.-measurable `X`.
+* `ProbabilityTheory.hasCondLaw_of_measure_inter_preimage`: an `m`-measurable s-finite kernel
+  satisfying the identity on rectangles is a conditional law of `X` given `m`.
 * `ProbabilityTheory.hasCondLaw_of_indep`: a random variable independent of `m`, of law `ν`, has
   the constant conditional law `ν` given `m`.
 -/
@@ -114,49 +116,50 @@ theorem HasCondLaw.measure_inter_preimage (h : HasCondLaw X κ m P) (hm : m ≤ 
     ← lintegral_indicator_one₀ (hX.restrict.nullMeasurableSet_preimage ht)]
   simp only [← indicator_comp_right, Pi.one_comp]
 
+/-- **Conditional distributions given a σ-algebra are conditional laws.** If a kernel `κ` from
+`(Ω, m)` is a conditional distribution of `X` given `m` (Mathlib's `HasCondDistrib`, given the
+identity of `Ω` into `(Ω, m)`), then it is a conditional law of `X` given `m`. -/
+theorem HasCondDistrib.hasCondLaw [SFinite P] {κ : Kernel[m] Ω 𝓧}
+    (h : HasCondDistrib (m𝓧 := m) X id κ P) :
+    HasCondLaw X κ m P := by
+  by_cases hκ : IsSFiniteKernel κ
+  · refine ⟨fun g hg ↦ ?_⟩
+    simpa only [Function.uncurry_apply_pair, id] using
+      h.lintegral_comp_prodMk_eq_lintegral_lintegral hg
+  -- otherwise the joint law `P.map id ⊗ₘ κ` vanishes, and so does `P`
+  have hP : P = 0 := by
+    rw [← Measure.map_eq_zero_iff h.aemeasurable, h.map_eq,
+      Measure.compProd_of_not_isSFiniteKernel _ _ hκ]
+  exact ⟨fun g _ ↦ by simp [hP]⟩
+
+/-- **Conditional laws and conditional distributions given a σ-algebra.** For an s-finite kernel
+`κ` from `(Ω, m)` and an almost everywhere measurable `X`, `κ` is a conditional law of `X` given
+`m` exactly when it is a conditional distribution of `X` given the identity of `Ω` into
+`(Ω, m)`. -/
+theorem hasCondDistrib_id_iff_hasCondLaw [SFinite P] (hm : m ≤ mΩ) (hX : AEMeasurable X P)
+    {κ : Kernel[m] Ω 𝓧} [IsSFiniteKernel κ] :
+    HasCondDistrib (m𝓧 := m) X id κ P ↔ HasCondLaw X κ m P := by
+  refine ⟨HasCondDistrib.hasCondLaw, fun h ↦ ?_⟩
+  refine (hasCondDistrib_iff_forall_lintegral_eq (m𝓧 := m) ⟨id, measurable_id'' hm, .rfl⟩
+    hX).2 fun g hg ↦ ?_
+  rw [← Function.uncurry_curry g] at hg
+  simpa only [Function.curry_apply, id] using h.lintegral_comp (Function.curry g) hg
+
 /-- **A conditional law from its values on rectangles.** If `η` is an `m`-measurable s-finite
 kernel and `P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P` for every `m`-measurable `s` and measurable
 `t`, then `η` is a conditional law of `X` given `m` under the finite measure `P`. -/
 theorem hasCondLaw_of_measure_inter_preimage [IsFiniteMeasure P] (hm : m ≤ mΩ)
     (hX : AEMeasurable X P) {η : Kernel[m] Ω 𝓧} [IsSFiniteKernel η]
     (h : ∀ s t, MeasurableSet[m] s → MeasurableSet t → P (s ∩ X ⁻¹' t) = ∫⁻ ω in s, η ω t ∂P) :
-    HasCondLaw X η m P := by
-  -- the product σ-algebra on `Ω × 𝓧` is the one built from `m`, not from `mΩ`
-  let : MeasurableSpace (Ω × 𝓧) := m.prod m𝓧
-  have hΦ : AEMeasurable (fun ω ↦ (ω, X ω)) P :=
-    ⟨fun ω ↦ (ω, hX.mk X ω), (measurable_id'' hm).prodMk hX.measurable_mk,
-      hX.ae_eq_mk.mono fun ω hω ↦ by simp only [hω]⟩
-  -- the joint law of the information in `m` and of `X` is `P.trim hm ⊗ₘ η`
-  have hmap : P.map (fun ω ↦ (ω, X ω)) = P.trim hm ⊗ₘ η := by
-    refine Measure.ext_prod fun {s t} hs ht ↦ ?_
-    rw [Measure.map_apply_of_aemeasurable hΦ (hs.prod ht), Measure.compProd_apply_prod hs ht,
-      mk_preimage_prod, preimage_id', h s t hs ht,
-      setLIntegral_trim hm (η.measurable_coe ht) hs]
-  refine ⟨fun g hg ↦ ?_⟩
-  calc ∫⁻ ω, g ω (X ω) ∂P
-      = ∫⁻ p, Function.uncurry g p ∂(P.map fun ω ↦ (ω, X ω)) :=
-        (lintegral_map' hg.aemeasurable hΦ).symm
-    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂(P.trim hm) := by
-        rw [hmap, Measure.lintegral_compProd hg]
-        simp only [Function.uncurry_apply_pair]
-    _ = ∫⁻ ω, ∫⁻ x, g ω x ∂(η ω) ∂P :=
-        lintegral_trim hm (hg.lintegral_kernel_prod_right' (κ := η))
+    HasCondLaw X η m P :=
+  (hasCondDistrib_id_of_measure_inter_preimage hm hX h).hasCondLaw
 
 /-- **A random variable independent of `m` has its law as conditional law given `m`.** If `X` is
 independent of the sub-σ-algebra `m` under a finite measure `P` and has law `ν`, then the constant
 family `ν` is a conditional law of `X` given `m`. -/
 theorem hasCondLaw_of_indep [IsFiniteMeasure P] (hm : m ≤ mΩ)
     (hind : Indep (MeasurableSpace.comap X m𝓧) m P) {ν : Measure 𝓧} (hlaw : HasLaw X ν P) :
-    HasCondLaw X (fun _ ↦ ν) m P := by
-  have hν : IsFiniteMeasure ν := by
-    rw [← hlaw.map_eq]
-    infer_instance
-  refine hasCondLaw_of_measure_inter_preimage (η := @Kernel.const _ _ m _ ν) hm hlaw.aemeasurable
-    fun s t hs ht ↦ ?_
-  calc P (s ∩ X ⁻¹' t)
-      = P s * ν t := by
-        rw [(Indep_iff _ _ _).1 hind.symm s (X ⁻¹' t) hs ⟨t, ht, rfl⟩, ← hlaw.map_eq,
-          Measure.map_apply_of_aemeasurable hlaw.aemeasurable ht]
-    _ = ∫⁻ _ in s, ν t ∂P := by rw [setLIntegral_const, mul_comm]
+    HasCondLaw X (fun _ ↦ ν) m P :=
+  (hasCondDistrib_id_const_of_indep hm hind hlaw).hasCondLaw
 
 end ProbabilityTheory
