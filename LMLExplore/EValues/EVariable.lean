@@ -41,6 +41,8 @@ e-variables are `ℝ≥0∞`-valued.
 * `ProbabilityTheory.IsEVar.congr_quasiSure`, `ProbabilityTheory.IsEVar.mono_ae`: the set
   of e-variables is closed under quasi-sure equality and solid in the quasi-sure order
   (`ProbabilityTheory.quasiSure`), among measurable functions.
+* `ProbabilityTheory.IsExactEVar.integral_toReal_sub_one_eq_zero`: under a probability measure of
+  the null, the gain `E - 1` of an exact e-variable has expectation `0`.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` of a probability
   measure `Q ≪ P` is an exact e-variable for `{P}`.
 * `ProbabilityTheory.isEVar_div_singleton`: on a countable space, the likelihood ratio
@@ -142,6 +144,16 @@ theorem IsExactEVar.comp {Y : 𝓨 → ℝ≥0∞} {φ : Ω → 𝓨} (hφ : Mea
   lintegral_eq_one P hP := by
     have h_eq := h.lintegral_eq_one ⟨P, hP, rfl⟩
     rwa [lintegral_map h.measurable hφ] at h_eq
+
+/-- Under a probability measure of the null, the gain `E - 1` of an exact e-variable has
+expectation `0`. -/
+theorem IsExactEVar.integral_toReal_sub_one_eq_zero (hE : IsExactEVar E S) (hP : P ∈ S)
+    [IsProbabilityMeasure P] : ∫ ω, ((E ω).toReal - 1) ∂P = 0 := by
+  have hfin : ∫⁻ ω, E ω ∂P ≠ ∞ := by rw [hE.lintegral_eq_one hP]; exact ENNReal.one_ne_top
+  rw [integral_sub (integrable_toReal_of_lintegral_ne_top hE.measurable.aemeasurable hfin)
+    (integrable_const 1), integral_toReal hE.measurable.aemeasurable (ae_lt_top hE.measurable hfin),
+    hE.lintegral_eq_one hP]
+  simp
 
 /-- A likelihood ratio `Q.rnDeriv P` of a probability measure `Q ≪ P` is an exact e-variable for
 the simple null `{P}`. -/

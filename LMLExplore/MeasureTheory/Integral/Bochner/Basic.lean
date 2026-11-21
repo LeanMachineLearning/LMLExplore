@@ -5,10 +5,12 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Analysis.Convex.Hull
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 
 /-!
-# Expectations of finite suprema, of finite sums, of shifts by constants and of positive parts
+# Expectations of finite suprema, of finite sums, of shifts by constants, of positive parts and
+under combinations of measures
 
 ## Main statements
 
@@ -31,6 +33,16 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
   most the integral of the positive part.
 * `MeasureTheory.integral_posPart_sub_posPart_le`: under a probability measure,
   `𝔼 f⁺ - c⁺ ≤ 𝔼 |f - c|`, the positive part being `1`-Lipschitz.
+* `MeasureTheory.ae_of_mem_span`, `MeasureTheory.isFiniteMeasure_of_mem_span`,
+  `MeasureTheory.integrable_of_mem_span`: almost everywhere properties, finiteness and
+  integrability pass from a set `S` of measures to the finite nonnegative combinations of members
+  of `S`; `MeasureTheory.ae_of_mem_convexHull`, `MeasureTheory.isFiniteMeasure_of_mem_convexHull`:
+  the same for convex combinations.
+* `MeasureTheory.integral_eq_zero_of_mem_span`, `MeasureTheory.le_integral_of_mem_convexHull`: a
+  function whose integral vanishes (is at least `c`) under every member of `S` has integral `0`
+  (at least `c`) under the finite nonnegative (convex) combinations of members of `S`. They are
+  used to bound integrals against signed combinations by the total variation
+  (`ProbabilityTheory.le_mul_tvDist_of_isExactEVar`).
 -/
 
 public section
@@ -151,5 +163,81 @@ lemma integral_posPart_sub_posPart_le {f : Ω → ℝ} (hf : Integrable f P) (c 
   refine integral_mono (hf'.sub (integrable_const _)) (hf.sub (integrable_const c)).abs
     fun ω ↦ (le_abs_self _).trans ?_
   simpa [← Real.dist_eq] using lipschitzWith_posPart.dist_le_mul (f ω) c
+
+section Combination
+
+open scoped NNReal
+
+variable {Ω E : Type*} {mΩ : MeasurableSpace Ω} [NormedAddCommGroup E]
+  {S : Set (Measure Ω)} {f : Ω → ℝ} {g : Ω → E} {c : ℝ} {μ : Measure Ω}
+
+/-- A property that holds almost everywhere for every member of a set `S` of measures holds
+almost everywhere for every finite nonnegative combination of members of `S`. -/
+theorem ae_of_mem_span {p : Ω → Prop} (hS : ∀ P ∈ S, ∀ᵐ x ∂P, p x)
+    (hμ : μ ∈ Submodule.span ℝ≥0 S) : ∀ᵐ x ∂μ, p x := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS P hP
+  | zero => simp
+  | add μ ν _ _ hμ hν => exact ae_add_measure_iff.2 ⟨hμ, hν⟩
+  | smul r μ _ hμ => exact Measure.ae_smul_measure hμ r
+
+/-- A property that holds almost everywhere for every member of a set `S` of measures holds
+almost everywhere for every convex combination of members of `S`. -/
+theorem ae_of_mem_convexHull {p : Ω → Prop} (hS : ∀ P ∈ S, ∀ᵐ x ∂P, p x)
+    (hμ : μ ∈ convexHull ℝ≥0 S) : ∀ᵐ x ∂μ, p x :=
+  ae_of_mem_span hS (convexHull_min Submodule.subset_span (Submodule.convex _) hμ)
+
+/-- A finite nonnegative combination of finite measures is a finite measure. -/
+theorem isFiniteMeasure_of_mem_span (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    (hμ : μ ∈ Submodule.span ℝ≥0 S) : IsFiniteMeasure μ := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS P hP
+  | zero | add | smul => infer_instance
+
+/-- A convex combination of finite measures is a finite measure. -/
+theorem isFiniteMeasure_of_mem_convexHull (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    (hμ : μ ∈ convexHull ℝ≥0 S) : IsFiniteMeasure μ :=
+  isFiniteMeasure_of_mem_span hS (convexHull_min Submodule.subset_span (Submodule.convex _) hμ)
+
+/-- A function integrable under every member of a set `S` of measures is integrable under every
+finite nonnegative combination of members of `S`. -/
+theorem integrable_of_mem_span (hS : ∀ P ∈ S, Integrable g P) (hμ : μ ∈ Submodule.span ℝ≥0 S) :
+    Integrable g μ := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS P hP
+  | zero => exact integrable_zero_measure
+  | add μ ν _ _ hμ hν => exact hμ.add_measure hν
+  | smul r μ _ hμ => exact hμ.smul_measure_nnreal
+
+/-- **Integrals against nonnegative combinations of measures**: a function that is integrable with
+integral `0` under every member of a set `S` of measures has integral `0` under every finite
+nonnegative combination of members of `S`. -/
+theorem integral_eq_zero_of_mem_span [NormedSpace ℝ E] (hS : ∀ P ∈ S, Integrable g P)
+    (hS0 : ∀ P ∈ S, ∫ x, g x ∂P = 0) (hμ : μ ∈ Submodule.span ℝ≥0 S) : ∫ x, g x ∂μ = 0 := by
+  induction hμ using Submodule.span_induction with
+  | mem P hP => exact hS0 P hP
+  | zero => simp
+  | add μ ν hμ' hν' hμ hν =>
+    rw [integral_add_measure (integrable_of_mem_span hS hμ') (integrable_of_mem_span hS hν'), hμ,
+      hν, add_zero]
+  | smul r μ _ hμ => rw [integral_smul_nnreal_measure, hμ, smul_zero]
+
+/-- **Integrals against convex combinations of measures**: a real function that is integrable
+with integral at least `c` under every member of a set `S` of measures has integral at least `c`
+under every convex combination of members of `S`. -/
+theorem le_integral_of_mem_convexHull (hS : ∀ P ∈ S, Integrable f P)
+    (hSc : ∀ P ∈ S, c ≤ ∫ x, f x ∂P) (hμ : μ ∈ convexHull ℝ≥0 S) : c ≤ ∫ x, f x ∂μ := by
+  refine (convexHull_min (t := {ν | Integrable f ν ∧ c ≤ ∫ x, f x ∂ν})
+    (fun P hP ↦ ⟨hS P hP, hSc P hP⟩) ?_ hμ).2
+  rintro ν₁ ⟨hν₁, h1c⟩ ν₂ ⟨hν₂, h2c⟩ a b - - hab
+  refine ⟨hν₁.smul_measure_nnreal.add_measure hν₂.smul_measure_nnreal, ?_⟩
+  rw [integral_add_measure hν₁.smul_measure_nnreal hν₂.smul_measure_nnreal,
+    integral_smul_nnreal_measure, integral_smul_nnreal_measure, NNReal.smul_def, NNReal.smul_def,
+    smul_eq_mul, smul_eq_mul]
+  have hab' : c = a * c + b * c := by
+    rw [← add_mul, ← NNReal.coe_add, hab, NNReal.coe_one, one_mul]
+  linarith [mul_le_mul_of_nonneg_left h1c a.coe_nonneg, mul_le_mul_of_nonneg_left h2c b.coe_nonneg]
+
+end Combination
 
 end MeasureTheory

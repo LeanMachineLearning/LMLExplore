@@ -20,6 +20,7 @@ import LMLExplore.Data.EReal.Inv
 * `ENNReal.neg_log_div_le_of_ofReal_exp_le`: for `0 < n`, if `exp (-(n r)) ≤ x`, then
   `-(log x) / n ≤ r`.
 * `ENNReal.toENNReal_log_le_div_add`: for `0 < r < ∞`, `(log a)⁺ ≤ a / r + (log r)⁺`.
+* `ENNReal.log_le_sub_one`: `log x ≤ x - 1` in `EReal`, for every `x : ℝ≥0∞`.
 
 ## Implementation notes
 
@@ -87,5 +88,17 @@ lemma toENNReal_log_le_div_add {a r : ℝ≥0∞} (hr0 : 0 < r) (hr : r ≠ ∞)
     rw [Real.log_div ha'.ne' hr'.ne', sub_add_cancel]
   have h2 := Real.log_le_sub_one_of_pos (div_pos ha' hr')
   linarith
+
+/-- `log x ≤ x - 1` in `EReal`, for every `x : ℝ≥0∞`; at `0` the left side is `⊥`, and at `∞`
+both sides are `⊤`. -/
+lemma log_le_sub_one (x : ℝ≥0∞) : log x ≤ (x : EReal) - 1 := by
+  by_cases h0 : x = 0
+  · simp [h0]
+  by_cases htop : x = ∞
+  · simp only [htop, log_top, EReal.coe_ennreal_top]
+    exact (EReal.top_sub_coe 1).ge
+  rw [log_pos_real h0 htop, ← EReal.coe_ennreal_toReal htop, ← EReal.coe_one, ← EReal.coe_sub,
+    EReal.coe_le_coe_iff]
+  exact Real.log_le_sub_one_of_pos (ENNReal.toReal_pos h0 htop)
 
 end ENNReal

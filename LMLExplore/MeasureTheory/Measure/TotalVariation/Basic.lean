@@ -72,6 +72,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
 * `MeasureTheory.tvDist_one_sub_smul_add_smul`, `MeasureTheory.tvDist_one_sub_smul_add_smul_le`:
   the mixture `(1 - α) • μ + α • ν` is at distance `α * tvDist ν μ` from `μ`, at most `2 * α`
   for probability measures.
+* `MeasureTheory.tendsto_tvDist_one_sub_smul_add_smul`: mixtures `(1 - α i) • μ + α i • ν i` of
+  probability measures with weights `α i → 0` tend to `μ` in total variation.
 
 ## Implementation notes
 
@@ -390,5 +392,19 @@ theorem tvDist_one_sub_smul_add_smul_le [IsProbabilityMeasure μ] [IsProbability
   rw [tvDist_one_sub_smul_add_smul hα, mul_comm]
   gcongr
   exact tvDist_le_two
+
+/-- **Mixtures with vanishing weights tend to the base measure**: for probability measures `μ`
+and `ν i` and weights `α i ≤ 1` tending to `0`, the mixtures `(1 - α i) • μ + α i • ν i` tend to
+`μ` in total variation. It suffices that the hypotheses hold eventually. -/
+theorem tendsto_tvDist_one_sub_smul_add_smul {ι : Type*} {l : Filter ι} [IsProbabilityMeasure μ]
+    {ν : ι → Measure 𝓧} {α : ι → ℝ≥0} (hα : Filter.Tendsto α l (nhds 0))
+    (hα1 : ∀ᶠ i in l, α i ≤ 1) (hν : ∀ᶠ i in l, IsProbabilityMeasure (ν i)) :
+    Filter.Tendsto (fun i ↦ tvDist ((1 - α i) • μ + α i • ν i) μ) l (nhds 0) := by
+  have hlim : Filter.Tendsto (fun i ↦ 2 * (α i : ℝ)) l (nhds 0) := by
+    simpa using (NNReal.tendsto_coe.2 hα).const_mul (2 : ℝ)
+  refine tendsto_of_tendsto_of_tendsto_of_le_of_le' tendsto_const_nhds hlim
+    (.of_forall fun _ ↦ tvDist_nonneg) ?_
+  filter_upwards [hα1, hν] with i hi _
+  exact tvDist_one_sub_smul_add_smul_le hi
 
 end MeasureTheory
