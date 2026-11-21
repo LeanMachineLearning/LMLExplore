@@ -148,13 +148,13 @@ theorem anti_set (hST : S ⊆ T) (hM : IsENNSupermartingale M ℱ T) :
     IsENNSupermartingale M ℱ S :=
   ⟨hM.adapted, fun P hP ↦ hM.setLIntegral_succ_le P (hST hP)⟩
 
-/-- An adapted process almost surely equal at every time to a supermartingale, under every member
-of the null, is a supermartingale. -/
+/-- An adapted process quasi-surely equal at every time to a supermartingale is
+a supermartingale. -/
 theorem congr (hM : IsENNSupermartingale M ℱ S) (hM' : Adapted ℱ M')
-    (h : ∀ P ∈ S, ∀ n, M n =ᵐ[P] M' n) : IsENNSupermartingale M' ℱ S :=
+    (h : ∀ n, M n =ᶠ[quasiSure S] M' n) : IsENNSupermartingale M' ℱ S :=
   ⟨hM', fun P hP n s hs ↦ by
-    rw [← lintegral_congr_ae (ae_restrict_of_ae (h P hP (n + 1))),
-      ← lintegral_congr_ae (ae_restrict_of_ae (h P hP n))]
+    rw [← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h (n + 1)) hP)),
+      ← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h n) hP))]
     exact hM.setLIntegral_succ_le P hP n s hs⟩
 
 /-- A supermartingale under `P`, with the value `∞` before time `m`, is a supermartingale under
@@ -246,12 +246,13 @@ theorem anti_set (hST : S ⊆ T) (hM : IsTestSupermartingale M ℱ T) :
     IsTestSupermartingale M ℱ S :=
   ⟨hM.toIsENNSupermartingale.anti_set hST, fun P hP ↦ hM.lintegral_zero_le P (hST hP)⟩
 
-/-- An adapted process almost surely equal at every time to a test supermartingale, under every
-member of the null, is a test supermartingale. -/
+/-- An adapted process quasi-surely equal at every time to a test supermartingale is
+a test supermartingale. -/
 theorem congr (hM : IsTestSupermartingale M ℱ S) (hM' : Adapted ℱ M')
-    (h : ∀ P ∈ S, ∀ n, M n =ᵐ[P] M' n) : IsTestSupermartingale M' ℱ S :=
+    (h : ∀ n, M n =ᶠ[quasiSure S] M' n) : IsTestSupermartingale M' ℱ S :=
   ⟨hM.toIsENNSupermartingale.congr hM' h, fun P hP ↦
-    (lintegral_congr_ae (h P hP 0)).symm.trans_le (hM.lintegral_zero_le P hP)⟩
+    (lintegral_congr_ae (ae_of_eventually_quasiSure (h 0) hP)).symm.trans_le
+      (hM.lintegral_zero_le P hP)⟩
 
 /-- A test supermartingale has finite initial expectation under every member of the null. -/
 theorem lintegral_zero_ne_top (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) :
@@ -298,14 +299,15 @@ theorem anti_set (hST : S ⊆ T) (hM : IsTestMartingale M ℱ T) : IsTestMarting
   ⟨hM.adapted, fun P hP ↦ hM.lintegral_zero_le P (hST hP),
     fun P hP ↦ hM.setLIntegral_succ_eq P (hST hP)⟩
 
-/-- An adapted process almost surely equal at every time to a test martingale, under every member
-of the null, is a test martingale. -/
+/-- An adapted process quasi-surely equal at every time to a test martingale is
+a test martingale. -/
 theorem congr (hM : IsTestMartingale M ℱ S) (hM' : Adapted ℱ M')
-    (h : ∀ P ∈ S, ∀ n, M n =ᵐ[P] M' n) : IsTestMartingale M' ℱ S :=
-  ⟨hM', fun P hP ↦ (lintegral_congr_ae (h P hP 0)).symm.trans_le (hM.lintegral_zero_le P hP),
+    (h : ∀ n, M n =ᶠ[quasiSure S] M' n) : IsTestMartingale M' ℱ S :=
+  ⟨hM', fun P hP ↦ (lintegral_congr_ae (ae_of_eventually_quasiSure (h 0) hP)).symm.trans_le
+      (hM.lintegral_zero_le P hP),
     fun P hP n s hs ↦ by
-      rw [← lintegral_congr_ae (ae_restrict_of_ae (h P hP (n + 1))),
-        ← lintegral_congr_ae (ae_restrict_of_ae (h P hP n))]
+      rw [← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h (n + 1)) hP)),
+        ← lintegral_congr_ae (ae_restrict_of_ae (ae_of_eventually_quasiSure (h n) hP))]
       exact hM.setLIntegral_succ_eq P hP n s hs⟩
 
 /-- The set integrals of a test martingale over an `ℱ i`-measurable set are constant after

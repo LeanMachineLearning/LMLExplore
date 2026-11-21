@@ -6,7 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.ConstraintNull.Basic
+public import LMLExplore.Probability.QuasiSure
 import LMLExplore.Algebra.Order.Archimedean.Basic
+import LMLExplore.EValues.EVariable
 import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.LinearAlgebra.Pi
 import Mathlib.Analysis.Convex.Combination
@@ -21,9 +23,9 @@ import Mathlib.Topology.Algebra.Module.FiniteDimension
 Let `g i`, for `i` in a finite type, be measurable real constraints on a measurable space `𝓧`. The
 complete class theorem of Larsson, Ramdas and Ruf [LRR26, Theorem 3.1] says that a measurable
 `f : 𝓧 → ℝ` has `∫ f ∂μ ≤ 0` under every member `μ` of the null `constraintNull (range g)` exactly
-when `f ≤ ∑ i, π i * g i` almost surely under every member of the null, for some weights `π ≥ 0`.
-In particular, the e-variables for the null are the measurable functions dominated, almost surely
-under every member of the null, by a bet `1 + ∑ i, π i * g i`.
+when `f ≤ ∑ i, π i * g i` quasi-surely (almost surely under every member of the null, the filter
+`ProbabilityTheory.quasiSure`), for some weights `π ≥ 0`. In particular, the e-variables for the
+null are the measurable functions quasi-surely dominated by a bet `1 + ∑ i, π i * g i`.
 
 The proof of [LRR26] shows that a cone is closed in a weak topology and applies a bipolar theorem.
 The proof here is finite-dimensional, in three steps.
@@ -48,8 +50,10 @@ The proof here is finite-dimensional, in three steps.
 
 The finite-dimensional theorem only uses the finitely supported members of the null. Applied to
 multiples of the indicator of a point, it shows that every point of `Y` is charged by a finitely
-supported member of the null, so that e-variables are finite on `Y`, and that a property holds
-almost surely under every member of the null exactly when it holds on `Y`.
+supported member of the null, so that e-variables are finite on `Y`, and that the quasi-sure filter
+of the null is the principal filter of `Y`: a property holds quasi-surely exactly when it holds on
+`Y`. The pointwise form of each complete class theorem, on `Y`, and its quasi-sure form follow
+from one another.
 
 ## Main definitions
 
@@ -76,16 +80,15 @@ almost surely under every member of the null exactly when it holds on `Y`.
   positive on a set of positive `Q`-measure.
 * `ProbabilityTheory.lt_top_of_isEVar_of_noArbitrageOn`: e-variables are finite on a set without
   arbitrage.
-* `ProbabilityTheory.forall_ae_iff_of_noArbitrageOn`: on a set without arbitrage that carries the
-  null, a property holds almost surely under every member of the null exactly when it holds on
-  the set.
+* `ProbabilityTheory.quasiSure_constraintNull_eq_principal`: on a set without arbitrage that
+  carries the null, the quasi-sure filter of the null is the principal filter of the set.
 * `ProbabilityTheory.forall_integral_nonpos_iff_exists_ae_le`: **the complete class theorem**
   [LRR26, Theorem 3.1].
 * `ProbabilityTheory.IsEVar.exists_mem_constraintBets_le_of_noArbitrageOn`,
   `ProbabilityTheory.IsEVar.exists_mem_constraintBets_ae_le`,
   `ProbabilityTheory.isEVar_constraintNull_iff`: the complete class theorem for e-variables
   [LRR26, Theorem 3.1]: every e-variable is dominated by a bet, on a set without arbitrage that
-  carries the null, and almost surely under every member of the null.
+  carries the null, and quasi-surely.
 * `ProbabilityTheory.noArbitrageOn_add_integral_div_of_lintegral_le`,
   `ProbabilityTheory.exists_add_sum_smul_dirac_mem_constraintNull`: on a nonempty set without
   arbitrage that carries the null, a finite measure carried by that set that integrates the
@@ -592,15 +595,17 @@ theorem exists_mem_constraintNull_measure_singleton_ne_zero (hg : ∀ i, Measura
     ENNReal.ofReal_eq_zero] at h1
   exact hwk.not_ge h1
 
-/-- On a set `Y` without arbitrage that carries the null, a property holds almost surely under
-every member of the null exactly when it holds on `Y`. -/
-theorem forall_ae_iff_of_noArbitrageOn (hg : ∀ i, Measurable (g i)) (hY : NoArbitrageOn g Y)
-    (hYμ : ∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) {p : 𝓧 → Prop} :
-    (∀ μ ∈ constraintNull (range g), ∀ᵐ x ∂μ, p x) ↔ ∀ x ∈ Y, p x := by
-  refine ⟨fun h x hx ↦ ?_, fun h μ hμ ↦ Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) h⟩
-  by_contra hpx
+/-- **The quasi-sure filter of a constraint null is principal**: on a set `Y` without arbitrage
+that carries the null, a property holds quasi-surely, that is, almost surely under every member
+of the null, exactly when it holds on `Y`. -/
+theorem quasiSure_constraintNull_eq_principal (hg : ∀ i, Measurable (g i))
+    (hY : NoArbitrageOn g Y) (hYμ : ∀ μ ∈ constraintNull (range g), μ Yᶜ = 0) :
+    quasiSure (constraintNull (range g)) = Filter.principal Y := by
+  refine Filter.ext fun s ↦ ⟨fun h x hx ↦ by_contra fun hxs ↦ ?_,
+    fun h ↦ mem_quasiSure_iff.2 fun μ hμ ↦ Filter.mem_of_superset (mem_ae_iff.2 (hYμ μ hμ)) h⟩
   obtain ⟨μ, hμ, hμx⟩ := exists_mem_constraintNull_measure_singleton_ne_zero hg hY hx
-  exact hμx (measure_mono_null (singleton_subset_iff.2 hpx) (ae_iff.1 (h μ hμ)))
+  exact hμx (measure_mono_null (singleton_subset_iff.2 hxs)
+    (mem_ae_iff.1 (mem_quasiSure_iff.1 h μ hμ)))
 
 /-! ### The complete class theorem -/
 
@@ -635,22 +640,24 @@ theorem exists_mem_nonredundantWeights_toReal_le_of_isEVar (hg : ∀ i, Measurab
 
 /-- **The complete class theorem for finitely many constraints** [LRR26, Theorem 3.1]: for
 measurable constraints `g i` and a measurable `f`, the integral of `f` is nonpositive under every
-member of the null generated by the `g i` exactly when `f ≤ ∑ i, π i * g i` almost surely under
-every member of the null, for some weights `π ≥ 0`. No integrability of `f` is assumed: the
-integral of a function that is not integrable is `0`. -/
+member of the null generated by the `g i` exactly when `f ≤ ∑ i, π i * g i` quasi-surely, for
+some weights `π ≥ 0`. No integrability of `f` is assumed: the integral of a function that is not
+integrable is `0`. -/
 theorem forall_integral_nonpos_iff_exists_ae_le (hg : ∀ i, Measurable (g i))
     (hf : Measurable f) :
     (∀ μ ∈ constraintNull (range g), ∫ x, f x ∂μ ≤ 0) ↔
-      ∃ π : ι → ℝ≥0, ∀ μ ∈ constraintNull (range g), f ≤ᵐ[μ] fun x ↦ ∑ i, (π i : ℝ) * g i x := by
+      ∃ π : ι → ℝ≥0,
+        f ≤ᶠ[quasiSure (constraintNull (range g))] fun x ↦ ∑ i, (π i : ℝ) * g i x := by
   refine ⟨fun h ↦ ?_, fun ⟨π, hπ⟩ μ hμ ↦ ?_⟩
   · obtain ⟨Y, -, hYμ, hY⟩ := exists_measurableSet_noArbitrageOn hg
     obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_forall_integral_nonpos hg hY hf h
-    refine ⟨fun i ↦ (π i).toNNReal, fun μ hμ ↦
-      Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) fun x hx ↦ ?_⟩
-    simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
+    refine ⟨fun i ↦ (π i).toNNReal, ?_⟩
+    rw [quasiSure_constraintNull_eq_principal hg hY hYμ]
+    exact Filter.eventually_principal.2 fun x hx ↦ by
+      simpa only [Real.coe_toNNReal _ (hπK.1 _)] using hπ x hx
   · by_cases hfi : Integrable f μ
     · exact (integral_mono_ae hfi (integrable_sum_mul_of_mem_constraintNull hμ _)
-        (hπ μ hμ)).trans
+        (ae_of_eventually_quasiSure hπ hμ)).trans
         (integral_sum_mul_nonpos_of_mem_constraintNull hμ fun i ↦ (π i).coe_nonneg)
     · rw [integral_undef hfi]
 
@@ -668,25 +675,27 @@ theorem IsEVar.exists_mem_constraintBets_le_of_noArbitrageOn (hg : ∀ i, Measur
   simpa only [Real.coe_toNNReal _ (hπK.1 _)] using ENNReal.ofReal_le_ofReal (hπ x hx)
 
 /-- **The complete class theorem for e-variables** [LRR26, Theorem 3.1]: every e-variable for the
-null generated by finitely many measurable constraints `g i` is dominated by a bet
-`1 + ∑ i, π i * g i`, almost surely under every member of the null. -/
+null generated by finitely many measurable constraints `g i` is quasi-surely dominated by a bet
+`1 + ∑ i, π i * g i`. -/
 theorem IsEVar.exists_mem_constraintBets_ae_le (hg : ∀ i, Measurable (g i))
     (hE : IsEVar E (constraintNull (range g))) :
-    ∃ π ∈ constraintBets g, ∀ μ ∈ constraintNull (range g),
-      E ≤ᵐ[μ] fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) := by
+    ∃ π ∈ constraintBets g, E ≤ᶠ[quasiSure (constraintNull (range g))]
+      fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) := by
   obtain ⟨Y, -, hYμ, hY⟩ := exists_measurableSet_noArbitrageOn hg
   obtain ⟨π, hπ, hπY⟩ := hE.exists_mem_constraintBets_le_of_noArbitrageOn hg hY hYμ
-  exact ⟨π, hπ, fun μ hμ ↦ Filter.eventually_of_mem (mem_ae_iff.2 (hYμ μ hμ)) hπY⟩
+  refine ⟨π, hπ, ?_⟩
+  rw [quasiSure_constraintNull_eq_principal hg hY hYμ]
+  exact Filter.eventually_principal.2 hπY
 
 /-- **The e-variables for a null generated by finitely many constraints** [LRR26, Theorem 3.1]:
 for measurable constraints `g i`, the e-variables for the null are the measurable functions that
-are dominated by a bet `1 + ∑ i, π i * g i`, almost surely under every member of the null. -/
+are quasi-surely dominated by a bet `1 + ∑ i, π i * g i`. -/
 theorem isEVar_constraintNull_iff (hg : ∀ i, Measurable (g i)) :
     IsEVar E (constraintNull (range g)) ↔ Measurable E ∧ ∃ π ∈ constraintBets g,
-      ∀ μ ∈ constraintNull (range g), E ≤ᵐ[μ] fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) :=
+      E ≤ᶠ[quasiSure (constraintNull (range g))]
+        fun x ↦ ENNReal.ofReal (1 + ∑ i, (π i : ℝ) * g i x) :=
   ⟨fun hE ↦ ⟨hE.measurable, hE.exists_mem_constraintBets_ae_le hg⟩, fun ⟨hEm, _, hπ, hEπ⟩ ↦
-    ⟨hEm, fun μ hμ ↦ (lintegral_mono_ae (hEπ μ hμ)).trans
-      (lintegral_ofReal_one_add_le_one_of_mem_constraintBets hπ hμ)⟩⟩
+    (isEVar_ofReal_one_add_of_mem_constraintBets hg hπ).mono_quasiSure hEm hEπ⟩
 
 /-! ### Completion into a member of the null -/
 

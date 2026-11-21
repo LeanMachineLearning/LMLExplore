@@ -38,7 +38,7 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
 
 * `ProbabilityTheory.IsPToECalibrator f`: `f` is a p-to-e calibrator.
 * `ProbabilityTheory.IsAdmissiblePToECalibrator f`: `f` is a calibrator that no other calibrator
-  strictly dominates.
+  strictly dominates, Mathlib's `Maximal IsPToECalibrator f` for the pointwise order.
 * `ProbabilityTheory.powCalibrator κ`: the function `x ↦ κ x ^ (κ - 1)` on `[0, 1]`, zero on
   `(1, ∞]`; it is a calibrator for `0 < κ ≤ 1`.
 * `ProbabilityTheory.powMixCalibrator`: the mixture of the calibrators `powCalibrator κ` over
@@ -59,8 +59,6 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A`
   monotone on `[1, ∞]` gives the antitone `p ↦ A p⁻¹` on `[0, 1]`, whose integral is
   `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
-* `ProbabilityTheory.isAdmissiblePToECalibrator_iff_maximal`: the admissible calibrators are the
-  maximal ones for the pointwise order.
 * `ProbabilityTheory.isAdmissiblePToECalibrator_iff`: the characterization of admissible
   calibrators [RW, Proposition 2.5].
 * `ProbabilityTheory.IsPToECalibrator.const_mul_comp_mul` and its admissible version: the
@@ -261,19 +259,13 @@ theorem isPToECalibrator_lintegral {ι : Type*} [MeasurableSpace ι] {π : Measu
 
 /-! ### Admissible calibrators -/
 
-/-- A calibrator is **admissible** when no other calibrator strictly dominates it: every
-calibrator `g ≥ f` is `f` [RW, Definition 2.3]. They are characterized in
+/-- A calibrator is **admissible** when no other calibrator strictly dominates it: it is maximal
+among the calibrators for the pointwise order, so that every calibrator `g ≥ f` is `f`
+(`Maximal.eq_of_le`) [RW, Definition 2.3]. This is the admissibility of `Filter.IsAdmissible` for
+the filter `⊤` (`Filter.isAdmissible_top_iff`). They are characterized in
 `isAdmissiblePToECalibrator_iff`. -/
-structure IsAdmissiblePToECalibrator (f : ℝ≥0∞ → ℝ≥0∞) : Prop extends IsPToECalibrator f where
-  eq_of_le : ∀ g, IsPToECalibrator g → f ≤ g → g = f
-
-/-- A calibrator is admissible exactly when it is maximal among the calibrators for the pointwise
-order: admissibility of calibrators is the case of the filter `⊤` of `Filter.IsAdmissible`
-(`Filter.isAdmissible_top_iff`). -/
-theorem isAdmissiblePToECalibrator_iff_maximal :
-    IsAdmissiblePToECalibrator f ↔ Maximal IsPToECalibrator f :=
-  ⟨fun hf ↦ ⟨hf.toIsPToECalibrator, fun g hg hfg ↦ (hf.eq_of_le g hg hfg).le⟩,
-    fun hf ↦ ⟨hf.prop, fun _ hg hfg ↦ (hf.2 hg hfg).antisymm hfg⟩⟩
+abbrev IsAdmissiblePToECalibrator (f : ℝ≥0∞ → ℝ≥0∞) : Prop :=
+  Maximal IsPToECalibrator f
 
 /-- Adding the constant `1 - ∫₀¹ f` on `[0, 1]` to a calibrator gives a calibrator of integral
 `1`. -/
@@ -376,14 +368,14 @@ is upper semicontinuous, `f 0 = ∞` and `∫₀¹ f = 1`. -/
 theorem isAdmissiblePToECalibrator_iff :
     IsAdmissiblePToECalibrator f ↔ IsPToECalibrator f ∧ UpperSemicontinuous f ∧ f 0 = ∞ ∧
       ∫⁻ x in Icc (0 : ℝ) 1, f (ENNReal.ofReal x) = 1 := by
-  refine ⟨fun hf ↦ ⟨hf.toIsPToECalibrator, ?_, ?_, ?_⟩, fun ⟨hf, h_usc, h_top, h_int⟩ ↦
-    ⟨hf, fun g hg hfg ↦ eq_of_le_of_upperSemicontinuous h_usc h_top h_int hg hfg⟩⟩
-  · rw [← hf.eq_of_le _ hf.leftLim fun x ↦ hf.antitone.le_leftLim le_rfl]
-    exact hf.antitone.upperSemicontinuous_leftLim
-  · rw [← hf.eq_of_le _ hf.ite_zero fun x ↦ by by_cases hx : x = 0 <;> simp [hx]]
+  refine ⟨fun hf ↦ ⟨hf.prop, ?_, ?_, ?_⟩, fun ⟨hf, h_usc, h_top, h_int⟩ ↦
+    ⟨hf, fun g hg hfg ↦ (eq_of_le_of_upperSemicontinuous h_usc h_top h_int hg hfg).le⟩⟩
+  · rw [hf.eq_of_le hf.prop.leftLim fun x ↦ hf.prop.antitone.le_leftLim le_rfl]
+    exact hf.prop.antitone.upperSemicontinuous_leftLim
+  · rw [hf.eq_of_le hf.prop.ite_zero fun x ↦ by by_cases hx : x = 0 <;> simp [hx]]
     simp
-  · have h := hf.toIsPToECalibrator.add_indicator
-    have h_eq := hf.eq_of_le _ h.1 fun x ↦ le_self_add
+  · have h := hf.prop.add_indicator
+    have h_eq := (hf.eq_of_le h.1 fun x ↦ le_self_add).symm
     refine Eq.trans ?_ h.2
     exact setLIntegral_congr_fun measurableSet_Icc fun x _ ↦
       (congrFun h_eq (ENNReal.ofReal x)).symm
