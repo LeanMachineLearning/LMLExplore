@@ -174,6 +174,24 @@ theorem mem_oneSidedSubgaussianNull_iff {μ : Measure ℝ} :
       sub_nonpos]
     exact hle
 
+/-- **Rational exponents suffice.** A probability measure on the line belongs to the one-sided
+`1`-sub-Gaussian null as soon as every exponential `exp (q x - q ^ 2 / 2)` with a rational
+`q ≥ 0` has mean at most `1`. -/
+theorem mem_oneSidedSubgaussianNull_of_forall_rat {μ : Measure ℝ} [IsProbabilityMeasure μ]
+    (h : ∀ q : ℚ, 0 ≤ (q : ℝ) → ∫⁻ x, ENNReal.ofReal (Real.exp (q * x - q ^ 2 / 2)) ∂μ ≤ 1) :
+    μ ∈ oneSidedSubgaussianNull := by
+  refine mem_oneSidedSubgaussianNull_iff.2 ⟨inferInstance, fun l hl ↦ ?_⟩
+  -- Fatou's lemma along rationals decreasing to `l`
+  obtain ⟨u, -, hlu, hu⟩ := Real.exists_seq_rat_strictAnti_tendsto l
+  calc ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂μ
+      = ∫⁻ x, liminf (fun n ↦ ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2))) atTop ∂μ := by
+        refine lintegral_congr fun x ↦ (Tendsto.liminf_eq ?_).symm
+        exact ENNReal.tendsto_ofReal ((Real.continuous_exp.tendsto _).comp
+          ((hu.mul_const x).sub ((hu.pow 2).div_const 2)))
+    _ ≤ liminf (fun n ↦ ∫⁻ x, ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2)) ∂μ) atTop :=
+        lintegral_liminf_le fun n ↦ by fun_prop
+    _ ≤ 1 := liminf_le_of_frequently_le' (.of_forall fun n ↦ h (u n) (hl.trans (hlu n).le))
+
 /-! ### The null as a sequential null -/
 
 /-- **The one-sided conditionally sub-Gaussian null is a sequential null**: that of the constant
@@ -213,27 +231,12 @@ theorem oneSidedCondSubgaussianNull_eq_sequentialNull :
         by_cases hq : 0 ≤ (q : ℝ)
         · exact (hl q hq).mono fun _ h _ ↦ h
         · exact .of_forall fun _ h ↦ absurd h hq
-    filter_upwards [hq] with ω hω
-    refine mem_oneSidedSubgaussianNull_iff.2 ⟨inferInstance, fun l hl ↦ ?_⟩
-    -- Fatou's lemma along rationals decreasing to `l`
-    obtain ⟨u, -, hlu, hu⟩ := Real.exists_seq_rat_strictAnti_tendsto l
-    calc ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂(κ ω)
-        = ∫⁻ x, liminf (fun n ↦ ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2))) atTop
-            ∂(κ ω) := by
-          refine lintegral_congr fun x ↦ (Tendsto.liminf_eq ?_).symm
-          exact ENNReal.tendsto_ofReal ((Real.continuous_exp.tendsto _).comp
-            ((hu.mul_const x).sub ((hu.pow 2).div_const 2)))
-      _ ≤ liminf (fun n ↦ ∫⁻ x, ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2)) ∂(κ ω))
-            atTop := lintegral_liminf_le fun n ↦ hg (u n)
-      _ ≤ 1 := liminf_le_of_frequently_le' (.of_forall fun n ↦
-          hω (u n) (hl.trans (hlu n).le))
-  · obtain ⟨κ, hκ, hκS⟩ := h k
-    have hm := Filtration.le (Filtration.piLT (X := fun _ : ℕ ↦ ℝ)) k
-    rw [hκ.hasCondLaw.setLIntegral_comp hm
-      (g := fun _ x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)))
-      ((hg l).comp (@measurable_snd _ _ (Filtration.piLT k) _)) hs, ← setLIntegral_one]
-    exact lintegral_mono_ae (ae_restrict_of_ae (hκS.mono fun ω hω ↦
-      (mem_oneSidedSubgaussianNull_iff.1 hω).2 l hl))
+    filter_upwards [hq] with ω hω using mem_oneSidedSubgaussianNull_of_forall_rat hω
+  · exact (isCondEVar_comp_sequentialNull
+      (r := fun _ x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2))) (measurable_pi_apply k)
+      ((hg l).comp measurable_snd) fun _ ↦
+        ⟨hg l, fun μ hμ ↦ (mem_oneSidedSubgaussianNull_iff.1 hμ).2 l hl⟩).setLIntegral_le P
+      (mem_sequentialNull_iff.2 ⟨hP, h⟩) s hs
 
 /-- The completion step: a finitely supported measure with exponential means below `1` becomes a
 probability measure with exponential means at most `1` after a slight shrinking and the addition

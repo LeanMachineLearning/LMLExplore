@@ -196,7 +196,7 @@ lemma IsAlgEnvSeq.hasCondLaw_feedback [IsFiniteMeasure P] (h : IsAlgEnvSeq O A Y
     (measurable_iff_comap_le.2 le_rfl) le_rfl).hasCondLaw
   convert this using 1
   ext ω : 1
-  simp [Environment.feedbackKernel]
+  simp [Environment.feedbackKernel_apply]
 
 /-- Along a run against the stochastic bandit `Environment.bandit ν` whose arm laws are all
 concentrated on a measurable set `s`, almost surely every feedback lies in `s`. -/

@@ -203,7 +203,6 @@ theorem mem_sequentialConstraintNull_of_mem_sequentialNull (hΦ : ∀ f ∈ Φ, 
 /-- **Into the sequential null of the constraint null.** For countably many measurable
 constraints on a standard Borel space and measurable observations, every member of the
 sequential constraint null belongs to the sequential null of the constant one-step null
-`constraintNull Φ`: Mathlib's `condDistrib` of `X k` given `ℱ k` lies almost surely in
 `constraintNull Φ`. -/
 theorem sequentialConstraintNull_subset_sequentialNull [StandardBorelSpace 𝓧] [Nonempty 𝓧]
     (hΦc : Φ.Countable) (hΦ : ∀ f ∈ Φ, Measurable f) (hX : ∀ k, Measurable (X k)) :

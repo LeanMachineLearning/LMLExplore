@@ -234,10 +234,10 @@ lemma HasCondDistrib.ae_mem (h : HasCondDistrib Y X κ P) {t : Set 𝓨} (ht : M
   exact ae_of_ae_map h.aemeasurable h_ae
 
 omit [SFinite P] [IsSFiniteKernel κ] in
-/-- A conditional distribution under a nonzero measure is an s-finite kernel: for any other kernel
-the joint law `P.map X ⊗ₘ κ` vanishes, and so does `P`. -/
+/-- A conditional distribution under a nonzero measure is an s-finite kernel. -/
 lemma HasCondDistrib.isSFiniteKernel [NeZero P] (h : HasCondDistrib Y X κ P) :
     IsSFiniteKernel κ := by
+  -- for a kernel that is not s-finite, the joint law `P.map X ⊗ₘ κ` vanishes, and so does `P`
   by_contra hκ
   refine NeZero.ne P ?_
   rw [← Measure.map_eq_zero_iff h.aemeasurable, h.map_eq,

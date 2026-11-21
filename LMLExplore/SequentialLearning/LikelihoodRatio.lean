@@ -9,6 +9,7 @@ public import LMLExplore.Probability.Martingale.Mixture
 public import LMLExplore.Probability.Martingale.Ville
 public import LMLExplore.SequentialLearning.Algorithm
 import LMLExplore.EValues.TestSupermartingale.Predictor
+import LMLExplore.SequentialLearning.Means
 
 /-!
 # Likelihood ratio supermartingales along a bandit run
@@ -77,7 +78,7 @@ lemma supermartingale_exp_sum_of_lintegral_exp_le_one [IsFiniteMeasure P]
     (hz.comp (((h.adapted_action_filtrationAction k).comp measurable_fst).prodMk
       measurable_snd)).exp.ennreal_ofReal
   have hκ (k : ℕ) : HasCondLaw (Y k) (fun ω ↦ ν (A k ω)) (h.filtrationAction k) P := by
-    simpa [Environment.feedbackKernel] using h.hasCondLaw_feedback k
+    simpa only [Environment.feedbackKernel_bandit] using h.hasCondLaw_feedback k
   -- the likelihood ratio is a supermartingale in `ℝ≥0∞` under `P`: a test supermartingale for `P`
   -- normalized to a probability measure
   have hM : IsENNSupermartingale
@@ -87,16 +88,11 @@ lemma supermartingale_exp_sum_of_lintegral_exp_le_one [IsFiniteMeasure P]
     · refine ⟨fun n ↦ Finset.measurable_prod _ fun k hk ↦ ?_, by simp⟩
       exact ((hr k).comp_prodMk_of_le (h.filtrationAction.mono k.le_succ) (hY k)).mono
         (h.filtrationAction.mono (mem_range.1 hk)) le_rfl
-    have hc : (P Set.univ)⁻¹ ≠ 0 := ENNReal.inv_ne_zero.2 (measure_ne_top P Set.univ)
-    have hc' : (P Set.univ)⁻¹ ≠ ∞ := ENNReal.inv_ne_top.2 (Measure.measure_univ_ne_zero.2 hP.out)
-    have hT := isTestSupermartingale_prod_of_hasCondLaw (P := (P Set.univ)⁻¹ • P) hY
+    exact (isTestSupermartingale_prod_of_hasCondLaw (P := (P Set.univ)⁻¹ • P) hY
       (fun k ↦ ⟨fun g hg ↦ by simp only [lintegral_smul_measure, (hκ k).lintegral_comp g hg]⟩)
-      hr fun k ↦ ae_of_all _ fun ω ↦ hle (A k ω)
-    refine ⟨hT.adapted, fun Q hQ n s hs ↦ ?_⟩
-    rw [Set.mem_singleton_iff.1 hQ]
-    have := hT.setLIntegral_succ_le _ rfl n s hs
-    simp only [Measure.restrict_smul, lintegral_smul_measure] at this
-    exact (ENNReal.mul_le_mul_iff_right hc hc').1 this
+      hr fun k ↦ ae_of_all _ fun ω ↦ hle (A k ω)).toIsENNSupermartingale.of_smul_measure
+      (ENNReal.inv_ne_zero.2 (measure_ne_top P Set.univ))
+      (ENNReal.inv_ne_top.2 (Measure.measure_univ_ne_zero.2 hP.out))
   convert hM.supermartingale_toReal (Set.mem_singleton P) (by simp) using 1
   ext n ω
   rw [ENNReal.toReal_prod, Real.exp_sum]
