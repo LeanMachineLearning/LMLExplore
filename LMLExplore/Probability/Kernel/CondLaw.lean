@@ -122,15 +122,13 @@ identity of `Ω` into `(Ω, m)`), then it is a conditional law of `X` given `m`.
 theorem HasCondDistrib.hasCondLaw [SFinite P] {κ : Kernel[m] Ω 𝓧}
     (h : HasCondDistrib (m𝓧 := m) X id κ P) :
     HasCondLaw X κ m P := by
-  by_cases hκ : IsSFiniteKernel κ
-  · refine ⟨fun g hg ↦ ?_⟩
-    simpa only [Function.uncurry_apply_pair, id] using
-      h.lintegral_comp_prodMk_eq_lintegral_lintegral hg
-  -- otherwise the joint law `P.map id ⊗ₘ κ` vanishes, and so does `P`
-  have hP : P = 0 := by
-    rw [← Measure.map_eq_zero_iff h.aemeasurable, h.map_eq,
-      Measure.compProd_of_not_isSFiniteKernel _ _ hκ]
-  exact ⟨fun g _ ↦ by simp [hP]⟩
+  rcases eq_zero_or_neZero P with rfl | _
+  · exact ⟨fun g _ ↦ by simp⟩
+  -- under a nonzero measure, the conditional distribution `κ` is s-finite
+  have := h.isSFiniteKernel
+  refine ⟨fun g hg ↦ ?_⟩
+  simpa only [Function.uncurry_apply_pair, id] using
+    h.lintegral_comp_prodMk_eq_lintegral_lintegral hg
 
 /-- **Conditional laws and conditional distributions given a σ-algebra.** For an s-finite kernel
 `κ` from `(Ω, m)` and an almost everywhere measurable `X`, `κ` is a conditional law of `X` given
