@@ -8,7 +8,8 @@ module
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Order
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Add
 public import Mathlib.Probability.Process.Stopping
-import LMLExplore.Probability.Process.Stopping
+public import TauCeti.Probability.Process.StoppedValue
+import LMLExplore.Data.ENat.Basic
 
 /-!
 # The value of a process, and an event, at a possibly infinite time
@@ -40,14 +41,19 @@ occur, where it is infinite [RRLK, Lemma 2]. This event is contained in the unio
 
 * `MeasureTheory.stoppedValueLimsup_of_eq_natCast`, `MeasureTheory.stoppedValueLimsup_of_eq_top`:
   its values at finite and infinite times.
-* `MeasureTheory.stoppedValueLimsup_natCast`: at an `ℕ`-valued random time it reads the process at
-  that time.
+* `MeasureTheory.stoppedValue_natCast`, `MeasureTheory.stoppedValue_add_one`: Mathlib's
+  `stoppedValue` at the cast of a random time with values in `ℕ`, and the value of a shifted
+  process at a random time that is finite everywhere.
+* `MeasureTheory.stoppedValueLimsup_of_forall_ne_top`: at a random time that is finite
+  everywhere it is Mathlib's `stoppedValue`.
 * `MeasureTheory.stoppedValueLimsup_eq_stoppedValue`: where `τ` is finite it agrees with Mathlib's
   `stoppedValue`.
 * `MeasureTheory.stoppedValueLimsup_mono`: it is monotone in the process.
 * `MeasureTheory.stoppedValueLimsup_le_iSup`: it is at most the supremum of the process over time.
 * `MeasureTheory.tendsto_stoppedValueLimsup_min`: for a convergent process, the values at the
   truncated times `min τ N` converge to the value at `τ`.
+* `MeasureTheory.liminf_stoppedValue_min`: the `liminf` of the values at the truncated times
+  `min τ N` is the value at `τ`, with the `liminf` of the process where `τ` is infinite.
 * `MeasureTheory.measurable_stoppedValueLimsup`: it is measurable for measurable `u n` and `τ`.
 * `MeasureTheory.lintegral_stoppedValueLimsup_le_sum`: at a random time bounded by `N`, the
   integral of an `ℝ≥0∞`-valued process is at most the sum of its integrals at the times up to `N`.
@@ -58,16 +64,13 @@ occur, where it is infinite [RRLK, Lemma 2]. This event is contained in the unio
   `s ∩ {τ ≤ N}` increase to its integral over `s ∩ {τ ≠ ⊤}`.
 * `MeasureTheory.measurable_apply_of_countable`: the value `fun ω ↦ u (σ ω) ω` of a process of
   measurable functions, indexed by a countable type, at a measurable random time is measurable.
-* `MeasureTheory.Adapted.measurable_apply_stoppingTime`,
-  `MeasureTheory.Adapted.measurable_measurableSpace_apply_stoppingTime`: the value of an adapted
-  process at a stopping time `σ` with values in `ℕ` is measurable, and measurable for the
-  σ-algebra at `σ`.
 * `MeasureTheory.iSup_lintegral_apply_eq_lintegral_iSup`,
   `MeasureTheory.iSup_lintegral_stoppedValueLimsup_eq_lintegral_iSup`: the supremum, over the
   random times with values in `ℕ`, and in `WithTop ℕ`, of the integral of an `ℝ≥0∞`-valued process
   read at that time is the integral of its supremum over time [RRLK, Lemma 3].
 * `MeasureTheory.mem_stoppedEvent_of_eq_natCast`, `MeasureTheory.mem_stoppedEvent_of_eq_top`:
-  the event read at a finite and at an infinite time.
+  the event read at a finite and at an infinite time, and
+  `MeasureTheory.stoppedEvent_of_forall_ne_top`: at a random time that is finite everywhere.
 * `MeasureTheory.stoppedEvent_mono`, `MeasureTheory.stoppedEvent_subset_iUnion`: the event read at
   a random time is monotone in the events, and contained in their union.
 * `MeasureTheory.measurableSet_stoppedEvent`: it is measurable for measurable events and a
@@ -89,6 +92,24 @@ open scoped ENNReal
 namespace MeasureTheory
 
 variable {Ω β : Type*} {τ : Ω → WithTop ℕ} {ω : Ω}
+
+/-- At the cast of a random time with values in `ℕ`, `stoppedValue` reads the process at that
+time. -/
+@[simp]
+theorem stoppedValue_natCast (u : ℕ → Ω → β) (τ : Ω → ℕ) :
+    stoppedValue u (fun ω ↦ (τ ω : WithTop ℕ)) = fun ω ↦ u (τ ω) ω := by
+  funext ω
+  rw [stoppedValue, WithTop.untopA_natCast]
+
+/-- At a random time that is finite everywhere, the shift `fun n ↦ u (n + 1)` read at `τ` is `u`
+read at `τ + 1`. -/
+theorem stoppedValue_add_one (u : ℕ → Ω → β) (h : ∀ ω, τ ω ≠ ⊤) :
+    stoppedValue (fun n ↦ u (n + 1)) τ = stoppedValue u (fun ω ↦ τ ω + 1) := by
+  funext ω
+  obtain ⟨b, hb⟩ := WithTop.ne_top_iff_exists.1 (h ω)
+  rw [← Nat.cast_withTop] at hb
+  rw [stoppedValue, stoppedValue, ← hb, ← Nat.cast_add_one, WithTop.untopA_natCast,
+    WithTop.untopA_natCast]
 
 section ConditionallyCompleteLattice
 
@@ -116,17 +137,17 @@ theorem stoppedValueLimsup_congr {τ' : Ω → WithTop ℕ} (h : τ ω = τ' ω)
     stoppedValueLimsup u τ ω = stoppedValueLimsup u τ' ω := by
   simp only [stoppedValueLimsup, h]
 
-/-- At a finite random time, the coercion of an `ℕ`-valued one, `stoppedValueLimsup` reads the
-process at that time. -/
-@[simp]
-theorem stoppedValueLimsup_natCast (u : ℕ → Ω → β) (τ : Ω → ℕ) :
-    stoppedValueLimsup u (fun ω ↦ (τ ω : WithTop ℕ)) = fun ω ↦ u (τ ω) ω :=
-  funext fun _ ↦ stoppedValueLimsup_of_eq_natCast rfl
+/-- At a random time that is finite everywhere, `stoppedValueLimsup` is Mathlib's
+`stoppedValue`. -/
+theorem stoppedValueLimsup_of_forall_ne_top (u : ℕ → Ω → β) (h : ∀ ω, τ ω ≠ ⊤) :
+    stoppedValueLimsup u τ = stoppedValue u τ := by
+  funext ω
+  simp [stoppedValueLimsup, stoppedValue, h ω]
 
 /-- At a constant finite time, `stoppedValueLimsup` is the process at that time. -/
 theorem stoppedValueLimsup_const (u : ℕ → Ω → β) (n : ℕ) :
     stoppedValueLimsup u (fun _ ↦ (n : WithTop ℕ)) = u n :=
-  stoppedValueLimsup_natCast u fun _ ↦ n
+  funext fun _ ↦ stoppedValueLimsup_of_eq_natCast rfl
 
 /-- At the constant time `⊤`, `stoppedValueLimsup` is the `limsup` of the process. -/
 @[simp]
@@ -157,6 +178,21 @@ theorem tendsto_stoppedValueLimsup_min [TopologicalSpace β]
     refine (stoppedValueLimsup_of_eq_natCast ?_).symm
     rw [hτω, min_eq_left (by exact_mod_cast hN)]
 
+/-- **The `liminf` convention at infinity.** The `liminf` of the values of a process at the
+truncated times `min τ N` is its value at `τ` where `τ` is finite, and the `liminf` of the process
+where `τ` is infinite. -/
+theorem liminf_stoppedValue_min (u : ℕ → Ω → β) (τ : Ω → WithTop ℕ) (ω : Ω) :
+    liminf (fun N : ℕ ↦ stoppedValue u (fun ω ↦ min (τ ω) N) ω) atTop =
+      if τ ω = ⊤ then liminf (fun n ↦ u n ω) atTop else stoppedValue u τ ω := by
+  induction hτω : τ ω using WithTop.recTopCoe with
+  | top => simp [stoppedValue, hτω, WithTop.untopA_natCast]
+  | coe b =>
+    rw [ite_eq_right (WithTop.coe_ne_top (a := b)),
+      ← liminf_const (f := (atTop : Filter ℕ)) (stoppedValue u τ ω)]
+    refine liminf_congr ?_
+    filter_upwards [eventually_ge_atTop b] with N hN
+    rw [stoppedValue, stoppedValue, hτω, ← Nat.cast_withTop, min_eq_left (by exact_mod_cast hN)]
+
 end ConditionallyCompleteLattice
 
 /-- The value at a random time is monotone in the process: if `u n ω ≤ v n ω` at every time `n`,
@@ -186,7 +222,7 @@ theorem measurable_stoppedValueLimsup [ConditionallyCompleteLinearOrder β] [Top
     refine measurable_from_prod_countable_left fun k ↦ ?_
     cases k with
     | top => simpa using Measurable.limsup hu
-    | coe n => simpa using hu n
+    | coe n => simpa [← Nat.cast_withTop, stoppedValueLimsup_const] using hu n
   exact h.comp (measurable_id.prodMk hτ)
 
 /-- The integral of the value of an `ℝ≥0∞`-valued process at a random time bounded by `N` is at
@@ -257,30 +293,6 @@ theorem measurable_apply_of_countable {ι : Type*} [Countable ι] [MeasurableSpa
   (measurable_from_prod_countable_left (f := fun p : Ω × ι ↦ u p.2 p.1) hu).comp
     (measurable_id.prodMk hσ)
 
-/-- The value `fun ω ↦ u (σ ω) ω` of an adapted process at a stopping time `σ` with values in `ℕ`
-is measurable. -/
-theorem Adapted.measurable_apply_stoppingTime [MeasurableSpace β]
-    {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
-    (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
-    Measurable fun ω ↦ u (σ ω) ω :=
-  measurable_apply_of_countable (fun _ ↦ hu.measurable) hσ.measurable_nat
-
-/-- The value `fun ω ↦ u (σ ω) ω` of an adapted process at a stopping time `σ` with values in `ℕ`
-is measurable for the σ-algebra at `σ`. -/
-theorem Adapted.measurable_measurableSpace_apply_stoppingTime [MeasurableSpace β]
-    {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {u : ℕ → Ω → β} {σ : Ω → ℕ}
-    (hu : Adapted ℱ u) (hσ : IsStoppingTime ℱ (fun ω ↦ (σ ω : WithTop ℕ))) :
-    Measurable[hσ.measurableSpace] fun ω ↦ u (σ ω) ω := by
-  intro A hA
-  -- the preimage is the union over `k` of its parts on `{σ = k}`, each known at time `k`
-  have h_eq : (fun ω ↦ u (σ ω) ω) ⁻¹' A = ⋃ k : ℕ, u k ⁻¹' A ∩ {ω | (σ ω : WithTop ℕ) = k} := by
-    ext ω
-    simp
-  rw [h_eq]
-  exact .iUnion fun k ↦
-    (hσ.measurableSet_inter_eq_iff _ k).2 ((hu k hA).inter (hσ.measurableSet_eq k))
-
-
 /-- **The largest expectation at a random time** [RRLK, Lemma 3]. The supremum, over the random
 times `τ` with values in `ℕ`, not necessarily stopping times, of the integral of an `ℝ≥0∞`-valued
 process read at `τ` is the integral of its supremum over time. -/
@@ -311,7 +323,9 @@ theorem iSup_lintegral_stoppedValueLimsup_eq_lintegral_iSup {mΩ : MeasurableSpa
     ⨆ τ : Ω → WithTop ℕ, ∫⁻ ω, stoppedValueLimsup u τ ω ∂μ = ∫⁻ ω, ⨆ n, u n ω ∂μ := by
   refine le_antisymm (iSup_le fun τ ↦ lintegral_mono fun ω ↦ stoppedValueLimsup_le_iSup) ?_
   rw [← iSup_lintegral_apply_eq_lintegral_iSup hu]
-  exact iSup_le fun τ ↦ le_iSup_of_le (fun ω ↦ (τ ω : WithTop ℕ)) (by simp)
+  exact iSup_le fun τ ↦ le_iSup_of_le (fun ω ↦ (τ ω : WithTop ℕ))
+    (lintegral_congr fun ω ↦ (stoppedValueLimsup_of_eq_natCast (τ := fun ω ↦ (τ ω : WithTop ℕ))
+      (ω := ω) rfl).symm).le
 
 /-! ### Events at a random time -/
 
@@ -342,16 +356,15 @@ theorem mem_stoppedEvent_of_eq_top (h : τ ω = ⊤) :
     ω ∈ stoppedEvent A τ ↔ ∃ᶠ n in atTop, ω ∈ A n := by
   simp [stoppedEvent, h, mem_limsup_iff_frequently_mem]
 
-/-- The event read at a finite random time, the coercion of an `ℕ`-valued one. -/
-@[simp]
-theorem stoppedEvent_natCast (A : ℕ → Set Ω) (τ : Ω → ℕ) :
-    stoppedEvent A (fun ω ↦ (τ ω : WithTop ℕ)) = {ω | ω ∈ A (τ ω)} :=
-  Set.ext fun _ ↦ mem_stoppedEvent_of_eq_natCast rfl
+/-- The event read at a random time that is finite everywhere is the event at its value. -/
+theorem stoppedEvent_of_forall_ne_top (A : ℕ → Set Ω) (h : ∀ ω, τ ω ≠ ⊤) :
+    stoppedEvent A τ = {ω | ω ∈ A (τ ω).untopA} :=
+  Set.ext fun ω ↦ mem_stoppedEvent_of_ne_top (h ω)
 
 /-- The event read at a constant finite time is the event at that time. -/
 theorem stoppedEvent_const (A : ℕ → Set Ω) (n : ℕ) :
     stoppedEvent A (fun _ ↦ (n : WithTop ℕ)) = A n :=
-  stoppedEvent_natCast A fun _ ↦ n
+  Set.ext fun _ ↦ mem_stoppedEvent_of_eq_natCast rfl
 
 /-- The event read at the constant time `⊤` is the `limsup` of the events. -/
 @[simp]

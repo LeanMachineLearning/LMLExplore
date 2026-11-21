@@ -13,8 +13,8 @@ public import LMLExplore.EValues.EProcess.TimeUniform
 # P-processes and sequential tests
 
 A p-process for a null hypothesis `S : Set (Measure Ω)` and a filtration `ℱ` indexed by `ℕ` is an
-adapted `ℝ≥0∞`-valued process `p` whose value `fun ω ↦ p (τ ω) ω` at every stopping time `τ` with
-values in `ℕ` is a p-variable for `S` [RW, Definition 7.10]: an anytime-valid p-value. A level-`α`
+adapted `ℝ≥0∞`-valued process `p` whose value `stoppedValue p τ` at every bounded stopping time `τ`
+is a p-variable for `S` [RW, Definition 7.10]: an anytime-valid p-value. A level-`α`
 sequential test is a `{0, 1}`-valued adapted process `φ`, which rejects the null at the times `n`
 where `φ n = 1`, that ever rejects with probability at most `α` under every member of the null.
 Together with e-processes, these are the instruments of anytime-valid sequential inference of
@@ -38,8 +38,9 @@ Since time-uniform validity does not mention the filtration
 filtration `𝒢` is one for every finer filtration [CR26, Theorem 1].
 
 The null is an arbitrary set of measures, with no dominating measure, the filtration is
-arbitrary, and p-processes and sequential tests are validated at the stopping times with values in
-`ℕ`, as e-processes are (`ProbabilityTheory.IsEProcess`).
+arbitrary, and p-processes are validated at the bounded stopping times, as e-processes are
+(`ProbabilityTheory.IsEProcess`); validity at every random time follows
+(`ProbabilityTheory.IsPProcess.measure_le_le`).
 
 ## Main definitions
 
@@ -53,6 +54,9 @@ arbitrary, and p-processes and sequential tests are validated at the stopping ti
 * `ProbabilityTheory.isPProcess_iff_measure_exists_le_le`: an adapted process is a p-process
   exactly when it is ever at most `α` with probability at most `α`, for every level `α` and every
   member of the null [RRLK, §4.1].
+* `ProbabilityTheory.IsPProcess.measure_le_le`, `ProbabilityTheory.IsPProcess.isPVar_stoppedValue`:
+  a p-process read at a random time is at most `α` with probability at most `α`, and its value at
+  a stopping time is a p-variable.
 * `ProbabilityTheory.isPProcess_iff_forall_isTimeUniform`,
   `ProbabilityTheory.isSequentialTest_iff_isTimeUniform`: p-processes and sequential tests are
   instances of time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events
@@ -101,12 +105,13 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {𝒢 ℱ : Filtration ℕ mΩ}
 /-! ### P-processes -/
 
 /-- `p : ℕ → Ω → ℝ≥0∞` is a **p-process** for the null `S` and the filtration `ℱ`: it is adapted
-and, for every stopping time `τ` with values in `ℕ`, its value `fun ω ↦ p (τ ω) ω` at `τ` is a
-p-variable for `S` [RW, Definition 7.10]. -/
+and, for every bounded stopping time `τ`, its value `stoppedValue p τ` at `τ` is a p-variable for
+`S` [RW, Definition 7.10]. Its value at every stopping time is then a p-variable
+(`ProbabilityTheory.IsPProcess.isPVar_stoppedValue`). -/
 structure IsPProcess (p : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) : Prop where
   adapted : Adapted ℱ p
-  isPVar_stoppedValue : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-    IsPVar (fun ω ↦ p (τ ω) ω) S
+  isPVar_stoppedValue_of_le ⦃τ : Ω → WithTop ℕ⦄ (hτ : IsStoppingTime ℱ τ) ⦃N : ℕ⦄
+    (hτN : ∀ ω, τ ω ≤ N) : IsPVar (stoppedValue p τ) S
 
 namespace IsPProcess
 
@@ -115,19 +120,21 @@ theorem measurable (hp : IsPProcess p ℱ S) (n : ℕ) : Measurable (p n) :=
   hp.adapted.measurable
 
 /-- The value of a p-process at every fixed time is a p-variable. -/
-theorem isPVar (hp : IsPProcess p ℱ S) (n : ℕ) : IsPVar (p n) S :=
-  hp.isPVar_stoppedValue (fun _ ↦ n) (isStoppingTime_natCast n)
+theorem isPVar (hp : IsPProcess p ℱ S) (n : ℕ) : IsPVar (p n) S := by
+  simpa only [stoppedValue_const] using
+    hp.isPVar_stoppedValue_of_le (isStoppingTime_const ℱ n) (N := n) fun _ ↦ le_rfl
 
 /-- A p-process for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hp : IsPProcess p ℱ T) : IsPProcess p ℱ S :=
-  ⟨hp.adapted, fun τ hτ ↦ (hp.isPVar_stoppedValue τ hτ).anti_set hST⟩
+  ⟨hp.adapted, fun _ hτ _ hτN ↦ (hp.isPVar_stoppedValue_of_le hτ hτN).anti_set hST⟩
 
 /-- **Domination.** An adapted process that is almost surely at least a p-process at every time,
 under every member of the null, is a p-process. -/
 theorem mono (hp : IsPProcess p ℱ S) (hq : Adapted ℱ q) (hpq : ∀ P ∈ S, ∀ n, p n ≤ᵐ[P] q n) :
     IsPProcess q ℱ S :=
-  ⟨hq, fun τ hτ ↦ (hp.isPVar_stoppedValue τ hτ).mono (hq.measurable_apply_stoppingTime hτ)
-    fun P hP ↦ by filter_upwards [ae_all_iff.2 (hpq P hP)] with ω hω using hω (τ ω)⟩
+  ⟨hq, fun _ hτ _ hτN ↦ (hp.isPVar_stoppedValue_of_le hτ hτN).mono
+    (measurable_stoppedValue_of_countable (fun _ ↦ hq.measurable) hτ.measurable')
+    fun P hP ↦ by filter_upwards [ae_all_iff.2 (hpq P hP)] with ω hω using hω _⟩
 
 /-- An adapted process equal to a p-process at every time, almost surely under every member of the
 null, is a p-process. -/
@@ -142,18 +149,25 @@ null `{P}` with `P ∈ S`. Adaptedness is needed only when `S` is empty. -/
 theorem isPProcess_iff_forall_singleton :
     IsPProcess p ℱ S ↔ Adapted ℱ p ∧ ∀ P ∈ S, IsPProcess p ℱ {P} := by
   refine ⟨fun hp ↦ ⟨hp.adapted, fun P hP ↦ hp.anti_set (singleton_subset_iff.2 hP)⟩,
-    fun ⟨hp, h⟩ ↦ ⟨hp, fun τ hτ ↦ ⟨hp.measurable_apply_stoppingTime hτ, fun P hP α ↦ ?_⟩⟩⟩
-  exact ((h P hP).isPVar_stoppedValue τ hτ).measure_le_le P (mem_singleton P) α
+    fun ⟨hp, h⟩ ↦ ⟨hp, fun _ hτ _ hτN ↦ ⟨measurable_stoppedValue_of_countable
+      (fun _ ↦ hp.measurable) hτ.measurable', fun P hP α ↦ ?_⟩⟩⟩
+  exact ((h P hP).isPVar_stoppedValue_of_le hτ hτN).measure_le_le P (mem_singleton P) α
 
 /-- **P-processes are time-uniformly valid** [RRLK, §4.1 and Lemma 2]. A process is a p-process
 exactly when, at every level `α`, the events `{p n ≤ α}` are time-uniformly valid at level `α`. -/
 theorem isPProcess_iff_forall_isTimeUniform :
     IsPProcess p ℱ S ↔ ∀ α, IsTimeUniform (fun n ↦ {ω | p n ω ≤ α}) ℱ S α := by
   refine ⟨fun hp α ↦ isTimeUniform_iff_forall_isStoppingTime.2
-    ⟨fun n ↦ hp.adapted n measurableSet_Iic, fun P hP τ hτ ↦
-      (hp.isPVar_stoppedValue τ hτ).measure_le_le P hP α⟩, fun h ↦ ?_⟩
+    ⟨fun n ↦ hp.adapted n measurableSet_Iic, fun P hP τ hτ N hτN ↦ ?_⟩, fun h ↦ ?_⟩
+  · rw [stoppedEvent_of_forall_ne_top _
+      fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)]
+    exact (hp.isPVar_stoppedValue_of_le hτ hτN).measure_le_le P hP α
   have hp : Adapted ℱ p := fun n ↦ measurable_of_Iic fun α ↦ (h α).measurableSet n
-  exact ⟨hp, fun τ hτ ↦ ⟨hp.measurable_apply_stoppingTime hτ, fun P hP α ↦ (h α).measure_le τ hP⟩⟩
+  refine ⟨hp, fun τ hτ N hτN ↦ ⟨measurable_stoppedValue_of_countable (fun _ ↦ hp.measurable)
+    hτ.measurable', fun P hP α ↦ ?_⟩⟩
+  have h_le := (h α).measure_stoppedEvent_le τ hP
+  rwa [stoppedEvent_of_forall_ne_top _
+    fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)] at h_le
 
 /-- At every level `α`, the events `{p n ≤ α}` of a p-process are time-uniformly valid at level
 `α`. -/
@@ -179,11 +193,19 @@ theorem IsPProcess.measure_exists_le_le (hp : IsPProcess p ℱ S) (hP : P ∈ S)
   (isPProcess_iff_measure_exists_le_le.1 hp).2 P hP α
 
 /-- **P-processes are valid at random times** [RRLK, Lemma 2]. Under every member of the null, a
-p-process read at a random time `τ` with values in `ℕ`, not necessarily a stopping time, is at most
-`α` with probability at most `α`. -/
-theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → ℕ) (hP : P ∈ S) (α : ℝ≥0∞) :
-    P {ω | p (τ ω) ω ≤ α} ≤ α :=
-  (hp.isTimeUniform α).measure_le τ hP
+p-process read at a random time `τ`, not necessarily a stopping time, is at most `α` with
+probability at most `α`. Where `τ` is infinite, Mathlib's `stoppedValue` reads the process at an
+arbitrary time. -/
+theorem IsPProcess.measure_le_le (hp : IsPProcess p ℱ S) (τ : Ω → WithTop ℕ) (hP : P ∈ S)
+    (α : ℝ≥0∞) : P {ω | stoppedValue p τ ω ≤ α} ≤ α :=
+  (hp.measure_exists_le_le hP α).trans' (measure_mono fun _ hω ↦ ⟨_, hω⟩)
+
+/-- The value `stoppedValue p τ` of a p-process at every stopping time is a p-variable. Where `τ`
+is infinite, Mathlib's `stoppedValue` reads the process at an arbitrary time. -/
+theorem IsPProcess.isPVar_stoppedValue (hp : IsPProcess p ℱ S) {τ : Ω → WithTop ℕ}
+    (hτ : IsStoppingTime ℱ τ) : IsPVar (stoppedValue p τ) S :=
+  ⟨measurable_stoppedValue_of_countable hp.measurable hτ.measurable',
+    fun _ hP α ↦ hp.measure_le_le τ hP α⟩
 
 /-- **p-lifting** [CR26, Theorem 1]. A p-process for a filtration `𝒢` is a p-process for every
 finer filtration `ℱ`, with no calibration: time-uniform validity does not mention the
@@ -214,7 +236,7 @@ theorem IsPProcess.iInf (hp : IsPProcess p ℱ S) : IsPProcess (fun n ω ↦ ⨅
 p-process, by Markov's inequality at each stopping time. -/
 theorem IsEProcess.isPProcess_inv (hE : IsEProcess E ℱ S) :
     IsPProcess (fun n ω ↦ (E n ω)⁻¹) ℱ S :=
-  ⟨fun n ↦ (hE.adapted n).inv, fun τ hτ ↦ (hE.isEVar_stoppedValue τ hτ).isPVar_inv⟩
+  ⟨fun n ↦ (hE.adapted n).inv, fun _ hτ _ hτN ↦ (hE.isEVar_stoppedValue_of_le hτ hτN).isPVar_inv⟩
 
 /-- **The p-process of the running maximum of an e-process** [RRLK, Proposition 12 (1); RW, §7.4].
 The inverse `(⨆ k ≤ n, E k)⁻¹` of the running maximum of an e-process is a p-process: the running
@@ -229,8 +251,8 @@ e-process `fun n ω ↦ f (p n ω)`. -/
 theorem IsPProcess.isEProcess_comp {f : ℝ≥0∞ → ℝ≥0∞} (hf : IsPToECalibrator f)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hp : IsPProcess p ℱ S) :
     IsEProcess (fun n ω ↦ f (p n ω)) ℱ S :=
-  ⟨fun n ↦ hf.measurable.comp (hp.adapted n), fun τ hτ ↦
-    hf.isEVar_comp hS (hp.isPVar_stoppedValue τ hτ)⟩
+  ⟨fun n ↦ hf.measurable.comp (hp.adapted n), fun _ hτ _ hτN ↦
+    hf.isEVar_comp hS (hp.isPVar_stoppedValue_of_le hτ hτN)⟩
 
 /-! ### Sequential tests -/
 
@@ -249,20 +271,21 @@ namespace IsSequentialTest
 theorem measurable (hφ : IsSequentialTest φ ℱ S α) (n : ℕ) : Measurable (φ n) :=
   hφ.adapted.measurable
 
-/-- Under every member of the null, a level-`α` sequential test read at a random time `τ` with
-values in `ℕ`, not necessarily a stopping time, rejects with probability at most `α`. -/
-theorem measure_eq_one_le (hφ : IsSequentialTest φ ℱ S α) (τ : Ω → ℕ) (hP : P ∈ S) :
-    P {ω | φ (τ ω) ω = 1} ≤ α :=
-  (hφ.measure_exists_eq_one_le P hP).trans' (measure_mono fun ω (hω : φ (τ ω) ω = 1) ↦ ⟨τ ω, hω⟩)
+/-- Under every member of the null, a level-`α` sequential test read at a random time `τ`, not
+necessarily a stopping time, rejects with probability at most `α`. Where `τ` is infinite, Mathlib's
+`stoppedValue` reads the test at an arbitrary time. -/
+theorem measure_eq_one_le (hφ : IsSequentialTest φ ℱ S α) (τ : Ω → WithTop ℕ) (hP : P ∈ S) :
+    P {ω | stoppedValue φ τ ω = 1} ≤ α :=
+  (hφ.measure_exists_eq_one_le P hP).trans' (measure_mono fun _ hω ↦ ⟨_, hω⟩)
 
-/-- Under every member of the null, a level-`α` sequential test read at a random time `τ` with
-values in `ℕ`, not necessarily a stopping time, has expectation at most `α`: its expectation is at
-most the probability that it rejects. -/
-theorem lintegral_le (hφ : IsSequentialTest φ ℱ S α) (τ : Ω → ℕ) (hP : P ∈ S) :
-    ∫⁻ ω, φ (τ ω) ω ∂P ≤ α := by
-  have h_ind : (fun ω ↦ φ (τ ω) ω) = {ω | φ (τ ω) ω = 1}.indicator 1 := by
+/-- Under every member of the null, a level-`α` sequential test read at a random time `τ`, not
+necessarily a stopping time, has expectation at most `α`: its expectation is at most the
+probability that it rejects. -/
+theorem lintegral_le (hφ : IsSequentialTest φ ℱ S α) (τ : Ω → WithTop ℕ) (hP : P ∈ S) :
+    ∫⁻ ω, stoppedValue φ τ ω ∂P ≤ α := by
+  have h_ind : stoppedValue φ τ = {ω | stoppedValue φ τ ω = 1}.indicator 1 := by
     ext ω
-    rcases hφ.eq_zero_or_eq_one (τ ω) ω with h | h <;> simp [h]
+    rcases hφ.eq_zero_or_eq_one (τ ω).untopA ω with h | h <;> simp [stoppedValue, h]
   rw [h_ind]
   exact (lintegral_indicator_one_le _).trans (hφ.measure_eq_one_le τ hP)
 
@@ -302,16 +325,19 @@ theorem IsSequentialTest.mono_filtration (hφ : IsSequentialTest φ 𝒢 S α) (
 
 /-- **Sequential tests are valid at stopping times** [RRLK, §4.1]. A `{0, 1}`-valued adapted
 process is a level-`α` sequential test exactly when, under every member of the null, it rejects
-at every stopping time with values in `ℕ` with probability at most `α`: the time-uniform validity
-of its events of rejection, read at stopping times. -/
+at every bounded stopping time with probability at most `α`: the time-uniform validity of its
+events of rejection, read at stopping times. -/
 theorem isSequentialTest_iff_forall_isStoppingTime :
     IsSequentialTest φ ℱ S α ↔ Adapted ℱ φ ∧ (∀ n ω, φ n ω = 0 ∨ φ n ω = 1) ∧
-      ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-        ∀ P ∈ S, P {ω | φ (τ ω) ω = 1} ≤ α := by
+      ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        ∀ P ∈ S, P {ω | stoppedValue φ τ ω = 1} ≤ α := by
   rw [isSequentialTest_iff_isTimeUniform, isTimeUniform_iff_forall_isStoppingTime]
-  exact ⟨fun ⟨hφ, h01, _, h⟩ ↦ ⟨hφ, h01, fun τ hτ P hP ↦ h P hP τ hτ⟩,
+  have h_eq {τ : Ω → WithTop ℕ} {N : ℕ} (hτN : ∀ ω, τ ω ≤ N) :
+      stoppedEvent (fun n ↦ {ω | φ n ω = 1}) τ = {ω | stoppedValue φ τ ω = 1} :=
+    stoppedEvent_of_forall_ne_top _ fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
+  exact ⟨fun ⟨hφ, h01, _, h⟩ ↦ ⟨hφ, h01, fun τ hτ N hτN P hP ↦ h_eq hτN ▸ h P hP τ hτ N hτN⟩,
     fun ⟨hφ, h01, h⟩ ↦ ⟨hφ, h01, fun n ↦ hφ n (measurableSet_singleton 1),
-      fun P hP τ hτ ↦ h τ hτ P hP⟩⟩
+      fun P hP τ hτ N hτN ↦ (h_eq hτN).symm ▸ h τ hτ N hτN P hP⟩⟩
 
 /-- **Thresholding a p-process** [RRLK, Proposition 11 (1)]. Rejecting the null at the times at
 which a p-process is at most `α` is a level-`α` sequential test. -/
@@ -334,9 +360,12 @@ gives the e-process `α⁻¹ * φ`, whose expectation at every stopping time is 
 probability of rejection. -/
 theorem IsSequentialTest.isEProcess_inv_mul (hφ : IsSequentialTest φ ℱ S α) :
     IsEProcess (fun n ω ↦ α⁻¹ * φ n ω) ℱ S :=
-  .of_lintegral_le_one (fun n ↦ (hφ.adapted n).const_mul α⁻¹) fun τ hτ P hP ↦ by
-    rw [lintegral_const_mul _ (hφ.adapted.measurable_apply_stoppingTime hτ)]
-    calc α⁻¹ * ∫⁻ ω, φ (τ ω) ω ∂P ≤ α⁻¹ * α := by gcongr; exact hφ.lintegral_le τ hP
+  .of_lintegral_le_one (fun n ↦ (hφ.adapted n).const_mul α⁻¹) fun τ hτ _ _ P hP ↦ by
+    -- the stopped value of `α⁻¹ * φ` is `α⁻¹` times that of `φ`, by definition of `stoppedValue`
+    have h_eq : stoppedValue (fun n ω ↦ α⁻¹ * φ n ω) τ = fun ω ↦ α⁻¹ * stoppedValue φ τ ω := rfl
+    rw [h_eq, lintegral_const_mul _
+      (measurable_stoppedValue_of_countable hφ.measurable hτ.measurable')]
+    calc α⁻¹ * ∫⁻ ω, stoppedValue φ τ ω ∂P ≤ α⁻¹ * α := by gcongr; exact hφ.lintegral_le τ hP
       _ ≤ 1 := ENNReal.inv_mul_le_one α
 
 /-- **Sequential tests are thresholded e-processes** [RW, Proposition 7.8 and Fact 7.6]. For a level

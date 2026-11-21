@@ -622,9 +622,9 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
     (fun n ↦ Filtration.measurable_piLE_of_dependsOn (hEm n)
       ((hEd n).mono (Set.Iio_subset_Iio n.le_succ))) ?_, monotone_blockMixture,
     fun Q₁ hQ₁ρ ↦ ?_⟩
-  · rintro τ - _ hμ
+  · rintro τ - _ - _ hμ
     obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
-    exact hEnull P hP τ
+    exact hEnull P hP fun ω ↦ (τ ω).untopA
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap
   · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0)

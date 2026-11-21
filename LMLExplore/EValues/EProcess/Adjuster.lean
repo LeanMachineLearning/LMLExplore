@@ -18,9 +18,9 @@ e-process for `ℱ`, since an e-process for `𝒢` need not be one for `ℱ`. Ch
 show how evidence moves to a finer filtration.
 
 * **p-lifting** [CR26, Lemma 1, Theorem 1]. A bound on the probability of events adapted to `𝒢`,
-  read at every stopping time of `𝒢`, is a bound on the probability of their union, which does not
-  depend on the filtration (`MeasureTheory.forall_isStoppingTime_measure_le_iff_of_le`). So a
-  p-process or a sequential test for `𝒢` is one for every finer filtration `ℱ`, at no cost
+  read at every bounded stopping time of `𝒢`, is a bound on the probability of their union, which
+  does not depend on the filtration (`MeasureTheory.forall_isStoppingTime_measure_le_iff_of_le`).
+  So a p-process or a sequential test for `𝒢` is one for every finer filtration `ℱ`, at no cost
   (`ProbabilityTheory.IsPProcess.mono_filtration` and
   `ProbabilityTheory.IsSequentialTest.mono_filtration`, in `EValues/EProcess/SequentialTest`).
 * **e-lifting** [CR26, Theorem 2]. An **adjuster** is a function `A : ℝ≥0∞ → ℝ≥0∞`, monotone on
@@ -58,11 +58,11 @@ show how evidence moves to a finer filtration.
 
 ## Implementation notes
 
-Stopping times take values in `ℕ`, as in `ProbabilityTheory.IsEProcess` and
-`ProbabilityTheory.IsPProcess`. Since an adjuster is only constrained on `[1, ∞]`, it is applied to
-`max 1` of the running maximum; [CR26] instead sets the adjusted process to `1` at time `0`. The
-converse and the characterization quantify over the probability spaces in `Type`, which contains
-the finite spaces of the construction.
+E-processes and p-processes are validated at the bounded stopping times, as in
+`ProbabilityTheory.IsEProcess` and `ProbabilityTheory.IsPProcess`. Since an adjuster is only
+constrained on `[1, ∞]`, it is applied to `max 1` of the running maximum; [CR26] instead sets the
+adjusted process to `1` at time `0`. The converse and the characterization quantify over the
+probability spaces in `Type`, which contains the finite spaces of the construction.
 
 ## References
 
