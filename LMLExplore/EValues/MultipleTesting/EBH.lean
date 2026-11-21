@@ -63,6 +63,12 @@ Theorems 9.18–9.19].
 * `ProbabilityTheory.card_eBH`, `ProbabilityTheory.mem_eBH_iff_le_mul_card`: the number of
   rejections of e-BH, and its threshold form [WR22, Proposition 1].
 * `ProbabilityTheory.mem_eBH_iff_one_le_mul`: for one hypothesis, e-BH is the e-test.
+* `ProbabilityTheory.eBH_zero`, `ProbabilityTheory.eBH_mono`,
+  `ProbabilityTheory.mem_eBH_comp_equiv`, `ProbabilityTheory.card_eBH_comp_equiv`: e-BH rejects
+  nothing at level `0`, is monotone in the level and the e-values, and commutes with relabelling
+  the hypotheses.
+* `ProbabilityTheory.measurable_eBH`, `ProbabilityTheory.measurable_eBH_id`,
+  `ProbabilityTheory.measurable_card_eBH`: e-BH and its number of rejections are measurable.
 * `ProbabilityTheory.lintegral_iSup_fdp_div_le_of_isSelfConsistent`,
   `ProbabilityTheory.lintegral_fdp_le_of_isSelfConsistent`: the post-hoc and fixed-level bounds
   on the false discovery rate of self-consistent procedures.
@@ -265,6 +271,33 @@ theorem mem_eBH_iff_one_le_mul [Unique ι] : i ∈ eBH e α ↔ 1 ≤ α * e i :
   · simpa [hR R hi] using h i hi
   · simpa [isSelfConsistent_iff] using h
 
+/-- At level `0`, e-BH rejects nothing. -/
+@[simp]
+theorem eBH_zero (e : ι → ℝ≥0∞) : eBH e 0 = ∅ :=
+  eq_empty_of_forall_notMem fun i hi ↦ by
+    have h := mem_eBH_iff_le_mul_card.1 hi
+    rw [zero_mul, zero_mul] at h
+    have : Nonempty ι := ⟨i⟩
+    exact absurd h (not_le.2 (Nat.cast_pos.2 Fintype.card_pos))
+
+/-- **e-BH is monotone** in the level and in the e-values. -/
+theorem eBH_mono {e' : ι → ℝ≥0∞} {α' : ℝ≥0∞} (hα : α ≤ α') (he : e ≤ e') :
+    eBH e α ⊆ eBH e' α' :=
+  (isSelfConsistent_eBH.mono hα he).subset_eBH
+
+/-- **e-BH commutes with relabelling the hypotheses**: for a bijection `σ : κ ≃ ι`, e-BH applied
+to `e ∘ σ` rejects `i` exactly when e-BH applied to `e` rejects `σ i`. -/
+theorem mem_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) {i : κ} : i ∈ eBH (e ∘ σ) α ↔ σ i ∈ eBH e α := by
+  have hK : Fintype.card κ = Fintype.card ι := Fintype.card_congr σ
+  have hc (k : ℕ) : #{j : κ | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e (σ j)} =
+      #{j : ι | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j} :=
+    card_equiv σ fun j ↦ by simp
+  simp only [eBH_def, mem_filter, mem_univ, true_and, Function.comp_apply, hK, hc]
+
+/-- Relabelling the hypotheses does not change the number of rejections of e-BH. -/
+theorem card_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) : #(eBH (e ∘ σ) α) = #(eBH e α) :=
+  card_equiv σ fun _ ↦ mem_eBH_comp_equiv σ
+
 /-- The e-BH rejection set is measurable in measurable e-values. -/
 theorem measurable_eBH {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, Measurable (E i)) (α : ℝ≥0∞) :
     Measurable fun ω ↦ eBH (E · ω) α := by
@@ -279,6 +312,15 @@ theorem measurable_eBH {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, Measurable (E
       ((Measurable.of_discrete (f := fun s : Finset ι ↦ #s)).comp (hset _ measurable_const))
   simp_rw [eBH_def]
   exact hset _ (measurable_const.mul (measurable_from_nat.comp hk))
+
+/-- The e-BH rejection set is measurable in the e-values. -/
+theorem measurable_eBH_id (α : ℝ≥0∞) : Measurable fun s : ι → ℝ≥0∞ ↦ eBH s α :=
+  measurable_eBH (E := fun i (s : ι → ℝ≥0∞) ↦ s i) measurable_pi_apply α
+
+/-- The number of rejections of e-BH is measurable in the e-values. -/
+theorem measurable_card_eBH (α : ℝ≥0∞) :
+    Measurable fun s : ι → ℝ≥0∞ ↦ (#(eBH s α) : ℝ≥0∞) :=
+  (measurable_of_finite fun R : Finset ι ↦ (#R : ℝ≥0∞)).comp (measurable_eBH_id α)
 
 end EBH
 
