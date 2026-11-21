@@ -170,9 +170,7 @@ private lemma le_log_bumpEVar {n : ℕ} (hn : 1 ≤ n) (x : I) :
     obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
     calc ENNReal.ofReal (Real.exp (2 * ((m + 1 : ℕ) : ℝ)))
     _ = (bumpSet (m + 1)).indicator (fun _ ↦ ENNReal.ofReal (Real.exp (2 * (m + 1)))) x := by
-      rw [indicator_of_mem hx]
-      push_cast
-      rfl
+      simp only [indicator_of_mem hx, Nat.cast_add_one]
     _ ≤ ∑' k : ℕ, (bumpSet (k + 1)).indicator
         (fun _ ↦ ENNReal.ofReal (Real.exp (2 * (k + 1)))) x :=
       le_tsum (fun k : ℕ ↦ (bumpSet (k + 1)).indicator
