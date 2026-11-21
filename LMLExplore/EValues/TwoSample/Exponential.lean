@@ -60,12 +60,11 @@ Tau Ceti's hypoexponential law (`ProbabilityTheory.map_add_prod_expMeasure_eq_wi
 density `l₁ l₂ (exp (- l₁ x) - exp (- l₂ x)) / (l₂ - l₁)` on `(0, ∞)`, which is also the
 density of the mixture of the laws `Gamma(2, 1 / m)` over the uniform mean `m`
 (`ProbabilityTheory.map_add_prod_expMeasure_eq_bind`). The numeraire is then identified
-through the effective null: the likelihood ratio is an e-variable by
-`ProbabilityTheory.isEVar_rnDeriv_comp_map`, and `Qᶜ` is a mixture of members of the null, so
-that `ProbabilityTheory.isNumeraire_of_ae_eq_rnDeriv` and
-`ProbabilityTheory.ripr_eq_of_isEVar_rnDeriv` apply. For the last statement, a finite combination
-of the laws `Gamma(2, l)` has a density `∑ c l * l ^ 2 * x * exp (- l x)`, which decays either too
-slowly or too fast at infinity compared to `exp (- min l₁ l₂ * x)`.
+through the effective null: `Qᶜ` is a mixture of members of the null and is equivalent to `Q`,
+so that the conditional numeraire theorem `ProbabilityTheory.isNumeraire_rnDeriv_comp_map` and
+its corollary `ProbabilityTheory.ripr_eq_comp_map` apply. For the last statement, a finite
+combination of the laws `Gamma(2, l)` has a density `∑ c l * l ^ 2 * x * exp (- l x)`, which
+decays either too slowly or too fast at infinity compared to `exp (- min l₁ l₂ * x)`.
 
 ## References
 
@@ -180,19 +179,6 @@ private lemma segmentUniform_comp_mem_effectiveSet (h₁ : 0 < l₁) (h₂ : 0 <
   rw [Kernel.comp_apply, gammaTwoInvKernel_apply, segmentUniform_comp_gammaMeasure hm0]
   exact subset_effectiveSet ⟨⟨m⁻¹, hm0⟩, rfl⟩
 
-/-- The likelihood ratio of `Exp(l₁) ⊗ Exp(l₂)` to its `Qᶜ` is an e-variable for the null. -/
-private lemma isEVar_rnDeriv_segmentUniform_comp (h₁ : 0 < l₁) (h₂ : 0 < l₂) :
-    IsEVar (((expMeasure l₁).prod (expMeasure l₂)).rnDeriv
-        (Kernel.segmentUniform ∘ₘ ((expMeasure l₁).prod (expMeasure l₂)).map fun x ↦ x.1 + x.2))
-      (Set.range fun l : Ioi (0 : ℝ) ↦ (expMeasure l).prod (expMeasure l)) := by
-  have := isProbabilityMeasure_expMeasure h₁
-  have := isProbabilityMeasure_expMeasure h₂
-  exact isEVar_rnDeriv_comp_map (by fun_prop) (ae_of_all _ Kernel.ae_add_segmentUniform)
-    (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
-    (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
-    (fun _ ↦ segmentUniform_comp_map_add_of_mem)
-    (fun _ ↦ map_add_absolutelyContinuous_of_mem h₁ h₂)
-
 end Null
 
 /-! ### The numeraire and the reverse information projection -/
@@ -214,11 +200,11 @@ theorem isNumeraire_rnDeriv_segmentUniform_comp (h₁ : 0 < l₁) (h₂ : 0 < l�
       ((expMeasure l₁).prod (expMeasure l₂)) := by
   have := isProbabilityMeasure_expMeasure h₁
   have := isProbabilityMeasure_expMeasure h₂
-  exact isNumeraire_of_ae_eq_rnDeriv
+  exact isNumeraire_rnDeriv_comp_map (by fun_prop) (ae_of_all _ Kernel.ae_add_segmentUniform)
+    (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
     (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
-    (isEVar_rnDeriv_segmentUniform_comp h₁ h₂)
-    (segmentUniform_comp_mem_effectiveSet h₁ h₂) (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
-    .rfl
+    (fun _ ↦ segmentUniform_comp_map_add_of_mem) (fun _ ↦ map_add_absolutelyContinuous_of_mem h₁ h₂)
+    (segmentUniform_comp_mem_effectiveSet h₁ h₂)
 
 /-- **The reverse information projection of two exponential observations** on the null of the
 products `Exp(l) ⊗ Exp(l)`, `l > 0`, is the law under which the sum of the two observations has
@@ -230,10 +216,12 @@ theorem ripr_prod_expMeasure (h₁ : 0 < l₁) (h₂ : 0 < l₂) :
       Kernel.segmentUniform ∘ₘ ((expMeasure l₁).prod (expMeasure l₂)).map fun x ↦ x.1 + x.2 := by
   have := isProbabilityMeasure_expMeasure h₁
   have := isProbabilityMeasure_expMeasure h₂
-  exact ripr_eq_of_isEVar_rnDeriv
+  exact ripr_eq_comp_map (by fun_prop) (ae_of_all _ Kernel.ae_add_segmentUniform)
+    (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
+    (absolutelyContinuous_segmentUniform_comp h₁ h₂).2
     (fun P hP ↦ (isProbabilityMeasure_of_mem_null hP).measure_univ.le)
-    (segmentUniform_comp_mem_effectiveSet h₁ h₂) (absolutelyContinuous_segmentUniform_comp h₁ h₂).1
-    (absolutelyContinuous_segmentUniform_comp h₁ h₂).2 (isEVar_rnDeriv_segmentUniform_comp h₁ h₂)
+    (fun _ ↦ segmentUniform_comp_map_add_of_mem) (fun _ ↦ map_add_absolutelyContinuous_of_mem h₁ h₂)
+    (segmentUniform_comp_mem_effectiveSet h₁ h₂)
 
 /-- **The reverse information projection is a continuous mixture of members of the null.** For
 distinct positive rates `l₁, l₂`, the law under which the sum of the two observations has its
