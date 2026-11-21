@@ -410,8 +410,9 @@ theorem ae_nonneg_one_add_sum_mul_of_mem_constraintBets (hg : ∀ i, Measurable 
   have hXY : ∀ᵐ ω ∂P, X k ω ∈ Y :=
     (ae_map_iff hX hY).1 (mem_ae_iff.2 (hYμ _ hmap))
   filter_upwards [hXY] with ω hω
-  exact (forall_ae_iff_of_noArbitrageOn hg hYna hYμ).1 (mem_constraintBets_iff.1 (hπ ω)) (X k ω)
-    hω
+  have hπY := eventually_quasiSure_iff.2 (mem_constraintBets_iff.1 (hπ ω))
+  rw [quasiSure_constraintNull_eq_principal hg hYna hYμ] at hπY
+  exact hπY hω
 
 /-- **The betting wealth is a test supermartingale** [Cle26b; RW, §7.6]. For measurable
 constraints `g i`, observations `X k` measurable for `ℱ (k + 1)` and weights `π k` measurable for

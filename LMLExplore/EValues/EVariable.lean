@@ -8,6 +8,7 @@ module
 public import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import LMLExplore.Probability.Independence.Integration
+public import LMLExplore.Probability.QuasiSure
 public import Statlib.EValues.EVariable
 
 /-!
@@ -37,6 +38,9 @@ e-variables are `ℝ≥0∞`-valued.
 
 * `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: the
   e-variables and the exact e-variables in terms of `∫⁻`.
+* `ProbabilityTheory.IsEVar.congr_quasiSure`, `ProbabilityTheory.IsEVar.mono_ae`: the set
+  of e-variables is closed under quasi-sure equality and solid in the quasi-sure order
+  (`ProbabilityTheory.quasiSure`), among measurable functions.
 * `ProbabilityTheory.isExactEVar_rnDeriv`: a likelihood ratio `Q.rnDeriv P` of a probability
   measure `Q ≪ P` is an exact e-variable for `{P}`.
 * `ProbabilityTheory.isEVar_div_singleton`: on a countable space, the likelihood ratio
@@ -109,11 +113,26 @@ theorem IsExactEVar.anti_set (hST : S ⊆ T) (hE : IsExactEVar E T) : IsExactEVa
   toIsEVar := hE.toIsEVar.anti_set hST
   lintegral_eq_one _ hP := hE.lintegral_eq_one (hST hP)
 
+/-- A measurable function quasi-surely equal to an e-variable is an e-variable: Statlib's
+`IsEVar.congr` with the quasi-sure filter. -/
+theorem IsEVar.congr_quasiSure (hE : IsEVar E S) (hF : Measurable F) (hEF : E =ᶠ[quasiSure S] F) :
+    IsEVar F S :=
+  hE.congr hF (eventuallyEq_quasiSure_iff.1 hEF)
+
+/-- The set of e-variables is solid in the quasi-sure order: a measurable function quasi-surely
+below an e-variable is an e-variable. Measurability cannot be dropped, as every e-variable is
+measurable. -/
+theorem IsEVar.mono_ae (hF : IsEVar F S) (hE : Measurable E) (hEF : E ≤ᶠ[quasiSure S] F) :
+    IsEVar E S :=
+  ⟨hE, fun _ hP ↦ (lintegral_mono_ae (ae_of_eventually_quasiSure hEF hP)).trans
+    (hF.lintegral_le_one hP)⟩
+
+/-- A measurable function quasi-surely equal to an exact e-variable is an exact e-variable. -/
 theorem IsExactEVar.congr (hE : IsExactEVar E S) (hF : Measurable F)
-    (hEF : ∀ P ∈ S, E =ᵐ[P] F) : IsExactEVar F S where
-  toIsEVar := hE.toIsEVar.congr hF hEF
+    (hEF : E =ᶠ[quasiSure S] F) : IsExactEVar F S where
+  toIsEVar := hE.toIsEVar.congr_quasiSure hF hEF
   lintegral_eq_one P hP := by
-    rw [← lintegral_congr_ae (hEF P hP), hE.lintegral_eq_one hP]
+    rw [← lintegral_congr_ae (ae_of_eventually_quasiSure hEF hP), hE.lintegral_eq_one hP]
 
 /-- The composition of an exact e-variable with a measurable map is an exact e-variable for the
 null of the measures whose image is in the original null. -/

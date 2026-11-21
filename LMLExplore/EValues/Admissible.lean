@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EVariable
-public import LMLExplore.EValues.Null.QuasiSure
 public import LMLExplore.Order.Filter.CompleteClass
 public import Statlib.EValues.Product
 public import LMLExplore.MeasureTheory.Measure.Prod
@@ -15,28 +14,31 @@ public import LMLExplore.MeasureTheory.Measure.Prod
 # Admissible e-variables
 
 An e-variable for a null `S` is admissible when no e-variable is larger in a way that the null can
-see: every e-variable that dominates it almost surely under every member of the null is equal to
-it almost surely under every member of the null. This file defines admissible and strongly
-admissible e-variables and proves their first properties: a strongly admissible e-variable is
-admissible, an exact e-variable is strongly admissible, for a simple null the admissible
-e-variables are the exact ones, which are the likelihood ratios, and products of strongly
-admissible e-variables are strongly admissible for the product null.
+see: every e-variable that dominates it quasi-surely is quasi-surely equal to it. This is the
+admissibility of `Filter.IsAdmissible` for the quasi-sure filter of the null, among the
+e-variables, so that the complete class lemmas of `LMLExplore.Order.Filter.CompleteClass` apply
+to it. This file defines admissible and strongly admissible e-variables and proves their first
+properties: a strongly admissible e-variable is admissible, an exact e-variable is strongly
+admissible, for a simple null the admissible e-variables are the exact ones, which are the
+likelihood ratios, and products of strongly admissible e-variables are strongly admissible for the
+product null.
 
 Following Statlib, the null is an arbitrary set of measures and e-variables are `ℝ≥0∞`-valued;
 exact means `∫⁻ E ∂P = 1`.
 
 ## Main definitions
 
-* `ProbabilityTheory.IsAdmissibleEVar E S`: `E` is an admissible e-variable for `S`.
+* `ProbabilityTheory.IsAdmissibleEVar E S`: `E` is an admissible e-variable for `S`, that is
+  `Filter.IsAdmissible (quasiSure S) {X | IsEVar X S} E`.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar E S`: `E` is an e-variable for `S` such that every
   measurable set charged by a member of `S` is charged by a member under which `E` is exact.
 
 ## Main statements
 
-* `ProbabilityTheory.isAdmissibleEVar_iff_isAdmissible`: an admissible e-variable is an admissible
-  bet (`Filter.IsAdmissible`) among the e-variables, for the quasi-sure order of the null.
 * `ProbabilityTheory.isAdmissibleEVar_iff_forall_le`: admissibility can be tested on the
   e-variables that dominate `E` everywhere.
+* `ProbabilityTheory.IsAdmissibleEVar.congr`: a measurable function quasi-surely equal to an
+  admissible e-variable is an admissible e-variable.
 * `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
   almost surely under a member of the null under which `E` is exact is equal to `E` almost surely
   under that member.
@@ -71,61 +73,32 @@ variable {Ω Ω' : Type*} {mΩ : MeasurableSpace Ω} {mΩ' : MeasurableSpace Ω'
 
 /-! ### Admissible e-variables -/
 
-/-- An e-variable `E` for `S` is **admissible** when every e-variable for `S` that is at least `E`
-almost surely under every member of `S` is at most `E` almost surely under every member of `S`
-[RW, Definition 2.11]. It is enough to test the e-variables that dominate `E` everywhere:
-`isAdmissibleEVar_iff_forall_le`. -/
-structure IsAdmissibleEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)) : Prop extends IsEVar E S where
-  ae_le_of_ae_le : ∀ F, IsEVar F S → (∀ P ∈ S, E ≤ᵐ[P] F) → ∀ P ∈ S, F ≤ᵐ[P] E
-
-namespace IsAdmissibleEVar
-
-/-- An e-variable that dominates an admissible e-variable almost surely under every member of the
-null is at most it almost surely under every member of the null. -/
-theorem ae_le (hE : IsAdmissibleEVar E S) (hF : IsEVar F S) (hEF : ∀ P ∈ S, E ≤ᵐ[P] F)
-    (hP : P ∈ S) : F ≤ᵐ[P] E :=
-  hE.ae_le_of_ae_le F hF hEF P hP
-
-/-- An e-variable that dominates an admissible e-variable almost surely under every member of the
-null is equal to it almost surely under every member of the null. -/
-theorem ae_eq (hE : IsAdmissibleEVar E S) (hF : IsEVar F S) (hEF : ∀ P ∈ S, E ≤ᵐ[P] F)
-    (hP : P ∈ S) : F =ᵐ[P] E :=
-  (hE.ae_le hF hEF hP).antisymm (hEF P hP)
-
-/-- A measurable function equal to an admissible e-variable almost surely under every member of
-the null is an admissible e-variable. -/
-theorem congr (hE : IsAdmissibleEVar E S) (hF : Measurable F) (hEF : ∀ P ∈ S, E =ᵐ[P] F) :
-    IsAdmissibleEVar F S where
-  toIsEVar := hE.toIsEVar.congr hF hEF
-  ae_le_of_ae_le _ hG hFG P hP :=
-    (hE.ae_le hG (fun P hP ↦ (hEF P hP).le.trans (hFG P hP)) hP).trans (hEF P hP).le
-
-end IsAdmissibleEVar
-
-/-- An e-variable is admissible exactly when it is maximal among the e-variables for the
-quasi-sure order of the null: admissibility of e-variables is the case of the quasi-sure filter and
-the set of e-variables of `Filter.IsAdmissible`, to which the minimal complete class lemma
-[LRR26, Lemma 6.2] applies. -/
-theorem isAdmissibleEVar_iff_isAdmissible :
-    IsAdmissibleEVar E S ↔ (quasiSure S).IsAdmissible {X | IsEVar X S} E :=
-  ⟨fun hE ↦ ⟨hE.toIsEVar, fun F hF hEF ↦ eventuallyLE_quasiSure_iff.2
-      (hE.ae_le_of_ae_le F hF (eventuallyLE_quasiSure_iff.1 hEF))⟩,
-    fun hE ↦ ⟨hE.mem, fun _ hF hEF ↦ eventuallyLE_quasiSure_iff.1
-      (hE.eventuallyLE hF (eventuallyLE_quasiSure_iff.2 hEF))⟩⟩
+/-- An e-variable `E` for `S` is **admissible** when every e-variable for `S` that is quasi-surely
+at least `E` is quasi-surely at most `E` [RW, Definition 2.11]: `E` is admissible among the
+e-variables for the quasi-sure order of the null (`Filter.IsAdmissible`), to which the minimal
+complete class lemma [LRR26, Lemma 6.2] applies. It is enough to test the e-variables that
+dominate `E` everywhere: `isAdmissibleEVar_iff_forall_le`. -/
+abbrev IsAdmissibleEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)) : Prop :=
+  (quasiSure S).IsAdmissible {X | IsEVar X S} E
 
 /-- An e-variable is admissible exactly when every e-variable that is at least it everywhere is
-equal to it almost surely under every member of the null: the definition of
-[RW, Definition 2.11]. -/
+quasi-surely equal to it: the definition of [RW, Definition 2.11]. -/
 theorem isAdmissibleEVar_iff_forall_le :
-    IsAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ F, IsEVar F S → E ≤ F → ∀ P ∈ S, F =ᵐ[P] E := by
-  refine ⟨fun h ↦ ⟨h.toIsEVar, fun F hF hEF P hP ↦ h.ae_eq hF (fun _ _ ↦ .of_forall hEF) hP⟩,
-    fun ⟨hE, h⟩ ↦ ⟨hE, fun F hF hEF P hP ↦ ?_⟩⟩
-  -- the maximum of `E` and `F` is an e-variable, equal to `F` almost surely, that dominates `E`
+    IsAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ F, IsEVar F S → E ≤ F → F =ᶠ[quasiSure S] E := by
+  refine ⟨fun h ↦ ⟨h.mem, fun F hF hEF ↦ h.eventuallyEq hF (.of_forall hEF)⟩,
+    fun ⟨hE, h⟩ ↦ ⟨hE, fun F hF hEF ↦ ?_⟩⟩
+  -- the maximum of `E` and `F` is an e-variable, quasi-surely equal to `F`, that dominates `E`
   have h_max : IsEVar (fun ω ↦ max (E ω) (F ω)) S :=
-    hF.congr (hE.measurable.max hF.measurable)
-      fun P hP ↦ (hEF P hP).mono fun ω hω ↦ (max_eq_right hω).symm
-  filter_upwards [h _ h_max (fun ω ↦ le_max_left _ _) P hP] with ω hω
+    hF.congr_quasiSure (hE.measurable.max hF.measurable)
+      (hEF.mono fun ω hω ↦ (max_eq_right hω).symm)
+  filter_upwards [h _ h_max (fun ω ↦ le_max_left _ _)] with ω hω
   exact (le_max_right _ _).trans hω.le
+
+/-- A measurable function quasi-surely equal to an admissible e-variable is an admissible
+e-variable: `Filter.IsAdmissible.congr`, with `IsEVar.congr_quasiSure` for the membership. -/
+theorem IsAdmissibleEVar.congr (hE : IsAdmissibleEVar E S) (hF : Measurable F)
+    (hEF : E =ᶠ[quasiSure S] F) : IsAdmissibleEVar F S :=
+  Filter.IsAdmissible.congr hE (hE.mem.congr_quasiSure hF hEF) hEF
 
 /-! ### Strongly admissible e-variables -/
 
@@ -137,14 +110,14 @@ structure IsStronglyAdmissibleEVar (E : Ω → ℝ≥0∞) (S : Set (Measure Ω)
   exists_lintegral_eq : ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
     ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1
 
-/-- A measurable function equal to a strongly admissible e-variable almost surely under every
-member of the null is a strongly admissible e-variable. -/
+/-- A measurable function quasi-surely equal to a strongly admissible e-variable is a strongly
+admissible e-variable. -/
 theorem IsStronglyAdmissibleEVar.congr (hE : IsStronglyAdmissibleEVar E S) (hF : Measurable F)
-    (hEF : ∀ P ∈ S, E =ᵐ[P] F) : IsStronglyAdmissibleEVar F S where
-  toIsEVar := hE.toIsEVar.congr hF hEF
+    (hEF : E =ᶠ[quasiSure S] F) : IsStronglyAdmissibleEVar F S where
+  toIsEVar := hE.toIsEVar.congr_quasiSure hF hEF
   exists_lintegral_eq A hA hSA := by
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
-    exact ⟨P, hP, hPA, by rw [← lintegral_congr_ae (hEF P hP), hPE]⟩
+    exact ⟨P, hP, hPA, by rw [← lintegral_congr_ae (ae_of_eventually_quasiSure hEF hP), hPE]⟩
 
 /-- If an e-variable `F` dominates `E` almost surely under a member `P` of the null under which `E`
 is exact, `∫⁻ E ∂P = 1`, then `F` is equal to `E` almost surely under `P`: the event `E < F` is
@@ -158,15 +131,16 @@ theorem IsEVar.measure_lt_eq_zero_of_ae_le (hF : IsEVar F S) (hP : P ∈ S) (hEF
 /-- A strongly admissible e-variable is admissible [RW, Corollary 2.15 (a)]. -/
 theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hE : IsStronglyAdmissibleEVar E S) :
     IsAdmissibleEVar E S where
-  toIsEVar := hE.toIsEVar
-  ae_le_of_ae_le F hF hEF P₀ hP₀ := by
+  mem := hE.toIsEVar
+  eventuallyLE F hF hEF := by
+    refine eventuallyLE_quasiSure_iff.2 fun P₀ hP₀ ↦ ?_
     by_contra h_not
     have hA : MeasurableSet {ω | E ω < F ω} := measurableSet_lt hE.measurable hF.measurable
     have hP₀A : P₀ {ω | E ω < F ω} ≠ 0 :=
       fun h0 ↦ h_not (ae_iff.2 (by simpa only [not_le] using h0))
     -- a member of the null that charges `{E < F}` and under which `E` is exact cannot charge it
     obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq _ hA ⟨P₀, hP₀, hP₀A⟩
-    exact hPA (hF.measure_lt_eq_zero_of_ae_le hP (hEF P hP) hPE)
+    exact hPA (hF.measure_lt_eq_zero_of_ae_le hP (ae_of_eventually_quasiSure hEF hP) hPE)
 
 /-- An exact e-variable is strongly admissible. -/
 theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
@@ -184,22 +158,23 @@ theorem IsExactEVar.isAdmissibleEVar (hE : IsExactEVar E S) : IsAdmissibleEVar E
 otherwise adding a positive constant gives a larger e-variable [RW, Proposition 2.12]. -/
 theorem IsAdmissibleEVar.isExactEVar_singleton [IsFiniteMeasure P] [NeZero P]
     (hE : IsAdmissibleEVar E {P}) : IsExactEVar E {P} where
-  toIsEVar := hE.toIsEVar
+  toIsEVar := hE.mem
   lintegral_eq_one := by
     simp only [mem_singleton_iff, forall_eq]
     by_contra h_ne
-    have h_lt : ∫⁻ ω, E ω ∂P < 1 := lt_of_le_of_ne (hE.toIsEVar.lintegral_le_one rfl) h_ne
+    have h_lt : ∫⁻ ω, E ω ∂P < 1 := lt_of_le_of_ne (hE.mem.lintegral_le_one rfl) h_ne
     have hP0 : P univ ≠ 0 := by simp [NeZero.ne P]
     set c : ℝ≥0∞ := (1 - ∫⁻ ω, E ω ∂P) / P univ with hc
     have hc0 : c ≠ 0 := (ENNReal.div_pos (tsub_pos_of_lt h_lt).ne' (measure_ne_top P univ)).ne'
     have hF : IsEVar (fun ω ↦ E ω + c) {P} := by
-      refine ⟨hE.measurable.add_const c, ?_⟩
+      refine ⟨hE.mem.measurable.add_const c, ?_⟩
       simp only [mem_singleton_iff, forall_eq]
       rw [lintegral_add_right _ measurable_const, lintegral_const, hc,
         ENNReal.div_mul_cancel hP0 (measure_ne_top P univ), add_tsub_cancel_of_le h_lt.le]
     have h_false : ∀ᵐ ω ∂P, False := by
-      filter_upwards [hE.ae_le hF (fun _ _ ↦ .of_forall fun ω ↦ le_self_add) (mem_singleton P),
-        hE.toIsEVar.ae_lt_top (mem_singleton P)] with ω h_le h_top
+      filter_upwards [ae_of_eventually_quasiSure
+          (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) (mem_singleton P),
+        hE.mem.ae_lt_top (mem_singleton P)] with ω h_le h_top
       have : c ≤ 0 := (ENNReal.add_le_add_iff_left h_top.ne).1 (by simpa using h_le)
       exact hc0 (le_zero_iff.1 this)
     have hP : P = 0 := ae_eq_bot.1 (Filter.eventually_false_iff_eq_bot.1 h_false)
@@ -223,7 +198,7 @@ theorem isExactEVar_singleton_iff_exists_rnDeriv [IsFiniteMeasure P] :
     exact hE.lintegral_eq_one rfl
   · have : IsProbabilityMeasure Q := ⟨hQ⟩
     refine (isExactEVar_rnDeriv hQP).congr hE ?_
-    simp only [mem_singleton_iff, forall_eq]
+    rw [quasiSure_singleton]
     exact hEQ.symm
 
 /-! ### Products -/

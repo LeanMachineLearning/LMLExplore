@@ -128,19 +128,20 @@ theorem isPVar (hp : IsPProcess p ℱ S) (n : ℕ) : IsPVar (p n) S := by
 theorem anti_set (hST : S ⊆ T) (hp : IsPProcess p ℱ T) : IsPProcess p ℱ S :=
   ⟨hp.adapted, fun _ hτ _ hτN ↦ (hp.isPVar_stoppedValue_of_le hτ hτN).anti_set hST⟩
 
-/-- **Domination.** An adapted process that is almost surely at least a p-process at every time,
-under every member of the null, is a p-process. -/
-theorem mono (hp : IsPProcess p ℱ S) (hq : Adapted ℱ q) (hpq : ∀ P ∈ S, ∀ n, p n ≤ᵐ[P] q n) :
+/-- **Domination.** An adapted process quasi-surely at least a p-process at every time is a
+p-process. -/
+theorem mono (hp : IsPProcess p ℱ S) (hq : Adapted ℱ q) (hpq : ∀ n, p n ≤ᶠ[quasiSure S] q n) :
     IsPProcess q ℱ S :=
   ⟨hq, fun _ hτ _ hτN ↦ (hp.isPVar_stoppedValue_of_le hτ hτN).mono
-    (measurable_stoppedValue_of_countable (fun _ ↦ hq.measurable) hτ.measurable')
-    fun P hP ↦ by filter_upwards [ae_all_iff.2 (hpq P hP)] with ω hω using hω _⟩
+    (measurable_stoppedValue_of_countable (fun _ ↦ hq.measurable) hτ.measurable') <|
+    eventuallyLE_quasiSure_iff.2 fun P hP ↦ by
+      filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hpq n) hP] with ω hω
+        using hω _⟩
 
-/-- An adapted process equal to a p-process at every time, almost surely under every member of the
-null, is a p-process. -/
-theorem congr (hp : IsPProcess p ℱ S) (hq : Adapted ℱ q) (hpq : ∀ P ∈ S, ∀ n, p n =ᵐ[P] q n) :
+/-- An adapted process quasi-surely equal at every time to a p-process is a p-process. -/
+theorem congr (hp : IsPProcess p ℱ S) (hq : Adapted ℱ q) (hpq : ∀ n, p n =ᶠ[quasiSure S] q n) :
     IsPProcess q ℱ S :=
-  hp.mono hq fun P hP n ↦ (hpq P hP n).le
+  hp.mono hq fun n ↦ (hpq n).le
 
 end IsPProcess
 
@@ -219,7 +220,7 @@ theorem IsPProcess.mono_filtration (hp : IsPProcess p 𝒢 S) (h𝒢ℱ : 𝒢 �
 a p-process may be taken nonincreasing. -/
 theorem isPProcess_iInf_iff (hp : Adapted ℱ p) :
     IsPProcess (fun n ω ↦ ⨅ k ≤ n, p k ω) ℱ S ↔ IsPProcess p ℱ S := by
-  refine ⟨fun h ↦ h.mono hp fun P _ n ↦ ae_of_all _ fun ω ↦ iInf_le_of_le n (iInf_le _ le_rfl),
+  refine ⟨fun h ↦ h.mono hp fun n ↦ .of_forall fun ω ↦ iInf_le_of_le n (iInf_le _ le_rfl),
     fun h ↦ ?_⟩
   refine isPProcess_iff_measure_exists_le_le.2 ⟨fun _ ↦ Measurable.iInf fun k ↦
     Measurable.iInf fun hk ↦ (hp k).mono (ℱ.mono hk) le_rfl, fun P hP α ↦ ?_⟩

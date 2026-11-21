@@ -99,8 +99,8 @@ theorem isEProcess_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   -- under `P`, the ratio is dominated by the likelihood ratio process of `Q` against `P`
   refine ((isTestSupermartingale_rnDeriv_trim (P := P) (ℱ := ℱ) hQ).isEProcess
     (by rintro _ rfl; infer_instance)).mono_ae hE ?_
-  intro P' hP' n
-  rw [mem_singleton_iff.1 hP']
+  intro n
+  rw [quasiSure_singleton]
   refine ae_le_of_ae_le_trim (hm := ℱ.le n) (Measure.rnDeriv_div_ae_le_rnDeriv (hSμ P hP n) ?_)
   -- the envelope holds almost surely for `μ` on `ℱ n`
   exact (StronglyMeasurable.ae_le_trim_iff (ℱ.le n)
