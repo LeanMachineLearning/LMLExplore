@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.ConstraintNull.Basic
 public import LMLExplore.EValues.EProcess.Basic
+public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Real
 import LMLExplore.Analysis.SpecialFunctions.Exp
@@ -59,6 +60,9 @@ finitely supported member of the null.
 
 ## Main statements
 
+* `ProbabilityTheory.oneSidedCondSubgaussianNull_eq_sequentialNull`: the null is the sequential
+  null `ProbabilityTheory.sequentialNull` of the constant one-step null `oneSidedSubgaussianNull`,
+  for the coordinates and the filtration `Filtration.piLT` of the strict past.
 * `ProbabilityTheory.exists_le_lintegral_exp_of_forall_lintegral_le_one`: one step, the
   domination of every function whose mean is at most `1` under the finitely supported members of
   `oneSidedSubgaussianNull` by a mixture of exponentials [LRR26, Theorem 4.3].
@@ -169,6 +173,70 @@ theorem mem_oneSidedSubgaussianNull_iff {μ : Measure ℝ} :
     rw [integral_sub hi (integrable_const 1), integral_const, probReal_univ, one_smul,
       sub_nonpos]
     exact hle
+
+/-- **Rational exponents suffice.** A probability measure on the line belongs to the one-sided
+`1`-sub-Gaussian null as soon as every exponential `exp (q x - q ^ 2 / 2)` with a rational
+`q ≥ 0` has mean at most `1`. -/
+theorem mem_oneSidedSubgaussianNull_of_forall_rat {μ : Measure ℝ} [IsProbabilityMeasure μ]
+    (h : ∀ q : ℚ, 0 ≤ (q : ℝ) → ∫⁻ x, ENNReal.ofReal (Real.exp (q * x - q ^ 2 / 2)) ∂μ ≤ 1) :
+    μ ∈ oneSidedSubgaussianNull := by
+  refine mem_oneSidedSubgaussianNull_iff.2 ⟨inferInstance, fun l hl ↦ ?_⟩
+  -- Fatou's lemma along rationals decreasing to `l`
+  obtain ⟨u, -, hlu, hu⟩ := Real.exists_seq_rat_strictAnti_tendsto l
+  calc ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂μ
+      = ∫⁻ x, liminf (fun n ↦ ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2))) atTop ∂μ := by
+        refine lintegral_congr fun x ↦ (Tendsto.liminf_eq ?_).symm
+        exact ENNReal.tendsto_ofReal ((Real.continuous_exp.tendsto _).comp
+          ((hu.mul_const x).sub ((hu.pow 2).div_const 2)))
+    _ ≤ liminf (fun n ↦ ∫⁻ x, ENNReal.ofReal (Real.exp (u n * x - u n ^ 2 / 2)) ∂μ) atTop :=
+        lintegral_liminf_le fun n ↦ by fun_prop
+    _ ≤ 1 := liminf_le_of_frequently_le' (.of_forall fun n ↦ h (u n) (hl.trans (hlu n).le))
+
+/-! ### The null as a sequential null -/
+
+/-- **The one-sided conditionally sub-Gaussian null is a sequential null**: that of the constant
+one-step null `oneSidedSubgaussianNull`, for the coordinates of `ℕ → ℝ` and the filtration
+`Filtration.piLT` of the strict past. A probability measure is a member exactly when, at every
+round, the coordinate has a conditional distribution given the previous coordinates that lies in
+the one-sided `1`-sub-Gaussian null almost surely. -/
+theorem oneSidedCondSubgaussianNull_eq_sequentialNull :
+    oneSidedCondSubgaussianNull =
+      sequentialNull (fun _ _ ↦ oneSidedSubgaussianNull) (fun k ω ↦ ω k) Filtration.piLT := by
+  have hg (l : ℝ) : Measurable fun x : ℝ ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) := by
+    fun_prop
+  ext P
+  rw [mem_oneSidedCondSubgaussianNull_iff, mem_sequentialNull_iff,
+    ← Filtration.piLT_eq_naturalLT]
+  refine and_congr_right fun hP ↦ ⟨fun h k ↦ ?_, fun h k l hl s hs ↦ ?_⟩
+  · -- Mathlib's `condDistrib` of the coordinate given the previous ones is the kernel; the bound
+    -- holds almost surely at each nonnegative rational, and at every `l ≥ 0` by Fatou's lemma
+    obtain ⟨κ, _, hκ⟩ : ∃ κ : Kernel[Filtration.piLT k] (ℕ → ℝ) ℝ, IsMarkovKernel κ ∧
+        HasCondDistrib (m𝓧 := Filtration.piLT k) (fun ω ↦ ω k) id κ P :=
+      ⟨_, inferInstance, hasCondDistrib_piLT_condDistrib P k⟩
+    refine ⟨κ, hκ, ?_⟩
+    -- the bound at each `l ≥ 0` holds almost surely
+    have hl (l : ℝ) (hl : 0 ≤ l) :
+        ∀ᵐ ω ∂P, ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂(κ ω) ≤ 1 := by
+      have hm := Filtration.le (Filtration.piLT (X := fun _ : ℕ ↦ ℝ)) k
+      refine ae_le_of_ae_le_trim (hm := hm) (ae_le_of_forall_setLIntegral_le_of_sigmaFinite
+        (μ := P.trim hm) (hg l).lintegral_kernel fun s hs _ ↦ ?_)
+      rw [setLIntegral_trim hm (hg l).lintegral_kernel hs, setLIntegral_const, one_mul,
+        trim_measurableSet_eq hm hs, ← hκ.hasCondLaw.setLIntegral_comp hm
+          (g := fun _ x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)))
+          ((hg l).comp (@measurable_snd _ _ (Filtration.piLT k) _)) hs]
+      exact h k l hl s hs
+    have hq : ∀ᵐ ω ∂P, ∀ q : ℚ, 0 ≤ (q : ℝ) →
+        ∫⁻ x, ENNReal.ofReal (Real.exp (q * x - q ^ 2 / 2)) ∂(κ ω) ≤ 1 :=
+      ae_all_iff.2 fun q ↦ by
+        by_cases hq : 0 ≤ (q : ℝ)
+        · exact (hl q hq).mono fun _ h _ ↦ h
+        · exact .of_forall fun _ h ↦ absurd h hq
+    filter_upwards [hq] with ω hω using mem_oneSidedSubgaussianNull_of_forall_rat hω
+  · exact (isCondEVar_comp_sequentialNull
+      (r := fun _ x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2))) (measurable_pi_apply k)
+      ((hg l).comp measurable_snd) fun _ ↦
+        ⟨hg l, fun μ hμ ↦ (mem_oneSidedSubgaussianNull_iff.1 hμ).2 l hl⟩).setLIntegral_le P
+      (mem_sequentialNull_iff.2 ⟨hP, h⟩) s hs
 
 /-- The completion step: a finitely supported measure with exponential means below `1` becomes a
 probability measure with exponential means at most `1` after a slight shrinking and the addition

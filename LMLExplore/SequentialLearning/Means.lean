@@ -18,6 +18,8 @@ environment and its mean.
 
 * `Learning.Environment.feedbackKernel_apply`: the law of the feedback of an action `k` at round `n`
   is `env.feedback n ((history O A Y n ω, O n ω), k)`.
+* `Learning.Environment.feedbackKernel_bandit`: against the stochastic bandit `bandit ν`, it is
+  `ν k`.
 * `Learning.Environment.means_eq_integral`: the mean of the feedback of `k` at round `n` is the
   integral `∫ y, y ∂env.feedback n ((history O A Y n ω, O n ω), k)`.
 -/
@@ -39,6 +41,13 @@ lemma feedbackKernel_apply (env : Environment 𝓞 𝓐 𝓨) (O : ℕ → Ω �
     (Y : ℕ → Ω → 𝓨) (n : ℕ) (ω : Ω) (k : 𝓐) :
     env.feedbackKernel O A Y n ω k = env.feedback n ((history O A Y n ω, O n ω), k) := by
   rw [feedbackKernel, Kernel.sectR_apply]
+
+/-- Against the stochastic bandit `Environment.bandit ν`, the law of the feedback of an action `a`
+is `ν a`, whatever the round and the run. -/
+lemma feedbackKernel_bandit (ν : Kernel 𝓐 𝓨) [IsMarkovKernel ν] (O : ℕ → Ω → Unit)
+    (A : ℕ → Ω → 𝓐) (Y : ℕ → Ω → 𝓨) (n : ℕ) (ω : Ω) (a : 𝓐) :
+    (bandit ν).feedbackKernel O A Y n ω a = ν a := by
+  rw [feedbackKernel_apply, feedback_bandit, Kernel.prodMkLeft_apply]
 
 /-- The mean of the feedback of an action `k` at round `n`, given the history and the observation
 of the run at `ω`, is the integral of the feedback kernel `env.feedback n` at the history, the

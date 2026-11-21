@@ -180,6 +180,16 @@ theorem restrict (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {s : Set Ω}
     (hs : MeasurableSet[ℱ 0] s) : IsENNSupermartingale M ℱ {P.restrict s} := by
   simpa using hM.ite_top_restrict hP hs
 
+/-- A supermartingale under a nonzero finite multiple `c • P` of a measure `P` is a
+supermartingale under `P`. -/
+theorem of_smul_measure {c : ℝ≥0∞} (hc : c ≠ 0) (hc' : c ≠ ∞)
+    (hM : IsENNSupermartingale M ℱ {c • P}) : IsENNSupermartingale M ℱ {P} := by
+  refine ⟨hM.adapted, fun Q hQ n s hs ↦ ?_⟩
+  rw [Set.mem_singleton_iff.1 hQ]
+  have := hM.setLIntegral_succ_le _ rfl n s hs
+  simp only [Measure.restrict_smul, lintegral_smul_measure] at this
+  exact (ENNReal.mul_le_mul_iff_right hc hc').1 this
+
 /-- The set integrals of an `ℝ≥0∞`-valued supermartingale over an `ℱ i`-measurable set do not
 increase after time `i`. -/
 theorem setLIntegral_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {i j : ℕ} (hij : i ≤ j)
