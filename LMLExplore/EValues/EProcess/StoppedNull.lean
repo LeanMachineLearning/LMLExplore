@@ -116,16 +116,20 @@ theorem measure_univ_le_one_of_mem_stoppedNull (hS : ∀ P ∈ S, P univ ≤ 1)
 
 /-! ### E-processes as e-variables on stopped paths -/
 
+/-- An e-process is a measurable function of the stopped path, for the progressive σ-algebra. -/
+theorem IsEProcess.measurable_uncurry (hE : IsEProcess E ℱ S) :
+    Measurable[ℱ.progressive] (Function.uncurry E) :=
+  Filtration.measurable_uncurry_progressive_iff.2 hE.adapted
+
 /-- **E-processes are the e-variables of the stopped null** [KG22, Section 3]. A process `E` is an
 e-process for `S` exactly when `Function.uncurry E` is an e-variable on the space of stopped paths
 for the stopped null `stoppedNull ℱ S`. No hypothesis on the null is needed. -/
 theorem isEProcess_iff_isEVar_stoppedNull :
     IsEProcess E ℱ S ↔ IsEVar (Function.uncurry E) (stoppedNull ℱ S) := by
   refine ⟨fun hE ↦ ?_, fun hE ↦ ?_⟩
-  · have hE_meas := Filtration.measurable_uncurry_progressive_iff.2 hE.adapted
-    refine ⟨hE_meas, ?_⟩
+  · refine ⟨hE.measurable_uncurry, ?_⟩
     rintro _ ⟨P, hP, τ, hτ, rfl⟩
-    rw [lintegral_stoppedLaw hτ.measurable_nat hE_meas]
+    rw [lintegral_stoppedLaw hτ.measurable_nat hE.measurable_uncurry]
     exact hE.lintegral_le_one hτ hP
   · refine .of_lintegral_le_one (Filtration.measurable_uncurry_progressive_iff.1 hE.measurable)
       fun τ hτ P hP ↦ ?_

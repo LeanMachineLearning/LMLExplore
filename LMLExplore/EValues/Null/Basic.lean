@@ -39,6 +39,9 @@ unless every factor is a probability measure.
 * `ProbabilityTheory.isEVar_mapNull_iff`, `ProbabilityTheory.isPVar_mapNull_iff`: for measurable
   `φ` and `X`, `X` is an e-variable (a p-variable) for the image of `S` by `φ` exactly when
   `X ∘ φ` is one for `S`.
+* `ProbabilityTheory.isEVar_mapNull_id_iff`: the e-variables of the null trimmed to a
+  sub-σ-algebra `m`, its image by the identity of `Ω` into `(Ω, m)`, are the `m`-measurable
+  e-variables of the null.
 * `ProbabilityTheory.iidNull_subset_indepNull`: an i.i.d. sequence is an independent sequence.
 * `ProbabilityTheory.mapNull_initSeg_iidNull`: for a null of probability measures, the first `n`
   terms of the sequences of `iidNull S₁` have the laws of `sampleNull S₁ n`.
@@ -139,6 +142,17 @@ theorem isEVar_mapNull_iff (hφ : Measurable φ) {X : Ω' → ℝ≥0∞} (hX : 
   rintro _ ⟨P, hP, rfl⟩
   rw [lintegral_map hX hφ]
   exact h.lintegral_le_one hP
+
+/-- **The null trimmed to a sub-σ-algebra.** For a sub-σ-algebra `m ≤ mΩ`, the e-variables on
+`(Ω, m)` of the image `mapNull id S` of `S` by the identity of `Ω` into `(Ω, m)`, whose members
+are the restrictions `P.trim hm` of the members of `S`, are the e-variables for `S` that are
+`m`-measurable. -/
+theorem isEVar_mapNull_id_iff {m : MeasurableSpace Ω} (hm : m ≤ mΩ) {X : Ω → ℝ≥0∞} :
+    IsEVar (m𝓧 := m) X (@mapNull _ _ _ m id S) ↔ IsEVar X S ∧ Measurable[m] X := by
+  have hid : Measurable[mΩ, m] id := measurable_id'' hm
+  refine ⟨fun h ↦ ⟨?_, h.measurable⟩, fun h ↦ ?_⟩
+  · exact (@isEVar_mapNull_iff _ _ _ m _ _ hid _ h.measurable).1 h
+  · exact (@isEVar_mapNull_iff _ _ _ m _ _ hid _ h.2).2 h.1
 
 /-- A measurable `p` is a p-variable for the image of `S` by a measurable map `φ` exactly when
 `p ∘ φ` is a p-variable for `S`. `IsPVar.comp` is the forward direction. -/

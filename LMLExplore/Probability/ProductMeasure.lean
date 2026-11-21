@@ -64,6 +64,12 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   after them is the product of the expectations.
 * `MeasureTheory.Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure`: the infinite product
   is `0` as soon as one factor is not a probability measure.
+* `MeasureTheory.Measure.infinitePi_update`, `MeasureTheory.Measure.lintegral_infinitePi_update`:
+  a product with the factor `j` replaced by `ν` is the law of a point of the product with the
+  coordinate `j` replaced by an independent draw from `ν`, and Tonelli's theorem at that
+  coordinate.
+* `MeasureTheory.Measure.lintegral_infinitePi_congr_of_dependsOn`: the integral of a function of
+  finitely many coordinates only depends on the factors of these coordinates.
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
   from the convex combinations of finitely many probability measures to every probability measure
   in their linear span.
@@ -319,6 +325,78 @@ lemma lintegral_infinitePi_eq_of_add_sum_eq_sum {𝓧 ι : Type*} {m𝓧 : Measu
   · have := isProbabilityMeasure_sum_smul (P := P) hw
     rw [← h _ hf']
     exact hf_ne w hw
+
+section Update
+
+variable {ι : Type*} {X : ι → Type*} [∀ i, MeasurableSpace (X i)]
+
+/-- **A product with one factor replaced.** The product of probability measures `μ i` in which the
+factor `j` is replaced by `ν` is the law of a point drawn from the product of the `μ i`, in which
+the coordinate `j` is replaced by an independent draw from `ν`. -/
+theorem infinitePi_update [DecidableEq ι] (μ : (i : ι) → Measure (X i))
+    [∀ i, IsProbabilityMeasure (μ i)] (j : ι) (ν : Measure (X j)) [IsProbabilityMeasure ν] :
+    infinitePi (Function.update μ j ν) =
+      ((infinitePi μ).prod ν).map fun p ↦ Function.update p.1 j p.2 := by
+  have : ∀ i, IsProbabilityMeasure (Function.update μ j ν i) := fun i ↦ by
+    rcases eq_or_ne i j with rfl | h
+    · rwa [Function.update_self]
+    · rw [Function.update_of_ne h]
+      infer_instance
+  refine (eq_infinitePi _ fun s t ht ↦ ?_).symm
+  rw [map_apply measurable_update' (.pi s.countable_toSet fun i _ ↦ ht i)]
+  have h_pre : (fun p : (Π i, X i) × X j ↦ Function.update p.1 j p.2) ⁻¹' (s : Set ι).pi t =
+      ((s.erase j : Finset ι) : Set ι).pi t ×ˢ (if j ∈ s then t j else Set.univ) := by
+    ext ⟨ω, x⟩
+    simp only [Set.mem_preimage, Set.mem_pi, Set.mem_prod, Finset.mem_coe, Finset.mem_erase]
+    refine ⟨fun h ↦ ⟨fun i hi ↦ ?_, ?_⟩, fun h i hi ↦ ?_⟩
+    · simpa [Function.update_of_ne hi.1] using h i hi.2
+    · split_ifs with hj
+      · simpa using h j hj
+      · exact Set.mem_univ x
+    · rcases eq_or_ne i j with rfl | hij
+      · simpa [hi] using h.2
+      · simpa [Function.update_of_ne hij] using h.1 i ⟨hij, hi⟩
+  rw [h_pre, prod_prod, infinitePi_pi _ fun i _ ↦ ht i]
+  by_cases hj : j ∈ s
+  · rw [ite_eq_left hj, ← Finset.mul_prod_erase s _ hj, Function.update_self, mul_comm]
+    congr 1
+    exact Finset.prod_congr rfl fun i hi ↦ by
+      rw [Function.update_of_ne (Finset.ne_of_mem_erase hi)]
+  · rw [ite_eq_right hj, measure_univ, mul_one, Finset.erase_eq_of_notMem hj]
+    exact Finset.prod_congr rfl fun i hi ↦ by
+      rw [Function.update_of_ne (ne_of_mem_of_not_mem hi hj)]
+
+/-- **Tonelli's theorem at one coordinate.** The integral under a product of probability measures
+in which the factor `j` is `ν` is the integral, in the coordinate `j` under `ν`, of the integral
+under the product of the `μ i` with the coordinate `j` replaced. -/
+theorem lintegral_infinitePi_update [DecidableEq ι] (μ : (i : ι) → Measure (X i))
+    [∀ i, IsProbabilityMeasure (μ i)] (j : ι) (ν : Measure (X j)) [IsProbabilityMeasure ν]
+    {f : (Π i, X i) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ ω, f ω ∂infinitePi (Function.update μ j ν) =
+      ∫⁻ x, ∫⁻ ω, f (Function.update ω j x) ∂infinitePi μ ∂ν := by
+  rw [infinitePi_update, lintegral_map hf measurable_update']
+  exact lintegral_prod_symm _ (hf.comp measurable_update').aemeasurable
+
+/-- The integral of a function of finitely many coordinates under a product of probability
+measures only depends on the factors of these coordinates. -/
+theorem lintegral_infinitePi_congr_of_dependsOn {μ μ' : (i : ι) → Measure (X i)}
+    [∀ i, IsProbabilityMeasure (μ i)] [∀ i, IsProbabilityMeasure (μ' i)] {s : Finset ι}
+    (h : ∀ i ∈ s, μ i = μ' i) {f : (Π i, X i) → ℝ≥0∞} (hf : Measurable f)
+    (hfs : DependsOn f s) :
+    ∫⁻ ω, f ω ∂infinitePi μ = ∫⁻ ω, f ω ∂infinitePi μ' := by
+  classical
+  rcases isEmpty_or_nonempty (Π i, X i) with hX | ⟨⟨x₀⟩⟩
+  · simp [lintegral_of_isEmpty]
+  set g : (Π i : s, X i) → ℝ≥0∞ := fun y ↦ f (Function.updateFinset x₀ s y)
+  have hfg (ω : Π i, X i) : f ω = g (s.restrict ω) :=
+    hfs fun i hi ↦ by simp [Function.updateFinset, Finset.mem_coe.1 hi]
+  have hg : Measurable g := hf.comp measurable_updateFinset
+  simp_rw [hfg]
+  rw [lintegral_restrict_infinitePi μ hg, lintegral_restrict_infinitePi μ' hg]
+  congr 2
+  exact funext fun i ↦ h i i.2
+
+end Update
 
 end MeasureTheory.Measure
 

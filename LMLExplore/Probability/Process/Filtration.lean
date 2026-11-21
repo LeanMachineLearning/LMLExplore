@@ -10,6 +10,7 @@ public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Independence.InfinitePi
 public import Mathlib.Probability.Process.Stopping
 public import Statlib.ForMathlib.Probability.Process.Filtration
+import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
 # The filtration of the strict past of a process
@@ -51,6 +52,8 @@ are stopping times.
   sequence are measurable at time `n` of `piLT`.
 * `MeasureTheory.Filtration.piLT_eq_comap_initSeg`: time `n` of `piLT` is the σ-algebra generated
   by the first `n` terms of a sequence.
+* `Measurable.dependsOn_of_piLT`: a function measurable at time `n` of `piLT` only depends on the
+  first `n` coordinates.
 * `MeasureTheory.Filtration.measurable_piLE_initSeg`,
   `MeasureTheory.Filtration.adapted_piLE_comp_initSeg`,
   `MeasureTheory.Filtration.isStoppingTime_piLE_comp_initSeg`: the first `k` terms are measurable
@@ -176,6 +179,23 @@ lemma piLT_eq_comap_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] (n : ℕ) :
   refine le_antisymm ?_ (measurable_piLT_initSeg le_rfl).comap_le
   rw [piLT_eq_naturalLT, initSeg_def]
   exact naturalLT_eval_le_comap n
+
+/-- A function that is measurable at time `n` of the strict past `Filtration.piLT` of the
+coordinates of a sequence only depends on the first `n` coordinates, as
+`Measurable.dependsOn_of_piLE` for Mathlib's `Filtration.piLE`. -/
+lemma _root_.Measurable.dependsOn_of_piLT {Z : Type*} [MeasurableSpace Z]
+    [MeasurableSingletonClass Z] {f : (Π n, X n) → Z} {n : ℕ}
+    (hf : Measurable[piLT (X := X) n] f) : DependsOn f (Set.Iio n) := by
+  intro ω ω' h
+  cases n with
+  | zero =>
+    rw [piLT_zero] at hf
+    have : Nonempty Z := ⟨f ω⟩
+    obtain ⟨c, rfl⟩ := eq_const_of_measurable_bot hf
+    rfl
+  | succ n =>
+    rw [piLT_add_one] at hf
+    exact hf.dependsOn_of_piLE fun i hi ↦ h i (Nat.lt_succ_of_le hi)
 
 end piLTNat
 
