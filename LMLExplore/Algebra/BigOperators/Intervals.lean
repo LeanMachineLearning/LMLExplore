@@ -32,6 +32,10 @@ the time-uniform deviation bounds of [LS, Lemma 33.8], thus spends at most `δ` 
 * `LMLExplore.sum_range_add_ite`:
   `∑ k < m + L, (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j < L, F (m + j)`, reindexing a sum
   over a final block of indices.
+* `LMLExplore.sum_Ioc_eq_sum_range_ite`, `LMLExplore.sum_range_ite_lt`: a sum over the indices
+  `a < k ≤ n` as a sum over a range, restricted by a condition on the index.
+* `LMLExplore.sum_range_card_le_sum`: a monotone function summed over a finite set `R` of natural
+  numbers is at least its sum over `range #R`.
 * `LMLExplore.prod_range_add_mod`, `LMLExplore.sum_range_add_mod`:
   `∑ x < K, f ((z + x) % K) = ∑ x < K, f x`, a sum over a full period of residues does not depend
   on its starting point.
@@ -95,6 +99,42 @@ theorem sum_range_add_ite {M : Type*} [AddCommMonoid M] (m L : ℕ) (F : ℕ →
     ∑ k ∈ range (m + L), (if m ≤ k ∧ k < m + L then F k else 0) = ∑ j ∈ range L, F (m + j) := by
   rw [sum_range_add, sum_eq_zero fun k hk ↦ ite_eq_right fun h ↦ by simp at hk; lia, zero_add]
   exact sum_congr rfl fun j hj ↦ ite_eq_left ⟨by lia, by simp at hj; lia⟩
+
+/-- A sum over the indices `j < k ≤ n` is a sum over the shifted indices `k < n` restricted to
+`j ≤ k`: `∑_{j < k ≤ n} F k = ∑_{k < n} (if j ≤ k then F (k + 1) else 0)`. -/
+theorem sum_Ioc_eq_sum_range_ite {M : Type*} [AddCommMonoid M] (j n : ℕ) (F : ℕ → M) :
+    ∑ k ∈ Ioc j n, F k = ∑ k ∈ range n, if j ≤ k then F (k + 1) else 0 := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [sum_range_succ, ← ih]
+    by_cases hj : j ≤ n
+    · rw [sum_Ioc_succ_top hj, ite_eq_left hj]
+    · rw [ite_eq_right hj, add_zero, Ioc_eq_empty (by lia), Ioc_eq_empty (by lia)]
+
+/-- A sum over the indices `k ≤ n` restricted to `a < k` is the sum over the indices
+`a < k ≤ n`: `∑_{k < n + 1} (if a < k then F k else 0) = ∑_{a < k ≤ n} F k`. -/
+theorem sum_range_ite_lt {M : Type*} [AddCommMonoid M] (a n : ℕ) (F : ℕ → M) :
+    ∑ k ∈ range (n + 1), (if a < k then F k else 0) = ∑ k ∈ Ioc a n, F k := by
+  rw [← sum_filter]
+  congr 1
+  ext k
+  simp only [mem_filter, mem_range, mem_Ioc]
+  lia
+
+/-- A monotone function summed over a finite set `R` of natural numbers is at least its sum over
+the first `#R` natural numbers: `∑_{t < #R} g t ≤ ∑_{i ∈ R} g i`. -/
+theorem sum_range_card_le_sum {M : Type*} [AddCommMonoid M] [PartialOrder M]
+    [IsOrderedAddMonoid M] {g : ℕ → M} (hg : Monotone g) (R : Finset ℕ) :
+    ∑ t ∈ range #R, g t ≤ ∑ i ∈ R, g i := by
+  induction R using Finset.induction_on_max with
+  | empty => simp
+  | insert a s has ih =>
+    have ha : a ∉ s := fun h ↦ lt_irrefl _ (has a h)
+    have hcard : #s ≤ a :=
+      (card_le_card fun x hx ↦ mem_range.2 (has x hx)).trans_eq (card_range a)
+    rw [card_insert_of_notMem ha, sum_range_succ, sum_insert ha, add_comm]
+    exact add_le_add (hg hcard) ih
 
 /-- A product over a full period of residues modulo `K` does not depend on its starting point `z`:
 `∏_{x < K} f ((z + x) % K) = ∏_{x < K} f x`. -/

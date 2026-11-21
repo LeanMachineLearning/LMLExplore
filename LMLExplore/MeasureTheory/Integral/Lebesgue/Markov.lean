@@ -6,15 +6,17 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Markov
+public import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 
 /-!
-# Markov's inequality for counts
+# Markov's inequality for counts and for nonincreasing functions
 
 If each event of a finite family has probability at most `η`, then the expected number of events
 that occur is at most `#S * η`, so by Markov's inequality at least `m` of them occur with
 probability at most `#S * η / m`. In the same way, a count `U` whose integral, scaled by `d > 0`,
-is at most `C` reaches `K` with probability at most `C / (d K)`.
+is at most `C` reaches `K` with probability at most `C / (d K)`. A function nonincreasing on
+`[a, b]` is at least `f u` on `[a, u]`, so `(u - a) f u` is at most its integral over `[a, b]`.
 
 ## Main statements
 
@@ -23,6 +25,9 @@ is at most `C` reaches `K` with probability at most `C / (d K)`.
   at most `c η`.
 * `MeasureTheory.measure_natCast_le_le_of_mul_lintegral_le`: if `d ∫⁻ U ≤ C` and `C ≤ d K ε`
   with `0 < d`, then `U` is at least `K` with probability at most `ε`.
+* `AntitoneOn.ofReal_sub_mul_le_setLIntegral_Icc`: a function nonincreasing on `[a, b]` satisfies
+  `(u - a) f u ≤ ∫⁻_{[a, b]} f` for `u ∈ [a, b]`, so that `f u` is at most `∫⁻_{[0, 1]} f / u` on
+  `[0, 1]`.
 -/
 
 public section
@@ -84,3 +89,20 @@ lemma measure_natCast_le_le_of_mul_lintegral_le {U : Ω → ℝ≥0∞} (hU : AE
           ENNReal.ofReal_mul hd.le, ENNReal.ofReal_natCast, ENNReal.ofReal_coe_nnreal]
 
 end MeasureTheory
+
+namespace AntitoneOn
+
+open MeasureTheory
+
+/-- **Markov's inequality for a nonincreasing function**: a function `f` nonincreasing on `[a, b]`
+is at least `f u` on `[a, u]`, so `(u - a) f u ≤ ∫⁻_{[a, b]} f` for `u ∈ [a, b]`. -/
+theorem ofReal_sub_mul_le_setLIntegral_Icc {f : ℝ → ℝ≥0∞} {a b u : ℝ}
+    (hf : AntitoneOn f (Set.Icc a b)) (hu : u ∈ Set.Icc a b) :
+    ENNReal.ofReal (u - a) * f u ≤ ∫⁻ v in Set.Icc a b, f v :=
+  calc ENNReal.ofReal (u - a) * f u = ∫⁻ _ in Set.Icc a u, f u := by
+        rw [setLIntegral_const, Real.volume_Icc, mul_comm]
+    _ ≤ ∫⁻ v in Set.Icc a u, f v :=
+        setLIntegral_mono' measurableSet_Icc fun v hv ↦ hf ⟨hv.1, hv.2.trans hu.2⟩ hu hv.2
+    _ ≤ ∫⁻ v in Set.Icc a b, f v := lintegral_mono_set (Set.Icc_subset_Icc le_rfl hu.2)
+
+end AntitoneOn
