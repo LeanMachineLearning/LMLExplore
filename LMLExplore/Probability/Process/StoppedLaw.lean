@@ -36,7 +36,16 @@ one measurable space: e-processes are the e-variables of the stopped laws of a n
 * `MeasureTheory.stoppedLaw_univ`: a stopped law has the mass of the measure.
 * `MeasureTheory.lintegral_sum_smul_stoppedLaw_const`: under the mixture over a measure `ρ` on the
   times of the stopped laws at the constant times, the integral of a progressive function `f` is
-  `∑' i, ρ {i} * ∫⁻ ω, f (i, ω) ∂P`.
+  `∑' i, ρ {i} * ∫⁻ ω, f (i, ω) ∂P`; it is a probability measure when `ρ` and `P` are.
+
+## Implementation notes
+
+The stopped paths and their laws are adapted from the file `notes/lean-wip/StoppedPaths.lean`
+(commit `c6c6ba8`) of the paper project `RemyDegenne/evalues_research` (Apache 2.0), which works
+with a σ-algebra of its own on `ℕ × Ω`; here it is Tau Ceti's progressive σ-algebra, which for a
+countable index has the same measurable sets
+(`Filtration.measurableSet_progressive_iff_of_countable`), and the index is any countable preorder
+with measurable singletons.
 
 ## References
 
@@ -118,8 +127,8 @@ theorem lintegral_sum_smul_stoppedLaw_const (ρ : Measure ι) (P : Measure Ω) {
 
 /-- The mixture over a probability measure on the times of the stopped laws of a probability
 measure at the constant times is a probability measure. -/
-theorem isProbabilityMeasure_sum_smul_stoppedLaw_const (ρ : Measure ι) [IsProbabilityMeasure ρ]
-    (P : Measure Ω) [IsProbabilityMeasure P] :
+instance isProbabilityMeasure_sum_smul_stoppedLaw_const {ρ : Measure ι} [IsProbabilityMeasure ρ]
+    {P : Measure Ω} [IsProbabilityMeasure P] :
     IsProbabilityMeasure (Measure.sum fun i ↦ ρ {i} • stoppedLaw ℱ P fun _ ↦ i) := by
   constructor
   have h := lintegral_sum_smul_stoppedLaw_const (ℱ := ℱ) ρ P (f := fun _ ↦ 1)
