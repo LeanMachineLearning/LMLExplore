@@ -20,6 +20,13 @@ under which a prior on a location parameter is compared with its mixtures.
 
 * `TauCeti.Probability.laplaceMeasure_map_add_le`:
   `(laplaceMeasure μ b).map (· + u) ≤ exp (b⁻¹ |u|) • laplaceMeasure μ b`.
+
+## Implementation notes
+
+This bound is adapted from `laplace_density_sub_le` and `map_add_laplaceMeasure_le` in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`, which use a Laplace prior of their own, of rate
+`b` and centred at `0`; it is stated here for Tau Ceti's Laplace law of any location and scale.
 -/
 
 public section

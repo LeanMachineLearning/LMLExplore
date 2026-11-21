@@ -32,6 +32,21 @@ under translation compares the mixtures of a location family with the prior itse
   `(∫⁻ exp (-b |u|) ∂ν) • ρ ≤ ρ ∗ ν`.
 * `MeasureTheory.Measure.ofReal_mul_exp_smul_le_conv_of_forall_map_add_le`:
   `ν(ℝ) exp (-b ⨍ |u| ∂ν) • ρ ≤ ρ ∗ ν` when `ν` has a first moment, by Jensen's inequality.
+
+## Implementation notes
+
+These bounds are the domination step of [EVR26, Note 29], where a log-Lipschitz prior compares
+the mixtures of the nulls of a scale family with the prior. They are adapted from
+`nonneg_of_map_add_le`, `smul_le_map_add`, `ofReal_exp_neg_le_lintegral` and `smul_le_map_prod` in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`, stated there for probability measures `ν`, and
+restated here through Mathlib's `Measure.conv`; the Jensen step reuses
+`ofReal_measureReal_mul_exp_average_le_lintegral` instead of reproving it.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, Note 29, and the
+  Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 -/
 
 public section

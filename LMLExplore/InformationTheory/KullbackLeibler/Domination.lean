@@ -30,6 +30,19 @@ Two bounds that turn a comparison of measures into a bound on an expected logari
   `μ ≤ ν.withDensity (exp ∘ g)`, `KL(μ ‖ ν) ≤ ∫ᵉ g ∂μ`.
 * `InformationTheory.lintegral_toENNReal_log_ne_top_of_klDiv_ne_top`: for `KL(Q ‖ P) < ∞` and
   `∫⁻ X ∂P ≤ 1`, `∫⁻ (log X)⁺ ∂Q < ∞`.
+
+## Implementation notes
+
+Both bounds are steps of the GROW theorem for a scale family [EVR26, Note 29]. They are adapted
+from the lemmas of the same names in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`, with the probability-measure hypotheses of the
+second one weakened to finite measures.
+
+## References
+
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, Note 29, and the
+  Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026.
 -/
 
 public section

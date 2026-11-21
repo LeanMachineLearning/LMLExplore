@@ -20,6 +20,12 @@ import LMLExplore.Data.EReal.Inv
 * `ENNReal.neg_log_div_le_of_ofReal_exp_le`: for `0 < n`, if `exp (-(n r)) ≤ x`, then
   `-(log x) / n ≤ r`.
 * `ENNReal.toENNReal_log_le_div_add`: for `0 < r < ∞`, `(log a)⁺ ≤ a / r + (log r)⁺`.
+
+## Implementation notes
+
+`toENNReal_log_le_div_add` is adapted from the lemma of the same name in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`.
 -/
 
 public section

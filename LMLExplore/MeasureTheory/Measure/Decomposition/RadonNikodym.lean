@@ -30,6 +30,12 @@ members.
   `ξ`-a.e., `μ.rnDeriv ξ / f` is `ν`-a.e. at most `μ.rnDeriv ν`.
 * `MeasureTheory.Measure.rnDeriv_le_of_le_withDensity`: for `μ ≤ ν.withDensity f`,
   `μ.rnDeriv ν` is `ν`-a.e. at most `f`.
+
+## Implementation notes
+
+`rnDeriv_le_of_le_withDensity` is adapted from the lemma of the same name in
+`EValuesResearch/Results/TTestGrowAux.lean` (commit `562b62e`) of the paper project
+`RemyDegenne/evalues_research`.
 -/
 
 public section
