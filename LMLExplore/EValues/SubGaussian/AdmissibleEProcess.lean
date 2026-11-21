@@ -7,10 +7,11 @@ module
 
 public import LMLExplore.EValues.EProcess.Admissible
 public import LMLExplore.EValues.Null.Basic
+public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.Calculus.MeanValue
-import LMLExplore.Probability.Martingale.TestSupermartingale
+import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.Probability.Distributions.Gaussian.Real
 import LMLExplore.Probability.Moments.IntegrableExpMul
 import LMLExplore.Probability.Moments.SubGaussian.Basic
@@ -20,17 +21,17 @@ import Mathlib.Analysis.Convex.Deriv
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Mathlib.Analysis.SpecialFunctions.Sigmoid
 import Statlib.ForMathlib.MeasureTheory.Measure.Decomposition.RNDerivProd
-import Statlib.ForMathlib.Probability.Process.Filtration
+import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
 # Admissibility of the sub-Gaussian exponential e-process for nonatomic i.i.d. laws
 
 Observe a sequence `X 0, X 1, …` of real numbers, the coordinates of `ℕ → ℝ`, with the filtration
-`MeasureTheory.Filtration.piLE`, so that time `n` has seen the `n + 1` observations
-`X 0, …, X n`. The null is the set of the i.i.d. laws whose marginal `μ` is `1`-sub-Gaussian
+`MeasureTheory.Filtration.piLT`, so that time `n` has seen the `n` observations
+`X 0, …, X (n - 1)`. The null is the set of the i.i.d. laws whose marginal `μ` is `1`-sub-Gaussian
 (`∫ exp (t x) ∂μ ≤ exp (t ^ 2 / 2)` for every real `t`, Mathlib's `HasSubgaussianMGF id 1 μ`) and
 has no atom (`MeasureTheory.NullSingletonClass μ`). The process
-`E n = exp (∑ i ≤ n, X i - (n + 1) / 2)` is a test supermartingale for this null, hence an
+`E n = exp (∑ i < n, X i - n / 2)` is a test supermartingale for this null, hence an
 e-process, and it is admissible: every e-process that is at least `E` at every time, almost surely
 under every member of the null, is equal to `E` at every time, almost surely under every member of
 the null. Ramdas, Ruf, Larsson and Koolen prove the admissibility of this process for the larger
@@ -50,7 +51,7 @@ Call a law `ν` touching when it is a nonatomic `1`-sub-Gaussian law with
 martingale, so an e-process that dominates it is equal to it almost surely. It then suffices that
 every event of time `n` charged by the i.i.d. law of a member of the null is charged by the i.i.d.
 law of a touching law (`ProbabilityTheory.IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq`).
-Such an event is a Borel set of the first `n + 1` coordinates, so it is enough that every finite
+Such an event is a Borel set of the first `n` coordinates, so it is enough that every finite
 nonatomic measure `m` carried by a compact interval `[-b, b]` is absolutely continuous with respect
 to a touching law.
 
@@ -65,6 +66,10 @@ touching law with strict slack away from `0` and `1`. The coefficients `c j` mat
 mean and the moments `∫ exp x` and `∫ x exp x` of `m`, which is possible because the moment
 vectors of the four components form a basis of `ℝ ^ 4`; so the perturbation vanishes to second
 order at `0` and `1`, and for `c₀ > 0` small the slack of the base law absorbs it.
+
+The process is the product `∏ i < n, exp (X i - 1 / 2)` of copies of an e-variable for the
+marginals, so that it is a test supermartingale by
+`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLT`.
 
 The proof is adapted from `EValuesResearch/Results/SubGaussian.lean` (commit `dd4072f`) in the
 paper project `RemyDegenne/evalues_research` (same author), the Lean proof of
@@ -95,9 +100,9 @@ namespace ProbabilityTheory
 
 /-! ### The exponential process is a test supermartingale -/
 
-/-- The exponential process `exp (∑ i ≤ n, X i - (n + 1) / 2)`. -/
+/-- The exponential process `exp (∑ i < n, X i - n / 2)`. -/
 private noncomputable def expProcess (n : ℕ) (ω : ℕ → ℝ) : ℝ≥0∞ :=
-  ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range (n + 1), ω i - (n + 1) / 2))
+  ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range n, ω i - n / 2))
 
 /-- The factor `exp (x - 1 / 2)` of the exponential process. -/
 private noncomputable def expFactor (x : ℝ) : ℝ≥0∞ := ENNReal.ofReal (Real.exp (x - 1 / 2))
@@ -106,64 +111,26 @@ private noncomputable def expFactor (x : ℝ) : ℝ≥0∞ := ENNReal.ofReal (Re
 private lemma measurable_expFactor : Measurable expFactor := by unfold expFactor; fun_prop
 
 /-- The exponential process is the product of its factors. -/
-private lemma expProcess_eq_mul_prod (n : ℕ) (ω : ℕ → ℝ) :
-    expProcess n ω = expFactor (ω 0) * ∏ k ∈ Finset.range n, expFactor (ω (k + 1)) := by
-  have h : ∑ i ∈ Finset.range (n + 1), ω i - (n + 1) / 2 =
-      ∑ i ∈ Finset.range (n + 1), (ω i - 1 / 2) := by
+private lemma expProcess_eq_prod (n : ℕ) (ω : ℕ → ℝ) :
+    expProcess n ω = ∏ i : Fin n, expFactor (ω i) := by
+  have h : ∑ i ∈ Finset.range n, ω i - n / 2 = ∑ i ∈ Finset.range n, (ω i - 1 / 2) := by
     rw [Finset.sum_sub_distrib]
     simp only [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
-    push_cast
     ring
   rw [expProcess, h, Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le,
-    Finset.prod_range_succ', mul_comm]
+    ← Fin.prod_univ_eq_prod_range (fun i ↦ ENNReal.ofReal (Real.exp (ω i - 1 / 2)))]
   simp only [expFactor]
-
-/-- The factor of the exponential process at the coordinate `k` is measurable with respect to the
-first `j + 1` coordinates for `k ≤ j`. -/
-private lemma measurable_expFactor_apply {k j : ℕ} (hkj : k ≤ j) :
-    Measurable[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) j] fun ω : ℕ → ℝ ↦ expFactor (ω k) :=
-  measurable_expFactor.comp (Filtration.measurable_piLE_apply hkj)
-
-/-- For i.i.d. sampling from probability laws `μ` with `∫⁻ exp (x - 1 / 2) ∂μ ≤ 1`, the
-exponential process is a test supermartingale. -/
-private lemma isTestSupermartingale_expProcess {N : Set (Measure ℝ)}
-    (hN : ∀ μ ∈ N, IsProbabilityMeasure μ ∧ ∫⁻ x, expFactor x ∂μ ≤ 1) :
-    IsTestSupermartingale expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (iidNull N) := by
-  have h := isTestSupermartingale_mul_prod (ℱ := Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-    (S := iidNull N)
-    (M₀ := fun ω ↦ expFactor (ω 0)) (F := fun k ω ↦ expFactor (ω (k + 1)))
-    (measurable_expFactor_apply le_rfl) ?_ (fun k ↦ measurable_expFactor_apply le_rfl)
-    fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), ?_⟩
-  · convert h using 1
-    exact funext fun n ↦ funext (expProcess_eq_mul_prod n)
-  · refine forall_mem_iidNull.2 fun μ hμ ↦ ?_
-    have := (hN μ hμ).1
-    rw [(measurePreserving_eval_infinitePi (fun _ ↦ μ) 0).lintegral_comp measurable_expFactor]
-    exact (hN μ hμ).2
-  · refine forall_mem_iidNull.2 fun μ hμ s hs ↦ ?_
-    have := (hN μ hμ).1
-    rw [setLIntegral_comp_eval_succ μ measurable_expFactor k hs]
-    exact mul_le_of_le_one_right' (hN μ hμ).2
 
 /-- For i.i.d. sampling from a probability law `ν` with `∫⁻ exp (x - 1 / 2) ∂ν = 1`, the
 exponential process has expectation `1` at every time. -/
 private lemma lintegral_expProcess_of_touching {ν : Measure ℝ} [IsProbabilityMeasure ν]
     (hν : ∫⁻ x, expFactor x ∂ν = 1) (n : ℕ) :
     ∫⁻ ω, expProcess n ω ∂Measure.infinitePi (fun _ : ℕ ↦ ν) = 1 := by
-  have h0 : ∫⁻ ω, expFactor (ω 0) ∂Measure.infinitePi (fun _ : ℕ ↦ ν) = 1 := by
-    rw [(measurePreserving_eval_infinitePi (fun _ ↦ ν) 0).lintegral_comp measurable_expFactor, hν]
-  have h := isTestMartingale_mul_prod (ℱ := Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
-    (S := {Measure.infinitePi fun _ : ℕ ↦ ν})
-    (M₀ := fun ω ↦ expFactor (ω 0)) (F := fun k ω ↦ expFactor (ω (k + 1)))
-    (measurable_expFactor_apply le_rfl) (by rintro _ rfl; exact h0.le)
-    (fun k ↦ measurable_expFactor_apply le_rfl)
-    fun k ↦ ⟨measurable_expFactor.comp (measurable_pi_apply _), by
-      rintro _ rfl s hs
-      rw [setLIntegral_comp_eval_succ ν measurable_expFactor k hs, hν, mul_one]⟩
-  have := h.lintegral_eq (Set.mem_singleton _) n 0
-  simp only [Finset.range_zero, Finset.prod_empty, mul_one] at this
-  rw [← h0, this]
-  exact lintegral_congr fun ω ↦ expProcess_eq_mul_prod n ω
+  simp_rw [expProcess_eq_prod]
+  rw [lintegral_comp_initSeg_infinitePi ν (f := fun x : Fin n → ℝ ↦ ∏ i, expFactor (x i))
+      (Finset.measurable_prod _ fun i _ ↦ measurable_expFactor.comp (measurable_pi_apply i)),
+    TauCeti.lintegral_fintype_prod_eq_prod _ fun _ ↦ measurable_expFactor]
+  simp [hν]
 
 /-- `exp (-1 / 2) exp (1 / 2) = 1`. -/
 private lemma exp_neg_half_mul_exp_half : Real.exp (-(1 / 2)) * Real.exp (1 / 2) = 1 := by
@@ -194,15 +161,15 @@ private lemma lintegral_expFactor_le_one {μ : Measure ℝ} (hμ : HasSubgaussia
 
 /-- The exponential process is an e-process for i.i.d. sampling from `1`-sub-Gaussian laws. -/
 private lemma isEProcess_expProcess :
-    IsEProcess expProcess (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
+    IsEProcess expProcess (Filtration.piLT (X := fun _ : ℕ ↦ ℝ))
       (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
-  refine (isTestSupermartingale_expProcess (N := {μ : Measure ℝ | IsProbabilityMeasure μ ∧
-    NullSingletonClass μ ∧ HasSubgaussianMGF id 1 μ}) fun μ hμ ↦
-      ⟨hμ.1, lintegral_expFactor_le_one hμ.2.2⟩).isEProcess fun P hP ↦ ?_
-  have :=
-    isProbabilityMeasure_of_mem_iidNull (fun μ (hμ : IsProbabilityMeasure μ ∧ _) ↦ hμ.1) P hP
-  infer_instance
+  have he : IsEVar expFactor {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
+      HasSubgaussianMGF id 1 μ} := by
+    refine ⟨measurable_expFactor, fun μ hμ ↦ ?_⟩
+    exact lintegral_expFactor_le_one hμ.2.2
+  convert he.isEProcess_prod_piLT fun μ (hμ : IsProbabilityMeasure μ ∧ _) ↦ hμ.1 using 1
+  exact funext fun n ↦ funext (expProcess_eq_prod n)
 
 /-! ### The Kearns–Saul gap
 
@@ -941,29 +908,27 @@ private lemma exists_touching_pi_ne_zero {ι : Type*} [Fintype ι] {μ : Measure
   rwa [← Measure.restrict_pi_pi,
     Measure.restrict_apply' (MeasurableSet.univ_pi fun _ ↦ measurableSet_Icc)] at h1
 
-/-- An event determined by the first `n + 1` coordinates that is charged by the i.i.d. law of a
+/-- An event determined by the first `n` coordinates that is charged by the i.i.d. law of a
 nonatomic probability law is charged by the i.i.d. law of a nonatomic `1`-sub-Gaussian law `ν`
 with `∫⁻ exp (x - 1 / 2) ∂ν = 1`. -/
 private lemma exists_touching_infinitePi_ne_zero {n : ℕ} {A : Set (ℕ → ℝ)}
-    (hA : MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) n] A) {μ : Measure ℝ}
+    (hA : MeasurableSet[Filtration.piLT (X := fun _ : ℕ ↦ ℝ) n] A) {μ : Measure ℝ}
     [IsProbabilityMeasure μ] [NullSingletonClass μ]
     (h : Measure.infinitePi (fun _ : ℕ ↦ μ) A ≠ 0) :
     ∃ ν : Measure ℝ, IsProbabilityMeasure ν ∧ NullSingletonClass ν ∧ HasSubgaussianMGF id 1 ν ∧
       ∫⁻ x, expFactor x ∂ν = 1 ∧ Measure.infinitePi (fun _ : ℕ ↦ ν) A ≠ 0 := by
-  rw [Filtration.piLE_eq_comap_frestrictLe, MeasurableSpace.measurableSet_comap] at hA
+  rw [Filtration.piLT_eq_comap_initSeg, MeasurableSpace.measurableSet_comap] at hA
   obtain ⟨B, hB, rfl⟩ := hA
   have h_eq (ρ : Measure ℝ) [IsProbabilityMeasure ρ] :
-      Measure.infinitePi (fun _ : ℕ ↦ ρ) (Preorder.frestrictLe n ⁻¹' B) =
-        Measure.pi (fun _ : Finset.Iic n ↦ ρ) B := by
-    rw [← Measure.map_apply (Preorder.measurable_frestrictLe n) hB]
-    exact congrArg (· B) (Measure.infinitePi_map_restrict (fun _ ↦ ρ))
+      Measure.infinitePi (fun _ : ℕ ↦ ρ) (initSeg n ⁻¹' B) = Measure.pi (fun _ : Fin n ↦ ρ) B :=
+    (measurePreserving_initSeg ρ n).measure_preimage hB.nullMeasurableSet
   rw [h_eq] at h
   obtain ⟨ν, hν, hνa, hνs, hν1, hνB⟩ := exists_touching_pi_ne_zero h
   exact ⟨ν, hν, hνa, hνs, hν1, by rwa [h_eq]⟩
 
 /-- **Admissibility of the sub-Gaussian exponential e-process for nonatomic laws.** For the i.i.d.
 laws on `ℕ → ℝ` whose marginal is `1`-sub-Gaussian and has no atom, with the filtration
-`Filtration.piLE` of the first coordinates, the process `exp (∑ i ≤ n, X i - (n + 1) / 2)` is an
+`Filtration.piLT` of the first coordinates, the process `exp (∑ i < n, X i - n / 2)` is an
 admissible e-process: every e-process that is at least it at every time, almost surely under every
 member of the null, is equal to it at every time, almost surely under every member of the null.
 [RRLK] proves this for the larger null of conditionally `1`-sub-Gaussian increments
@@ -971,8 +936,8 @@ member of the null, is equal to it at every time, almost surely under every memb
 [EVR26, Note 02]. -/
 theorem isAdmissibleEProcess_ofReal_exp_sum_sub_iid :
     IsAdmissibleEProcess
-      (fun n ω ↦ ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range (n + 1), ω i - (n + 1) / 2)))
-      (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
+      (fun n ω ↦ ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range n, ω i - n / 2)))
+      (Filtration.piLT (X := fun _ : ℕ ↦ ℝ))
       (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
           HasSubgaussianMGF id 1 μ}) := by
   refine isEProcess_expProcess.isAdmissibleEProcess_of_exists_lintegral_eq ?_

@@ -240,11 +240,10 @@ theorem isNumeraire_rnDeriv_antidiagonalUniform_comp {p₁ p₂ : unitInterval}
       P univ ≤ 1 := by
     rintro _ ⟨p, rfl⟩
     exact prob_le_one
-  refine isNumeraire_of_ae_eq_rnDeriv hS (isEVar_rnDeriv_comp_map (measurable_of_countable _)
+  refine isNumeraire_rnDeriv_comp_map (measurable_of_countable _)
     (ae_of_all _ Kernel.ae_add_antidiagonalUniform)
-    (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) hS ?_ ?_)
+    (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) hS ?_ ?_
     (antidiagonalUniform_comp_mem_effectiveSet p₁ p₂)
-    (Kernel.absolutelyContinuous_antidiagonalUniform_comp _) .rfl
   · rintro _ ⟨p, rfl⟩
     obtain ⟨g, hg⟩ := exists_prod_geometricMeasure_self_singleton p
     exact Kernel.antidiagonalUniform_comp_map_add_of_singleton hg

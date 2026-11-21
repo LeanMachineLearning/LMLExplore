@@ -128,6 +128,37 @@ theorem IsPVar.comp {q : 𝓨 → ℝ≥0∞} {φ : Ω → 𝓨} (hφ : Measurab
     have h_le := h.measure_le_le (P.map φ) ⟨P, hP, rfl⟩ α
     rwa [Measure.map_apply hφ (measurableSet_le h.measurable measurable_const)] at h_le
 
+/-- **Bonferroni's correction for two p-variables**: twice the smaller of two p-variables is a
+p-variable, whatever their dependence. -/
+theorem IsPVar.two_mul_min (hp : IsPVar p S) (hq : IsPVar q S) :
+    IsPVar (fun ω ↦ 2 * min (p ω) (q ω)) S where
+  measurable := by have := hp.measurable; have := hq.measurable; fun_prop
+  measure_le_le P hP α := by
+    have h_sub : {ω | 2 * min (p ω) (q ω) ≤ α} ⊆ {ω | p ω ≤ α / 2} ∪ {ω | q ω ≤ α / 2} := by
+      intro ω hω
+      have hω' : min (p ω) (q ω) ≤ α / 2 := by
+        rw [ENNReal.le_div_iff_mul_le (.inl two_ne_zero) (.inl ENNReal.ofNat_ne_top), mul_comm]
+        exact hω
+      exact min_le_iff.1 hω'
+    calc P {ω | 2 * min (p ω) (q ω) ≤ α}
+        ≤ P {ω | p ω ≤ α / 2} + P {ω | q ω ≤ α / 2} := (measure_mono h_sub).trans
+          (measure_union_le _ _)
+      _ ≤ α / 2 + α / 2 := add_le_add (hp.measure_le_le P hP _) (hq.measure_le_le P hP _)
+      _ = α := ENNReal.add_halves α
+
+/-- A p-variable capped at `1` is a p-variable for a null of measures of mass at most one. -/
+theorem IsPVar.min_one (hp : IsPVar p S) (hS : ∀ P ∈ S, P univ ≤ 1) :
+    IsPVar (fun ω ↦ min (p ω) 1) S where
+  measurable := hp.measurable.min measurable_const
+  measure_le_le P hP α := by
+    rcases le_or_gt 1 α with hα | hα
+    · exact (measure_mono (subset_univ _)).trans ((hS P hP).trans hα)
+    · have h_set : {ω | min (p ω) 1 ≤ α} = {ω | p ω ≤ α} := by
+        ext ω
+        simp [min_le_iff, not_le.2 hα]
+      rw [h_set]
+      exact hp.measure_le_le P hP α
+
 /-- **E-to-p calibration**: the inverse `E⁻¹` of an e-variable `E` is a p-variable, for every
 null, by Markov's inequality. -/
 theorem IsEVar.isPVar_inv (hE : IsEVar E S) :

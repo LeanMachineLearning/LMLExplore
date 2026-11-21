@@ -15,8 +15,8 @@ import all LMLExplore.EValues.Numeraire.Sequential
 /-!
 # The numeraires of the sample sizes need not form an e-process: a Bernoulli counterexample
 
-Ramdas, Grünwald, Vovk and Shafer ask whether the numeraires of the `(n + 1)`-sample nulls,
-evaluated at the first `n + 1` observations, form an e-process for the i.i.d. null
+Ramdas, Grünwald, Vovk and Shafer ask whether the numeraires of the `n`-sample nulls, evaluated
+at the first `n` observations, form an e-process for the i.i.d. null
 [RGVS23, §8.2.4] (see `LMLExplore.EValues.Numeraire.Sequential`). They need not. For the null
 `{Ber(1/5), Ber(4/5)}` on `Bool` and the alternative `Ber(1/2)`, the numeraire of `n` observations
 is the likelihood ratio of `Ber(1/2) ^ n` against the equal mixture of `Ber(1/5) ^ n` and
@@ -62,7 +62,7 @@ namespace ProbabilityTheory
 section Bernoulli
 
 variable {Q P₁ P₂ : Measure Bool} [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁]
-  [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
+  [IsProbabilityMeasure P₂] {X : (n : ℕ) → (Fin n → Bool) → ℝ≥0∞}
 
 /-- The real masses of `Ber(1/2)`, `Ber(1/5)` and `Ber(4/5)`. -/
 private lemma measureReal_bernoulli_counterexample :
@@ -149,19 +149,18 @@ private lemma eq_ofReal_div_mix_half (hQ : ∀ b, Q.real {b} = 1 / 2)
 
 /-- The numeraires of one and two observations of the counterexample: `1`, and `25 / 34` or
 `25 / 16` according as the two observations are equal or not. -/
-private lemma numeraire_bernoulli_zero_one (hQ : ∀ b, Q.real {b} = 1 / 2)
+private lemma numeraire_bernoulli_one_two (hQ : ∀ b, Q.real {b} = 1 / 2)
     (hP₁ : ∀ b, P₁.real {b} = if b then 1 / 5 else 4 / 5)
     (hP₂ : ∀ b, P₂.real {b} = if b then 4 / 5 else 1 / 5)
-    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} (n + 1))
-      (Measure.pi fun _ ↦ Q)) (ω : ℕ → Bool) :
-    X 0 (fun i ↦ ω i) = 1 ∧
-      X 1 (fun i ↦ ω i) = ENNReal.ofReal (if ω 0 = ω 1 then 25 / 34 else 25 / 16) := by
+    (hX : ∀ n, IsNumeraire (X n) (sampleNull {P₁, P₂} n) (Measure.pi fun _ ↦ Q)) (ω : ℕ → Bool) :
+    X 1 (fun i ↦ ω i) = 1 ∧
+      X 2 (fun i ↦ ω i) = ENNReal.ofReal (if ω 0 = ω 1 then 25 / 34 else 25 / 16) := by
   refine ⟨?_, ?_⟩
-  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 0)]
+  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 1)]
     simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂,
       Fin.val_zero]
     rcases Bool.eq_false_or_eq_true (ω 0) with h | h <;> simp only [h] <;> norm_num
-  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 1)]
+  · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 2)]
     simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂]
     simp only [Fin.val_zero, Fin.succ_zero_eq_one, Fin.val_one]
     rcases Bool.eq_false_or_eq_true (ω 0) with h0 | h0 <;>
@@ -169,29 +168,29 @@ private lemma numeraire_bernoulli_zero_one (hQ : ∀ b, Q.real {b} = 1 / 2)
 
 /-- **The stopping time of the counterexample.** The random time that stops after the first
 observation of a sequence in `Bool` when it is `false`, and after the second one otherwise, is a
-stopping time for `Filtration.piLE` (with `Filtration.piLE`, stopping after one observation is
-stopping at time `0`) [EVR26, Note 23, Theorem (1)]. -/
+stopping time for `Filtration.piLT`, whose time `n` has seen `n` observations
+[EVR26, Note 23, Theorem (1)]. -/
 theorem isStoppingTime_bernoulli_stop :
-    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
-      (fun ω ↦ ((if ω 0 then 1 else 0 : ℕ) : WithTop ℕ)) := by
-  have hτ := Filtration.isStoppingTime_piLE_comp_initSeg (𝓧 := Bool) (k := 0)
-    (T := fun x ↦ if x 0 then 1 else 0) Measurable.of_discrete fun _ ↦ Nat.zero_le _
+    IsStoppingTime (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
+      (fun ω ↦ ((if ω 0 then 2 else 1 : ℕ) : WithTop ℕ)) := by
+  have hτ := Filtration.isStoppingTime_piLT_comp_initSeg (𝓧 := Bool) (k := 1)
+    (T := fun x ↦ if x 0 then 2 else 1) Measurable.of_discrete fun _ ↦ by split_ifs <;> omega
   simp only [initSeg_def] at hτ
   exact hτ
 
 /-- **The numeraires of the counterexample at the stopping time.** For the null
 `{Ber(1/5), Ber(4/5)}` on `Bool` and the alternative `Ber(1/2)`, let `X n` be a numeraire of
-`n + 1` observations for every `n`, for instance Statlib's `numeraire`. The stopping time
+`n` observations for every `n`, for instance Statlib's `numeraire`. The stopping time
 `isStoppingTime_bernoulli_stop`, which stops after the first observation when it is `false` and
 after the second one otherwise, gives the numeraires the mean `367 / 340 > 1` under the i.i.d.
 law of `Ber(1/5)` [EVR26, Note 23, Theorem (1)]. -/
 theorem lintegral_numeraires_bernoulli_stop_eq
-    {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
+    {X : (n : ℕ) → (Fin n → Bool) → ℝ≥0∞}
     (hX : ∀ n, IsNumeraire (X n)
       (sampleNull
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} (n + 1))
+        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} n)
       (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    ∫⁻ ω, X (if ω 0 then 1 else 0) (fun i ↦ ω i)
+    ∫⁻ ω, X (if ω 0 then 2 else 1) (fun i ↦ ω i)
         ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) =
       367 / 340 := by
   obtain ⟨hQ, hP₁, hP₂⟩ := measureReal_bernoulli_counterexample
@@ -199,11 +198,11 @@ theorem lintegral_numeraires_bernoulli_stop_eq
     else 1 with hg
   have hg0 : ∀ y, 0 ≤ g y := fun y ↦ by simp only [hg]; split_ifs <;> norm_num
   have hval : ∀ ω : ℕ → Bool,
-      X (if ω 0 then 1 else 0) (fun i ↦ ω i) = ENNReal.ofReal (g fun i ↦ ω i) := by
+      X (if ω 0 then 2 else 1) (fun i ↦ ω i) = ENNReal.ofReal (g fun i ↦ ω i) := by
     intro ω
-    obtain ⟨h0, h1⟩ := numeraire_bernoulli_zero_one hQ hP₁ hP₂ hX ω
+    obtain ⟨h0, h1⟩ := numeraire_bernoulli_one_two hQ hP₁ hP₂ hX ω
     -- the number of observations is an index of the family `X`, so it is generalized first
-    generalize hn : (if ω 0 then 1 else 0) = n
+    generalize hn : (if ω 0 then 2 else 1) = n
     cases hω : ω 0 <;> simp only [hω, Bool.false_eq_true, ↓reduceIte] at hn <;> subst hn
     · rw [h0]
       simp [hg, hω]
@@ -218,19 +217,19 @@ theorem lintegral_numeraires_bernoulli_stop_eq
 
 /-- **The numeraires need not form an e-process**, which answers the question of
 [RGVS23, §8.2.4] in the negative. For the i.i.d. null `{Ber(1/5), Ber(4/5)}` on `Bool` and the
-alternative `Ber(1/2)`, the numeraires of `n + 1` observations, evaluated at the first `n + 1`
-observations, do not form an e-process for `Filtration.piLE`, whatever numeraires `X n` are
+alternative `Ber(1/2)`, the numeraires of `n` observations, evaluated at the first `n`
+observations, do not form an e-process for `Filtration.piLT`, whatever numeraires `X n` are
 chosen [EVR26, Note 23, Theorem (1)]. -/
-theorem not_isEProcess_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
+theorem not_isEProcess_numeraires_bernoulli {X : (n : ℕ) → (Fin n → Bool) → ℝ≥0∞}
     (hX : ∀ n, IsNumeraire (X n)
       (sampleNull
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} (n + 1))
+        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} n)
       (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+    ¬ IsEProcess (fun n ω ↦ X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
       (iidNull
         {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)}) := by
   intro h
-  have hle : ∫⁻ ω, X (if ω 0 then 1 else 0) (fun i ↦ ω i)
+  have hle : ∫⁻ ω, X (if ω 0 then 2 else 1) (fun i ↦ ω i)
       ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) ≤ 1 := by
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h.lintegral_le_one
       isStoppingTime_bernoulli_stop (fun _ ↦ WithTop.natCast_ne_top _)
@@ -241,34 +240,34 @@ theorem not_isEProcess_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) → 
   norm_num at hle
 
 /-- **Half of the numeraires form an e-process.** For the i.i.d. null `{Ber(1/5), Ber(4/5)}` on
-`Bool` and the alternative `Ber(1/2)`, half of the numeraires of `n + 1` observations, evaluated
-at the first `n + 1` observations, form an e-process for `Filtration.piLE`, whatever numeraires
+`Bool` and the alternative `Ber(1/2)`, half of the numeraires of `n` observations, evaluated at
+the first `n` observations, form an e-process for `Filtration.piLT`, whatever numeraires
 `X n` are chosen [EVR26, Note 23, Theorem (1)]. -/
-theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin (n + 1) → Bool) → ℝ≥0∞}
+theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin n → Bool) → ℝ≥0∞}
     (hX : ∀ n, IsNumeraire (X n)
       (sampleNull
-        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} (n + 1))
+        {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)} n)
       (Measure.pi fun _ ↦ Ber(true, false, ⟨1 / 2, by norm_num⟩))) :
-    IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+    IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
       (iidNull
         {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)}) := by
   obtain ⟨hQ, hP₁, hP₂⟩ := measureReal_bernoulli_counterexample
-  have hadapt : Adapted (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+  have hadapt : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
       fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i :=
     fun n ↦ by
       simpa only [initSeg_def] using
-        (Filtration.adapted_piLE_comp_initSeg (fun n ↦ (hX n).measurable) n).const_mul 2⁻¹
+        (Filtration.adapted_piLT_comp_initSeg (fun n ↦ (hX n).measurable) n).const_mul 2⁻¹
   have hhalf : (2⁻¹ : ℝ≥0∞) = ENNReal.ofReal 2⁻¹ := by
     rw [ENNReal.ofReal_inv_of_pos two_pos, ENNReal.ofReal_ofNat]
   -- half of the numeraire is at most the likelihood ratio against each null law
   have key : ∀ (P : Measure Bool) [IsProbabilityMeasure P], (∀ b, P {b} ≠ 0) →
       (∀ n x, 2⁻¹ * X n x ≤ ∏ i, Ber(true, false, ⟨1 / 2, by norm_num⟩) {x i} /
         P {x i}) →
-      IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+      IsEProcess (fun n ω ↦ 2⁻¹ * X n fun i ↦ ω i) (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
         {Measure.infinitePi fun _ : ℕ ↦ P} := by
     intro P _ hP hle
     have hE := (isEVar_div_singleton (Q := Ber(true, false, ⟨1 / 2, by norm_num⟩)) hP
-      ).isEProcess_prod_piLE (by simpa)
+      ).isEProcess_prod_piLT (by simpa)
     rw [iidNull_singleton] at hE
     exact hE.mono hadapt fun n ω ↦ hle n _
   rw [isEProcess_iff_forall_singleton]

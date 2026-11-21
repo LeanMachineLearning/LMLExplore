@@ -48,9 +48,9 @@ almost surely under i.i.d. fair coin flips [EVR26, Note 03, Counterexample 1].
 
 ## Implementation notes
 
-An `ℱ n`-measurable set and the values `M n` and `M (n + 1)` are functions of the first `N + 1`
+An `ℱ n`-measurable set and the values `M n` and `M (n + 1)` are functions of the first `N`
 observations for some `N`, so their integrals under `Measure.infinitePi` are integrals under
-`Measure.pi` over `Finset.Iic N`. The finite-dimensional step is a polarization argument. Write
+`Measure.pi` over `Fin N`. The finite-dimensional step is a polarization argument. Write
 `B = ∑ i, b i • P i`. The integral of a function of finitely many observations under the product
 of copies of `Q₁ + t • B` is a polynomial in `t`. For `t ≥ 1`, the measure `Q₁ + t • B` is a
 positive multiple of a convex combination of the `P i`, which lies in the null, so the identities
@@ -97,7 +97,7 @@ theorem isTestMartingale_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
     [∀ i, IsProbabilityMeasure (P i)] (hP : ∀ i, P i ∈ S₁) {b c : ι → ℝ≥0} {Q₁ : Measure 𝓧}
     [IsProbabilityMeasure Q₁] (hQ₁ : Q₁ + ∑ i, b i • P i = ∑ i, c i • P i)
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → 𝓧))}
-    (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
+    (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLT (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hM : IsTestMartingale M ℱ (iidNull S₁))
     (hM0 : ∀ P ∈ S₁, ∫⁻ ω, M 0 ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) = 1) :
     IsTestMartingale M ℱ {Measure.infinitePi fun _ : ℕ ↦ Q₁} := by
@@ -119,9 +119,9 @@ theorem isTestMartingale_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
   · rintro _ rfl n s hs
     obtain ⟨N₁, hN₁⟩ := hℱ n
     obtain ⟨N₂, hN₂⟩ := hℱ (n + 1)
-    have h₁ : ℱ n ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) (max N₁ N₂) :=
+    have h₁ : ℱ n ≤ Filtration.piLT (X := fun _ : ℕ ↦ 𝓧) (max N₁ N₂) :=
       hN₁.trans (Filtration.mono _ (le_max_left _ _))
-    have h₂ : ℱ (n + 1) ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) (max N₁ N₂) :=
+    have h₂ : ℱ (n + 1) ≤ Filtration.piLT (X := fun _ : ℕ ↦ 𝓧) (max N₁ N₂) :=
       hN₂.trans (Filtration.mono _ (le_max_right _ _))
     have hs' : MeasurableSet s := ℱ.le n s hs
     rw [← lintegral_indicator hs', ← lintegral_indicator hs']
@@ -145,7 +145,7 @@ theorem ae_limsup_lt_top_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
     [∀ i, IsProbabilityMeasure (P i)] (hP : ∀ i, P i ∈ S₁) {b c : ι → ℝ≥0} {Q₁ : Measure 𝓧}
     [IsProbabilityMeasure Q₁] (hQ₁ : Q₁ + ∑ i, b i • P i = ∑ i, c i • P i)
     {ℱ : Filtration ℕ (MeasurableSpace.pi : MeasurableSpace (ℕ → 𝓧))}
-    (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLE (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
+    (hℱ : ∀ n, ∃ N, ℱ n ≤ Filtration.piLT (X := fun _ : ℕ ↦ 𝓧) N) {M : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hM : IsTestMartingale M ℱ (iidNull S₁))
     (hM0 : ∀ P ∈ S₁, ∫⁻ ω, M 0 ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) = 1) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), limsup (fun n ↦ M n ω) atTop < ∞ :=
@@ -154,10 +154,10 @@ theorem ae_limsup_lt_top_infinitePi_of_add_sum_eq_sum {S₁ : Set (Measure 𝓧)
 
 /-! ### Convexity is needed -/
 
-/-- The process of the counterexample: `1` while the observations up to time `n` all equal the
-first one, and `2 ^ n` once two different values have been seen. -/
+/-- The process of the counterexample: `1` while the first `n` observations all agree, and `2 ^ n`
+once two different values have been seen. -/
 private noncomputable def doublingProcess (n : ℕ) (ω : ℕ → Bool) : ℝ≥0∞ :=
-  if ∀ i ≤ n, ω i = ω 0 then 1 else 2 ^ n
+  if ∀ i < n, ∀ j < n, ω i = ω j then 1 else 2 ^ n
 
 /-- The doubling process equals `1` on constant sequences. -/
 private lemma doublingProcess_const (n : ℕ) (x : Bool) : doublingProcess n (fun _ ↦ x) = 1 := by
@@ -167,7 +167,7 @@ private lemma doublingProcess_const (n : ℕ) (x : Bool) : doublingProcess n (fu
 `Bool`: under each of them the observations are almost surely constant and the process stays at
 `1`. -/
 private lemma isTestMartingale_doublingProcess :
-    IsTestMartingale doublingProcess (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+    IsTestMartingale doublingProcess (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
       (iidNull {Measure.dirac false, Measure.dirac true}) := by
   have hmem : ∀ μ ∈ iidNull {Measure.dirac false, Measure.dirac true},
       ∃ x : Bool, μ = Measure.dirac (fun _ ↦ x) := by
@@ -175,19 +175,14 @@ private lemma isTestMartingale_doublingProcess :
     rcases hP with rfl | rfl
     · exact ⟨false, Measure.infinitePi_dirac (fun _ ↦ false)⟩
     · exact ⟨true, Measure.infinitePi_dirac (fun _ ↦ true)⟩
-  have hadapted : Adapted (Filtration.piLE (X := fun _ : ℕ ↦ Bool)) doublingProcess := by
+  have hadapted : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ Bool)) doublingProcess := by
     intro n
-    rw [Filtration.piLE_eq_comap_frestrictLe]
-    have h : doublingProcess n = (fun y : (Finset.Iic n → Bool) ↦
-        if ∀ i : Finset.Iic n, y i = y ⟨0, Finset.mem_Iic.2 n.zero_le⟩ then (1 : ℝ≥0∞)
-        else 2 ^ n) ∘ Preorder.frestrictLe n := by
+    have h : doublingProcess n = (fun y : Fin n → Bool ↦
+        if ∀ i j, y i = y j then (1 : ℝ≥0∞) else 2 ^ n) ∘ initSeg n := by
       ext ω
-      simp only [doublingProcess, Function.comp_apply, Preorder.frestrictLe_apply, Subtype.forall,
-        Finset.mem_Iic]
-      -- the two sides differ only in their `Decidable` instances
-      congr
+      simp only [doublingProcess, Function.comp_apply, initSeg_def, Fin.forall_iff]
     rw [h]
-    exact (measurable_of_finite _).comp (comap_measurable _)
+    exact (measurable_of_finite _).comp (Filtration.measurable_piLT_initSeg le_rfl)
   refine ⟨hadapted, fun μ hμ ↦ ?_, fun μ hμ n s hs ↦ ?_⟩
   · obtain ⟨x, rfl⟩ := hmem μ hμ
     rw [lintegral_dirac, doublingProcess_const]
@@ -230,8 +225,8 @@ private lemma tendsto_doublingProcess {ω : ℕ → Bool} (hω : ∃ i, ω i ≠
     Tendsto (fun n ↦ doublingProcess n ω) atTop (𝓝 ∞) := by
   obtain ⟨i, hi⟩ := hω
   refine (ENNReal.tendsto_pow_atTop_nhds_top_iff.2 (by norm_num : (1 : ℝ≥0∞) < 2)).congr' ?_
-  filter_upwards [eventually_ge_atTop i] with n hn
-  rw [doublingProcess, ite_eq_right fun h ↦ hi (h i hn)]
+  filter_upwards [eventually_gt_atTop i] with n hn
+  rw [doublingProcess, ite_eq_right fun h ↦ hi (h i hn 0 (by omega))]
 
 /-- **Convexity is needed.** For the null of the two point masses on `Bool`, whose midpoint is the
 fair coin, some test martingale for the i.i.d. null with initial value `1`, for the filtration of
@@ -239,7 +234,7 @@ the observations, tends to `∞` almost surely under i.i.d. fair coin flips
 [EVR26, Note 03, Counterexample 1]. -/
 theorem exists_isTestMartingale_dirac_tendsto_top :
     ∃ M : ℕ → (ℕ → Bool) → ℝ≥0∞, M 0 = 1 ∧
-      IsTestMartingale M (Filtration.piLE (X := fun _ : ℕ ↦ Bool))
+      IsTestMartingale M (Filtration.piLT (X := fun _ : ℕ ↦ Bool))
         (iidNull {Measure.dirac false, Measure.dirac true}) ∧
       ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦
           (2⁻¹ : ℝ≥0∞) • (Measure.dirac false + Measure.dirac true)),
