@@ -48,11 +48,9 @@ theorem lintegral_indicator_normalize_preimage {f : E → ℝ≥0∞} (hf : Meas
   by_cases hus : (u : E) ∈ s
   · rw [Set.indicator_of_mem hus, Pi.one_apply, one_mul]
     refine setLIntegral_congr_fun measurableSet_Ioi fun r hr ↦ ?_
-    rw [Set.indicator_of_mem (show r • (u : E) ∈ NormedSpace.normalize ⁻¹' s by
-      rw [Set.mem_preimage, h_dir r hr]; exact hus)]
+    simp [h_dir r hr, hus]
   · rw [Set.indicator_of_notMem hus, zero_mul]
     refine (setLIntegral_congr_fun measurableSet_Ioi fun r hr ↦ ?_).trans lintegral_zero
-    rw [Set.indicator_of_notMem (show r • (u : E) ∉ NormedSpace.normalize ⁻¹' s by
-      rw [Set.mem_preimage, h_dir r hr]; exact hus), mul_zero]
+    simp [h_dir r hr, hus]
 
 end LMLExplore

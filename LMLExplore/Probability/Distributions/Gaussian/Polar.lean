@@ -100,8 +100,8 @@ theorem map_log_norm_prod_normalize_stdGaussian [Nontrivial E] :
     simp [coe_sphereDirection_of_ne_zero e hx]
   have hν : (stdGaussian E).map (fun z ↦ Real.log ‖z‖) =
       (chiMeasure (Module.finrank ℝ E) 1).map Real.log := by
-    rw [← stdGaussian_map_norm E, Measure.map_map Real.measurable_log measurable_norm]
-    rfl
+    rw [← stdGaussian_map_norm E, Measure.map_map Real.measurable_log measurable_norm,
+      Function.comp_def]
   have hπ : (stdGaussian E).map NormedSpace.normalize = (uniformSphereMeasure E).map (↑) := by
     rw [← stdGaussian_map_sphereDirection e,
       Measure.map_map measurable_subtype_coe (measurable_sphereDirection e)]
@@ -110,7 +110,10 @@ theorem map_log_norm_prod_normalize_stdGaussian [Nontrivial E] :
     simp [coe_sphereDirection_of_ne_zero e hx]
   rw [h1, hν, hπ, Measure.map_prod_map _ _ Real.measurable_log measurable_subtype_coe,
     ← Measure.prod_swap, Measure.map_map (by fun_prop) measurable_swap]
-  rfl
+  have h_comp : (fun p : Metric.sphere (0 : E) 1 × ℝ ↦ (Real.log p.2, (p.1 : E))) ∘ Prod.swap =
+      Prod.map Real.log Subtype.val := by
+    ext p <;> simp
+  rw [h_comp]
 
 /-- The logarithm of the norm of a standard Gaussian vector is integrable. -/
 theorem integrable_log_norm_stdGaussian :
@@ -140,11 +143,11 @@ theorem integrable_log_norm_stdGaussian :
   exact (integrable_map_measure Real.measurable_log.aestronglyMeasurable
     measurable_norm.aemeasurable).mp h_chi
 
-/-- The negative part of the logarithm of the norm of a shifted standard Gaussian vector has an
-expectation bounded uniformly in the shift. -/
-theorem exists_lintegral_ofReal_neg_log_norm_add_le :
-    ∃ K : ℝ≥0∞, K ≠ ∞ ∧
-      ∀ c : E, ∫⁻ z, ENNReal.ofReal (-Real.log ‖c + z‖) ∂stdGaussian E ≤ K := by
+/-- The negative part of the logarithm of the norm is Lebesgue integrable: on the unit ball, where
+it is supported, the Gaussian density is at least `κ = C e^{-1/2}`, so the Lebesgue integral is at
+most `κ⁻¹` times the Gaussian expectation, which is finite. -/
+private lemma lintegral_ofReal_neg_log_norm_ne_top :
+    ∫⁻ z : E, ENNReal.ofReal (-Real.log ‖z‖) ≠ ∞ := by
   set C : ℝ := (2 * Real.pi) ^ (-(Module.finrank ℝ E : ℝ) / 2) with hC
   have hC0 : 0 < C := Real.rpow_pos_of_pos (by positivity) _
   set φ : E → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (C * Real.exp (-‖x‖ ^ 2 / 2)) with hφ_def
@@ -175,9 +178,22 @@ theorem exists_lintegral_ofReal_neg_log_norm_add_le :
         linarith
       calc g z = κ⁻¹ * κ * g z := by rw [ENNReal.inv_mul_cancel hκ0 ENNReal.ofReal_ne_top, one_mul]
       _ ≤ κ⁻¹ * (φ z * g z) := by rw [mul_assoc]; gcongr
-  refine ⟨ENNReal.ofReal C * (κ⁻¹ * ∫⁻ z, g z ∂stdGaussian E), ?_, fun c ↦ ?_⟩
-  · exact ENNReal.mul_ne_top ENNReal.ofReal_ne_top
-      (ENNReal.mul_ne_top (ENNReal.inv_ne_top.mpr hκ0) hgγ)
+  exact ne_top_of_le_ne_top (ENNReal.mul_ne_top (ENNReal.inv_ne_top.mpr hκ0) hgγ) h_vol
+
+/-- The negative part of the logarithm of the norm of a shifted standard Gaussian vector has an
+expectation bounded uniformly in the shift. -/
+theorem exists_lintegral_ofReal_neg_log_norm_add_le :
+    ∃ K : ℝ≥0∞, K ≠ ∞ ∧
+      ∀ c : E, ∫⁻ z, ENNReal.ofReal (-Real.log ‖c + z‖) ∂stdGaussian E ≤ K := by
+  set C : ℝ := (2 * Real.pi) ^ (-(Module.finrank ℝ E : ℝ) / 2) with hC
+  have hC0 : 0 < C := Real.rpow_pos_of_pos (by positivity) _
+  set φ : E → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (C * Real.exp (-‖x‖ ^ 2 / 2)) with hφ_def
+  have hφ : Measurable φ := by fun_prop
+  have hγ : stdGaussian E = volume.withDensity φ := stdGaussian_eq_withDensity_norm E
+  set g : E → ℝ≥0∞ := fun z ↦ ENNReal.ofReal (-Real.log ‖z‖) with hg_def
+  have hg : Measurable g := by fun_prop
+  refine ⟨ENNReal.ofReal C * ∫⁻ z, g z,
+    ENNReal.mul_ne_top ENNReal.ofReal_ne_top lintegral_ofReal_neg_log_norm_ne_top, fun c ↦ ?_⟩
   -- the density is at most `C`, and Lebesgue measure is translation invariant
   calc ∫⁻ z, ENNReal.ofReal (-Real.log ‖c + z‖) ∂stdGaussian E
       = ∫⁻ z, g (c + z) ∂(volume.withDensity φ) := by rw [hγ]
@@ -195,7 +211,6 @@ theorem exists_lintegral_ofReal_neg_log_norm_add_le :
   _ = ENNReal.ofReal C * ∫⁻ z, g z := by
         rw [lintegral_const_mul (f := fun z ↦ g (c + z)) _ (hg.comp (measurable_const_add c)),
           lintegral_add_left_eq_self g c]
-  _ ≤ ENNReal.ofReal C * (κ⁻¹ * ∫⁻ z, g z ∂stdGaussian E) := by gcongr
 
 /-- `(1 + |t|)^n e^{-t²/2} ≤ n! e² e^{-t²/4}`. -/
 private lemma one_add_abs_pow_mul_exp_le (n : ℕ) (t : ℝ) :
@@ -277,12 +292,43 @@ private lemma map_normalize_add_stdGaussian_apply [Nontrivial E] (c : E) {s : Se
     ← lintegral_add_left_eq_self
       (fun y ↦ (NormedSpace.normalize ⁻¹' s).indicator (fun y ↦ φ (y - c)) y) c]
   refine lintegral_congr fun z ↦ ?_
-  by_cases hz : NormedSpace.normalize (c + z) ∈ s
-  · rw [Set.indicator_of_mem (show z ∈ (fun z ↦ NormedSpace.normalize (c + z)) ⁻¹' s from hz),
-      Set.indicator_of_mem (show c + z ∈ NormedSpace.normalize ⁻¹' s from hz),
-      add_sub_cancel_left]
-  · rw [Set.indicator_of_notMem (show z ∉ (fun z ↦ NormedSpace.normalize (c + z)) ⁻¹' s from hz),
-      Set.indicator_of_notMem (show c + z ∉ NormedSpace.normalize ⁻¹' s from hz)]
+  classical
+  simp only [Set.indicator_apply, Set.mem_preimage, add_sub_cancel_left, φ]
+
+variable (E) in
+/-- The radial normalizer `∫_0^∞ r^(d-1) φ(r) dr` of the standard Gaussian law on `E`, with `φ`
+its density as a function of the radius. -/
+private noncomputable def gaussianRadialMass : ℝ≥0∞ :=
+  ∫⁻ r in Set.Ioi (0 : ℝ), ENNReal.ofReal (r ^ (Module.finrank ℝ E - 1)) *
+    ENNReal.ofReal ((2 * Real.pi) ^ (-(Module.finrank ℝ E : ℝ) / 2) * Real.exp (-r ^ 2 / 2))
+
+/-- The law of the direction of `Z` in polar coordinates: the mass of the directions in `s` is the
+radial normalizer times the `toSphere` measure of `s`. This is the case `c = 0` of
+`map_normalize_add_stdGaussian_apply`. -/
+private lemma map_normalize_stdGaussian_apply [Nontrivial E] {s : Set E} (hs : MeasurableSet s) :
+    (stdGaussian E).map NormedSpace.normalize s = gaussianRadialMass E *
+      ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) ∂(volume : Measure E).toSphere := by
+  have h := map_normalize_add_stdGaussian_apply (0 : E) hs
+  simp only [zero_add, sub_zero] at h
+  rw [h, ← lintegral_const_mul (f := fun u : Metric.sphere (0 : E) 1 ↦ s.indicator 1 (u : E)) _
+    ((measurable_one.indicator hs).comp measurable_subtype_coe)]
+  refine lintegral_congr fun u ↦ ?_
+  rw [mul_comm, gaussianRadialMass]
+  congr 1
+  refine setLIntegral_congr_fun measurableSet_Ioi fun r hr ↦ ?_
+  rw [norm_smul, norm_eq_of_mem_sphere u, Real.norm_of_nonneg (le_of_lt hr), mul_one]
+
+variable (E) in
+/-- The radial normalizer is positive and finite, since it times the total mass of
+`volume.toSphere` is the total mass `1` of the law of the direction of `Z`. -/
+private lemma gaussianRadialMass_ne_zero_ne_top [Nontrivial E] :
+    gaussianRadialMass E ≠ 0 ∧ gaussianRadialMass E ≠ ∞ := by
+  have h1 := map_normalize_stdGaussian_apply (E := E) MeasurableSet.univ
+  rw [measure_univ] at h1
+  have h0 := right_ne_zero_of_mul_eq_one h1.symm
+  refine ⟨left_ne_zero_of_mul_eq_one h1.symm, fun h ↦ ?_⟩
+  rw [h, ENNReal.top_mul h0] at h1
+  exact ENNReal.one_ne_top h1
 
 /-- **The density of the direction of a shifted Gaussian vector.** The law of the direction of
 `c + Z`, for a standard Gaussian vector `Z`, is at most `K (1 + ‖c‖)^(d - 1)` times the law of
@@ -297,12 +343,9 @@ theorem exists_map_normalize_add_le : ∃ K : ℝ, 0 < K ∧ ∀ c : E,
   set n := Module.finrank ℝ E - 1
   set C : ℝ := (2 * Real.pi) ^ (-(Module.finrank ℝ E : ℝ) / 2) with hC
   have hC0 : 0 < C := Real.rpow_pos_of_pos (by positivity) _
-  set φ : E → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (C * Real.exp (-‖x‖ ^ 2 / 2)) with hφ_def
-  have hφ : Measurable φ := by fun_prop
-  have hγ : stdGaussian E = volume.withDensity φ := stdGaussian_eq_withDensity_norm E
   set σ := (volume : Measure E).toSphere
-  set N0 := ∫⁻ r in Set.Ioi (0 : ℝ), ENNReal.ofReal (r ^ n) *
-    ENNReal.ofReal (C * Real.exp (-r ^ 2 / 2))
+  set N0 := gaussianRadialMass E
+  obtain ⟨hN0, hN0'⟩ := gaussianRadialMass_ne_zero_ne_top E
   set g : ℝ → ℝ := fun t ↦ n.factorial * Real.exp 2 * C * Real.exp (-(1 / 4) * t ^ 2)
   set M0 := ∫⁻ t, ENNReal.ofReal (g t)
   have hM0 : M0 ≠ ∞ :=
@@ -311,56 +354,16 @@ theorem exists_map_normalize_add_le : ∃ K : ℝ, 0 < K ∧ ∀ c : E,
   have h_ind (s : Set E) (hs : MeasurableSet s) :
       Measurable fun u : Metric.sphere (0 : E) 1 ↦ s.indicator (1 : E → ℝ≥0∞) (u : E) :=
     (measurable_one.indicator hs).comp measurable_subtype_coe
-  -- the law of the direction of `Z`, in polar coordinates
-  have hP (s : Set E) (hs : MeasurableSet s) : (stdGaussian E).map NormedSpace.normalize s =
-      N0 * ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) ∂σ := by
-    rw [Measure.map_apply measurable_normalize hs, hγ,
-      withDensity_apply _ (measurable_normalize hs),
-      ← lintegral_indicator (measurable_normalize hs),
-      lintegral_indicator_normalize_preimage (μ := volume) hφ hs,
-      ← lintegral_const_mul _ (h_ind s hs)]
-    refine lintegral_congr fun u ↦ ?_
-    rw [mul_comm]
-    congr 1
-    refine setLIntegral_congr_fun measurableSet_Ioi fun r hr ↦ ?_
-    simp only [φ, norm_smul, norm_eq_of_mem_sphere u, Real.norm_of_nonneg (le_of_lt hr), mul_one]
-    rfl
-  -- the law of the direction of `c + Z`, in polar coordinates
-  have hQ (c : E) (s : Set E) (hs : MeasurableSet s) :
-      (stdGaussian E).map (fun z ↦ NormedSpace.normalize (c + z)) s =
-        ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) *
-          (∫⁻ r in Set.Ioi (0 : ℝ), ENNReal.ofReal (r ^ n) * φ (r • (u : E) - c)) ∂σ :=
-    map_normalize_add_stdGaussian_apply c hs
-  -- the radial integral is at most `(1 + ‖c‖)^n M0`, since `‖r u - c‖ ≥ |r - ‖c‖|`
-  have hH (c : E) (u : Metric.sphere (0 : E) 1) :
-      ∫⁻ r in Set.Ioi (0 : ℝ), ENNReal.ofReal (r ^ n) * φ (r • (u : E) - c) ≤
-        ENNReal.ofReal ((1 + ‖c‖) ^ n) * M0 :=
-    setLIntegral_pow_mul_exp_norm_sub_le n hC0.le c u
-  -- the normalization `N0` is positive and finite
-  have hσ1 := hP Set.univ MeasurableSet.univ
-  rw [measure_univ] at hσ1
-  have hN0 : N0 ≠ 0 := by
-    rintro h
-    rw [h, zero_mul] at hσ1
-    exact one_ne_zero hσ1
-  have hN0' : N0 ≠ ∞ := by
-    rintro h
-    rw [h] at hσ1
-    rcases eq_or_ne (∫⁻ u : Metric.sphere (0 : E) 1, Set.univ.indicator 1 (u : E) ∂σ) 0
-      with h' | h'
-    · rw [h', mul_zero] at hσ1
-      exact one_ne_zero hσ1
-    · rw [ENNReal.top_mul h'] at hσ1
-      exact ENNReal.one_ne_top hσ1
   have hK : M0 / N0 ≤ ENNReal.ofReal ((M0 / N0).toReal + 1) := by
     rw [← ENNReal.ofReal_toReal (ENNReal.div_ne_top hM0 hN0)]
     exact ENNReal.ofReal_le_ofReal (by rw [ENNReal.toReal_ofReal ENNReal.toReal_nonneg]; linarith)
   refine ⟨(M0 / N0).toReal + 1, by positivity, fun c ↦ Measure.le_iff.mpr fun s hs ↦ ?_⟩
-  rw [hQ c s hs, FunLike.coe_smul, Pi.smul_apply, smul_eq_mul, hP s hs]
-  calc ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) *
-        (∫⁻ r in Set.Ioi (0 : ℝ), ENNReal.ofReal (r ^ n) * φ (r • (u : E) - c)) ∂σ
-      ≤ ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) *
-        (ENNReal.ofReal ((1 + ‖c‖) ^ n) * M0) ∂σ := lintegral_mono fun u ↦ by gcongr; exact hH c u
+  rw [map_normalize_add_stdGaussian_apply c hs, smul_apply, smul_eq_mul,
+    map_normalize_stdGaussian_apply hs]
+  -- the radial integral is at most `(1 + ‖c‖)^n M0`, since `‖r u - c‖ ≥ |r - ‖c‖|`
+  calc _ ≤ ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) *
+        (ENNReal.ofReal ((1 + ‖c‖) ^ n) * M0) ∂σ :=
+        lintegral_mono fun u ↦ by gcongr; exact setLIntegral_pow_mul_exp_norm_sub_le n hC0.le c u
   _ = ENNReal.ofReal ((1 + ‖c‖) ^ n) * (M0 / N0) *
         (N0 * ∫⁻ u : Metric.sphere (0 : E) 1, s.indicator 1 (u : E) ∂σ) := by
         rw [lintegral_mul_const _ (h_ind s hs), mul_assoc _ (M0 / N0), ← mul_assoc (M0 / N0),

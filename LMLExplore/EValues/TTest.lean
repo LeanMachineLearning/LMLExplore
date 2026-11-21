@@ -125,6 +125,65 @@ instance (W : Measure ℝ) [IsProbabilityMeasure W] (v : E) (σ : ℝ) :
   rw [tTestAlt_def]
   infer_instance
 
+/-- The null at scale `σ` is Gaussian: it is the image of `stdGaussian E` by the continuous linear
+map `σ • id`. -/
+instance (σ : ℝ) : IsGaussian (tTestNull E σ) := by
+  have hL : (fun y : E ↦ σ • y) = ⇑(σ • ContinuousLinearMap.id ℝ E) := by
+    ext y
+    simp
+  rw [tTestNull_def, hL]
+  infer_instance
+
+omit [BorelSpace E] in
+variable (E) in
+/-- The null at scale `1` is the standard Gaussian law. -/
+@[simp]
+theorem tTestNull_one : tTestNull E 1 = stdGaussian E := by
+  simp [tTestNull_def]
+
+/-- The alternative with the effect size `0` is the null. -/
+@[simp]
+theorem tTestAlt_dirac_zero (v : E) (σ : ℝ) : tTestAlt (Measure.dirac 0) v σ = tTestNull E σ := by
+  rw [tTestAlt_def, tTestNull_def, Measure.dirac_prod,
+    Measure.map_map (by fun_prop) measurable_prodMk_left]
+  congr 1
+  ext z
+  simp
+
+/-- The alternative with the mean direction `0` is the null. -/
+@[simp]
+theorem tTestAlt_zero_right (W : Measure ℝ) [IsProbabilityMeasure W] (σ : ℝ) :
+    tTestAlt W (0 : E) σ = tTestNull E σ := by
+  simp_rw [tTestAlt_def, tTestNull_def, smul_zero, zero_add]
+  calc _ = ((W.prod (stdGaussian E)).map Prod.snd).map (σ • ·) :=
+        (Measure.map_map (measurable_const_smul σ) measurable_snd).symm
+  _ = _ := by rw [Measure.map_snd_prod, measure_univ, one_smul]
+
+/-- The map `(δ, z) ↦ σ (δ v + z)`, whose image of `W ⊗ N(0, I)` is the alternative, is
+measurable. -/
+private lemma measurable_tTestAlt_sample (v : E) (σ : ℝ) :
+    Measurable fun p : ℝ × E ↦ σ • (p.1 • v + p.2) := by
+  fun_prop
+
+/-- In positive dimension, the alternative at a nonzero scale has no atoms. -/
+theorem tTestAlt_singleton [Nontrivial E] (W : Measure ℝ) (v : E) {σ : ℝ} (hσ : σ ≠ 0) (y : E) :
+    tTestAlt W v σ {y} = 0 := by
+  have hF := measurable_tTestAlt_sample v σ
+  rw [tTestAlt_def, Measure.map_apply hF (measurableSet_singleton y),
+    Measure.prod_apply (hF (measurableSet_singleton y))]
+  have h (δ : ℝ) : Prod.mk δ ⁻¹' ((fun p : ℝ × E ↦ σ • (p.1 • v + p.2)) ⁻¹' {y}) =
+      {σ⁻¹ • y - δ • v} := by
+    ext z
+    simp only [Set.mem_preimage, Set.mem_singleton_iff, eq_sub_iff_add_eq, eq_inv_smul_iff₀ hσ,
+      add_comm z]
+  simp_rw [h, measure_singleton, lintegral_zero]
+
+/-- In positive dimension, the null at a nonzero scale has no atoms. -/
+theorem tTestNull_singleton [Nontrivial E] {σ : ℝ} (hσ : σ ≠ 0) (y : E) :
+    tTestNull E σ {y} = 0 := by
+  rw [← tTestAlt_dirac_zero 0]
+  exact tTestAlt_singleton _ _ hσ y
+
 /-- The alternative at scale `σ` is the image of the alternative at scale `1` by `y ↦ σ y`. -/
 theorem tTestAlt_eq_map (W : Measure ℝ) (v : E) (σ : ℝ) :
     tTestAlt W v σ = (tTestAlt W v 1).map (σ • ·) := by
@@ -155,7 +214,7 @@ theorem map_normalize_tTestAlt_absolutelyContinuous (W : Measure ℝ) (v : E) :
     (tTestAlt W v 1).map NormedSpace.normalize ≪ (stdGaussian E).map NormedSpace.normalize := by
   obtain ⟨K, -, hbound⟩ := LMLExplore.exists_map_normalize_add_le (E := E)
   refine Measure.AbsolutelyContinuous.mk fun s hs h0 ↦ ?_
-  have hF : Measurable fun p : ℝ × E ↦ (1 : ℝ) • (p.1 • v + p.2) := by fun_prop
+  have hF := measurable_tTestAlt_sample v 1
   rw [Measure.map_apply measurable_normalize hs, tTestAlt_def,
     Measure.map_apply hF (measurable_normalize hs),
     Measure.prod_apply (hF (measurable_normalize hs))]
@@ -213,6 +272,10 @@ private noncomputable def logPolar (y : E) : ℝ × E := (Real.log ‖y‖, Norm
 private noncomputable def expPolar (x : ℝ × E) : E := Real.exp x.1 • x.2
 
 omit [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
+private lemma logPolar_eq :
+    (logPolar : E → ℝ × E) = fun y ↦ (Real.log ‖y‖, NormedSpace.normalize y) := rfl
+
+omit [FiniteDimensional ℝ E] [MeasurableSpace E] [BorelSpace E] in
 private lemma expPolar_logPolar (y : E) : expPolar (logPolar y) = y := by
   rcases eq_or_ne y 0 with rfl | hy
   · simp [expPolar, logPolar]
@@ -237,8 +300,8 @@ private lemma logPolar_smul {σ : ℝ} (hσ : 0 < σ) {y : E} (hy : y ≠ 0) :
 coordinates. -/
 private lemma snd_map_logPolar_tTestAlt (W : Measure ℝ) (v : E) :
     ((tTestAlt W v 1).map logPolar).snd = (tTestAlt W v 1).map NormedSpace.normalize := by
-  rw [Measure.snd, Measure.map_map measurable_snd measurable_logPolar]
-  rfl
+  rw [Measure.snd, Measure.map_map measurable_snd measurable_logPolar, logPolar_eq,
+    Function.comp_def]
 
 /-- The log-radius has a first moment under the null. -/
 private lemma integrable_id_map_log_norm_stdGaussian :
@@ -257,23 +320,13 @@ private lemma map_logPolar_tTestNull {σ : ℝ} (hσ : 0 < σ) :
       (fun x : ℝ × E ↦ (x.1 + Real.log σ, x.2)) ∘ logPolar := by
     filter_upwards [measure_eq_zero_iff_ae_notMem.mp (measure_singleton (0 : E))] with z hz
     exact logPolar_smul hσ hz
+  have h_map : (fun x : ℝ × E ↦ (x.1 + Real.log σ, x.2)) = Prod.map (· + Real.log σ) id := by
+    ext x <;> simp
   rw [tTestNull_def, Measure.map_map measurable_logPolar (measurable_const_smul σ),
-    Measure.map_congr h_ae, ← Measure.map_map (by fun_prop) measurable_logPolar]
-  have h : (stdGaussian E).map logPolar = _ := LMLExplore.map_log_norm_prod_normalize_stdGaussian
-  rw [h, scaleNull_def, ← Measure.map_id (μ := (stdGaussian E).map NormedSpace.normalize),
-    Measure.map_prod_map _ _ (measurable_add_const _) measurable_id, Measure.map_id]
-  rfl
-
-/-- The alternative at scale `1` has no atom at `0`. -/
-private lemma tTestAlt_singleton_zero (W : Measure ℝ) (v : E) : tTestAlt W v 1 {0} = 0 := by
-  have hF : Measurable fun p : ℝ × E ↦ (1 : ℝ) • (p.1 • v + p.2) := by fun_prop
-  rw [tTestAlt_def, Measure.map_apply hF (measurableSet_singleton 0),
-    Measure.prod_apply (hF (measurableSet_singleton 0))]
-  have h (δ : ℝ) : Prod.mk δ ⁻¹' ((fun p : ℝ × E ↦ (1 : ℝ) • (p.1 • v + p.2)) ⁻¹' {0}) =
-      {-(δ • v)} := by
-    ext z
-    simp [eq_neg_iff_add_eq_zero, add_comm]
-  simp_rw [h, measure_singleton, lintegral_zero]
+    Measure.map_congr h_ae, ← Measure.map_map (by fun_prop) measurable_logPolar, logPolar_eq,
+    LMLExplore.map_log_norm_prod_normalize_stdGaussian, scaleNull_def,
+    ← Measure.map_id (μ := (stdGaussian E).map NormedSpace.normalize),
+    Measure.map_prod_map _ _ (measurable_add_const _) measurable_id, Measure.map_id, h_map]
 
 /-- In log-polar coordinates, the alternative at scale `σ` is `scaleAlt Q (log σ)`, with `Q` the
 image of the alternative at scale `1`. -/
@@ -281,7 +334,8 @@ private lemma map_logPolar_tTestAlt (W : Measure ℝ) (v : E) {σ : ℝ} (hσ : 
     (tTestAlt W v σ).map logPolar = scaleAlt ((tTestAlt W v 1).map logPolar) (Real.log σ) := by
   have h_ae : (logPolar ∘ (σ • ·)) =ᵐ[tTestAlt W v 1]
       (fun x : ℝ × E ↦ (x.1 + Real.log σ, x.2)) ∘ logPolar := by
-    filter_upwards [measure_eq_zero_iff_ae_notMem.mp (tTestAlt_singleton_zero W v)] with y hy
+    filter_upwards [measure_eq_zero_iff_ae_notMem.mp (tTestAlt_singleton W v one_ne_zero 0)]
+      with y hy
     exact logPolar_smul hσ hy
   rw [tTestAlt_eq_map, Measure.map_map measurable_logPolar (measurable_const_smul σ),
     Measure.map_congr h_ae, ← Measure.map_map (by fun_prop) measurable_logPolar, scaleAlt_def]
@@ -351,7 +405,7 @@ as soon as the prior `W` on the effect size has a logarithmic moment. -/
 theorem integrable_log_norm_tTestAlt (W : Measure ℝ) [IsProbabilityMeasure W] (v : E)
     (hW : Integrable (fun δ ↦ Real.log (1 + |δ|)) W) :
     Integrable (fun y ↦ Real.log ‖y‖) (tTestAlt W v 1) := by
-  have hF : Measurable fun p : ℝ × E ↦ (1 : ℝ) • (p.1 • v + p.2) := by fun_prop
+  have hF := measurable_tTestAlt_sample v 1
   rw [tTestAlt_def, integrable_map_measure (g := fun y : E ↦ Real.log ‖y‖)
     (Real.measurable_log.comp measurable_norm).aestronglyMeasurable hF.aemeasurable]
   simp only [Function.comp_def, one_smul]
@@ -378,15 +432,26 @@ theorem integrable_log_norm_tTestAlt (W : Measure ℝ) [IsProbabilityMeasure W] 
     rw [Real.norm_eq_abs]
     exact abs_log_norm_smul_add_le p.1 v p.2)
 
+/-- Under a logarithmic moment of `W`, the log-radius, the first log-polar coordinate, has a first
+moment under the alternative at scale `1`. -/
+private lemma integrable_fst_map_logPolar_tTestAlt (W : Measure ℝ) [IsProbabilityMeasure W] (v : E)
+    (hW : Integrable (fun δ ↦ Real.log (1 + |δ|)) W) :
+    Integrable Prod.fst ((tTestAlt W v 1).map logPolar) :=
+  (integrable_map_measure measurable_fst.aestronglyMeasurable
+    measurable_logPolar.aemeasurable).mpr (integrable_log_norm_tTestAlt W v hW)
+
 /-! ### The GROW bound -/
 
 omit [BorelSpace E] in
-/-- In dimension zero an e-variable for the null is a constant at most `1`. -/
-private lemma le_one_of_isEVar_tTestNull [Subsingleton E] {X : E → ℝ≥0∞}
-    (hX : IsEVar X (tTestNull E '' Set.Ioi 0)) (y : E) : X y ≤ 1 := by
-  have hc (z : E) : X z = X y := congrArg X (Subsingleton.elim z y)
+/-- In dimension zero an e-variable for the null is a constant at most `1`, so its expected
+logarithm under any probability measure is nonpositive. -/
+private lemma eintegral_log_nonpos_of_isEVar_tTestNull [Subsingleton E] {X : E → ℝ≥0∞}
+    (hX : IsEVar X (tTestNull E '' Set.Ioi 0)) (μ : Measure E) [IsProbabilityMeasure μ] :
+    ∫ᵉ y, ENNReal.log (X y) ∂μ ≤ 0 := by
+  have hc (z : E) : X z = X 0 := congrArg X (Subsingleton.elim z 0)
   have h := hX.lintegral_le_one ⟨1, one_pos, rfl⟩
-  simpa [hc] using h
+  simp only [hc, lintegral_const, measure_univ, mul_one] at h
+  simpa [hc, eintegral_const] using ENNReal.log_le_zero_iff.mpr h
 
 /-- **The averaged bound for the t-test.** Let `W` be a prior on the effect size with a
 logarithmic moment. For every `ε > 0` there is a prior `ρ` on the log-scale `t = log σ` such that
@@ -403,17 +468,13 @@ theorem exists_eintegral_eintegral_log_tTestAlt_le (W : Measure ℝ) [IsProbabil
   rcases subsingleton_or_nontrivial E with hE | hE
   · -- in dimension zero, `X` is a constant at most `1`
     refine ⟨Measure.dirac 0, inferInstance, fun X hX ↦ ?_⟩
-    have hc (y : E) : X y = X 0 := congrArg X (Subsingleton.elim y 0)
-    calc ∫ᵉ t, ∫ᵉ y, ENNReal.log (X y) ∂(tTestAlt W v (Real.exp t)) ∂Measure.dirac 0
-        = ENNReal.log (X 0) := by simp [hc, eintegral_const]
-    _ ≤ 0 := ENNReal.log_le_zero_iff.mpr (le_one_of_isEVar_tTestNull hX 0)
-    _ ≤ _ := add_nonneg (EReal.coe_ennreal_nonneg _) (EReal.coe_nonneg.mpr hε.le)
-  have hQ : Integrable Prod.fst ((tTestAlt W v 1).map logPolar) :=
-    (integrable_map_measure measurable_fst.aestronglyMeasurable
-      measurable_logPolar.aemeasurable).mpr (integrable_log_norm_tTestAlt W v hW)
+    rw [eintegral_dirac]
+    exact (eintegral_log_nonpos_of_isEVar_tTestNull hX _).trans
+      (add_nonneg (EReal.coe_ennreal_nonneg _) (EReal.coe_nonneg.mpr hε.le))
   obtain ⟨ρ, hρ, h⟩ := exists_eintegral_eintegral_log_scaleAlt_le _
     ((stdGaussian E).map NormedSpace.normalize) _
-    (integrable_id_map_log_norm_stdGaussian (E := E)) hQ hε
+    (integrable_id_map_log_norm_stdGaussian (E := E))
+    (integrable_fst_map_logPolar_tTestAlt W v hW) hε
   refine ⟨ρ, hρ, fun X hX ↦ ?_⟩
   have h' := h _ (isEVar_comp_expPolar hX)
   rw [snd_map_logPolar_tTestAlt] at h'
@@ -433,18 +494,11 @@ theorem iInf_eintegral_log_tTestAlt_le (W : Measure ℝ) [IsProbabilityMeasure W
         ((stdGaussian E).map NormedSpace.normalize) : EReal) := by
   rcases subsingleton_or_nontrivial E with hE | hE
   · -- in dimension zero, `X` is a constant at most `1`
-    have hc (y : E) : X y = X 0 := congrArg X (Subsingleton.elim y 0)
-    calc ⨅ σ > 0, ∫ᵉ y, ENNReal.log (X y) ∂(tTestAlt W v σ)
-        ≤ ∫ᵉ y, ENNReal.log (X y) ∂(tTestAlt W v 1) := iInf₂_le 1 one_pos
-    _ = ENNReal.log (X 0) := by simp [hc, eintegral_const]
-    _ ≤ 0 := ENNReal.log_le_zero_iff.mpr (le_one_of_isEVar_tTestNull hX 0)
-    _ ≤ _ := EReal.coe_ennreal_nonneg _
-  have hQ : Integrable Prod.fst ((tTestAlt W v 1).map logPolar) :=
-    (integrable_map_measure measurable_fst.aestronglyMeasurable
-      measurable_logPolar.aemeasurable).mpr (integrable_log_norm_tTestAlt W v hW)
+    exact (iInf₂_le 1 one_pos).trans
+      ((eintegral_log_nonpos_of_isEVar_tTestNull hX _).trans (EReal.coe_ennreal_nonneg _))
   have h := iInf_eintegral_log_scaleAlt_le _ _ _
-    (integrable_id_map_log_norm_stdGaussian (E := E)) hQ
-    (isEVar_comp_expPolar hX)
+    (integrable_id_map_log_norm_stdGaussian (E := E))
+    (integrable_fst_map_logPolar_tTestAlt W v hW) (isEVar_comp_expPolar hX)
   rw [snd_map_logPolar_tTestAlt] at h
   refine le_trans (le_iInf fun t ↦ ?_) h
   refine (iInf₂_le (Real.exp t) (Real.exp_pos t)).trans_eq ?_
@@ -491,6 +545,30 @@ private lemma integrable_log_mul_one_add_abs_mul_pow (W : Measure ℝ) [IsProbab
   simp only [Pi.add_apply]
   linarith
 
+/-- Given the bound `LMLExplore.exists_map_normalize_add_le` on the law of the direction of
+`c + Z` with constant `K`, the joint law of the effect size `δ` and the direction under the
+alternative at scale `1` has a density at most `K (1 + |δ| ‖v‖)^(d - 1)` with respect to
+`W ⊗ P^M`. -/
+private lemma map_prod_normalize_le_withDensity (W : Measure ℝ) (v : E) {K : ℝ}
+    (hbound : ∀ c : E, (stdGaussian E).map (fun z ↦ NormedSpace.normalize (c + z)) ≤
+      ENNReal.ofReal (K * (1 + ‖c‖) ^ (Module.finrank ℝ E - 1)) •
+        (stdGaussian E).map NormedSpace.normalize) :
+    (W.prod (stdGaussian E)).map (fun p ↦ (p.1, NormedSpace.normalize (p.1 • v + p.2))) ≤
+      (W.prod ((stdGaussian E).map NormedSpace.normalize)).withDensity
+        fun p ↦ ENNReal.ofReal (K * (1 + |p.1| * ‖v‖) ^ (Module.finrank ℝ E - 1)) := by
+  have hF : Measurable fun p : ℝ × E ↦ (p.1, NormedSpace.normalize (p.1 • v + p.2)) := by
+    fun_prop
+  rw [← prod_withDensity_left
+    (f := fun δ ↦ ENNReal.ofReal (K * (1 + |δ| * ‖v‖) ^ (Module.finrank ℝ E - 1))) (by fun_prop)]
+  refine Measure.le_iff.mpr fun s hs ↦ ?_
+  rw [Measure.map_apply hF hs, Measure.prod_apply (hF hs), Measure.prod_apply hs,
+    lintegral_withDensity_eq_lintegral_mul _ (by fun_prop) (measurable_measure_prodMk_left hs)]
+  refine lintegral_mono fun δ ↦ ?_
+  have h := hbound (δ • v) (Prod.mk δ ⁻¹' s)
+  rw [Measure.map_apply (by fun_prop) (measurable_prodMk_left hs)] at h
+  simp only [smul_apply, smul_eq_mul, norm_smul, Real.norm_eq_abs] at h
+  exact h
+
 /-- **The relative entropy of the directions is finite.** If the prior `W` on the effect size has
 a logarithmic moment, then `D = KL(Q^M ‖ P^M) < ∞`. [EVR26, Note 29] -/
 theorem klDiv_map_normalize_tTestAlt_ne_top (W : Measure ℝ) [IsProbabilityMeasure W] (v : E)
@@ -518,17 +596,8 @@ theorem klDiv_map_normalize_tTestAlt_ne_top (W : Measure ℝ) [IsProbabilityMeas
   have hg_exp (δ : ℝ) : Real.exp (g δ) = K * (1 + |δ| * ‖v‖) ^ n := Real.exp_log (by positivity)
   -- `R` has a density at most `e^{g δ}` with respect to `W ⊗ P^M`
   have hle : R ≤ (W.prod PM).withDensity fun p ↦ ENNReal.ofReal (Real.exp (g p.1)) := by
-    rw [← prod_withDensity_left (f := fun δ ↦ ENNReal.ofReal (Real.exp (g δ))) (by fun_prop)]
-    refine Measure.le_iff.mpr fun s hs ↦ ?_
-    rw [Measure.map_apply hF hs, Measure.prod_apply (hF hs), Measure.prod_apply hs,
-      lintegral_withDensity_eq_lintegral_mul _ (by fun_prop) (measurable_measure_prodMk_left hs)]
-    refine lintegral_mono fun δ ↦ ?_
-    have h := hbound (δ • v) (Prod.mk δ ⁻¹' s)
-    rw [Measure.map_apply (by fun_prop) (measurable_prodMk_left hs), FunLike.coe_smul,
-      Pi.smul_apply, smul_eq_mul, norm_smul, Real.norm_eq_abs] at h
-    simp only [Pi.mul_apply]
-    rw [hg_exp]
-    exact h
+    simp_rw [hg_exp]
+    exact map_prod_normalize_le_withDensity W v hbound
   have hg_int : Integrable g W := integrable_log_mul_one_add_abs_mul_pow W v hW hK n
   have hKL : (klDiv R (W.prod PM) : EReal) ≤ ((∫ δ, g δ ∂W : ℝ) : EReal) := by
     refine (coe_klDiv_le_eintegral_of_le_withDensity hle).trans_eq ?_
