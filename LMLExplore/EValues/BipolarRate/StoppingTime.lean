@@ -253,8 +253,7 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
       ((∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) : ℝ≥0∞) : EReal) *
         bipolarRate Q₁ S₁ := by
   -- `τ` is finite, so it is the cast of a time with values in `ℕ`
-  obtain ⟨τ, rfl⟩ : ∃ τ' : (ℕ → 𝓧) → ℕ, τ = fun ω ↦ (τ' ω : WithTop ℕ) :=
-    ⟨_, funext fun ω ↦ (WithTop.natCast_untopA (hτ_top ω)).symm⟩
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
   have h_cast : ∫⁻ ω, ENat.toENNReal (τ ω : WithTop ℕ) + 1 ∂Measure.infinitePi (fun _ ↦ Q₁) =
       ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ ↦ Q₁) :=
     lintegral_congr fun ω ↦ congrArg (· + 1) (ENat.toENNReal_coe (τ ω))
@@ -311,7 +310,7 @@ private lemma isEProcess_add_indicator_le (hS₁ : ∀ P ∈ S₁, IsProbability
       ∂Measure.infinitePi (fun _ ↦ P) :=
     lintegral_mono fun ω ↦ add_le_add le_rfl (Set.indicator_le_indicator_of_subset
       (s := {x | τ x ≤ ((σ ω).untopA : WithTop ℕ)}) (t := {x | τ x ≠ ⊤})
-      (fun x hx ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top _) hx) (fun _ ↦ bot_le) ω)
+      (fun x hx ↦ WithTop.ne_top_of_le_natCast hx) (fun _ ↦ bot_le) ω)
   _ = ENNReal.ofReal ε + b * Measure.infinitePi (fun _ ↦ P) {ω | τ ω ≠ ⊤} := by
     rw [lintegral_add_left measurable_const, lintegral_const, measure_univ, mul_one,
       lintegral_indicator_const hτtop]
@@ -349,7 +348,7 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     exact ENat.toENNReal_ne_top.1 (ne_top_of_lt (lt_of_le_of_lt le_self_add hω))
   -- the stopping times `min τ k`, which are finite
   have hτk_top (k : ℕ) (ω : ℕ → 𝓧) : min (τ ω) k ≠ ⊤ :=
-    ne_top_of_le_ne_top (WithTop.natCast_ne_top k) (min_le_right _ _)
+    WithTop.ne_top_of_le_natCast (min_le_right _ _)
   have hτk_coe (k : ℕ) (ω : ℕ → 𝓧) : (((min (τ ω) k).untopA : ℕ) : WithTop ℕ) = min (τ ω) k :=
     WithTop.natCast_untopA (hτk_top k ω)
   have hmk (k : ℕ) : ∫⁻ ω, ENat.toENNReal (min (τ ω) k : WithTop ℕ) + 1 ∂μ ≤ m :=
@@ -378,7 +377,7 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     have hmem : ω ∈ {x | τ x ≤ ((min (τ ω) k).untopA : WithTop ℕ)} ↔ τ ω ≤ k := by
       rw [Set.mem_ofPred_eq, hτk_coe]
       exact ⟨fun h ↦ h.trans (min_le_right _ _), fun h ↦ le_min le_rfl h⟩
-    rw [stoppedValue]
+    rw [stoppedValue_of_eq_natCast (τ := fun ω ↦ min (τ ω) k) (hτk_coe k ω).symm]
     by_cases hω : τ ω ≤ k
     · simp only [E, g, Set.indicator_of_mem (hmem.2 hω), hω, ↓reduceIte]
       rw [← ENNReal.ofReal_add hε0.le hb0.le, ENNReal.log_ofReal_of_pos (by linarith)]

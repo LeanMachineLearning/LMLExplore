@@ -149,7 +149,7 @@ theorem lintegral_stoppedValueLimsup_le (hM : IsEDetector M ℱ S) {τ : Ω → 
     have hN (N : ℕ) : ∫⁻ ω, stoppedValue M (fun ω ↦ min (τ ω) N) ω ∂P ≤
         ∫⁻ ω, ENat.toENNReal (τ ω) ∂P :=
       (hM.lintegral_le _ (hτ.min_natCast N)
-        (fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)) P hP).trans
+        (fun ω ↦ WithTop.ne_top_of_le_natCast (min_le_right _ _)) P hP).trans
         (lintegral_mono fun ω ↦ ENat.toENNReal_le.2 (min_le_left _ _))
     refine lintegral_le_of_tendsto_of_eventually_le (l := atTop)
       (f := fun (N : ℕ) ↦ stoppedValue M (fun ω ↦ min (τ ω) N))
@@ -275,7 +275,7 @@ theorem isEProcess (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEProcessFrom E 0 ℱ
     IsEProcess E ℱ S :=
   .of_lintegral_le_one hE.adapted fun τ hτ N hτN P hP ↦ by
     simpa using (hE.setLIntegral_le hτ
-      (fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)) hP MeasurableSet.univ
+      (fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)) hP MeasurableSet.univ
       fun ω _ ↦ by simp).trans (hS P hP)
 
 end IsEProcessFrom
@@ -368,11 +368,10 @@ theorem isEDetector_shiryaevRoberts (hΛ : ∀ j, IsEProcessFrom (Λ j) j ℱ S)
     IsEDetector (shiryaevRoberts Λ) ℱ S := by
   refine ⟨adapted_shiryaevRoberts fun j ↦ (hΛ j).adapted, fun τ' hτ' hτ_top P hP ↦ ?_⟩
   -- `τ'` is finite, so it is the cast of the time `τ` with values in `ℕ`
-  obtain ⟨τ, rfl⟩ : ∃ τ : Ω → ℕ, τ' = fun ω ↦ (τ ω : WithTop ℕ) :=
-    ⟨_, funext fun ω ↦ (WithTop.natCast_untopA (hτ_top ω)).symm⟩
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
   have hτ_meas : Measurable τ := by
     simpa only [WithTop.untopA_natCast] using hτ'.measurable'.untopA
-  simp only [stoppedValue, WithTop.untopA_natCast]
+  simp only [stoppedValue_natCast]
   -- the sum over `j < τ` is the sum over all `j` of the restrictions to `{j < τ}`
   have hset (j : ℕ) : MeasurableSet[ℱ j] {ω | j < τ ω} := by
     simpa using hτ'.measurableSet_natCast_lt j
@@ -390,7 +389,7 @@ theorem isEDetector_shiryaevRoberts (hΛ : ∀ j, IsEProcessFrom (Λ j) j ℱ S)
           hτ_meas).indicator (hmeas j)).aemeasurable]
         exact tsum_congr fun j ↦ lintegral_indicator (hmeas j) _
     _ ≤ ∑' j, P {ω | j < τ ω} := tsum_le_tsum fun j ↦ by
-        simpa only [stoppedValue, WithTop.untopA_natCast] using
+        simpa only [stoppedValue_natCast] using
           (hΛ j).setLIntegral_le hτ' hτ_top hP (hset j)
             fun _ hω ↦ mem_ofPred.2 (Nat.cast_le.2 (mem_ofPred.1 hω).le)
     _ = ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P := by

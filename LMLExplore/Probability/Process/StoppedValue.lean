@@ -41,9 +41,12 @@ occur, where it is infinite [RRLK, Lemma 2]. This event is contained in the unio
 
 * `MeasureTheory.stoppedValueLimsup_of_eq_natCast`, `MeasureTheory.stoppedValueLimsup_of_eq_top`:
   its values at finite and infinite times.
-* `MeasureTheory.stoppedValue_natCast`, `MeasureTheory.stoppedValue_add_one`: Mathlib's
-  `stoppedValue` at the cast of a random time with values in `ℕ`, and the value of a shifted
-  process at a random time that is finite everywhere.
+* `MeasureTheory.stoppedValue_of_eq_natCast`, `MeasureTheory.stoppedValue_natCast`,
+  `MeasureTheory.stoppedValue_add_one`: Mathlib's `stoppedValue` where the random time is finite,
+  at the cast of a random time with values in `ℕ`, and the value of a shifted process at a random
+  time that is finite everywhere.
+* `MeasureTheory.stoppedValue_congr`: the value of a process at a random time at `ω` depends only
+  on the time at `ω`.
 * `MeasureTheory.stoppedValueLimsup_of_forall_ne_top`: at a random time that is finite
   everywhere it is Mathlib's `stoppedValue`.
 * `MeasureTheory.stoppedValueLimsup_eq_stoppedValue`: where `τ` is finite it agrees with Mathlib's
@@ -93,23 +96,31 @@ namespace MeasureTheory
 
 variable {Ω β : Type*} {τ : Ω → WithTop ℕ} {ω : Ω}
 
+/-- Where the random time is finite, Mathlib's `stoppedValue` reads the process at that time.
+This is Tau Ceti's `stoppedValue_of_eq` with the cast `(n : WithTop ℕ)`, the simp normal form of a
+finite time in `WithTop ℕ`, in place of the coercion `WithTop.some n`. -/
+theorem stoppedValue_of_eq_natCast {u : ℕ → Ω → β} {n : ℕ} (h : τ ω = n) :
+    stoppedValue u τ ω = u n ω :=
+  stoppedValue_of_eq h
+
+/-- The value of a process at a random time at `ω` depends only on the time at `ω`. -/
+theorem stoppedValue_congr {ι : Type*} [Nonempty ι] {u : ι → Ω → β} {σ σ' : Ω → WithTop ι}
+    (h : σ ω = σ' ω) : stoppedValue u σ ω = stoppedValue u σ' ω := by
+  rw [stoppedValue, stoppedValue, h]
+
 /-- At the cast of a random time with values in `ℕ`, `stoppedValue` reads the process at that
 time. -/
 @[simp]
 theorem stoppedValue_natCast (u : ℕ → Ω → β) (τ : Ω → ℕ) :
-    stoppedValue u (fun ω ↦ (τ ω : WithTop ℕ)) = fun ω ↦ u (τ ω) ω := by
-  funext ω
-  rw [stoppedValue, WithTop.untopA_natCast]
+    stoppedValue u (fun ω ↦ (τ ω : WithTop ℕ)) = fun ω ↦ u (τ ω) ω :=
+  funext fun _ ↦ stoppedValue_of_eq_natCast rfl
 
 /-- At a random time that is finite everywhere, the shift `fun n ↦ u (n + 1)` read at `τ` is `u`
 read at `τ + 1`. -/
 theorem stoppedValue_add_one (u : ℕ → Ω → β) (h : ∀ ω, τ ω ≠ ⊤) :
     stoppedValue (fun n ↦ u (n + 1)) τ = stoppedValue u (fun ω ↦ τ ω + 1) := by
-  funext ω
-  obtain ⟨b, hb⟩ := WithTop.ne_top_iff_exists.1 (h ω)
-  rw [← Nat.cast_withTop] at hb
-  rw [stoppedValue, stoppedValue, ← hb, ← Nat.cast_add_one, WithTop.untopA_natCast,
-    WithTop.untopA_natCast]
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top h
+  simp only [← Nat.cast_add_one, stoppedValue_natCast]
 
 section ConditionallyCompleteLattice
 
@@ -191,7 +202,9 @@ theorem liminf_stoppedValue_min (u : ℕ → Ω → β) (τ : Ω → WithTop ℕ
       ← liminf_const (f := (atTop : Filter ℕ)) (stoppedValue u τ ω)]
     refine liminf_congr ?_
     filter_upwards [eventually_ge_atTop b] with N hN
-    rw [stoppedValue, stoppedValue, hτω, ← Nat.cast_withTop, min_eq_left (by exact_mod_cast hN)]
+    rw [← Nat.cast_withTop] at hτω
+    rw [stoppedValue_of_eq_natCast hτω,
+      stoppedValue_of_eq_natCast (by rw [hτω, min_eq_left (by exact_mod_cast hN)])]
 
 end ConditionallyCompleteLattice
 
@@ -251,7 +264,7 @@ theorem tendsto_lintegral_stoppedValueLimsup_min {mΩ : MeasurableSpace Ω} {μ 
     Tendsto (fun N : ℕ ↦ ∫⁻ ω, stoppedValueLimsup u (fun ω ↦ min (τ ω) N) ω ∂μ) atTop
       (𝓝 (∫⁻ ω, stoppedValueLimsup u τ ω ∂μ)) := by
   have hmin_top (ω : Ω) (N : ℕ) : min (τ ω) N ≠ ⊤ :=
-    ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)
+    WithTop.ne_top_of_le_natCast (min_le_right _ _)
   refine lintegral_tendsto_of_tendsto_of_monotone (fun N ↦ (measurable_stoppedValueLimsup hu
     ((measurable_of_countable fun t : WithTop ℕ ↦ min t N).comp hτ)).aemeasurable) ?_ ?_
   · filter_upwards [hmono] with ω hω N N' h
@@ -275,7 +288,7 @@ theorem tendsto_setLIntegral_inter_le_natCast {mΩ : MeasurableSpace Ω} {μ : M
     congr 1
     ext ω
     simp only [Set.mem_iUnion, Set.mem_ofPred_eq]
-    refine ⟨fun ⟨N, hN⟩ ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hN, fun h ↦ ?_⟩
+    refine ⟨fun ⟨N, hN⟩ ↦ WithTop.ne_top_of_le_natCast hN, fun h ↦ ?_⟩
     obtain ⟨t, ht⟩ := WithTop.ne_top_iff_exists.1 h
     exact ⟨t, by simp [← ht]⟩
   -- The set integrals of `f` are the measures of the sets under `μ.withDensity f`.

@@ -245,7 +245,7 @@ theorem IsENNSupermartingale.snellEnvelope_ae_le [SigmaFiniteFiltration P ℱ]
   rw [condLExp_ae_le_iff_forall_setLIntegral_le (ℱ.le n) (hM.adapted n)]
   intro s hs
   have hEM' : ∀ᵐ ω ∂P, ∀ k, E k ω ≤ M k ω := ae_all_iff.2 hEM
-  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
+  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hτN ω)
   calc ∫⁻ ω in s, stoppedValue E τ ω ∂P ≤ ∫⁻ ω in s, stoppedValue M τ ω ∂P :=
         lintegral_mono_ae (ae_restrict_of_ae (hEM'.mono fun ω hω ↦ hω _))
     _ ≤ ∫⁻ ω in s, M n ω ∂P := hM.setLIntegral_stoppedValue_le hP hτ hτ_top hnτ hs
@@ -278,7 +278,7 @@ theorem snellEnvelope_ae_eq_essSupFamily_condExp [SigmaFiniteFiltration P ℱ]
     -- The value at `τ ≤ N` is below the sum of the values at the times up to `N`.
     have hle := lintegral_stoppedValueLimsup_le_sum (μ := P) (fun k ↦ (hE k).aemeasurable) hτN
     rw [stoppedValueLimsup_of_forall_ne_top _
-      fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)] at hle
+      fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)] at hle
     have hint : ∫⁻ ω, stoppedValue E τ ω ∂P ≠ ∞ :=
       ne_top_of_le_ne_top (ENNReal.sum_ne_top.2 fun k _ ↦ hE_int k) hle
     filter_upwards [toReal_condLExp (ℱ n) hmeas.aemeasurable hint,

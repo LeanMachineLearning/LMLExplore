@@ -25,14 +25,14 @@ A p-process is the same as time-uniformly valid events `{p n ≤ α}` at every l
 sequential test is a `{0, 1}`-valued process whose events of rejection are time-uniformly valid
 (`ProbabilityTheory.IsTimeUniform`). The equivalence lemma for time-uniform validity
 (`ProbabilityTheory.isTimeUniform_iff_forall_isStoppingTime`) then makes validity of a p-process
-at every stopping time the same as validity uniformly in time, `P {ω | ∃ n, p n ω ≤ α} ≤ α`, and
-a sequential test likewise rejects at every stopping time with probability at most `α`
-[RRLK, §4.1 and Lemma 2]. The running infimum of a p-process is a p-process. The inverse `E⁻¹`
-of an e-process is a p-process, by Markov's inequality at each stopping time, so its running
-infimum `(⨆ k ≤ n, E k)⁻¹` is one as well; thresholding a p-process at `α`, or an e-process at
-`α⁻¹`, is a level-`α` sequential test, which is Ville's inequality for e-processes; every
-level-`α` sequential test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`; and a p-to-e
-calibrator applied to a p-process gives an e-process.
+at every bounded stopping time the same as validity uniformly in time,
+`P {ω | ∃ n, p n ω ≤ α} ≤ α`, and a sequential test likewise rejects at every bounded stopping
+time with probability at most `α` [RRLK, §4.1 and Lemma 2]. The running infimum of a p-process
+is a p-process. The inverse `E⁻¹` of an e-process is a p-process, by Markov's inequality at each
+stopping time, so its running infimum `(⨆ k ≤ n, E k)⁻¹` is one as well; thresholding a p-process
+at `α`, or an e-process at `α⁻¹`, is a level-`α` sequential test, which is Ville's inequality for
+e-processes; every level-`α` sequential test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`;
+and a p-to-e calibrator applied to a p-process gives an e-process.
 Since time-uniform validity does not mention the filtration
 (`ProbabilityTheory.IsTimeUniform.mono_filtration`), a p-process or a sequential test for a
 filtration `𝒢` is one for every finer filtration [CR26, Theorem 1].
@@ -71,7 +71,7 @@ arbitrary, and p-processes are validated at the bounded stopping times, as e-pro
   and the inverse of its running maximum are p-processes [RRLK, Proposition 12 (1); RW, §7.4].
 * `ProbabilityTheory.isSequentialTest_iff_forall_isStoppingTime`: a `{0, 1}`-valued adapted
   process is a level-`α` sequential test exactly when it rejects with probability at most `α` at
-  every stopping time [RRLK, §4.1].
+  every bounded stopping time [RRLK, §4.1].
 * `ProbabilityTheory.IsPProcess.isSequentialTest`,
   `ProbabilityTheory.IsEProcess.isSequentialTest`: thresholding a p-process at `α`, or an e-process
   at `α⁻¹`, is a level-`α` sequential test [RRLK, Proposition 11 (1)–(2)].
@@ -161,14 +161,14 @@ theorem isPProcess_iff_forall_isTimeUniform :
   refine ⟨fun hp α ↦ isTimeUniform_iff_forall_isStoppingTime.2
     ⟨fun n ↦ hp.adapted n measurableSet_Iic, fun P hP τ hτ N hτN ↦ ?_⟩, fun h ↦ ?_⟩
   · rw [stoppedEvent_of_forall_ne_top _
-      fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)]
+      fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)]
     exact (hp.isPVar_stoppedValue_of_le hτ hτN).measure_le_le P hP α
   have hp : Adapted ℱ p := fun n ↦ measurable_of_Iic fun α ↦ (h α).measurableSet n
   refine ⟨hp, fun τ hτ N hτN ↦ ⟨measurable_stoppedValue_of_countable (fun _ ↦ hp.measurable)
     hτ.measurable', fun P hP α ↦ ?_⟩⟩
   have h_le := (h α).measure_stoppedEvent_le τ hP
   rwa [stoppedEvent_of_forall_ne_top _
-    fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)] at h_le
+    fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)] at h_le
 
 /-- At every level `α`, the events `{p n ≤ α}` of a p-process are time-uniformly valid at level
 `α`. -/
@@ -335,7 +335,7 @@ theorem isSequentialTest_iff_forall_isStoppingTime :
   rw [isSequentialTest_iff_isTimeUniform, isTimeUniform_iff_forall_isStoppingTime]
   have h_eq {τ : Ω → WithTop ℕ} {N : ℕ} (hτN : ∀ ω, τ ω ≤ N) :
       stoppedEvent (fun n ↦ {ω | φ n ω = 1}) τ = {ω | stoppedValue φ τ ω = 1} :=
-    stoppedEvent_of_forall_ne_top _ fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
+    stoppedEvent_of_forall_ne_top _ fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)
   exact ⟨fun ⟨hφ, h01, _, h⟩ ↦ ⟨hφ, h01, fun τ hτ N hτN P hP ↦ h_eq hτN ▸ h P hP τ hτ N hτN⟩,
     fun ⟨hφ, h01, h⟩ ↦ ⟨hφ, h01, fun n ↦ hφ n (measurableSet_singleton 1),
       fun P hP τ hτ N hτN ↦ (h_eq hτN).symm ▸ h τ hτ N hτN P hP⟩⟩

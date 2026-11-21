@@ -180,7 +180,7 @@ e-variable is an e-process. -/
 theorem of_isEVar_stoppedValue (hE : Adapted ℱ E)
     (h : ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → (∀ ω, τ ω ≠ ⊤) → IsEVar (stoppedValue E τ) S) :
     IsEProcess E ℱ S :=
-  ⟨hE, fun τ hτ N hτN ↦ h τ hτ fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)⟩
+  ⟨hE, fun τ hτ _ hτN ↦ h τ hτ fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)⟩
 
 /-- An adapted process with expectation at most `1` at every bounded stopping time, under every
 member of the null, is an e-process. -/
@@ -271,7 +271,7 @@ theorem IsEProcess.shift (hE : IsEProcess E 𝒢 S) (h : ∀ n, 𝒢 (n + 1) = �
     IsEProcess (fun n ↦ E (n + 1)) ℱ S where
   adapted := hE.adapted.shift h
   isEVar_stoppedValue_of_le τ hτ N hτN := by
-    rw [stoppedValue_add_one E fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)]
+    rw [stoppedValue_add_one E fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)]
     refine hE.isEVar_stoppedValue_of_le ((isStoppingTime_add_one_iff h).2 hτ) (N := N + 1)
       fun ω ↦ ?_
     rw [Nat.cast_add_one]
@@ -292,10 +292,9 @@ theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = �
   · -- `τ` is positive, and `τ - 1` is a stopping time of `ℱ`
     have hτ1 (ω : Ω) : (((τ ω).untopA - 1 : ℕ) : WithTop ℕ) + 1 = τ ω := by
       have hω : ω ∉ {ω | τ ω ≤ (0 : ℕ)} := h0 ▸ notMem_empty ω
-      obtain ⟨b, hb⟩ := WithTop.ne_top_iff_exists.1 (hτ_top ω)
-      rw [← Nat.cast_withTop] at hb
-      simp only [mem_ofPred_eq, ← hb, Nat.cast_le, nonpos_iff_eq_zero] at hω
-      rw [← hb, WithTop.untopA_natCast, ← Nat.cast_add_one, Nat.sub_add_cancel (by omega)]
+      obtain ⟨b, hb⟩ := WithTop.exists_eq_natCast_of_ne_top (hτ_top ω)
+      simp only [mem_ofPred_eq, hb, Nat.cast_le, nonpos_iff_eq_zero] at hω
+      rw [hb, WithTop.untopA_natCast, ← Nat.cast_add_one, Nat.sub_add_cancel (by omega)]
     have hσ : IsStoppingTime ℱ fun ω ↦ (((τ ω).untopA - 1 : ℕ) : WithTop ℕ) :=
       (isStoppingTime_add_one_iff h).1 (by simpa only [hτ1] using hτ)
     have h_eq := stoppedValue_add_one E fun ω ↦ WithTop.natCast_ne_top ((τ ω).untopA - 1)
@@ -307,7 +306,7 @@ theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = �
       simpa only [mem_ofPred_eq, Nat.cast_zero, nonpos_iff_eq_zero] using hω
     have h_eq : stoppedValue E τ = E 0 := by
       funext ω
-      rw [stoppedValue, hτ0 ω, ← Nat.cast_zero, WithTop.untopA_natCast]
+      exact stoppedValue_of_eq_natCast (by rw [hτ0 ω, Nat.cast_zero])
     rw [h_eq, hE₀]
     exact isEVar_one hS
 
@@ -408,7 +407,7 @@ theorem isEProcess_tfae (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hE : Adapted
   tfae_have 4 → 1 := fun h ↦ .of_lintegral_le_one hE fun τ hτ N hτN P hP ↦ by
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h _ hτ P hP)
     -- a bounded stopping time is finite, which selects the `stoppedValue` branch
-    exact (ite_eq_right (ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω))).symm
+    exact (ite_eq_right (WithTop.ne_top_of_le_natCast (hτN ω))).symm
   tfae_finish
 
 /-- **The characterization of e-processes by test supermartingales** [RRLK, Lemma 6]. For a null

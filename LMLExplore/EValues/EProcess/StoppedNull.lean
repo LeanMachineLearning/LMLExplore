@@ -138,7 +138,7 @@ theorem isEProcess_iff_isEVar_stoppedNull :
   · refine .of_lintegral_le_one (Filtration.measurable_uncurry_progressive_iff.1 hE.measurable)
       fun τ hτ N hτN P hP ↦ ?_
     have h := hE.lintegral_le_one (stoppedLaw_mem_stoppedNull hP hτ
-      fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω))
+      fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω))
     rwa [lintegral_stoppedLaw hτ.measurable'.untopA hE.measurable] at h
 
 /-- **The quasi-sure filter of the stopped null.** A property of stopped paths given by a

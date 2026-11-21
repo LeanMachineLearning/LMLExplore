@@ -194,7 +194,8 @@ theorem exists_isEProcess_stoppedValue_eq_iff (hσ : IsStoppingTime ℱ σ) (hσ
   refine ⟨?_, fun ⟨hY, hYσ⟩ ↦ ⟨_, isEProcess_indicator_le hσ hY hYσ, funext fun ω ↦ ?_⟩⟩
   · rintro ⟨E, hE, rfl⟩
     exact ⟨hE.isEVar_stoppedValue hσ hσ_top, hE.adapted.measurable_stoppedValue hσ⟩
-  · simp [stoppedValue, WithTop.natCast_untopA (hσ_top ω)]
+  · obtain ⟨n, hn⟩ := WithTop.exists_eq_natCast_of_ne_top (hσ_top ω)
+    simp [stoppedValue_of_eq_natCast hn, hn]
 
 /-- **Optimality at one stopping time** [EVR26, Note 40, Proposition 2]. Against a finite measure
 `Q`, an e-process `E` is optimal at a stopping time `σ` that is finite everywhere exactly when its
@@ -214,7 +215,8 @@ theorem isNumeraireAt_iff_isNumeraire_mapNull [IsFiniteMeasure Q] (hσ : IsStopp
   · rw [isEVar_mapNull_id_iff hσ.measurableSpace_le] at hY
     rw [lintegral_trim _ (f := fun ω ↦ Y ω / stoppedValue E σ ω) (hY.2.div hEσ)]
     refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h _ (isEProcess_indicator_le hσ hY.1 hY.2))
-    simp [stoppedValue, WithTop.natCast_untopA (hσ_top ω)]
+    obtain ⟨n, hn⟩ := WithTop.exists_eq_natCast_of_ne_top (hσ_top ω)
+    simp [stoppedValue_of_eq_natCast hn, hn]
   · have hFσ := hF.adapted.measurable_stoppedValue hσ
     rw [← lintegral_trim hσ.measurableSpace_le
       (f := fun ω ↦ stoppedValue F σ ω / stoppedValue E σ ω) (hFσ.div hEσ)]

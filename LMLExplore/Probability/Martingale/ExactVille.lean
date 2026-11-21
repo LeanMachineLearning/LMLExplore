@@ -100,7 +100,7 @@ theorem setLIntegral_eq_add_stoppedValueLimsup (hM : IsENNSupermartingale M ℱ 
   have hsup : Supermartingale g ℱ P := hM.supermartingale_toReal hP h0
   have hA_int (n : ℕ) : Integrable (A n) P :=
     integrable_finsetSum' _ fun _ _ ↦ integrable_condExp
-  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
+  have hτ_top (ω : Ω) : τ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hτN ω)
   -- The untopped value of `τ` is between `m` and `N`.
   have hτ_ge (ω : Ω) : m ≤ (τ ω).untopA :=
     (WithTop.le_untopA_iff (hτ_top ω)).2 (by simpa using hmτ ω)
@@ -220,7 +220,7 @@ theorem setLIntegral_eq_exact_ville_horizon (hM : IsENNSupermartingale M ℱ S) 
     (fun ω ↦ (Nat.cast_withTop m).trans_le (le_hittingAfter ω)) hmN hs,
     setLIntegral_stoppedValueLimsup_hittingAfter b
       ((ℱ.le m _ hs).inter (ℱ.le N _ (hT.measurableSet_le_natCast N)))
-      (fun ω hω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hω.2)]
+      (fun ω hω ↦ WithTop.ne_top_of_le_natCast hω.2)]
 
 /-- **The exact Ville identity** [dlP+26, Theorem 1]. For an `ℝ≥0∞`-valued supermartingale with
 finite initial expectation under a finite measure, a level `b`, the first time `T` at which

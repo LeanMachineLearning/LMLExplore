@@ -194,7 +194,7 @@ theorem setLIntegral_stoppedValue_le (hM : IsENNSupermartingale M ℱ S) (hP : P
     ∫⁻ ω in s, stoppedValue M τ ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
   have hσ : IsStoppingTime ℱ fun _ ↦ (j : WithTop ℕ) := isStoppingTime_natCast j
   have hmin_top (N : ℕ) (ω : Ω) : min (τ ω) N ≠ ⊤ :=
-    ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (min_le_right _ _)
+    WithTop.ne_top_of_le_natCast (min_le_right _ _)
   -- bounded case at `min τ N` for `N ≥ j`, then Fatou's lemma: `M (min τ N)` is eventually
   -- `M τ` at every point
   have hN : ∀ᶠ N : ℕ in atTop,
@@ -209,9 +209,9 @@ theorem setLIntegral_stoppedValue_le (hM : IsENNSupermartingale M ℱ S) (hP : P
     (fun N ↦ (measurable_stoppedValue_of_countable (fun _ ↦ hM.adapted.measurable)
       (hτ.min_natCast N).measurable').aemeasurable)
     (ae_of_all _ fun ω ↦ tendsto_const_nhds.congr' ?_) hN
-  obtain ⟨b, hb⟩ := WithTop.ne_top_iff_exists.1 (hτ_top ω)
+  obtain ⟨b, hb⟩ := WithTop.exists_eq_natCast_of_ne_top (hτ_top ω)
   filter_upwards [eventually_ge_atTop b] with N hN
-  rw [stoppedValue, stoppedValue, ← hb, ← Nat.cast_withTop, min_eq_left (by exact_mod_cast hN)]
+  exact stoppedValue_congr (by rw [hb, min_eq_left (by exact_mod_cast hN)])
 
 /-- **Optional stopping.** For an `ℝ≥0∞`-valued supermartingale with finite initial expectation
 under a finite measure, stopping times `σ ≤ τ` with values in `WithTop ℕ` and a set `s`
@@ -237,7 +237,7 @@ theorem setLIntegral_stoppedValueLimsup_le (hM : IsENNSupermartingale M ℱ S) (
   have hsN (N : ℕ) : MeasurableSet (s ∩ {ω | σ ω ≤ N}) :=
     hs'.inter (ℱ.le N _ (hσ.measurableSet_le_natCast N))
   have hsub (N : ℕ) : s ∩ {ω | σ ω ≤ N} ⊆ s \ {ω | σ ω = ⊤} := fun _ hω ↦
-    ⟨hω.1, ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hω.2⟩
+    ⟨hω.1, WithTop.ne_top_of_le_natCast hω.2⟩
   have hF_meas (N : ℕ) : Measurable (F N) :=
     (measurable_stoppedValueLimsup hM.measurable
       (hτ.min_natCast N).measurable').indicator (hsN N)

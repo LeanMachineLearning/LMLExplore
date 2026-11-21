@@ -156,7 +156,7 @@ theorem isTimeUniform_tfae (hA : ∀ n, MeasurableSet[ℱ n] (A n)) :
     exact h_eq ▸ h P hP τ hτ⟩
   tfae_have 2 → 4 := fun h P hP τ _ ↦ h P hP τ
   tfae_have 4 → 5 := fun h P hP τ _ N hτN ↦
-    h P hP τ fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)
+    h P hP τ fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)
   tfae_have 5 → 1 := fun h ↦ ⟨hA, fun P hP ↦ by
     rw [measure_iUnion_eq_iSup_isStoppingTime hA]
     exact iSup₂_le fun τ hτ ↦ iSup₂_le fun N hτN ↦ h P hP τ hτ N hτN⟩
@@ -255,7 +255,7 @@ private lemma isEProcess_doubleOrNothing :
   · -- `τ ≥ 1` everywhere: the martingale is read at time `1` or later
     have hτ1 (ω : Bool) : (τ ω).untopA ≠ 0 := fun h ↦ eq_empty_iff_forall_notMem.1 h0 ω (by
       rw [mem_ofPred_eq, ← WithTop.natCast_untopA
-        (ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)), h]
+        (WithTop.ne_top_of_le_natCast (hτN ω)), h]
       simp)
     simp [stoppedValue, doubleOrNothing, hτ1]
   · -- `τ = 0` everywhere: the martingale is read at time `0`

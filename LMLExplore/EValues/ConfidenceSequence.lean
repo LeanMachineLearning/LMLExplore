@@ -214,7 +214,7 @@ theorem isConfSeq_tfae (hC : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}
     ((h_tu θ).out 1 5).2 fun P hP τ hτ N hτN ↦ by
       -- a bounded time is finite, where the event is read through `stoppedValue`
       rw [stoppedEvent_of_forall_ne_top _
-        fun ω ↦ ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hτN ω)]
+        fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)]
       exact h θ P hP τ hτ N hτN
   tfae_finish
 

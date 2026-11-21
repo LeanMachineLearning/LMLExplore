@@ -289,8 +289,7 @@ theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilit
     ∫⁻ ω, stoppedValue F τ ω / stoppedValue (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) τ ω
       ∂Measure.infinitePi Q₁ ≤ 1 := by
   -- the stopping time is the cast of a time with values in `ℕ`
-  obtain ⟨τ, rfl⟩ : ∃ τ₀ : (ℕ → 𝓧) → ℕ, τ = fun ω ↦ (τ₀ ω : WithTop ℕ) :=
-    ⟨fun ω ↦ (τ ω).untopA, funext fun ω ↦ (WithTop.natCast_untopA (hτ_top ω)).symm⟩
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
   simp only [stoppedValue_natCast]
   -- the ratio is the sum over the values `k` of the stopping time of `𝟙{τ = k} F k / ∏ i < k, X i`
   set g : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun k ↦ {ω | τ ω = k}.indicator (F k)

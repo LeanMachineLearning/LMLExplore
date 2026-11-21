@@ -196,9 +196,9 @@ theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsProbabilityMeasure 
     rw [← lintegral_add_compl (stoppedValue E (s.piecewise σ ρ)) hs']
     congr 1
     · refine setLIntegral_congr_fun hs' fun ω hω ↦ ?_
-      rw [stoppedValue, stoppedValue, piecewise_eq_of_mem _ _ _ hω]
+      exact stoppedValue_congr (piecewise_eq_of_mem _ _ _ hω).symm
     · refine setLIntegral_congr_fun hs'.compl fun ω hω ↦ ?_
-      rw [stoppedValue, stoppedValue, piecewise_eq_of_notMem _ _ _ hω]
+      exact stoppedValue_congr (piecewise_eq_of_notMem _ _ _ hω).symm
   _ ≤ 1 := (hE.isEVar_stoppedValue hσs hσs_top).lintegral_le_one hP
   _ = P s + P sᶜ := by rw [measure_add_measure_compl hs', measure_univ]
 
@@ -213,7 +213,7 @@ theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have hM : Adapted ℱ (stoppedProcess A τ * B) :=
     (hA.adapted.stoppedProcess_of_discrete hτ).mul hB.adapted
   refine .of_lintegral_le_one hM fun σ hσ N hσN P hP ↦ ?_
-  have hσ_top (ω : Ω) : σ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.natCast_ne_top N) (hσN ω)
+  have hσ_top (ω : Ω) : σ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hσN ω)
   -- `ρ = min σ τ`, the time at which `A` is read
   set ρ : Ω → WithTop ℕ := fun ω ↦ min (σ ω) (τ ω) with hρ_def
   have hρ : IsStoppingTime ℱ ρ := hσ.min hτ
@@ -228,9 +228,7 @@ theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
   have h_eq : stoppedValue (stoppedProcess A τ * B) σ =
       fun ω ↦ stoppedValue A ρ ω * stoppedValue B σ ω := by
     ext ω
-    simp only [stoppedValue, Pi.mul_apply, hρ_def]
-    rw [stoppedProcess_eq_stoppedValue_apply, stoppedValue, ← Nat.cast_withTop,
-      WithTop.natCast_untopA (hσ_top ω)]
+    rw [stoppedValue_mul, Pi.mul_apply, stoppedValue_stoppedProcess_apply (hσ_top ω)]
   rw [h_eq]
   exact (hB_cond.lintegral_mul_le (hρ.measurableSpace_le) hP hAρ).trans
     ((hA.isEVar_stoppedValue hρ hρ_top).lintegral_le_one hP)
