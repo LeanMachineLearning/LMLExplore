@@ -27,6 +27,8 @@ stopped.
   a.e.-measurable `f`.
 * `MeasureTheory.lintegral_toENNReal_le_add_tsum_measure_compl`: if `f ≤ T` on `E T` for every
   `T ≥ T₀`, then `∫⁻ f ∂μ ≤ T₀ + ∑' T, μ (E (T + T₀))ᶜ`.
+* `MeasureTheory.lintegral_toENNReal_eq_top_of_measure_ne_zero`: a function with values in `ℕ∞`
+  that is infinite on a set of positive measure has infinite integral.
 -/
 
 public section
@@ -62,5 +64,12 @@ lemma lintegral_toENNReal_le_add_tsum_measure_compl [IsZeroOrProbabilityMeasure 
     _ = T₀ := by simp
   · -- From `T₀` on, `f` exceeds `T` only outside `E T`.
     exact fun ω hω hωE ↦ (hE (T + T₀) (Nat.le_add_left _ _) ω hωE).not_gt hω
+
+/-- An a.e.-measurable function with values in `ℕ∞` that is infinite on a set of positive measure,
+such as a random time that is infinite with positive probability, has infinite integral. -/
+lemma lintegral_toENNReal_eq_top_of_measure_ne_zero (hf : AEMeasurable f μ)
+    (h : μ {ω | f ω = ⊤} ≠ 0) : ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ = ∞ :=
+  lintegral_eq_top_of_measure_eq_top_ne_zero ((measurable_of_countable _).comp_aemeasurable hf)
+    (by simpa using h)
 
 end MeasureTheory
