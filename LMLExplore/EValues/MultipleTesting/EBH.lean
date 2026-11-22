@@ -164,9 +164,7 @@ theorem IsSelfConsistent.fdp_le [DecidableEq ι] (h : IsSelfConsistent e α R) (
       _ = (#R : ℝ≥0∞)⁻¹ * #R * (α * e i) / Fintype.card ι := by ac_rfl
       _ = α * (e i / Fintype.card ι) := by
           rw [ENNReal.inv_mul_cancel hR0 (ENNReal.natCast_ne_top _), one_mul, mul_div_assoc]
-  calc fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := by
-        rw [fdp_def, max_eq_left (Nat.one_le_cast.2 (card_pos.2 ⟨j, hj⟩)), sum_const, nsmul_eq_mul,
-          div_eq_mul_inv]
+  calc fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := fdp_eq_sum_inv_card N R
     _ ≤ ∑ i ∈ R ∩ N, α * (e i / Fintype.card ι) :=
         sum_le_sum fun i hi' ↦ hi i (mem_inter.1 hi').1
     _ ≤ ∑ i ∈ N, α * (e i / Fintype.card ι) :=
