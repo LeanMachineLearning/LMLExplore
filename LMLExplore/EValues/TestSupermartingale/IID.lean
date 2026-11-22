@@ -7,12 +7,11 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.EValues.Null.Basic
+public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.ProductMeasure.Blocks
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.ProductMeasure
-import LMLExplore.Probability.ProductMeasure
-import Statlib.ForMathlib.Probability.Process.Filtration
 
 /-!
 # Products of i.i.d. copies of an e-variable
@@ -21,9 +20,11 @@ Let `e` be an e-variable for a null `S` of probability measures on `𝓧`. Evalu
 sequence `ω : ℕ → 𝓧`, the products `∏ i < n, e (ω i)` of copies of `e` form a test
 supermartingale, hence an e-process, for the i.i.d. null `{P ^ ℕ | P ∈ S}` and the filtration
 `Filtration.piLT`, whose time `n` has seen the `n` observations `ω 0, …, ω (n - 1)`. This is the
-i.i.d. instance of the wealth processes `ProbabilityTheory.isTestSupermartingale_mul_prod`: under
-`P ^ ℕ`, the factor `e (ω n)` is independent of the first `n` observations and has expectation at
-most `1`.
+i.i.d. instance of the products of e-variables for the sequential null
+(`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_sequentialNull`): under `P ^ ℕ`, the
+observation `ω n` has law `P` given the first `n` observations, so the i.i.d. null is contained in
+the sequential null of the constant one-step null `S`
+(`ProbabilityTheory.iidNull_subset_sequentialNull`).
 
 The blocks of `m` observations of an i.i.d. sequence are i.i.d., of law the `m`-fold product
 (`MeasureTheory.measurePreserving_seqBlock_infinitePi`). Applied to them, Ville's inequality for
@@ -40,10 +41,6 @@ expectation at most `1` under the `m`-fold product of `P`.
   blocks.
 
 ## Implementation notes
-
-The test supermartingale property is first proved for `Filtration.piLE` and the products of the
-first `n + 1` factors, and transported to `Filtration.piLT` by the shift
-`ProbabilityTheory.isTestSupermartingale_shift_iff`, since the product of no factor is `1`.
 
 The statement of `ProbabilityTheory.measure_exists_le_seqBlockProd_le` is adapted from
 `EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in the paper project
@@ -68,29 +65,11 @@ theorem IsEVar.isTestSupermartingale_prod_piLT (hS : ∀ P ∈ S, IsProbabilityM
     (he : IsEVar e S) :
     IsTestSupermartingale (fun n ω ↦ ∏ i : Fin n, e (ω i))
       (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S) := by
-  set T := iidNull S with hT
-  -- the products `∏ i ≤ n, e (ω i)` form a test supermartingale for `Filtration.piLE`
-  have h0 : ∀ P ∈ T, ∫⁻ ω, e (ω 0) ∂P ≤ 1 := by
-    refine hT ▸ forall_mem_iidNull.2 fun P hP ↦ ?_
-    have := hS P hP
-    rw [(measurePreserving_eval_infinitePi (fun _ ↦ P) 0).lintegral_comp he.measurable]
-    exact he.lintegral_le_one hP
-  have hF : ∀ k, IsCondEVar (fun ω : ℕ → 𝓧 ↦ e (ω (k + 1))) (Filtration.piLE k) T := by
-    refine fun k ↦ ⟨he.measurable.comp (measurable_pi_apply _), ?_⟩
-    refine hT ▸ forall_mem_iidNull.2 fun P hP s hs ↦ ?_
-    have := hS P hP
-    rw [setLIntegral_comp_eval_succ P he.measurable k hs]
-    exact mul_le_of_le_one_right' (he.lintegral_le_one hP)
-  have hM := isTestSupermartingale_mul_prod (ℱ := Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
-    (he.measurable.comp (Filtration.measurable_piLE_apply le_rfl)) h0
-    (fun k ↦ he.measurable.comp (Filtration.measurable_piLE_apply le_rfl)) hF
-  -- the shift, since the product of no factor is `1`
-  refine (isTestSupermartingale_shift_iff (M := fun n ω ↦ ∏ i : Fin n, e (ω i))
-    Filtration.piLT_zero Filtration.piLT_add_one (isProbabilityMeasure_of_mem_iidNull hS)
-    (funext fun ω ↦ Fin.prod_univ_zero _)).1 ?_
-  convert hM using 3 with n ω
-  rw [Fin.prod_univ_eq_prod_range (fun i ↦ e (ω i)), Finset.prod_range_succ', mul_comm]
-  simp only [Function.comp_apply]
+  have h := (he.isTestSupermartingale_prod_sequentialNull (X := fun k (ω : ℕ → 𝓧) ↦ ω k)
+    fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self).anti_set
+    (iidNull_subset_sequentialNull hS)
+  convert h using 3 with n ω
+  exact Fin.prod_univ_eq_prod_range (fun i ↦ e (ω i)) n
 
 /-- **Products of copies of an e-variable form an e-process.** If `e` is an e-variable for a null
 `S` of probability measures, the products `∏ i < n, e (ω i)` form an e-process for the i.i.d.
