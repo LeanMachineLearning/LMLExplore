@@ -258,15 +258,9 @@ theorem isEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ≥0�
 theorem isEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i ≤ 1) :
     IsEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
-  refine ⟨Finset.measurable_fun_sum _ fun i hi ↦ (hE i hi).measurable.const_mul (w i),
-    fun P hP ↦ ?_⟩
-  rw [lintegral_finsetSum _ fun i hi ↦ (hE i hi).measurable.const_mul (w i)]
-  calc ∑ i ∈ s, ∫⁻ ω, w i * E i ω ∂P
-  _ = ∑ i ∈ s, w i * ∫⁻ ω, E i ω ∂P :=
-    Finset.sum_congr rfl fun i hi ↦ lintegral_const_mul _ (hE i hi).measurable
-  _ ≤ ∑ i ∈ s, w i * 1 :=
-    Finset.sum_le_sum fun i hi ↦ by gcongr; exact (hE i hi).lintegral_le_one hP
-  _ ≤ 1 := by simpa using hw
+  convert isEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
+    (by rwa [Finset.tsum_subtype s w]) using 2 with ω
+  exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 
 /-! ### Products of independent e-variables -/
 

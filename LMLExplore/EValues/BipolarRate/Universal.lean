@@ -12,6 +12,7 @@ public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
+import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.Integral.EReal
@@ -380,8 +381,7 @@ private lemma isEVar_tsum_blockMixtureTerm
   have h := isEVar_tsum_mul (w := fun i ↦ (2⁻¹ : ℝ≥0∞) ^ (i + 1))
     (fun i ↦ isEVar_tsum_mul (fun k ↦ isEVar_seqBlockProd (hg i) k)
       tsum_ofReal_coverWeight_succ_le_one)
-    (by rw [ENNReal.tsum_geometric_add_one, ENNReal.one_sub_inv_two, inv_inv,
-      ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top])
+    ENNReal.tsum_geometric_two_add_one.le
   simpa only [blockMixtureTerm, ENNReal.tsum_mul_left] using h
 
 /-- The weight of `n / L` blocks costs `o(n)`: if the averages `s k / k` tend to `μ`, then

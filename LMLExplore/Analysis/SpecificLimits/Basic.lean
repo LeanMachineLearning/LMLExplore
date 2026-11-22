@@ -10,7 +10,7 @@ public import Mathlib.Analysis.Normed.Group.Real
 public import Mathlib.Analysis.SpecificLimits.Basic
 
 /-!
-# Limits of ratios to `n` of sequences within bounded distance of a linear sequence
+# Ratios to `n` of near-linear sequences, and the geometric weights `2⁻¹ ^ (n + 1)`
 
 A real sequence `u` that stays within a fixed distance `c` of the linear sequence `n ↦ n w`
 satisfies `u n / n → w`. Numbers of pulls of bandit algorithms that track static proportions `w`
@@ -23,11 +23,14 @@ terms among the first `n`.
   `u n / n → w`.
 * `LMLExplore.tendsto_nat_div_div_atTop`: the number `n / m` of complete blocks of `m` among the
   first `n` natural numbers satisfies `(n / m) / n → 1 / m` (both sides are `0` when `m = 0`).
+* `ENNReal.tsum_geometric_two_add_one`: the weights `2⁻¹ ^ (n + 1)` sum to `1` in `ℝ≥0∞`, so
+  they weight a countable mixture, for instance of e-variables.
 -/
 
 public section
 
 open Filter Topology
+open scoped ENNReal
 
 namespace LMLExplore
 
@@ -64,3 +67,11 @@ theorem tendsto_nat_div_div_atTop {m : ℕ} :
   constructor <;> linarith
 
 end LMLExplore
+
+namespace ENNReal
+
+/-- The geometric weights `2⁻¹ ^ (n + 1)` sum to `1` in `ℝ≥0∞`. -/
+theorem tsum_geometric_two_add_one : ∑' n : ℕ, (2⁻¹ : ℝ≥0∞) ^ (n + 1) = 1 := by
+  simp [ENNReal.tsum_geometric_add_one, ENNReal.inv_mul_cancel]
+
+end ENNReal

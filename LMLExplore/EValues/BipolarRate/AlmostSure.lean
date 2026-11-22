@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.Null.PrefixBet
 
 /-!
@@ -608,9 +609,7 @@ private lemma isEVar_shiftMixture {S : Set (Measure 𝓧)} (hM : ∀ n, IsEVar (
   refine isEVar_finsetSum_mul _ (fun s _ ↦ (hM (n - s)).comp_shift_iterate s) ?_
   calc ∑ s ∈ Finset.range n, (2⁻¹ : ℝ≥0∞) ^ (s + 1)
   _ ≤ ∑' s, (2⁻¹ : ℝ≥0∞) ^ (s + 1) := sum_le_tsum _
-  _ = 1 := by
-    rw [ENNReal.tsum_geometric_add_one, ENNReal.one_sub_inv_two, inv_inv,
-      ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top]
+  _ = 1 := ENNReal.tsum_geometric_two_add_one
 
 /-- If `M m ≥ exp (m L)` for infinitely many `m` along the shifted sequence, then the shift
 mixture exceeds `exp (n L')` for infinitely many `n`, for every `L' < L`. -/
