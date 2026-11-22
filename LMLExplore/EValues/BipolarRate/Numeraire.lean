@@ -10,6 +10,7 @@ public import LMLExplore.Probability.ProductMeasure.Blocks
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.AlmostSure
+import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.Integral.EReal
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
@@ -343,13 +344,8 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
   have h2 := hT (fun n ↦ seqBlockProd m Em (n / m))
     (fun n ↦ Filtration.measurable_piLT_of_dependsOn (measurable_seqBlockProd hEm _)
       ((dependsOn_seqBlockProd Em _).mono (Set.Iio_subset_Iio (Nat.div_mul_le_self n m))))
-    (fun n ↦ ⟨measurable_seqBlockProd hEm _, forall_mem_iidNull.2 fun P hP ↦ by
-      have := hS₁ P hP
-      rw [lintegral_seqBlockProd_const P hEm]
-      exact pow_le_one₀ (by positivity) <| IsEVar.lintegral_le_one
-        (isEVar_numeraire _
-          (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m))
-        (pi_mem_sampleNull hP)⟩)
+    (fun n ↦ isEVar_seqBlockProd (isEVar_numeraire _
+      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m)) _)
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
   filter_upwards [hω1, hω2] with n hn1 hn2

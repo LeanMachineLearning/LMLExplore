@@ -12,18 +12,17 @@ public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
+import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
+import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
-import LMLExplore.Probability.ProductMeasure
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.MeasureTheory.Measure.SeparableMeasure
 import Mathlib.MeasureTheory.Measure.WithDensityFinite
-import Mathlib.Probability.StrongLaw
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 import TauCeti.MeasureTheory.Measure.PiWithDensity
-import TauCeti.Probability.Process.PathLaw.Shift
 
 /-!
 # One e-process at the bipolar rate for every dominated alternative
@@ -59,10 +58,11 @@ The proof has three steps.
   `Q₁ ≪ ρ`, by dominated convergence. Mixing an e-variable with a constant and truncating its
   logarithm shows that these means determine the bipolar rate: for every `t < bipolarRate Q₁ S₁`,
   one member `g` of the countable family, on `m` observations, has `t m < ∫ g ∂Q₁ ^ m`.
-* **Products over blocks.** For such a `g` on blocks of `m` observations, the product of
-  `exp g` over the first `k` consecutive blocks has expectation at most `1` under the null, as
-  the blocks are independent, and its logarithm divided by `k` tends to `∫ g ∂Q₁ ^ m` almost
-  surely, by the strong law of large numbers.
+* **Products over blocks.** For such a `g` on blocks of `m` observations, the product
+  `seqBlockProd m (exp ∘ g) k` of `exp g` over the first `k` consecutive blocks is an e-variable
+  for the i.i.d. null, as the blocks are independent (`ProbabilityTheory.isEVar_seqBlockProd`),
+  and its logarithm divided by `k` tends to `∫ g ∂Q₁ ^ m` almost surely, by the strong law of
+  large numbers along the blocks (`ProbabilityTheory.strong_law_ae_seqBlock`).
 * **The mixture.** The e-process at time `n` is the sum, over the members `g i` of the family
   and the numbers `k` of blocks of `g i` that fit in the first `n` observations, of these
   products, with weights `2⁻¹ ^ (i + 1) / ((k + 1) (k + 2))`. Each term is held from the time its
@@ -91,7 +91,6 @@ instead, which needs neither. The statement and its proof are adapted from
 public section
 
 open MeasureTheory Filter
-open TauCeti.Probability (shift measurable_shift_iterate)
 open scoped ENNReal Topology
 
 namespace ProbabilityTheory
@@ -237,151 +236,45 @@ private lemma exists_isEVar_lt_eintegral_of_lt_bipolarRate {Q : Measure 𝓧} {t
   exact hE'
 
 /-- **A countable family that determines the bipolar rate.** On a countably generated space, for
-an s-finite `ρ`, there are bounded functions `g i` of the first `len i` observations, with
-`∫ exp (g i) ≤ 1` under the i.i.d. law of every member of the null, such that every exponent
-`t` below the bipolar rate of a probability measure `Q ≪ ρ` is beaten by some
-`∫ g i ∂Q^∞ / len i`. -/
+an s-finite `ρ`, there are bounded functions `g i` of `len i` observations, the logarithms of
+e-variables for the null of `len i`-samples, such that every exponent `t` below the bipolar rate
+of a probability measure `Q ≪ ρ` is beaten by some `∫ g i ∂Q ^ len i / len i`. -/
 private lemma exists_rateFamily [MeasurableSpace.CountablyGenerated 𝓧]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
-    ∃ (len : ℕ → ℕ) (g : ℕ → (ℕ → 𝓧) → ℝ), (∀ i, 1 ≤ len i) ∧ (∀ i, Measurable (g i)) ∧
-      (∀ i, DependsOn (g i) (Set.Iio (len i))) ∧ (∀ i, ∃ C, ∀ ω, |g i ω| ≤ C) ∧
-      (∀ i, ∀ P ∈ S₁, ∫⁻ ω, ENNReal.ofReal (Real.exp (g i ω))
-        ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) ∧
+    ∃ (len : ℕ → ℕ) (g : (i : ℕ) → (Fin (len i) → 𝓧) → ℝ), (∀ i, 1 ≤ len i) ∧
+      (∀ i, Measurable (g i)) ∧ (∀ i, ∃ C, ∀ x, |g i x| ≤ C) ∧
+      (∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i))) ∧
       ∀ Q : Measure 𝓧, IsProbabilityMeasure Q → Q ≪ ρ → ∀ t : ℝ, (t : EReal) < bipolarRate Q S₁ →
-        ∃ i, t * len i < ∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q) := by
+        ∃ i, t * len i < ∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q) := by
   choose u hu hdense using fun p : ℕ × ℕ ↦ exists_seq_boundedLogEVarSet hS₁ ρ (p.1 + 1) p.2
   let e : ℕ ≃ (ℕ × ℕ) × ℕ := (Denumerable.eqv _).symm
-  refine ⟨fun i ↦ (e i).1.1 + 1, fun i ω ↦ u (e i).1 (e i).2 (initSeg _ ω),
-    fun i ↦ Nat.le_add_left 1 _, fun i ↦ (hu _ _).1.comp (measurable_initSeg _),
-    fun i ↦ dependsOn_comp_initSeg _, fun i ↦ ⟨_, fun ω ↦ (hu _ _).2.1 _⟩, fun i P hP ↦ ?_,
-    fun Q hQ hQρ t ht ↦ ?_⟩
-  · have := hS₁ P hP
-    have hm : Measurable fun x ↦ ENNReal.ofReal (Real.exp (u (e i).1 (e i).2 x)) :=
-      ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hu _ _).1)
-    rw [(measurePreserving_initSeg P _).lintegral_comp hm]
-    exact (hu _ _).2.2 P hP
-  · obtain ⟨m, E, hE, hEt⟩ := exists_isEVar_lt_eintegral_of_lt_bipolarRate ht
-    obtain ⟨N, f, hf, hft⟩ := exists_mem_boundedLogEVarSet_lt_integral Q hS₁ hE hEt
-    obtain ⟨j, hj⟩ := hdense (m, N) Q hQ hQρ f hf _ hft
-    refine ⟨e.symm ((m, N), j), ?_⟩
-    -- `e (e.symm ((m, N), j))` occurs both in the integrand and in the type `Fin (_ + 1) → 𝓧` of
-    -- its argument, so rewriting it with `Equiv.apply_symm_apply` gives an ill-typed motive; we
-    -- generalize it to a variable and substitute instead.
-    beta_reduce
-    generalize hp : e (e.symm ((m, N), j)) = p
-    rw [Equiv.apply_symm_apply] at hp
-    subst hp
-    rw [← integral_map (measurable_initSeg _).aemeasurable (hu _ _).1.aestronglyMeasurable,
-      (measurePreserving_initSeg Q _).map_eq]
-    push_cast
-    exact hj
+  refine ⟨fun i ↦ (e i).1.1 + 1, fun i ↦ u (e i).1 (e i).2, fun i ↦ Nat.le_add_left 1 _,
+    fun i ↦ (hu _ _).1, fun i ↦ ⟨_, (hu _ _).2.1⟩,
+    fun i ↦ ⟨ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hu _ _).1),
+      forall_mem_sampleNull.2 (hu _ _).2.2⟩, fun Q hQ hQρ t ht ↦ ?_⟩
+  obtain ⟨m, E, hE, hEt⟩ := exists_isEVar_lt_eintegral_of_lt_bipolarRate ht
+  obtain ⟨N, f, hf, hft⟩ := exists_mem_boundedLogEVarSet_lt_integral Q hS₁ hE hEt
+  obtain ⟨j, hj⟩ := hdense (m, N) Q hQ hQρ f hf _ hft
+  refine ⟨e.symm ((m, N), j), ?_⟩
+  -- `e (e.symm ((m, N), j))` occurs both in the integrand and in the type `Fin (_ + 1) → 𝓧` of
+  -- its argument, so rewriting it with `Equiv.apply_symm_apply` gives an ill-typed motive; we
+  -- generalize it to a variable and substitute instead.
+  beta_reduce
+  generalize hp : e (e.symm ((m, N), j)) = p
+  rw [Equiv.apply_symm_apply] at hp
+  subst hp
+  push_cast
+  exact hj
 
-/-! ### Sums of a function over consecutive blocks -/
+/-! ### Products of an exponential over consecutive blocks -/
 
-/-- The sum of `g` over the first `k` consecutive blocks of `L` observations: block `l` is the
-sequence shifted by `L * l`. -/
-private noncomputable def blockSum (L : ℕ) (g : (ℕ → 𝓧) → ℝ) (k : ℕ) (ω : ℕ → 𝓧) : ℝ :=
-  ∑ l ∈ Finset.range k, g ((shift 𝓧)^[L * l] ω)
-
-/-- The sum over no block is `0`. -/
-private lemma blockSum_zero (L : ℕ) (g : (ℕ → 𝓧) → ℝ) (ω : ℕ → 𝓧) : blockSum L g 0 ω = 0 := by
-  simp [blockSum]
-
-/-- The sum over `k + 1` blocks is the value on the first block plus the sum over the next `k`
-blocks. -/
-private lemma blockSum_succ (L : ℕ) (g : (ℕ → 𝓧) → ℝ) (k : ℕ) (ω : ℕ → 𝓧) :
-    blockSum L g (k + 1) ω = g ω + blockSum L g k ((shift 𝓧)^[L] ω) := by
-  simp only [blockSum]
-  rw [Finset.sum_range_succ', add_comm, Nat.mul_zero, Function.iterate_zero_apply]
-  congr 1
-  refine Finset.sum_congr rfl fun l _ ↦ ?_
-  rw [← Function.iterate_add_apply, Nat.mul_succ]
-
-/-- The block sums of a measurable function are measurable. -/
-private lemma measurable_blockSum {g : (ℕ → 𝓧) → ℝ} (hg : Measurable g) (L k : ℕ) :
-    Measurable (blockSum L g k) :=
-  Finset.measurable_sum _ fun _ _ ↦ hg.comp (measurable_shift_iterate _)
-
-/-- The sums of a function of the first `L` observations over `k` blocks of `L` observations are
-functions of the first `L * k` observations. -/
-private lemma dependsOn_blockSum {L : ℕ} {g : (ℕ → 𝓧) → ℝ} (hg : DependsOn g (Set.Iio L))
-    (k : ℕ) : DependsOn (blockSum L g k) (Set.Iio (L * k)) := by
-  intro ω ω' h
-  refine Finset.sum_congr rfl fun l hl ↦ dependsOn_comp_shift_iterate hg (L * l) fun i hi ↦
-    h i (Set.mem_Iio.2 (lt_of_lt_of_le (Set.mem_Iio.1 hi) ?_))
-  rw [← Nat.mul_succ]
-  exact Nat.mul_le_mul_left _ (Finset.mem_range.1 hl)
-
-/-- If `exp g` has expectation at most `1` under the i.i.d. law of `P`, so has the exponential of
-its block sums, as the blocks are independent. -/
-private lemma lintegral_exp_blockSum_le_one (P : Measure 𝓧) [IsProbabilityMeasure P] {L : ℕ}
-    {g : (ℕ → 𝓧) → ℝ} (hg : Measurable g) (hgL : DependsOn g (Set.Iio L))
-    (hP : ∫⁻ ω, ENNReal.ofReal (Real.exp (g ω)) ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
-    (k : ℕ) :
-    ∫⁻ ω, ENNReal.ofReal (Real.exp (blockSum L g k ω))
-      ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  induction k with
-  | zero => simp [blockSum_zero]
-  | succ k ih =>
-    have hexp : ∀ ω, ENNReal.ofReal (Real.exp (blockSum L g (k + 1) ω)) =
-        ENNReal.ofReal (Real.exp (g ω)) *
-          ENNReal.ofReal (Real.exp (blockSum L g k ((shift 𝓧)^[L] ω))) := fun ω ↦ by
-      rw [blockSum_succ, Real.exp_add, ENNReal.ofReal_mul (Real.exp_pos _).le]
-    simp_rw [hexp]
-    rw [lintegral_mul_comp_shift_iterate P (f := fun ω ↦ ENNReal.ofReal (Real.exp (g ω)))
-      (g := fun ω ↦ ENNReal.ofReal (Real.exp (blockSum L g k ω)))
-      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp hg))
-      (fun ω ω' h ↦ by simp only [hgL h])
-      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (measurable_blockSum hg L k)))]
-    calc _ ≤ (1 : ℝ≥0∞) * 1 := mul_le_mul' hP ih
-    _ = 1 := one_mul 1
-
-/-- **The strong law of large numbers along blocks.** For a bounded measurable function `g` of the
-first `L` observations, `blockSum L g k / k` tends to `∫ g` almost surely under an i.i.d. law. -/
-private lemma ae_tendsto_blockSum (Q : Measure 𝓧) [IsProbabilityMeasure Q] {L : ℕ}
-    {g : (ℕ → 𝓧) → ℝ} (hg : Measurable g) (hgL : DependsOn g (Set.Iio L)) {C : ℝ}
-    (hgC : ∀ ω, |g ω| ≤ C) :
-    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q), Tendsto (fun k : ℕ ↦ (k : ℝ)⁻¹ * blockSum L g k ω)
-      atTop (𝓝 (∫ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q))) := by
-  have := nonempty_of_isProbabilityMeasure Q
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ Q)
-  set X : ℕ → (ℕ → 𝓧) → ℝ := fun l ω ↦ g ((shift 𝓧)^[L * l] ω)
-  have hX0 : X 0 = g := by
-    funext ω
-    simp [X]
-  have hint : Integrable (X 0) μ := by
-    rw [hX0]
-    exact Integrable.of_bound hg.aestronglyMeasurable C
-      (ae_of_all _ fun ω ↦ by rw [Real.norm_eq_abs]; exact hgC ω)
-  -- an earlier block is a function of the observations before a later one
-  have hlt : ∀ a b, a < b → IndepFun (X a) (X b) μ := by
-    intro a b hab
-    have hXa : DependsOn (X a) (Set.Iio (L * b)) := by
-      refine (dependsOn_comp_shift_iterate hgL (L * a)).mono (Set.Iio_subset_Iio ?_)
-      rw [← Nat.mul_succ]
-      exact Nat.mul_le_mul_left _ hab
-    obtain ⟨φ, hφ, hφeq⟩ := exists_measurable_eq_comp_initSeg
-      (hg.comp (measurable_shift_iterate (L * a))) hXa
-    have ha : X a = φ ∘ initSeg (L * b) := hφeq
-    have hb : X b = g ∘ (shift 𝓧)^[L * b] := rfl
-    rw [ha, hb]
-    exact (indepFun_initSeg_shift_iterate Q (L * b)).comp hφ hg
-  have hindep : Pairwise fun a b ↦ IndepFun (X a) (X b) μ := by
-    intro a b hab
-    rcases lt_or_gt_of_ne hab with h | h
-    · exact hlt a b h
-    · exact (hlt b a h).symm
-  have hident : ∀ l, IdentDistrib (X l) (X 0) μ μ := by
-    intro l
-    have hsh : IdentDistrib ((shift 𝓧)^[L * l]) ((shift 𝓧)^[L * 0]) μ μ :=
-      ⟨(measurable_shift_iterate _).aemeasurable, (measurable_shift_iterate _).aemeasurable, by
-        rw [(measurePreserving_shift_iterate Q _).map_eq,
-          (measurePreserving_shift_iterate Q _).map_eq]⟩
-    exact hsh.comp hg
-  filter_upwards [strong_law_ae X hint hindep hident] with ω hω
-  rw [hX0] at hω
-  simp only [smul_eq_mul] at hω
-  exact hω
+/-- The product of `exp g` over the first `k` blocks of `m` observations is the exponential of the
+sum of `g` over them. -/
+private lemma seqBlockProd_ofReal_exp {m : ℕ} (g : (Fin m → 𝓧) → ℝ) (k : ℕ) (ω : ℕ → 𝓧) :
+    seqBlockProd m (fun x ↦ ENNReal.ofReal (Real.exp (g x))) k ω =
+      ENNReal.ofReal (Real.exp (∑ j ∈ Finset.range k, g (seqBlock m j ω))) := by
+  rw [seqBlockProd_def, Real.exp_sum,
+    ENNReal.ofReal_prod_of_nonneg fun j _ ↦ (Real.exp_pos _).le]
 
 /-! ### The weights of the numbers of blocks
 
@@ -427,25 +320,25 @@ private lemma tendsto_log_coverWeight_div (L : ℕ) :
 /-- The term of the mixture for the function `g i` on blocks of `len i` observations, played on
 `k` blocks: the product of `exp (g i)` over the blocks, with weight
 `2⁻¹ ^ (i + 1) * coverWeight (k + 1)`. -/
-private noncomputable def blockMixtureTerm (len : ℕ → ℕ) (g : ℕ → (ℕ → 𝓧) → ℝ) (i k : ℕ)
-    (ω : ℕ → 𝓧) : ℝ≥0∞ :=
-  2⁻¹ ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) *
-    ENNReal.ofReal (Real.exp (blockSum (len i) (g i) k ω))
+private noncomputable def blockMixtureTerm (len : ℕ → ℕ) (g : (i : ℕ) → (Fin (len i) → 𝓧) → ℝ)
+    (i k : ℕ) (ω : ℕ → 𝓧) : ℝ≥0∞ :=
+  2⁻¹ ^ (i + 1) * (ENNReal.ofReal (coverWeight (k + 1)) *
+    seqBlockProd (len i) (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) k ω)
 
 /-- **The mixture over the family and the numbers of blocks**: at time `n`, the sum of the terms
-for all `(i, k)` with `len i * k ≤ n`, that is, whose blocks are among the first `n` observations.
+for all `(i, k)` with `k * len i ≤ n`, that is, whose blocks are among the first `n` observations.
 Each term is held from the time its blocks are observed on, which makes the process
 nondecreasing. -/
-private noncomputable def blockMixture (len : ℕ → ℕ) (g : ℕ → (ℕ → 𝓧) → ℝ) (n : ℕ)
-    (ω : ℕ → 𝓧) : ℝ≥0∞ :=
-  ∑' i, ∑' k, if len i * k ≤ n then blockMixtureTerm len g i k ω else 0
+private noncomputable def blockMixture (len : ℕ → ℕ) (g : (i : ℕ) → (Fin (len i) → 𝓧) → ℝ)
+    (n : ℕ) (ω : ℕ → 𝓧) : ℝ≥0∞ :=
+  ∑' i, ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0
 
-variable {len : ℕ → ℕ} {g : ℕ → (ℕ → 𝓧) → ℝ}
+variable {len : ℕ → ℕ} {g : (i : ℕ) → (Fin (len i) → 𝓧) → ℝ}
 
 /-- The mixture is nondecreasing in time. -/
 private lemma monotone_blockMixture : Monotone (blockMixture len g) :=
   fun n n' hnn' ω ↦ tsum_le_tsum fun i ↦ tsum_le_tsum fun k ↦ by
-    by_cases h : len i * k ≤ n
+    by_cases h : k * len i ≤ n
     · rw [ite_eq_left h, ite_eq_left (h.trans hnn')]
     · rw [ite_eq_right h]
       exact zero_le
@@ -454,7 +347,7 @@ private lemma monotone_blockMixture : Monotone (blockMixture len g) :=
 private lemma blockMixture_le_tsum (n : ℕ) (ω : ℕ → 𝓧) :
     blockMixture len g n ω ≤ ∑' i, ∑' k, blockMixtureTerm len g i k ω :=
   tsum_le_tsum fun i ↦ tsum_le_tsum fun k ↦ by
-    by_cases h : len i * k ≤ n
+    by_cases h : k * len i ≤ n
     · rw [ite_eq_left h]
     · rw [ite_eq_right h]
       exact zero_le
@@ -462,8 +355,8 @@ private lemma blockMixture_le_tsum (n : ℕ) (ω : ℕ → 𝓧) :
 /-- The terms of the mixture are measurable. -/
 private lemma measurable_blockMixtureTerm (hg : ∀ i, Measurable (g i)) (i k : ℕ) :
     Measurable (blockMixtureTerm len g i k) :=
-  measurable_const.mul
-    (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (measurable_blockSum (hg i) _ k)))
+  measurable_const.mul (measurable_const.mul (measurable_seqBlockProd
+    (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hg i))) k))
 
 /-- The mixture is measurable. -/
 private lemma measurable_blockMixture (hg : ∀ i, Measurable (g i)) (n : ℕ) :
@@ -472,44 +365,24 @@ private lemma measurable_blockMixture (hg : ∀ i, Measurable (g i)) (n : ℕ) :
     Measurable.ite (MeasurableSet.const _) (measurable_blockMixtureTerm hg i k) measurable_const
 
 /-- The mixture at time `n` is a function of the first `n` observations. -/
-private lemma dependsOn_blockMixture (hgd : ∀ i, DependsOn (g i) (Set.Iio (len i))) (n : ℕ) :
-    DependsOn (blockMixture len g n) (Set.Iio n) := by
+private lemma dependsOn_blockMixture (n : ℕ) : DependsOn (blockMixture len g n) (Set.Iio n) := by
   intro ω ω' h
   refine tsum_congr fun i ↦ tsum_congr fun k ↦ ?_
-  by_cases hk : len i * k ≤ n
+  by_cases hk : k * len i ≤ n
   · rw [ite_eq_left hk, ite_eq_left hk, blockMixtureTerm, blockMixtureTerm,
-      dependsOn_blockSum (hgd i) k fun j hj ↦ h j (lt_of_lt_of_le hj hk)]
+      dependsOn_seqBlockProd _ k fun j hj ↦ h j (lt_of_lt_of_le hj hk)]
   · rw [ite_eq_right hk, ite_eq_right hk]
 
-/-- Under the i.i.d. law of a member of the null, the sum of all the terms of the mixture has
-expectation at most `1`. -/
-private lemma lintegral_tsum_blockMixtureTerm_le_one (P : Measure 𝓧) [IsProbabilityMeasure P]
-    (hg : ∀ i, Measurable (g i)) (hgd : ∀ i, DependsOn (g i) (Set.Iio (len i)))
-    (hP : ∀ i, ∫⁻ ω, ENNReal.ofReal (Real.exp (g i ω)) ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) :
-    ∫⁻ ω, ∑' i, ∑' k, blockMixtureTerm len g i k ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
-  calc ∫⁻ ω, ∑' i, ∑' k, blockMixtureTerm len g i k ω ∂μ
-  _ = ∑' i, ∑' k, ∫⁻ ω, blockMixtureTerm len g i k ω ∂μ := by
-    rw [lintegral_tsum fun i ↦
-      (Measurable.tsum fun k ↦ measurable_blockMixtureTerm hg i k).aemeasurable]
-    exact tsum_congr fun i ↦
-      lintegral_tsum fun k ↦ (measurable_blockMixtureTerm hg i k).aemeasurable
-  _ = ∑' i, ∑' k, 2⁻¹ ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) *
-      ∫⁻ ω, ENNReal.ofReal (Real.exp (blockSum (len i) (g i) k ω)) ∂μ := by
-    refine tsum_congr fun i ↦ tsum_congr fun k ↦ ?_
-    exact lintegral_const_mul _
-      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (measurable_blockSum (hg i) _ k)))
-  _ ≤ ∑' i, ∑' k, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ENNReal.ofReal (coverWeight (k + 1)) :=
-    tsum_le_tsum fun i ↦ tsum_le_tsum fun k ↦
-      mul_le_of_le_one_right' (lintegral_exp_blockSum_le_one P (hg i) (hgd i) (hP i) k)
-  _ = ∑' i, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) := by
-    simp_rw [ENNReal.tsum_mul_left]
-  _ ≤ ∑' i, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * 1 :=
-    tsum_le_tsum fun i ↦ by gcongr; exact tsum_ofReal_coverWeight_succ_le_one
-  _ = 1 := by
-    simp_rw [mul_one, pow_succ', ENNReal.tsum_mul_left, ENNReal.tsum_geometric,
-      ENNReal.one_sub_inv_two, inv_inv]
-    exact ENNReal.inv_mul_cancel (by simp) (by simp)
+/-- The sum of all the terms of the mixture is an e-variable for the i.i.d. null: a countable
+mixture, over the family and over the numbers of blocks, of products over blocks. -/
+private lemma isEVar_tsum_blockMixtureTerm
+    (hg : ∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i))) :
+    IsEVar (fun ω ↦ ∑' i, ∑' k, blockMixtureTerm len g i k ω) (iidNull S₁) := by
+  have h := isEVar_tsum_mul (w := fun i ↦ (2⁻¹ : ℝ≥0∞) ^ (i + 1))
+    (fun i ↦ isEVar_tsum_mul (fun k ↦ isEVar_seqBlockProd (hg i) k)
+      tsum_ofReal_coverWeight_succ_le_one)
+    ENNReal.tsum_geometric_two_add_one.le
+  simpa only [blockMixtureTerm, ENNReal.tsum_mul_left] using h
 
 /-- The weight of `n / L` blocks costs `o(n)`: if the averages `s k / k` tend to `μ`, then
 `(s (n / L) + log (c * coverWeight (n / L + 1))) / n` tends to `μ / L`, for `c > 0` and `L ≥ 1`. -/
@@ -547,34 +420,37 @@ private lemma tendsto_add_log_coverWeight_div {s : ℕ → ℝ} {μ c : ℝ} {L 
   field_simp
 
 /-- **Growth of the mixture.** Almost surely under the i.i.d. law of `Q`, the mixture grows at
-least at the rate `∫ g i ∂Q^∞ / len i` of each member of the family. -/
+least at the rate `∫ g i ∂Q ^ len i / len i` of each member of the family, by the strong law of
+large numbers along the blocks. -/
 private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasure Q] {i : ℕ}
-    (hlen : 1 ≤ len i) (hg : Measurable (g i)) (hgd : DependsOn (g i) (Set.Iio (len i)))
-    {C : ℝ} (hgC : ∀ ω, |g i ω| ≤ C) :
+    (hlen : 1 ≤ len i) (hg : Measurable (g i)) {C : ℝ} (hgC : ∀ x, |g i x| ≤ C) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
-      (((∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q)) / len i : ℝ) : EReal) ≤
+      (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q)) / len i : ℝ) : EReal) ≤
         liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop := by
-  filter_upwards [ae_tendsto_blockSum Q hg hgd hgC] with ω hω
-  set L := len i with hL
-  -- the logarithm of the term of `n / L` blocks of `g i`
-  set r : ℕ → ℝ := fun n ↦
-    blockSum L (g i) (n / L) ω + Real.log (2⁻¹ ^ (i + 1) * coverWeight (n / L + 1))
+  have hint : Integrable (g i) (Measure.pi fun _ : Fin (len i) ↦ Q) :=
+    .of_bound hg.aestronglyMeasurable C (ae_of_all _ fun x ↦ by
+      rw [Real.norm_eq_abs]
+      exact hgC x)
+  filter_upwards [strong_law_ae_seqBlock Q hint] with ω hω
+  -- the logarithm of the term of `n / len i` blocks of `g i`
+  set r : ℕ → ℝ := fun n ↦ ∑ j ∈ Finset.range (n / len i), g i (seqBlock (len i) j ω) +
+    Real.log (2⁻¹ ^ (i + 1) * coverWeight (n / len i + 1))
   have hbound : ∀ n, ENNReal.ofReal (Real.exp (r n)) ≤ blockMixture len g n ω := by
     intro n
-    have hw := coverWeight_pos (Nat.succ_pos (n / L))
-    have hterm : ENNReal.ofReal (Real.exp (r n)) = blockMixtureTerm len g i (n / L) ω := by
-      simp only [r, blockMixtureTerm]
+    have hw := coverWeight_pos (Nat.succ_pos (n / len i))
+    have hterm : ENNReal.ofReal (Real.exp (r n)) = blockMixtureTerm len g i (n / len i) ω := by
+      simp only [r, blockMixtureTerm, seqBlockProd_ofReal_exp]
       rw [Real.exp_add, Real.exp_log (mul_pos (by positivity) hw), mul_comm,
         ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity)]
-      simp [ENNReal.ofReal_pow, ENNReal.ofReal_inv_of_pos, ENNReal.inv_pow, L]
+      simp [ENNReal.ofReal_pow, ENNReal.ofReal_inv_of_pos, ENNReal.inv_pow, mul_assoc]
     rw [hterm]
-    calc blockMixtureTerm len g i (n / L) ω
-    _ = if len i * (n / L) ≤ n then blockMixtureTerm len g i (n / L) ω else 0 :=
-      (ite_eq_left (Nat.mul_div_le n L)).symm
-    _ ≤ ∑' k, if len i * k ≤ n then blockMixtureTerm len g i k ω else 0 :=
-      le_tsum (fun k ↦ if len i * k ≤ n then blockMixtureTerm len g i k ω else 0) (n / L)
+    calc blockMixtureTerm len g i (n / len i) ω
+    _ = if n / len i * len i ≤ n then blockMixtureTerm len g i (n / len i) ω else 0 :=
+      (ite_eq_left (Nat.div_mul_le_self n (len i))).symm
+    _ ≤ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0 :=
+      le_tsum (fun k ↦ if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) (n / len i)
     _ ≤ blockMixture len g n ω :=
-      le_tsum (fun i ↦ ∑' k, if len i * k ≤ n then blockMixtureTerm len g i k ω else 0) i
+      le_tsum (fun i ↦ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) i
   have hle : ∀ᶠ n : ℕ in atTop,
       ((r n / n : ℝ) : EReal) ≤ ENNReal.log (blockMixture len g n ω) / (n : EReal) := by
     refine Eventually.of_forall fun n ↦ ?_
@@ -583,9 +459,10 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
     calc (r n : EReal) = ENNReal.log (ENNReal.ofReal (Real.exp (r n))) := by
           rw [ENNReal.log_ofReal_exp]
     _ ≤ ENNReal.log (blockMixture len g n ω) := ENNReal.log_le_log (hbound n)
-  -- `r n / n` tends to `∫ g i / L`, by the strong law along blocks
-  have hlim := tendsto_add_log_coverWeight_div hlen (by positivity : (0 : ℝ) < 2⁻¹ ^ (i + 1)) hω
-  calc (((∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q)) / L : ℝ) : EReal)
+  -- `r n / n` tends to `∫ g i / len i`, by the strong law along blocks
+  have hlim := tendsto_add_log_coverWeight_div hlen (by positivity : (0 : ℝ) < 2⁻¹ ^ (i + 1))
+    (by simpa only [smul_eq_mul] using hω)
+  calc (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q)) / len i : ℝ) : EReal)
   _ = liminf (fun n : ℕ ↦ ((r n / n : ℝ) : EReal)) atTop :=
         ((continuous_coe_real_ereal.tendsto _).comp hlim).liminf_eq.symm
   _ ≤ liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
@@ -607,23 +484,15 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
       ∀ Q₁ : Measure 𝓧, Q₁ ≪ ρ → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
         Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
           (𝓝 (bipolarRate Q₁ S₁)) := by
-  obtain ⟨len, g, hlen, hgm, hgd, hgb, hgnull, hrate⟩ := exists_rateFamily hS₁ ρ
-  have hEm : ∀ n, Measurable (blockMixture len g n) := measurable_blockMixture hgm
-  have hEd : ∀ n, DependsOn (blockMixture len g n) (Set.Iio n) := dependsOn_blockMixture hgd
-  -- the sum of all the terms has expectation at most `1` under the null
-  have hEnull : ∀ P ∈ S₁, ∀ τ : (ℕ → 𝓧) → ℕ,
-      ∫⁻ ω, blockMixture len g (τ ω) ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-    intro P hP τ
-    have := hS₁ P hP
-    exact (lintegral_mono fun ω ↦ blockMixture_le_tsum _ ω).trans
-      (lintegral_tsum_blockMixtureTerm_le_one P hgm hgd fun i ↦ hgnull i P hP)
+  obtain ⟨len, g, hlen, hgm, hgb, hge, hrate⟩ := exists_rateFamily hS₁ ρ
+  -- the sum of all the terms is an e-variable, and bounds the mixture at every time
+  have hT := isEVar_tsum_blockMixtureTerm hge
   have hE : IsEProcess (blockMixture len g) (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧))
       (iidNull S₁) := by
-    refine IsEProcess.of_lintegral_le_one
-      (fun n ↦ Filtration.measurable_piLT_of_dependsOn (hEm n) (hEd n)) ?_
+    refine IsEProcess.of_lintegral_le_one (fun n ↦ Filtration.measurable_piLT_of_dependsOn
+      (measurable_blockMixture hgm n) (dependsOn_blockMixture n)) ?_
     rintro τ - _ - _ hμ
-    obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
-    exact hEnull P hP fun ω ↦ (τ ω).untopA
+    exact (lintegral_mono fun ω ↦ blockMixture_le_tsum _ ω).trans (hT.lintegral_le_one hμ)
   refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ρ ↦ ?_⟩
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap
@@ -631,10 +500,10 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
       hQ₁]
   -- the lower bound, from each member of the family
   have hlow : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ i,
-      (((∫ ω, g i ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) / len i : ℝ) : EReal) ≤
+      (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) ≤
         liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
     ae_all_iff.2 fun i ↦
-      le_liminf_log_blockMixture Q₁ (hlen i) (hgm i) (hgd i) (hgb i).choose_spec
+      le_liminf_log_blockMixture Q₁ (hlen i) (hgm i) (hgb i).choose_spec
   -- the upper bound holds for every e-process
   filter_upwards [hE.ae_limsup_log_div_le_bipolarRate Q₁ hS₁, hlow] with ω hωup hωlow
   refine tendsto_of_le_liminf_of_limsup_le (EReal.ge_of_forall_gt_iff_ge.1 fun t ht ↦ ?_) hωup

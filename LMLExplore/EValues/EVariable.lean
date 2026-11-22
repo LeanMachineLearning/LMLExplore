@@ -50,8 +50,9 @@ e-variables are `ℝ≥0∞`-valued.
   e-variable for `{P}`.
 * `ProbabilityTheory.IsEVar.ofReal_one_sub_mul_add_ofReal`: for `ε ∈ [0, 1]`, the mixture
   `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
-* `ProbabilityTheory.isEVar_tsum_mul`: a countable mixture `∑' i, w i * E i` of e-variables, with
-  weights of sum at most `1`, is an e-variable.
+* `ProbabilityTheory.isEVar_tsum_mul`, `ProbabilityTheory.isEVar_finsetSum_mul`: a countable or
+  finite mixture `∑ i, w i * E i` of e-variables, with weights of sum at most `1`, is an
+  e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `0` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
@@ -251,6 +252,15 @@ theorem isEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ≥0�
     gcongr with i
     exact (hE i).lintegral_le_one hP
   _ ≤ 1 := by simpa using hw
+
+/-- **Finite mixtures of e-variables.** For e-variables `E i`, `i ∈ s`, and weights `w i` with
+`∑ i ∈ s, w i ≤ 1`, the mixture `∑ i ∈ s, w i * E i` is an e-variable. -/
+theorem isEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
+    (hE : ∀ i ∈ s, IsEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i ≤ 1) :
+    IsEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
+  convert isEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
+    (by rwa [Finset.tsum_subtype s w]) using 2 with ω
+  exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 
 /-! ### Products of independent e-variables -/
 
