@@ -188,9 +188,8 @@ theorem _root_.indicator_Ici_comp_inv (A : ℝ≥0∞ → ℝ≥0∞) :
 theorem _root_.MonotoneOn.measurable_indicator_Ici_one {A : ℝ≥0∞ → ℝ≥0∞}
     (hA : MonotoneOn A (Ici 1)) : Measurable ((Ici 1).indicator A) := by
   -- it is the antitone `p ↦ A p⁻¹` on `[0, 1]`, read through the measurable involution `x ↦ x⁻¹`
-  have h := hA.antitone_indicator_Iic_comp_inv.measurable.comp measurable_inv
-  rwa [← indicator_Ici_comp_inv, Function.comp_assoc, inv_involutive.comp_self,
-    Function.comp_id] at h
+  refine (MeasurableEquiv.inv ℝ≥0∞).measurable_comp_iff.1 ?_
+  exact indicator_Ici_comp_inv A ▸ hA.antitone_indicator_Iic_comp_inv.measurable
 
 /-- **The change of variables `x = p⁻¹` between bets.** The restriction of `A` to `[1, ∞]` is an
 e-variable for the laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform
@@ -200,12 +199,9 @@ theorem isEVar_indicator_Ici_mapNull_inv_iff (A : ℝ≥0∞ → ℝ≥0∞) :
     IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
       IsEVar ((Iic 1).indicator fun p ↦ A p⁻¹) superUniformNull := by
   rw [← indicator_Ici_comp_inv]
-  by_cases hA : Measurable ((Ici 1).indicator A)
-  · exact isEVar_mapNull_iff measurable_inv hA
-  -- neither side is measurable, since `x ↦ x⁻¹` is a measurable involution
-  refine iff_of_false (fun h ↦ hA h.measurable) fun h ↦ hA ?_
-  have h := h.measurable.comp measurable_inv
-  rwa [Function.comp_assoc, inv_involutive.comp_self, Function.comp_id] at h
+  exact ⟨fun h ↦ (isEVar_mapNull_iff measurable_inv h.measurable).1 h, fun h ↦
+    (isEVar_mapNull_iff measurable_inv
+      ((MeasurableEquiv.inv ℝ≥0∞).measurable_comp_iff.1 h.measurable)).2 h⟩
 
 /-- **The change of variables `p = x⁻¹`.** For every `A : ℝ≥0∞ → ℝ≥0∞`, the integral over
 `[0, 1]` of `p ↦ A p⁻¹`, zero on `(1, ∞]`, is the integral of `x ↦ A x / x ^ 2` over `(1, ∞)`.

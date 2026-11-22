@@ -105,12 +105,12 @@ structure IsAdjuster (A : ℝ≥0∞ → ℝ≥0∞) : Prop where
 exactly when it is monotone on `[1, ∞]` and its restriction to `[1, ∞]` is an e-variable for the
 laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform null by
 `x ↦ x⁻¹`: the change of variables `p = x⁻¹` turns the integral condition of an adjuster into the
-calibration condition of `p ↦ A p⁻¹`. As [EVR26, §1b] points out, the null formulation does not
-remove this integral change of variables (`ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`),
-which is still needed. -/
+calibration condition of `p ↦ A p⁻¹`. This reading of adjusters as bets on inverse p-values is
+[EVR26, §1b]. -/
 theorem isAdjuster_iff_isEVar_mapNull_inv :
     IsAdjuster A ↔ MonotoneOn A (Ici 1) ∧
       IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) := by
+  -- the null formulation does not remove the integral change of variables `p = x⁻¹`
   have h (hA : MonotoneOn A (Ici 1)) :
       IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
         ∫⁻ x in Ioi (1 : ℝ), A (ENNReal.ofReal x) / ENNReal.ofReal (x ^ 2) ≤ 1 := by
