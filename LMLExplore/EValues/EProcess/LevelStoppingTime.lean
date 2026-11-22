@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.EProcess.SequentialTest
+import LMLExplore.Probability.Process.Stopping
 
 /-!
 # Sequential tests as stopping times
@@ -46,6 +47,9 @@ null is a probability measure.
 
 ## Main statements
 
+* `ProbabilityTheory.isLevelStoppingTime_add_one_iff`: for filtrations with `𝒢 (n + 1) = ℱ n`,
+  such as `Filtration.piLT` and `Filtration.piLE`, `τ + 1` is a level-`α` sequential test for `𝒢`
+  exactly when `τ` is one for `ℱ`.
 * `ProbabilityTheory.isLevelStoppingTime_iff_isSequentialTest`: `τ` is a level-`α` sequential
   test exactly when the process `𝟙{τ ≤ n}` is one in the sense of `IsSequentialTest`.
 * `ProbabilityTheory.isSequentialTest_iff_isLevelStoppingTime_hittingAfter`: a `{0, 1}`-valued
@@ -136,6 +140,20 @@ protected theorem max (hτ : IsLevelStoppingTime τ ℱ S α) (hσ : IsLevelStop
     · exact (measure_mono (h_sub.trans inter_subset_right)).trans (hσ.measure_lt_top_le P hP)
 
 end IsLevelStoppingTime
+
+/-- For filtrations with `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and `Filtration.piLE`, the
+successor `τ + 1` is a level-`α` sequential test for `𝒢` exactly when `τ` is one for `ℱ`: it is a
+stopping time of `𝒢` exactly when `τ` is one of `ℱ` (`MeasureTheory.isStoppingTime_add_one_iff`),
+and it is finite exactly where `τ` is. -/
+theorem isLevelStoppingTime_add_one_iff (h : ∀ n, 𝒢 (n + 1) = ℱ n) :
+    IsLevelStoppingTime (fun ω ↦ τ ω + 1) 𝒢 S α ↔ IsLevelStoppingTime τ ℱ S α := by
+  have h_set : {ω | τ ω + 1 < ⊤} = {ω | τ ω < ⊤} := by
+    ext ω
+    simp only [mem_ofPred_eq, WithTop.add_lt_top, WithTop.one_lt_top, and_true]
+  refine ⟨fun hτ ↦ ⟨(isStoppingTime_add_one_iff h).1 hτ.isStoppingTime, ?_⟩,
+    fun hτ ↦ ⟨(isStoppingTime_add_one_iff h).2 hτ.isStoppingTime, ?_⟩⟩
+  · exact h_set ▸ hτ.measure_lt_top_le
+  · exact h_set ▸ hτ.measure_lt_top_le
 
 /-! ### Stopping times and adapted sequential tests -/
 

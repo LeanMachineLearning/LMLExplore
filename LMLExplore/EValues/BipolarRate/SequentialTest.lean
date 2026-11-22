@@ -9,13 +9,14 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.ENat.Basic
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.Probability.Independence.Wald
-import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Filtration
 import LMLExplore.Probability.Process.HittingTime
+import LMLExplore.Probability.ProductMeasure
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -23,7 +24,7 @@ import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 Let `S₁` be a set of measures on `𝓧` (the null) and `Q₁` a measure on `𝓧` (the alternative). The
 observations are the coordinates of `ℕ → 𝓧`, with the i.i.d. laws `Measure.infinitePi fun _ ↦ P`
-and the filtration `Filtration.piLE`, so that `τ + 1` observations have been made at a time `τ`. A
+and the filtration `Filtration.piLT`, so that `τ` observations have been made at a time `τ`. A
 sequential test of level `α` is a stopping time `τ` with values in `WithTop ℕ` that is finite with
 probability at most `α` under the i.i.d. law of every member of the null
 (`ProbabilityTheory.IsLevelStoppingTime`, for the null of these i.i.d. laws).
@@ -32,7 +33,7 @@ Every such test makes at least `log (1/α) / d` observations in expectation unde
 of `Q₁`, where `d = bipolarRate Q₁ S₁` [EVR26, Note 01]. This file proves that the bound is
 attained to first order as `α → 0` [EVR26, Note 01]: for every real `d' > 0` below `d` there are
 sequential tests `τ α` of every level `α` with
-`limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'`. The bipolar rate may be infinite, and nothing
+`limsup_{α → 0} 𝔼[τ α] / log (1/α) ≤ 1 / d'`. The bipolar rate may be infinite, and nothing
 is assumed of `S₁` or `Q₁`.
 
 The tests bet on successive blocks of `m` observations. Since `d' < d`, some `m`-sample
@@ -49,15 +50,19 @@ complete blocks reaches `α⁻¹`.
   the sum of the values of `v` on the blocks first reaches `log (1/α)`. By Wald's argument for
   increments bounded above by `C`, the expected number of these blocks is at most
   `(log (1/α) + C) / a` (`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`), so that
-  `𝔼[τ α + 1] / log (1/α) ≤ (m / a) (1 + C / log (1/α))`, which tends to `m / a < 1 / d'`.
+  `𝔼[τ α] / log (1/α) ≤ (m / a) (1 + C / log (1/α))`, which tends to `m / a < 1 / d'`.
 
 ## Main statements
 
 * `ProbabilityTheory.exists_isLevelStoppingTime_limsup_lintegral_div_log_le`: for every real
   `0 < d' < bipolarRate Q₁ S₁`, sequential tests `τ α` of every level `α` with
-  `limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'`.
+  `limsup_{α → 0} 𝔼[τ α] / log (1/α) ≤ 1 / d'`.
 
 ## Implementation notes
+
+The tests are first built for the filtration `Filtration.piLE`, where `τ + 1` observations have
+been made at a time `τ`, and shifted by one: `τ + 1` is a stopping time of `Filtration.piLT`
+exactly when `τ` is one of `Filtration.piLE` (`MeasureTheory.isStoppingTime_add_one_iff`).
 
 The monotone convergence of the extended integrals of the truncations `min f k` is
 `MeasureTheory.eintegral_le_of_forall_min_le`. The statements and proofs are adapted
@@ -268,19 +273,11 @@ private lemma lintegral_hittingAfter_add_one_le (Q₁ : Measure 𝓧) [IsProbabi
     rw [lintegral_const_mul' _ _ (ENNReal.natCast_ne_top m)]
   _ ≤ m * ENNReal.ofReal ((b + C) / ∫ x, v x ∂Measure.pi fun _ : Fin m ↦ Q₁) := by gcongr
 
-/-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
-bipolar rate of `Q₁` against `S₁`, there are sequential tests `τ α` of every level `α` for the
-i.i.d. laws of the members of the null, stopping times of `Filtration.piLE` with
-`P^ℕ (τ α < ∞) ≤ α` for every member `P` of the null,
-whose expected numbers of observations `𝔼[τ α + 1]` under the i.i.d. law of `Q₁` satisfy
-`limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'` [EVR26, Note 01]. With the lower bound
-`log (1/α) / d ≤ 𝔼[τ + 1]` for every test of level `α`, where `d` is the bipolar rate, the
-optimal expected number of observations is `log (1/α) / d` to first order. The tests bet on
-successive blocks of `m` observations and stop when the product of the bets reaches `α⁻¹`. The
-bipolar rate may be infinite. Neither `Q₁` nor the members of `S₁` need be probability measures:
-the i.i.d. law of a measure that is not one is `0`. -/
-theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) {d' : ℝ}
-    (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
+/-- Sequential tests attaining the bipolar rate to first order, for the filtration
+`Filtration.piLE`, where `τ + 1` observations have been made at a time `τ`:
+`limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'`. -/
+private theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE (Q₁ : Measure 𝓧)
+    {d' : ℝ} (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
     ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
       (∀ α, IsLevelStoppingTime (τ α) (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
         (iidNull S₁) α) ∧
@@ -364,5 +361,28 @@ theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure �
     refine ENNReal.ofReal_le_ofReal ?_
     rw [div_le_iff₀ ha, ← div_eq_inv_mul, le_div_iff₀ hd']
     linarith
+
+/-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
+bipolar rate of `Q₁` against `S₁`, there are sequential tests `τ α` of every level `α` for the
+i.i.d. laws of the members of the null, stopping times of `Filtration.piLT` with
+`P^ℕ (τ α < ∞) ≤ α` for every member `P` of the null, whose expected numbers of observations
+`𝔼[τ α]` under the i.i.d. law of `Q₁` satisfy `limsup_{α → 0} 𝔼[τ α] / log (1/α) ≤ 1 / d'`
+[EVR26, Note 01]. With the lower bound `log (1/α) / d ≤ 𝔼[τ]` for every test of level `α`, where
+`d` is the bipolar rate (`toENNReal_log_inv_div_bipolarRate_le_lintegral`), the optimal expected
+number of observations is `log (1/α) / d` to first order. The tests bet on successive blocks of
+`m` observations and stop when the product of the bets reaches `α⁻¹`. The bipolar rate may be
+infinite. Neither `Q₁` nor the members of `S₁` need be probability measures: the i.i.d. law of a
+measure that is not one is `0`. -/
+theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) {d' : ℝ}
+    (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
+    ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
+      (∀ α, IsLevelStoppingTime (τ α) Filtration.piLT (iidNull S₁) α) ∧
+      limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (τ α ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
+        (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
+  -- the tests `σ α` for `Filtration.piLE`, shifted by one
+  obtain ⟨σ, hσ, hlim⟩ := exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE Q₁ hd' hd'd
+  exact ⟨fun α ω ↦ σ α ω + 1,
+    fun α ↦ (isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).2 (hσ α),
+    by simpa only [ENat.toENNReal_add_one] using hlim⟩
 
 end ProbabilityTheory

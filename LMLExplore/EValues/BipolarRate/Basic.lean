@@ -220,6 +220,13 @@ lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRa
   bipolarRate_le_iff.2 fun _ hn ↦ (maxLogGrowth_anti h).trans
     (maxLogGrowth_le_mul_bipolarRate Q₁ S₁ hn)
 
+/-- The bipolar rate against the empty null is `⊤`: every measurable function, `∞` included, is
+an e-variable for it. -/
+@[simp]
+lemma bipolarRate_empty (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁] : bipolarRate Q₁ ∅ = ⊤ :=
+  eq_top_iff.2 (le_of_eq_of_le (by simp [maxLogGrowth_def, sampleNull_empty])
+    (maxLogGrowth_one_le_bipolarRate Q₁ ∅))
+
 /-- **Fekete's lemma** for the maximal expected logarithm of e-variables for an i.i.d. null:
 `maxLogGrowth Q₁ S₁ n / n` tends to its supremum, the bipolar rate [RR26, Lemma 3.2]. The limit
 may be `⊤`. -/

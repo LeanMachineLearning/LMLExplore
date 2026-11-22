@@ -24,7 +24,6 @@ import Mathlib.MeasureTheory.Function.FactorsThrough
 import Mathlib.MeasureTheory.Integral.BoundedContinuousFunction
 import Mathlib.MeasureTheory.Measure.Prokhorov
 import Mathlib.Topology.Instances.EReal.Lemmas
-import Statlib.ForMathlib.Probability.Process.Filtration
 
 /-!
 # Domination of e-processes for the one-sided conditionally sub-Gaussian null by predictable
@@ -33,20 +32,21 @@ products of mixtures of exponentials
 The one-sided conditionally `1`-sub-Gaussian null on `ℕ → ℝ` is the set of probability measures
 under which, for every `k` and every `l ≥ 0`,
 `E[exp (l X_k - l ^ 2 / 2) | X_0, …, X_{k - 1}] ≤ 1`, stated through set integrals over the sets
-measurable for the observations before `k` (`MeasureTheory.Filtration.naturalLT`). It is the
-sequential null of infinitely many conditional constraints `exp (l x - l ^ 2 / 2) - 1`, `l ≥ 0`.
+measurable for the observations before `k` (time `k` of `MeasureTheory.Filtration.piLT`). It is
+the sequential null of infinitely many conditional constraints `exp (l x - l ^ 2 / 2) - 1`,
+`l ≥ 0`.
 
-Every e-process for this null and the canonical filtration `Filtration.piLE` is dominated, at
-every time `n` and on every path `ω`, by a product
-`∏ k ≤ n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)` of mixtures of the exponentials, whose mixing
-measures `π k` on `[0, ∞)` have mass at most `1` and depend only on the observations before `k`
-[EVR26, Note 12, Theorem 4]. This is the sequential form of the domination of e-variables for
-the one-sided sub-Gaussian null by mixtures of exponentials [LRR26, Theorem 4.3], for the
-question of [Cle26b] and [LRR26, §10] on sequential complete classes for infinitely many
-constraints. No measurability of the mixing measures in the past observations is asserted, so the
-dominating product need not be a measurable process.
+Every e-process for this null and the filtration `Filtration.piLT`, at whose time `n` the `n`
+observations `ω_0, …, ω_{n - 1}` have been made, is dominated, at every time `n` and on every path
+`ω`, by a product `∏ k < n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)` of mixtures of the
+exponentials, whose mixing measures `π k` on `[0, ∞)` have mass at most `1` and depend only on the
+observations before `k` [EVR26, Note 12, Theorem 4]. This is the sequential form of the
+domination of e-variables for the one-sided sub-Gaussian null by mixtures of exponentials
+[LRR26, Theorem 4.3], for the question of [Cle26b] and [LRR26, §10] on sequential complete
+classes for infinitely many constraints. No measurability of the mixing measures in the past
+observations is asserted, so the dominating product need not be a measurable process.
 
-The domination holds for every process that only depends at time `n` on the observations up to
+The domination holds for every process that only depends at time `n` on the observations before
 `n`, with no measurability, whose mean at every bounded stopping time is at most `1` under every
 finitely supported member of the null.
 
@@ -95,6 +95,11 @@ one more observation, under every finitely supported law of the one-step null, i
 current value. The one-step domination applied to the ratio of two consecutive envelopes gives
 the mixing measure of the next round, chosen by the axiom of choice for every history.
 
+*Clock.* The induction is run for the filtration `Filtration.piLE`, where `n + 1` observations
+have been made at a time `n`, and transported to `Filtration.piLT` by the shift
+`fun n ↦ E (n + 1)`. At the time `0` nothing has been observed, so `E 0` is a constant, at most
+`1` under the Dirac mass at the zero path, a member of the null.
+
 ## References
 
 * [Cle26b] E. Clerico, *Sequential testing of conditionally constrained hypotheses*,
@@ -121,14 +126,14 @@ under which, for every `k` and every `l ≥ 0`, the conditional expectation of
 form. -/
 def oneSidedCondSubgaussianNull : Set (Measure (ℕ → ℝ)) :=
   {P | IsProbabilityMeasure P ∧ ∀ (k : ℕ) (l : ℝ), 0 ≤ l → ∀ s : Set (ℕ → ℝ),
-    MeasurableSet[Filtration.naturalLT (fun i (ω : ℕ → ℝ) ↦ ω i) measurable_pi_apply k] s →
+    MeasurableSet[Filtration.piLT k] s →
     ∫⁻ ω in s, ENNReal.ofReal (Real.exp (l * ω k - l ^ 2 / 2)) ∂P ≤ P s}
 
 /-- Membership in the one-sided conditionally `1`-sub-Gaussian null. -/
 theorem mem_oneSidedCondSubgaussianNull_iff {P : Measure (ℕ → ℝ)} :
     P ∈ oneSidedCondSubgaussianNull ↔ IsProbabilityMeasure P ∧ ∀ (k : ℕ) (l : ℝ), 0 ≤ l →
       ∀ s : Set (ℕ → ℝ),
-        MeasurableSet[Filtration.naturalLT (fun i (ω : ℕ → ℝ) ↦ ω i) measurable_pi_apply k] s →
+        MeasurableSet[Filtration.piLT k] s →
         ∫⁻ ω in s, ENNReal.ofReal (Real.exp (l * ω k - l ^ 2 / 2)) ∂P ≤ P s :=
   Iff.rfl
 
@@ -205,8 +210,7 @@ theorem oneSidedCondSubgaussianNull_eq_sequentialNull :
   have hg (l : ℝ) : Measurable fun x : ℝ ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) := by
     fun_prop
   ext P
-  rw [mem_oneSidedCondSubgaussianNull_iff, mem_sequentialNull_iff,
-    ← Filtration.piLT_eq_naturalLT]
+  rw [mem_oneSidedCondSubgaussianNull_iff, mem_sequentialNull_iff]
   refine and_congr_right fun hP ↦ ⟨fun h k ↦ ?_, fun h k l hl s hs ↦ ?_⟩
   · -- Mathlib's `condDistrib` of the coordinate given the previous ones is the kernel; the bound
     -- holds almost surely at each nonnegative rational, and at every `l ≥ 0` by Fatou's lemma
@@ -630,7 +634,7 @@ private structure IsTreeLaw (k : ℕ) (ω : ℕ → ℝ) (Q : Measure (ℕ → �
   ae_prefix : ∀ᵐ ω' ∂Q, ∀ i < k, ω' i = ω i
   /-- The conditional one-sided sub-Gaussian constraint at every time `n ≥ k`. -/
   constraint : ∀ n, k ≤ n → ∀ l : ℝ, 0 ≤ l → ∀ s : Set (ℕ → ℝ),
-    MeasurableSet[Filtration.naturalLT (fun i (ω : ℕ → ℝ) ↦ ω i) measurable_pi_apply n] s →
+    MeasurableSet[Filtration.piLT n] s →
     ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ∂Q ≤ Q s
 
 /-- A strategy after a history `ω` of length `k`: a finitely supported law after `ω` and a bounded
@@ -677,27 +681,30 @@ private lemma envelope_congr (E : ℕ → (ℕ → ℝ) → ℝ≥0∞) {k : ℕ
 /-- The path `ω` continued by zeros after time `k`. -/
 private def extendZero (k : ℕ) (ω : ℕ → ℝ) : ℕ → ℝ := fun i ↦ if i ≤ k then ω i else 0
 
+/-- The Dirac mass at a path that vanishes at time `n` satisfies the constraint at time `n`. -/
+private lemma setLIntegral_exp_dirac_le {ω : ℕ → ℝ} {n : ℕ} (hn : ω n = 0) (l : ℝ)
+    (s : Set (ℕ → ℝ)) :
+    ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ∂Measure.dirac ω ≤
+      Measure.dirac ω s := by
+  have hle : ∀ᵐ ω' ∂(Measure.dirac ω).restrict s,
+      ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ≤ 1 := by
+    refine ae_restrict_of_ae ?_
+    rw [ae_dirac_eq]
+    simp only [Filter.eventually_pure, hn, mul_zero, zero_sub]
+    exact ENNReal.ofReal_le_one.2 (Real.exp_le_one_iff.2 (by nlinarith [sq_nonneg l]))
+  calc ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ∂Measure.dirac ω
+      ≤ ∫⁻ _ in s, 1 ∂Measure.dirac ω := lintegral_mono_ae hle
+    _ = Measure.dirac ω s := by simp
+
 /-- Stopping at once under the Dirac mass at the history continued by zeros is a strategy. -/
 private lemma isStrategy_dirac_extendZero (k : ℕ) (ω : ℕ → ℝ) :
     IsStrategy (k + 1) ω (Measure.dirac (extendZero k ω), fun _ ↦ k) := by
   refine ⟨⟨inferInstance, ?_, fun n hn l _ s _ ↦ ?_⟩, isStoppingTime_const _ _, fun _ ↦ by simp,
-    ⟨{extendZero k ω}, ?_⟩, ⟨k, fun _ ↦ le_rfl⟩⟩
+    ⟨{extendZero k ω}, by simp⟩, ⟨k, fun _ ↦ le_rfl⟩⟩
   · rw [ae_dirac_eq, Filter.eventually_pure]
     intro i hi
     simp [extendZero, Nat.lt_succ_iff.1 hi]
-  · have hle : ∀ᵐ ω' ∂(Measure.dirac (extendZero k ω)).restrict s,
-        ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2)) ≤ 1 := by
-      refine ae_restrict_of_ae ?_
-      rw [ae_dirac_eq]
-      simp only [Filter.eventually_pure, extendZero, show ¬ n ≤ k by omega, ↓reduceIte,
-        mul_zero, zero_sub]
-      exact ENNReal.ofReal_le_one.2 (Real.exp_le_one_iff.2 (by nlinarith [sq_nonneg l]))
-    calc ∫⁻ ω' in s, ENNReal.ofReal (Real.exp (l * ω' n - l ^ 2 / 2))
-          ∂Measure.dirac (extendZero k ω)
-        ≤ ∫⁻ _ in s, 1 ∂Measure.dirac (extendZero k ω) := lintegral_mono_ae hle
-      _ = Measure.dirac (extendZero k ω) s := by simp
-  · rw [Finset.coe_singleton, Measure.dirac_apply' _ (measurableSet_singleton _).compl]
-    simp
+  · exact setLIntegral_exp_dirac_le (by simp [extendZero, show ¬ n ≤ k by omega]) l s
 
 /-- The envelope after `k + 1` observations dominates a process that only depends at time `k` on
 the coordinates up to `k`. -/
@@ -799,7 +806,7 @@ private lemma isStrategy_graft {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
     isStoppingTime_graftTime (fun y ↦ (hg y).isStoppingTime)
       (fun y ω' ↦ by have := (hg y).le_time ω'; omega),
     fun ω' ↦ ?_, ⟨S.biUnion T, ?_⟩, ⟨k + ∑ y ∈ S, N y, fun ω' ↦ ?_⟩⟩
-  · have hs' : MeasurableSet s := (Filtration.naturalLT _ _).le n s hs
+  · have hs' : MeasurableSet s := Filtration.piLT.le n s hs
     rcases hn.lt_or_eq with hn | rfl
     · -- after the grafted round, the constraint holds under each continuation
       rw [← lintegral_indicator hs', hQint]
@@ -811,7 +818,8 @@ private lemma isStrategy_graft {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
             exact (hg y).isTreeLaw.constraint n hn l hl s hs
         _ = Q s := by simp [hQ, graftLaw]
     · -- at the grafted round, the constraint is that of `P`
-      have hs' := Filtration.naturalLT_eval_le_comap k s hs
+      have hs' := Filtration.naturalLT_eval_le_comap k s
+        (Filtration.piLT_eq_naturalLT (X := fun _ : ℕ ↦ ℝ) ▸ hs)
       rw [setLIntegral_eq_ite_of_ae_prefix hQpre hs', measure_eq_ite_of_ae_prefix hQpre hs',
         measure_univ]
       split_ifs
@@ -996,16 +1004,17 @@ private lemma exists_le_prod_of_envelope_le_one {E : ℕ → (ℕ → ℝ) → �
 
 /-! ### Domination of e-processes -/
 
-/-- **Domination by predictable products of mixtures** [EVR26, Note 12, Theorem 4]. Let `E` be a
-process on `ℕ → ℝ` that only depends at time `n` on the observations up to `n`, with no
-measurability, and whose mean at every bounded stopping time of `Filtration.piLE` is at most `1`
-under every finitely supported member of the one-sided conditionally `1`-sub-Gaussian null. Then
-`E` is dominated, at every time `n` and on every path `ω`, by
-`∏ k ≤ n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)`, for mixing measures `π k ω` on `[0, ∞)` of mass at
-most `1` that depend only on the observations before `k`. No measurability of `π k` in the past
-observations is asserted. -/
-theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
-    (hadapt : ∀ n, DependsOn (E n) (Iic n))
+/-- The Dirac mass at the zero path is a member of the one-sided conditionally `1`-sub-Gaussian
+null. -/
+private lemma dirac_zero_mem_oneSidedCondSubgaussianNull :
+    Measure.dirac (0 : ℕ → ℝ) ∈ oneSidedCondSubgaussianNull :=
+  ⟨inferInstance, fun k l _ s _ ↦ setLIntegral_exp_dirac_le (Pi.zero_apply k) l s⟩
+
+/-- The domination for the filtration `Filtration.piLE`, where `n + 1` observations have been made
+at a time `n`: a process that only depends at time `n` on the observations up to `n` is dominated
+by `∏ k ≤ n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)`. -/
+private theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one_piLE
+    {E : ℕ → (ℕ → ℝ) → ℝ≥0∞} (hadapt : ∀ n, DependsOn (E n) (Iic n))
     (hE : ∀ Q ∈ oneSidedCondSubgaussianNull, (∃ T : Finset (ℕ → ℝ), Q (↑T)ᶜ = 0) →
       ∀ τ : (ℕ → ℝ) → WithTop ℕ, IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) τ →
         ∀ N : ℕ, (∀ ω, τ ω ≤ N) → ∫⁻ ω, stoppedValue E τ ω ∂Q ≤ 1) :
@@ -1019,18 +1028,57 @@ theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one {E : ℕ → (�
       hp.isTreeLaw.constraint n (Nat.zero_le n) l hl s hs⟩ hp.exists_finset _ hp.isStoppingTime N
       fun ω ↦ Nat.cast_le.2 (hN ω)
 
-/-- **Domination of e-processes by predictable products of mixtures** [EVR26, Note 12,
-Theorem 4]. Every e-process for the one-sided conditionally `1`-sub-Gaussian null and the
-filtration `Filtration.piLE` is dominated, at every time `n` and on every path `ω`, by
-`∏ k ≤ n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)`, for mixing measures `π k ω` on `[0, ∞)` of mass at
-most `1` that depend only on the observations before `k`. -/
-theorem IsEProcess.exists_le_prod_lintegral_exp {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
-    (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) oneSidedCondSubgaussianNull) :
+/-- **Domination by predictable products of mixtures** [EVR26, Note 12, Theorem 4]. Let `E` be a
+process on `ℕ → ℝ` that only depends at time `n` on the `n` observations before `n`, with no
+measurability, and whose mean at every bounded stopping time of `Filtration.piLT` is at most `1`
+under every finitely supported member of the one-sided conditionally `1`-sub-Gaussian null. Then
+`E` is dominated, at every time `n` and on every path `ω`, by
+`∏ k < n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)`, for mixing measures `π k ω` on `[0, ∞)` of mass at
+most `1` that depend only on the observations before `k`. No measurability of `π k` in the past
+observations is asserted. -/
+theorem exists_le_prod_lintegral_exp_of_forall_lintegral_le_one {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
+    (hadapt : ∀ n, DependsOn (E n) (Iio n))
+    (hE : ∀ Q ∈ oneSidedCondSubgaussianNull, (∃ T : Finset (ℕ → ℝ), Q (↑T)ᶜ = 0) →
+      ∀ τ : (ℕ → ℝ) → WithTop ℕ, IsStoppingTime Filtration.piLT τ →
+        ∀ N : ℕ, (∀ ω, τ ω ≤ N) → ∫⁻ ω, stoppedValue E τ ω ∂Q ≤ 1) :
     ∃ π : ℕ → (ℕ → ℝ) → Measure ℝ≥0, (∀ n ω, π n ω univ ≤ 1) ∧
       (∀ n, DependsOn (π n) (Iio n)) ∧
-      ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range (n + 1),
+      ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range n,
+        ∫⁻ l, ENNReal.ofReal (Real.exp ((l : ℝ) * ω k - (l : ℝ) ^ 2 / 2)) ∂π k ω := by
+  -- the shift `fun n ↦ E (n + 1)`, for `Filtration.piLE`
+  obtain ⟨π, hπ1, hπ, hle⟩ := exists_le_prod_lintegral_exp_of_forall_lintegral_le_one_piLE
+    (E := fun n ↦ E (n + 1)) (fun n ↦ (hadapt (n + 1)).mono fun _ hi ↦ Nat.lt_succ_iff.1 hi)
+    fun Q hQ hQfin τ hτ N hτN ↦ by
+      have hτ_top (ω : ℕ → ℝ) : τ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hτN ω)
+      rw [stoppedValue_add_one E hτ_top]
+      refine hE Q hQ hQfin _ ((isStoppingTime_add_one_iff Filtration.piLT_add_one).2 hτ) (N + 1)
+        fun ω ↦ ?_
+      rw [Nat.cast_add_one]
+      exact add_le_add_left (hτN ω) 1
+  refine ⟨π, hπ1, hπ, fun n ω ↦ ?_⟩
+  cases n with
+  | succ n => exact hle n ω
+  | zero =>
+    -- nothing has been observed at time `0`: `E 0` is a constant, at most `1` under a Dirac mass
+    have h := hE _ dirac_zero_mem_oneSidedCondSubgaussianNull ⟨{0}, by simp⟩ _
+      (isStoppingTime_natCast 0) 0 fun _ ↦ le_rfl
+    rw [lintegral_dirac,
+      stoppedValue_of_eq_natCast (τ := fun _ ↦ ((0 : ℕ) : WithTop ℕ)) rfl] at h
+    rw [Finset.range_zero, Finset.prod_empty]
+    exact (hadapt 0 fun i hi ↦ absurd hi (Nat.not_lt_zero i)).le.trans h
+
+/-- **Domination of e-processes by predictable products of mixtures** [EVR26, Note 12,
+Theorem 4]. Every e-process for the one-sided conditionally `1`-sub-Gaussian null and the
+filtration `Filtration.piLT` is dominated, at every time `n` and on every path `ω`, by
+`∏ k < n, ∫ exp (l ω_k - l ^ 2 / 2) ∂π_k(l)`, for mixing measures `π k ω` on `[0, ∞)` of mass at
+most `1` that depend only on the observations before `k`. -/
+theorem IsEProcess.exists_le_prod_lintegral_exp {E : ℕ → (ℕ → ℝ) → ℝ≥0∞}
+    (hE : IsEProcess E Filtration.piLT oneSidedCondSubgaussianNull) :
+    ∃ π : ℕ → (ℕ → ℝ) → Measure ℝ≥0, (∀ n ω, π n ω univ ≤ 1) ∧
+      (∀ n, DependsOn (π n) (Iio n)) ∧
+      ∀ n ω, E n ω ≤ ∏ k ∈ Finset.range n,
         ∫⁻ l, ENNReal.ofReal (Real.exp ((l : ℝ) * ω k - (l : ℝ) ^ 2 / 2)) ∂π k ω :=
-  exists_le_prod_lintegral_exp_of_forall_lintegral_le_one (fun n ↦ (hE.adapted n).dependsOn_of_piLE)
+  exists_le_prod_lintegral_exp_of_forall_lintegral_le_one (fun n ↦ (hE.adapted n).dependsOn_of_piLT)
     fun _ hQ _ _ hτ _ hτN ↦ (hE.isEVar_stoppedValue_of_le hτ hτN).lintegral_le_one hQ
 
 end ProbabilityTheory

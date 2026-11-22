@@ -42,9 +42,10 @@ occur, where it is infinite [RRLK, Lemma 2]. This event is contained in the unio
 * `MeasureTheory.stoppedValueLimsup_of_eq_natCast`, `MeasureTheory.stoppedValueLimsup_of_eq_top`:
   its values at finite and infinite times.
 * `MeasureTheory.stoppedValue_of_eq_natCast`, `MeasureTheory.stoppedValue_natCast`,
-  `MeasureTheory.stoppedValue_add_one`: Mathlib's `stoppedValue` where the random time is finite,
-  at the cast of a random time with values in `ℕ`, and the value of a shifted process at a random
-  time that is finite everywhere.
+  `MeasureTheory.stoppedValue_zero`, `MeasureTheory.stoppedValue_add_one`: Mathlib's
+  `stoppedValue` where the random time is finite, at the cast of a random time with values in
+  `ℕ`, at the time `0`, and the value of a shifted process at a random time that is finite
+  everywhere.
 * `MeasureTheory.stoppedValue_congr`: the value of a process at a random time at `ω` depends only
   on the time at `ω`.
 * `MeasureTheory.stoppedValueLimsup_natCast`: at the cast of a random time with values in `ℕ` it
@@ -117,6 +118,11 @@ time. -/
 theorem stoppedValue_natCast (u : ℕ → Ω → β) (τ : Ω → ℕ) :
     stoppedValue u (fun ω ↦ (τ ω : WithTop ℕ)) = fun ω ↦ u (τ ω) ω :=
   funext fun _ ↦ stoppedValue_of_eq_natCast rfl
+
+/-- At the random time `0`, `stoppedValue` reads the process at time `0`. -/
+@[simp]
+theorem stoppedValue_zero (u : ℕ → Ω → β) : stoppedValue u 0 = u 0 :=
+  funext fun _ ↦ stoppedValue_of_eq_natCast (by rw [Pi.zero_apply, Nat.cast_zero])
 
 /-- At a random time that is finite everywhere, the shift `fun n ↦ u (n + 1)` read at `τ` is `u`
 read at `τ + 1`. -/

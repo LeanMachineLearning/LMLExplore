@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Basic.Real.ENatENNReal
 public import Mathlib.Data.ENat.Basic
 import Mathlib.Data.Nat.Cast.WithTop
 
@@ -12,12 +13,14 @@ import Mathlib.Data.Nat.Cast.WithTop
 # Extended natural numbers and natural numbers
 
 This file relates `WithTop ℕ` to `ℕ` through the cast `(n : WithTop ℕ)`, which is `Nat.cast`
-rather than the coercion `WithTop.some n`.
+rather than the coercion `WithTop.some n`, and records how `ENat.toENNReal` acts on the
+successor `t + 1` of `t : WithTop ℕ`.
 
 ## Main statements
 
 * `ENat.natCast_toNat_min`: the minimum of `t : WithTop ℕ` and the cast `(n : WithTop ℕ)` is
   finite, so its value as a natural number casts back to it.
+* `ENat.toENNReal_add_one`: `ENat.toENNReal (t + 1) = ENat.toENNReal t + 1` for `t : WithTop ℕ`.
 * `WithTop.untopA_natCast`, `WithTop.natCast_untopA`: `WithTop.untopA` inverts the cast
   `ℕ → WithTop ℕ` on finite values.
 * `WithTop.ne_top_of_le_natCast`: an element below the cast of a natural number is finite.
@@ -35,6 +38,15 @@ natural number casts back to it. -/
 theorem natCast_toNat_min (t : WithTop ℕ) (n : ℕ) :
     ((ENat.toNat (min t n) : ℕ) : WithTop ℕ) = min t n :=
   ENat.natCast_toNat (ne_top_of_le_ne_top (ENat.natCast_ne_top n) (min_le_right _ _))
+
+/-- The successor `t + 1` of `t : WithTop ℕ` maps to `ENat.toENNReal t + 1`. This is
+`ENat.toENNReal_add` with the addition of `WithTop ℕ`, as in `τ ω + 1` for a random time `τ` with
+values in `WithTop ℕ`: `simp` does not apply `ENat.toENNReal_add` to such terms, which are not
+`ℕ∞`-typed up to reducible transparency. -/
+@[simp]
+theorem toENNReal_add_one (t : WithTop ℕ) :
+    ENat.toENNReal (t + 1 : WithTop ℕ) = ENat.toENNReal t + 1 :=
+  (ENat.toENNReal_add t 1).trans (by rw [ENat.toENNReal_one])
 
 end ENat
 

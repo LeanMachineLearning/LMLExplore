@@ -35,6 +35,8 @@ time, which is how a statistician switches between two stopping rules after seei
   times, stated at the cast `(n : WithTop ℕ)` rather than the coercion `WithTop.some n`.
 * `MeasureTheory.isStoppingTime_add_one_iff`: for filtrations with `𝒢 (n + 1) = ℱ n`, a time `τ`
   is a stopping time of `ℱ` exactly when `τ + 1` is one of `𝒢`.
+* `MeasureTheory.IsStoppingTime.eq_zero_or_exists_eq_add_one`: if moreover `𝒢 0 = ⊥`, a stopping
+  time of `𝒢` is `0` everywhere or `σ + 1` for a stopping time `σ` of `ℱ`.
 * `MeasureTheory.Adapted.shift`, `MeasureTheory.adapted_shift_iff`: for filtrations with
   `𝒢 (n + 1) = ℱ n`, a process `M` with `M 0` measurable at time `0` is adapted to `𝒢` exactly
   when its shift `fun n ↦ M (n + 1)` is adapted to `ℱ`.
@@ -154,6 +156,31 @@ theorem isStoppingTime_add_one_iff {𝒢 : Filtration ℕ mΩ} (h : ∀ n, 𝒢 
       exact lt_of_lt_of_le (by simp) le_add_self
     · rw [← Nat.cast_withTop, h, hset]
       exact hτ.measurableSet_le_natCast n
+
+/-- For filtrations with `𝒢 0 = ⊥` and `𝒢 (n + 1) = ℱ n`, such as `Filtration.piLT` and
+`Filtration.piLE`, a stopping time `τ` of `𝒢` is `0` everywhere or the time `σ + 1` for a stopping
+time `σ` of `ℱ`: the event `{τ = 0}` is known at time `0`, so it is empty or everything. -/
+theorem IsStoppingTime.eq_zero_or_exists_eq_add_one {𝒢 : Filtration ℕ mΩ} (h₀ : 𝒢 0 = ⊥)
+    (h : ∀ n, 𝒢 (n + 1) = ℱ n) (hτ : IsStoppingTime 𝒢 τ) :
+    τ = 0 ∨ ∃ σ : Ω → WithTop ℕ, IsStoppingTime ℱ σ ∧ τ = fun ω ↦ σ ω + 1 := by
+  have h0 := hτ.measurableSet_le_natCast 0
+  rw [h₀, MeasurableSpace.measurableSet_bot_iff] at h0
+  rcases h0 with h0 | h0
+  · -- `τ` is positive, and `τ - 1` is a stopping time of `ℱ`
+    have hτ1 (ω : Ω) : τ ω - 1 + 1 = τ ω := by
+      have hω : ω ∉ {ω | τ ω ≤ (0 : ℕ)} := h0 ▸ Set.notMem_empty ω
+      cases hτω : τ ω with
+      | top => rfl
+      | coe n =>
+        have hn : n ≠ 0 := by simpa [hτω] using hω
+        rw [← WithTop.coe_one, ← WithTop.coe_sub, ← WithTop.coe_add, Nat.sub_add_cancel
+          (Nat.one_le_iff_ne_zero.2 hn)]
+    refine .inr ⟨fun ω ↦ τ ω - 1, (isStoppingTime_add_one_iff h).1 ?_,
+      funext fun ω ↦ (hτ1 ω).symm⟩
+    simpa only [hτ1] using hτ
+  · refine .inl (funext fun ω ↦ ?_)
+    have hω : ω ∈ {ω | τ ω ≤ (0 : ℕ)} := h0 ▸ Set.mem_univ ω
+    simpa using hω
 
 /-- The shift `fun n ↦ M (n + 1)` of a process adapted to `𝒢` is adapted to any filtration `ℱ`
 with `𝒢 (n + 1) = ℱ n`. -/

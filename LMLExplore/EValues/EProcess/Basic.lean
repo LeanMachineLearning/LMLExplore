@@ -285,30 +285,13 @@ theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = �
     IsEProcess (fun n ↦ E (n + 1)) ℱ S ↔ IsEProcess E 𝒢 S := by
   refine ⟨fun hE ↦ .of_isEVar_stoppedValue ?_ fun τ hτ hτ_top ↦ ?_, fun hE ↦ hE.shift h⟩
   · exact (adapted_shift_iff h (hE₀ ▸ measurable_const)).1 hE.adapted
-  -- the event `{τ = 0}` is known at time `0`, so `τ` is `0` everywhere or nowhere
-  have h0 := hτ.measurableSet_le_natCast 0
-  rw [h₀, MeasurableSpace.measurableSet_bot_iff] at h0
-  rcases h0 with h0 | h0
-  · -- `τ` is positive, and `τ - 1` is a stopping time of `ℱ`
-    have hτ1 (ω : Ω) : (((τ ω).untopA - 1 : ℕ) : WithTop ℕ) + 1 = τ ω := by
-      have hω : ω ∉ {ω | τ ω ≤ (0 : ℕ)} := h0 ▸ notMem_empty ω
-      obtain ⟨b, hb⟩ := WithTop.exists_eq_natCast_of_ne_top (hτ_top ω)
-      simp only [mem_ofPred_eq, hb, Nat.cast_le, nonpos_iff_eq_zero] at hω
-      rw [hb, WithTop.untopA_natCast, ← Nat.cast_add_one, Nat.sub_add_cancel (by omega)]
-    have hσ : IsStoppingTime ℱ fun ω ↦ (((τ ω).untopA - 1 : ℕ) : WithTop ℕ) :=
-      (isStoppingTime_add_one_iff h).1 (by simpa only [hτ1] using hτ)
-    have h_eq := stoppedValue_add_one E fun ω ↦ WithTop.natCast_ne_top ((τ ω).untopA - 1)
-    simp only [hτ1] at h_eq
-    rw [← h_eq]
-    exact (hE.isEVar_stoppedValue hσ fun ω ↦ WithTop.natCast_ne_top _)
-  · have hτ0 (ω : Ω) : τ ω = 0 := by
-      have hω : ω ∈ {ω | τ ω ≤ (0 : ℕ)} := h0 ▸ mem_univ ω
-      simpa only [mem_ofPred_eq, Nat.cast_zero, nonpos_iff_eq_zero] using hω
-    have h_eq : stoppedValue E τ = E 0 := by
-      funext ω
-      exact stoppedValue_of_eq_natCast (by rw [hτ0 ω, Nat.cast_zero])
-    rw [h_eq, hE₀]
+  -- `τ` is `0` everywhere, or `σ + 1` for a stopping time `σ` of `ℱ`
+  rcases hτ.eq_zero_or_exists_eq_add_one h₀ h with rfl | ⟨σ, hσ, rfl⟩
+  · rw [stoppedValue_zero, hE₀]
     exact isEVar_one hS
+  · have hσ_top (ω : Ω) : σ ω ≠ ⊤ := fun h' ↦ hτ_top ω (by simp [h'])
+    rw [← stoppedValue_add_one E hσ_top]
+    exact hE.isEVar_stoppedValue hσ hσ_top
 
 end Shift
 

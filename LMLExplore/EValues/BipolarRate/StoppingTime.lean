@@ -8,10 +8,11 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
+import LMLExplore.Data.ENat.Basic
 import LMLExplore.EValues.BipolarRate.Round
 import LMLExplore.MeasureTheory.Integral.EReal
-import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Stopping
+import LMLExplore.Probability.ProductMeasure
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -19,17 +20,16 @@ import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 Let `S₁` be a set of probability measures on `𝓧` (the null) and `Q₁` a probability measure on `𝓧`
 (the alternative). The observations are the coordinates of `ℕ → 𝓧`, with the i.i.d. laws
-`Measure.infinitePi fun _ ↦ P`, `P ∈ S₁`, and the filtration `Filtration.piLE`, so that `τ + 1`
+`Measure.infinitePi fun _ ↦ P`, `P ∈ S₁`, and the filtration `Filtration.piLT`, so that `τ`
 observations have been made at a time `τ`. Write `d = bipolarRate Q₁ S₁` and `Q` for the i.i.d. law
 of `Q₁`.
 
 The **Wald inequality** at the bipolar rate [EVR26, Note 01]: for every e-process `E` for the
-i.i.d. null and every stopping time `τ` that is finite everywhere, `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`,
-in
+i.i.d. null and every stopping time `τ` that is finite everywhere, `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ] * d`, in
 `EReal`, with Statlib's extended integral on the left. Nothing is assumed of `S₁` beyond its
-members being probability measures, and nothing of `Q₁`. The expectation of `τ` may be infinite,
-with `∞ * 0 = 0`: if `d = 0`, the e-process has a nonpositive expected logarithm at every stopping
-time.
+members being probability measures and its being nonempty, and nothing of `Q₁`. The expectation of
+`τ` may be infinite, with `∞ * 0 = 0`: if `d = 0`, the e-process has a nonpositive expected
+logarithm at every stopping time.
 
 Its case `E n = α⁻¹ * 𝟙{τ ≤ n}` (mixed with a constant, so that its logarithm is finite) is the
 **lower bound on expected stopping times** [EVR26, Note 01]: a sequential test of level `α`, that
@@ -45,11 +45,18 @@ smaller [RR26, Proposition 5.4].
 ## Main statements
 
 * `ProbabilityTheory.IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate`: the Wald
-  inequality `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`.
+  inequality `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ] * d`.
 * `ProbabilityTheory.toENNReal_log_inv_div_bipolarRate_le_lintegral`: a sequential test of level
-  `α` has `log (1/α) / d ≤ 𝔼_Q[τ + 1]`.
+  `α` has `log (1/α) / d ≤ 𝔼_Q[τ]`.
 
 ## Implementation notes
+
+Both bounds are first proved for the filtration `Filtration.piLE`, where `τ + 1` observations have
+been made at a time `τ`, and transported to `Filtration.piLT` by the shift: a stopping time of
+`piLT` is `0` everywhere or `σ + 1` for a stopping time `σ` of `piLE`
+(`MeasureTheory.IsStoppingTime.eq_zero_or_exists_eq_add_one`), and `fun n ↦ E (n + 1)` is an
+e-process for `piLE` (`ProbabilityTheory.IsEProcess.shift`). At the time `0` nothing has been
+observed, so `E 0` is a constant, at most `1` under a member of the null.
 
 The round of the Wald inequality for a round
 (`ProbabilityTheory.integral_truncLog_le_bipolarRate_mul`, in
@@ -235,15 +242,9 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
 
 end EProcess
 
-/-- **The Wald inequality at the bipolar rate.** For an e-process `E` for the i.i.d. laws of the
-members of `S₁` and a stopping time `τ` that is finite everywhere, the expected logarithm of `E` at
-`τ` under the i.i.d. law of `Q₁` is at most the expected number `τ + 1` of observations times the
-bipolar rate. The expected number of observations may be infinite, with `∞ * 0 = 0`: if the
-bipolar rate is `0`, the expected logarithm is nonpositive at every stopping time. The expected
-logarithm is Statlib's extended integral, which is `⊥` when the positive and negative parts of
-the logarithm have infinite integrals. `Q₁` need not be a probability measure: otherwise its
-i.i.d. law is `0` and both sides are `0`. [EVR26, Note 01] -/
-theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure 𝓧)
+/-- The Wald inequality for the filtration `Filtration.piLE`, where `τ + 1` observations have been
+made at a time `τ`: `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`. -/
+private theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate_piLE (Q₁ : Measure 𝓧)
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
       (iidNull S₁))
@@ -279,6 +280,43 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
   refine (eintegral_log_stoppedValue_le_toReal_mul Q₁ hS₁ hE hτ hdtop (.inr hm)).trans_eq ?_
   rw [EReal.coe_mul, coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hdtop,
     EReal.coe_ennreal_toReal hm, mul_comm]
+
+/-- **The Wald inequality at the bipolar rate.** For an e-process `E` for the i.i.d. laws of the
+members of a nonempty null `S₁` and the filtration `Filtration.piLT`, and a stopping time `τ` that
+is finite everywhere, the expected logarithm of `E` at `τ` under the i.i.d. law of `Q₁` is at most
+the expected number `τ` of observations times the bipolar rate. The expected number of
+observations may be infinite, with `∞ * 0 = 0`: if the bipolar rate is `0`, the expected logarithm
+is nonpositive at every stopping time. The expected logarithm is Statlib's extended integral,
+which is `⊥` when the positive and negative parts of the logarithm have infinite integrals. `Q₁`
+need not be a probability measure: otherwise its i.i.d. law is `0` and both sides are `0`. The
+null must be nonempty: for the empty null every process is an e-process, and at `τ = 0` the right
+side is `0`. [EVR26, Note 01] -/
+theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure 𝓧)
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hS₁ne : S₁.Nonempty) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
+    (hE : IsEProcess E Filtration.piLT (iidNull S₁)) {τ : (ℕ → 𝓧) → WithTop ℕ}
+    (hτ : IsStoppingTime Filtration.piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    ∫ᵉ ω, ENNReal.log (stoppedValue E τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) ≤
+      ((∫⁻ ω, ENat.toENNReal (τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) : ℝ≥0∞) : EReal) *
+        bipolarRate Q₁ S₁ := by
+  rcases hτ.eq_zero_or_exists_eq_add_one Filtration.piLT_zero Filtration.piLT_add_one with
+    rfl | ⟨σ, hσ, rfl⟩
+  · -- nothing has been observed at time `0`: `E 0` is a constant, at most `1`
+    obtain ⟨P, hP⟩ := hS₁ne
+    have := hS₁ P hP
+    have hE₀ : Measurable[⊥] (E 0) := Filtration.piLT_zero (X := fun _ : ℕ ↦ 𝓧) ▸ hE.adapted 0
+    obtain ⟨c, hc⟩ := eq_const_of_measurable_bot hE₀
+    have hc1 : c ≤ 1 := by
+      simpa [hc] using (hE.isEVar 0).lintegral_le_one (infinitePi_mem_iidNull hP)
+    have h0 : ∫⁻ ω, ENat.toENNReal ((0 : (ℕ → 𝓧) → WithTop ℕ) ω)
+        ∂Measure.infinitePi (fun _ ↦ Q₁) = 0 :=
+      (lintegral_congr fun _ ↦ ENat.toENNReal_zero).trans lintegral_zero
+    rw [stoppedValue_zero, hc, h0, EReal.coe_ennreal_zero, zero_mul]
+    exact (eintegral_mono fun _ ↦ ENNReal.log_le_zero_iff.2 hc1).trans_eq (eintegral_zero _)
+  · -- `τ = σ + 1` for a stopping time `σ` of `Filtration.piLE`
+    have hσ_top (ω : ℕ → 𝓧) : σ ω ≠ ⊤ := fun h' ↦ hτ_top ω (by simp [h'])
+    simp_rw [← stoppedValue_add_one E hσ_top, ENat.toENNReal_add_one]
+    exact (hE.shift Filtration.piLT_add_one).eintegral_log_stoppedValue_le_mul_bipolarRate_piLE
+      Q₁ hS₁ hσ hσ_top
 
 /-! ### Expected stopping times of sequential tests -/
 
@@ -386,7 +424,7 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
   have hk (k : ℕ) : ∫ ω, g k ω ∂μ ≤ D := by
     have hg : Integrable (g k) μ :=
       Integrable.of_bound (hgm k).aestronglyMeasurable _ (ae_of_all _ (hgC k))
-    have h := hE.eintegral_log_stoppedValue_le_mul_bipolarRate Q₁ hS₁ (hτ.min_natCast k)
+    have h := hE.eintegral_log_stoppedValue_le_mul_bipolarRate_piLE Q₁ hS₁ (hτ.min_natCast k)
       (hτk_top k)
     have hmk' : ∫⁻ ω, ENat.toENNReal (min (τ ω) k : WithTop ℕ) + 1
         ∂Measure.infinitePi (fun _ ↦ Q₁) ≠ ∞ :=
@@ -415,17 +453,9 @@ private lemma neg_log_le_toReal_mul_sub (Q₁ : Measure 𝓧) [IsProbabilityMeas
     exact Real.log_le_log hb0 (by linarith)
   linarith
 
-/-- **The lower bound on expected stopping times.** A sequential test of level `α` for the i.i.d.
-laws of the members of `S₁`, that is, a stopping time `τ` with `P^ℕ (τ < ∞) ≤ α` for every
-`P ∈ S₁`, makes at least `log (1/α) / d` observations in expectation under the i.i.d. law of
-`Q₁`, where `d` is the bipolar rate of `Q₁` against `S₁`: `log (1/α) / d ≤ 𝔼[τ + 1]`
-[EVR26, Note 01]. The left
-side is in `ℝ≥0∞`, with `log (1/α)` replaced by `0` for `α ≥ 1`: if `d = 0` and `α < 1`, the
-expected number of observations is infinite, if `d = ∞` the bound is `0`, and if `α = 0` and
-`d < ∞` the expected number of observations is infinite. Since the bipolar rate is at most the
-smallest relative entropy from `Q₁` to `S₁` (`bipolarRate_le_klInf`), this contains the
-lower bound `log (1/α) / KL_inf(Q₁, S₁)` [ARR26]. -/
-theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
+/-- The lower bound on expected stopping times for the filtration `Filtration.piLE`, where `τ + 1`
+observations have been made at a time `τ`: `log (1/α) / d ≤ 𝔼[τ + 1]`. -/
+private theorem toENNReal_log_inv_div_bipolarRate_le_lintegral_piLE (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {α : ℝ≥0∞}
     (hτ : IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
       (iidNull S₁) α) :
@@ -468,6 +498,36 @@ theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
   rw [EReal.toENNReal_of_ne_top hd, ← ENNReal.ofReal_toReal hm,
     ← ENNReal.ofReal_mul ENNReal.toReal_nonneg]
   exact ENNReal.ofReal_le_ofReal (by linarith [mul_comm m.toReal (bipolarRate Q₁ S₁).toReal])
+
+/-- **The lower bound on expected stopping times.** A sequential test of level `α` for the i.i.d.
+laws of the members of `S₁` and the filtration `Filtration.piLT`, that is, a stopping time `τ`
+with `P^ℕ (τ < ∞) ≤ α` for every `P ∈ S₁`, makes at least `log (1/α) / d` observations in
+expectation under the i.i.d. law of `Q₁`, where `d` is the bipolar rate of `Q₁` against `S₁`:
+`log (1/α) / d ≤ 𝔼[τ]` [EVR26, Note 01]. The left side is in `ℝ≥0∞`, with `log (1/α)` replaced by
+`0` for `α ≥ 1`: if `d = 0` and `α < 1`, the expected number of observations is infinite, if
+`d = ∞` the bound is `0`, and if `α = 0` and `d < ∞` the expected number of observations is
+infinite. Since the bipolar rate is at most the smallest relative entropy from `Q₁` to `S₁`
+(`bipolarRate_le_klInf`), this contains the lower bound `log (1/α) / KL_inf(Q₁, S₁)` [ARR26]. -/
+theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {α : ℝ≥0∞}
+    (hτ : IsLevelStoppingTime τ Filtration.piLT (iidNull S₁) α) :
+    (ENNReal.log α⁻¹).toENNReal / (bipolarRate Q₁ S₁).toENNReal ≤
+      ∫⁻ ω, ENat.toENNReal (τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
+  rcases hτ.isStoppingTime.eq_zero_or_exists_eq_add_one Filtration.piLT_zero
+    Filtration.piLT_add_one with rfl | ⟨σ, -, rfl⟩
+  · -- the test that stops at once has level `1`, unless the null is empty and `d = ∞`
+    refine le_of_eq_of_le ?_ zero_le
+    rcases S₁.eq_empty_or_nonempty with rfl | ⟨P, hP⟩
+    · simp
+    have := hS₁ P hP
+    have hα : 1 ≤ α := by
+      simpa using hτ.measure_lt_top_le _ (infinitePi_mem_iidNull hP)
+    rw [EReal.toENNReal_of_nonpos (ENNReal.log_le_zero_iff.2 (ENNReal.inv_le_one.2 hα)),
+      ENNReal.zero_div]
+  · -- `τ = σ + 1` for a sequential test `σ` of the same level for `Filtration.piLE`
+    simp_rw [ENat.toENNReal_add_one]
+    exact toENNReal_log_inv_div_bipolarRate_le_lintegral_piLE Q₁ hS₁
+      ((isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).1 hτ)
 
 end Test
 
