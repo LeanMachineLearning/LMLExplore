@@ -621,9 +621,9 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
       (iidNull S₁) := by
     refine IsEProcess.of_lintegral_le_one
       (fun n ↦ Filtration.measurable_piLT_of_dependsOn (hEm n) (hEd n)) ?_
-    rintro τ - _ hμ
+    rintro τ - _ - _ hμ
     obtain ⟨P, hP, rfl⟩ := mem_iidNull.1 hμ
-    exact hEnull P hP τ
+    exact hEnull P hP fun ω ↦ (τ ω).untopA
   refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ρ ↦ ?_⟩
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap

@@ -12,24 +12,25 @@ import LMLExplore.EValues.Numeraire
 import LMLExplore.Probability.ProductMeasure
 
 /-!
-# The product of one-step numeraires is optimal at every stopping time
+# The product of one-step numeraires is optimal at every finite stopping time
 
 Let `S₁ i` be sets of probability measures on `𝓧`, the one-step nulls, `Q₁ i` probability
 measures, the one-step alternatives, and `X i` a numeraire of `S₁ i` against `Q₁ i`. On sequences
 `ℕ → 𝓧` with the filtration `Filtration.piLT` of the past observations, the product
-`E n ω = ∏ i < n, X i (ω i)` is optimal at every stopping time `τ` with values in `ℕ`, bounded or
-not, against the law `Measure.infinitePi Q₁` of independent observations from the alternatives,
-for every null `𝓝` that contains the products of members of the `S₁ i` and for which `E` is an
-e-process [EVR26, Note 40, Theorem 5], as soon as the numeraires are almost surely finite. One
-such null is the sequential null of the one-step nulls (`isNumeraireAt_prod_sequentialNull`), for
-which the product is a test supermartingale.
+`E n ω = ∏ i < n, X i (ω i)` is optimal at every stopping time `τ` that is finite everywhere,
+bounded or not, against the law `Measure.infinitePi Q₁` of independent observations from the
+alternatives, for every null `𝓝` that contains the products of members of the `S₁ i` and for
+which `E` is an e-process [EVR26, Note 40, Theorem 5], as soon as the numeraires are almost surely
+finite. One such null is the sequential null of the one-step nulls
+(`isNumeraireAt_prod_sequentialNull`), for which the product is a test supermartingale.
 
 The proof replaces the laws of the observations by the alternatives one coordinate at a time, by
 Tonelli's theorem (`lintegral_sum_mul_prod_inv_le`): no dominating measure, no measurable choice
 of the null laws and no finiteness of the numeraires is used for the bound
 `∫⁻ F_τ / E_τ ∂Q₁^ℕ ≤ 1` on the e-processes `F` (`lintegral_div_prod_le_one`). For a simple
 i.i.d. null `P₁` and an alternative `Q₁ ≪ P₁`, this makes the likelihood ratio process optimal at
-every stopping time (`isNumeraireAt_prod_rnDeriv`) [EVR26, Note 40, Proposition 6].
+every stopping time that is finite everywhere (`isNumeraireAt_prod_rnDeriv`)
+[EVR26, Note 40, Proposition 6].
 
 ## Main statements
 
@@ -38,14 +39,14 @@ every stopping time (`isNumeraireAt_prod_rnDeriv`) [EVR26, Note 40, Proposition 
   observations, then `∑ k < N, g k * ∏ i < k, (X i (ω i))⁻¹` has integral at most `c` under the
   product of the alternatives.
 * `ProbabilityTheory.lintegral_div_prod_le_one`: the ratio of an e-process to the product of the
-  numeraires, at a stopping time, has expectation at most `1` under the product of the
-  alternatives.
+  numeraires, at a stopping time that is finite everywhere, has expectation at most `1` under the
+  product of the alternatives.
 * `ProbabilityTheory.isNumeraireAt_prod`: the product of almost surely finite one-step numeraires
-  is optimal at every stopping time [EVR26, Note 40, Theorem 5].
+  is optimal at every stopping time that is finite everywhere [EVR26, Note 40, Theorem 5].
 * `ProbabilityTheory.isNumeraireAt_prod_sequentialNull`: the same for the sequential null of the
   one-step nulls.
 * `ProbabilityTheory.isNumeraireAt_prod_rnDeriv`: the likelihood ratio process of i.i.d. laws is
-  optimal at every stopping time.
+  optimal at every stopping time that is finite everywhere.
 
 ## Implementation notes
 
@@ -271,22 +272,26 @@ theorem lintegral_sum_mul_prod_inv_le (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbab
 
 /-! ### The product of one-step numeraires -/
 
-variable {𝓝 : Set (Measure (ℕ → 𝓧))} {τ : (ℕ → 𝓧) → ℕ}
+variable {𝓝 : Set (Measure (ℕ → 𝓧))} {τ : (ℕ → 𝓧) → WithTop ℕ}
 
 /-- **The ratio of an e-process to the product of one-step numeraires** [EVR26, Note 40,
 Theorem 5]. Let `S₁ i` be nonempty sets of probability measures on `𝓧`, `Q₁ i` probability
 measures and `X i` a numeraire of `S₁ i` against `Q₁ i`. For every null `𝓝` on the sequences that
 contains every product of members of the `S₁ i`, every e-process `F` for `𝓝` and the filtration
-`Filtration.piLT` of the past observations, and every stopping time `τ` with values in `ℕ`, bounded
-or not, the ratio of `F` to the product of the `X i` at `τ` has expectation at most one under the
-product of the `Q₁ i`. -/
+`Filtration.piLT` of the past observations, and every stopping time `τ` that is finite everywhere,
+bounded or not, the ratio of `F` to the product of the `X i` at `τ` has expectation at most one
+under the product of the `Q₁ i`. -/
 theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
     (hS₁_ne : ∀ i, (S₁ i).Nonempty) [∀ i, IsProbabilityMeasure (Q₁ i)]
     (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i))
     (h𝓝 : ∀ P : ℕ → Measure 𝓧, (∀ i, P i ∈ S₁ i) → Measure.infinitePi P ∈ 𝓝)
     {F : ℕ → (ℕ → 𝓧) → ℝ≥0∞} (hF : IsEProcess F piLT 𝓝)
-    (hτ : IsStoppingTime piLT fun ω ↦ (τ ω : WithTop ℕ)) :
-    ∫⁻ ω, F (τ ω) ω / ∏ i ∈ range (τ ω), X i (ω i) ∂Measure.infinitePi Q₁ ≤ 1 := by
+    (hτ : IsStoppingTime piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    ∫⁻ ω, stoppedValue F τ ω / stoppedValue (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) τ ω
+      ∂Measure.infinitePi Q₁ ≤ 1 := by
+  -- the stopping time is the cast of a time with values in `ℕ`
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
+  simp only [stoppedValue_natCast]
   -- the ratio is the sum over the values `k` of the stopping time of `𝟙{τ = k} F k / ∏ i < k, X i`
   set g : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun k ↦ {ω | τ ω = k}.indicator (F k)
   have hτk (k : ℕ) : MeasurableSet[piLT k] {ω | τ ω = k} := by
@@ -312,7 +317,10 @@ theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilit
   refine lintegral_sum_mul_prod_inv_le hS₁ hS₁_ne (fun i ↦ (hX i).measurable)
     (fun i Y hY ↦ (hX i).lintegral_div_le_one hY) hg (fun k ↦ (hg_ad k).dependsOn_of_piLT) N
     fun P hP ↦ ?_
-  refine (lintegral_mono fun ω ↦ ?_).trans (hF.lintegral_le_one hτ (h𝓝 P hP))
+  have hF_le : ∫⁻ ω, F (τ ω) ω ∂Measure.infinitePi P ≤ 1 := by
+    simpa only [stoppedValue_natCast] using
+      hF.lintegral_le_one hτ (fun _ ↦ WithTop.natCast_ne_top _) (h𝓝 P hP)
+  refine (lintegral_mono fun ω ↦ ?_).trans hF_le
   -- at most one term of the sum is not zero
   calc ∑ k ∈ range N, g k ω
   _ = ∑ k ∈ range N, if τ ω = k then F k ω else 0 :=
@@ -322,42 +330,42 @@ theorem lintegral_div_prod_le_one (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilit
     split_ifs
     exacts [le_rfl, zero_le]
 
-/-- **The product of one-step numeraires is optimal at every stopping time**
+/-- **The product of one-step numeraires is optimal at every finite stopping time**
 [EVR26, Note 40, Theorem 5]. Let `S₁ i` be sets of probability measures on `𝓧`, `Q₁ i`
 probability measures, and `X i` a numeraire of `S₁ i` against `Q₁ i` that is `Q₁ i`-almost surely
 finite. Let `𝓝` be a null on the sequences that contains every product of members of the `S₁ i`
 and for which the product `E n ω = ∏ i < n, X i (ω i)` is an e-process for the filtration
-`Filtration.piLT` of the past observations. Then `E` is optimal at every stopping time with values
-in `ℕ`, bounded or not, against the product of the `Q₁ i`. -/
+`Filtration.piLT` of the past observations. Then `E` is optimal at every stopping time that is
+finite everywhere, bounded or not, against the product of the `Q₁ i`. -/
 theorem isNumeraireAt_prod (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
     [∀ i, IsProbabilityMeasure (Q₁ i)] (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i))
     (hX_top : ∀ i, ∀ᵐ x ∂Q₁ i, X i x ≠ ∞)
     (h𝓝 : ∀ P : ℕ → Measure 𝓧, (∀ i, P i ∈ S₁ i) → Measure.infinitePi P ∈ 𝓝)
     (hE : IsEProcess (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝)
-    (hτ : IsStoppingTime piLT fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hτ : IsStoppingTime piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
     IsNumeraireAt (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝 (Measure.infinitePi Q₁) τ := by
-  rw [isNumeraireAt_iff hτ.measurable_nat]
+  rw [isNumeraireAt_iff hτ.measurable']
   refine ⟨hE, fun F hF ↦ ?_⟩
   -- the product is almost surely positive and finite
   rw [measure_fsupport_eq_measure_univ ?_ ?_, measure_univ]
   · exact lintegral_div_prod_le_one hS₁ (fun i ↦ (hX i).nonempty_of_ae_ne_top (hX_top i)) hX h𝓝
-      hF hτ
+      hF hτ hτ_top
   · filter_upwards [Measure.ae_forall_apply_infinitePi Q₁ hX_top] with ω hω
       using ENNReal.prod_ne_top fun i _ ↦ hω i
   · filter_upwards [ae_forall_ne_zero hS₁ hX] with ω hω using prod_ne_zero_iff.2 fun i _ ↦ hω i
 
-/-- **For the sequential null, the product of one-step numeraires is optimal at every stopping
-time** [EVR26, Note 40, Theorem 5]. For the sequential null of the coordinates and one-step nulls
-`S₁ i` of probability measures, which contains the laws of independent observations with laws in
-the `S₁ i`, and for the product of probability measures `Q₁ i`, the product of numeraires `X i` of
-`S₁ i` against `Q₁ i` that are almost surely finite is optimal at every stopping time with values
-in `ℕ`. -/
+/-- **For the sequential null, the product of one-step numeraires is optimal at every finite
+stopping time** [EVR26, Note 40, Theorem 5]. For the sequential null of the coordinates and
+one-step nulls `S₁ i` of probability measures, which contains the laws of independent
+observations with laws in the `S₁ i`, and for the product of probability measures `Q₁ i`, the
+product of numeraires `X i` of `S₁ i` against `Q₁ i` that are almost surely finite is optimal at
+every stopping time that is finite everywhere. -/
 theorem isNumeraireAt_prod_sequentialNull (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
     [∀ i, IsProbabilityMeasure (Q₁ i)] (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i))
-    (hX_top : ∀ i, ∀ᵐ x ∂Q₁ i, X i x ≠ ∞) (hτ : IsStoppingTime piLT fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hX_top : ∀ i, ∀ᵐ x ∂Q₁ i, X i x ≠ ∞) (hτ : IsStoppingTime piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
     IsNumeraireAt (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT
       (sequentialNull (fun i _ ↦ S₁ i) (fun i ω ↦ ω i) piLT) (Measure.infinitePi Q₁) τ := by
-  refine isNumeraireAt_prod hS₁ hX hX_top (fun P hP ↦ ?_) ?_ hτ
+  refine isNumeraireAt_prod hS₁ hX hX_top (fun P hP ↦ ?_) ?_ hτ hτ_top
   · have := fun i ↦ hS₁ i _ (hP i)
     exact infinitePi_mem_sequentialNull fun i ↦ .of_forall fun _ ↦ hP i
   · exact (isTestSupermartingale_prod_sequentialNull (r := fun i _ ↦ X i)
@@ -365,13 +373,13 @@ theorem isNumeraireAt_prod_sequentialNull (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsPr
       (fun i ↦ (hX i).measurable.comp measurable_snd) fun i _ ↦ (hX i).isEVar).isEProcess
       fun _ hP ↦ have := isProbabilityMeasure_of_mem_sequentialNull hP; inferInstance
 
-/-- **The likelihood ratio process is optimal at every stopping time**
+/-- **The likelihood ratio process is optimal at every finite stopping time**
 [EVR26, Note 40, Proposition 6]. For probability measures `Q₁ ≪ P₁`, the likelihood ratio
 process `∏ i < n, (dQ₁/dP₁) (ω i)` of the i.i.d. law of `Q₁` to the i.i.d. law of `P₁` is optimal
-at every stopping time with values in `ℕ`, for the simple null of the i.i.d. law of `P₁`. -/
+at every stopping time that is finite everywhere, for the simple null of the i.i.d. law of `P₁`. -/
 theorem isNumeraireAt_prod_rnDeriv {P₁ Q₁ : Measure 𝓧} [IsProbabilityMeasure P₁]
     [IsProbabilityMeasure Q₁] (hQP : Q₁ ≪ P₁)
-    (hτ : IsStoppingTime piLT fun ω ↦ (τ ω : WithTop ℕ)) :
+    (hτ : IsStoppingTime piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
     IsNumeraireAt (fun n ω ↦ ∏ i ∈ range n, Q₁.rnDeriv P₁ (ω i)) piLT
       {Measure.infinitePi fun _ ↦ P₁} (Measure.infinitePi fun _ ↦ Q₁) τ := by
   have hS : ∀ (_ : ℕ), ∀ P ∈ ({P₁} : Set (Measure 𝓧)), IsProbabilityMeasure P := by
@@ -381,9 +389,9 @@ theorem isNumeraireAt_prod_rnDeriv {P₁ Q₁ : Measure 𝓧} [IsProbabilityMeas
   refine isNumeraireAt_prod hS hX (fun _ ↦ hQP.ae_le (Measure.rnDeriv_ne_top Q₁ P₁))
     (fun P hP ↦ by
       rw [funext fun i ↦ mem_singleton_iff.1 (hP i)]
-      exact mem_singleton _) ?_ hτ
+      exact mem_singleton _) ?_ hτ hτ_top
   refine (isNumeraireAt_prod_sequentialNull hS hX
-    (fun _ ↦ hQP.ae_le (Measure.rnDeriv_ne_top Q₁ P₁)) hτ).isEProcess.anti_set ?_
+    (fun _ ↦ hQP.ae_le (Measure.rnDeriv_ne_top Q₁ P₁)) hτ hτ_top).isEProcess.anti_set ?_
   rintro _ rfl
   exact infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦ rfl
 

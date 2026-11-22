@@ -40,8 +40,7 @@ confidence sequence at a level `α ≠ ∞` is of the latter form for the e-proc
 ## Main statements
 
 * `ProbabilityTheory.isConfSeq_tfae`: coverage uniformly in time, at every random time and at
-  every stopping time, with values in `ℕ` or in `WithTop ℕ`, are equivalent
-  [RRLK, §4.3 and Lemma 2].
+  every stopping time, possibly infinite or bounded, are equivalent [RRLK, §4.3 and Lemma 2].
 * `ProbabilityTheory.isConfSeq_iff_forall_isTimeUniform`: confidence sequences are an instance of
   time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events that the set misses a
   parameter [RRLK, §4.3 and Lemma 2].
@@ -99,11 +98,11 @@ theorem measurableSet_notMem (hC : IsConfSeq C ℱ S α) (θ : Θ) (n : ℕ) :
   (hC.measurableSet_mem θ n).compl
 
 /-- **Coverage at random times** [RRLK, Lemma 2]. Under every `P ∈ S θ`, a confidence sequence
-read at a random time `τ` with values in `ℕ`, not necessarily a stopping time, misses `θ` with
-probability at most `α`. -/
-theorem measure_notMem_le (hC : IsConfSeq C ℱ S α) (τ : Ω → ℕ) (hP : P ∈ S θ) :
-    P {ω | θ ∉ C (τ ω) ω} ≤ α :=
-  (hC.measure_exists_notMem_le θ P hP).trans' (measure_mono fun ω hω ↦ ⟨τ ω, hω⟩)
+read at a random time `τ`, not necessarily a stopping time, misses `θ` with probability at most
+`α`. Where `τ` is infinite, Mathlib's `stoppedValue` reads the sequence at an arbitrary time. -/
+theorem measure_notMem_le (hC : IsConfSeq C ℱ S α) (τ : Ω → WithTop ℕ) (hP : P ∈ S θ) :
+    P {ω | θ ∉ stoppedValue C τ ω} ≤ α :=
+  (hC.measure_exists_notMem_le θ P hP).trans' (measure_mono fun _ hω ↦ ⟨_, hω⟩)
 
 /-- **Coverage at possibly infinite random times** [RRLK, §4.3 and Lemma 2]. Under every
 `P ∈ S θ`, a confidence sequence read at a random time `τ` with values in `WithTop ℕ`, not
@@ -177,8 +176,9 @@ theorem isConfSeq_univ (ℱ : Filtration ℕ mΩ) (S : Θ → Set (Measure Ω)) 
 2. read at every random time `τ` with values in `WithTop ℕ`, with the set `liminf (C · ω)` where
   `τ` is infinite, it misses a true parameter with probability at most `α`;
 3. the same at every stopping time with values in `WithTop ℕ`;
-4. the same at every random time with values in `ℕ`;
-5. the same at every stopping time with values in `ℕ`.
+4. read at every random time `τ` with Mathlib's `stoppedValue`, which reads it at an arbitrary
+  time where `τ` is infinite, it misses a true parameter with probability at most `α`;
+5. the same at every bounded stopping time.
 
 The random time may depend on the parameter. For each parameter `θ`, this is the equivalence lemma
 for time-uniform validity (`ProbabilityTheory.isTimeUniform_tfae`) for the events `{θ ∉ C n}`. -/
@@ -188,9 +188,9 @@ theorem isConfSeq_tfae (hC : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}
         P {ω | θ ∉ if τ ω = ⊤ then liminf (fun n ↦ C n ω) atTop else stoppedValue C τ ω} ≤ α,
       ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ →
         P {ω | θ ∉ if τ ω = ⊤ then liminf (fun n ↦ C n ω) atTop else stoppedValue C τ ω} ≤ α,
-      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → ℕ, P {ω | θ ∉ C (τ ω) ω} ≤ α,
-      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-        P {ω | θ ∉ C (τ ω) ω} ≤ α] := by
+      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → WithTop ℕ, P {ω | θ ∉ stoppedValue C τ ω} ≤ α,
+      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        P {ω | θ ∉ stoppedValue C τ ω} ≤ α] := by
   -- read at a random time, the set misses `θ` on the event `{θ ∉ C n}` read at that time
   have h_event (θ : Θ) (τ : Ω → WithTop ℕ) :
       {ω | θ ∉ if τ ω = ⊤ then liminf (fun n ↦ C n ω) atTop else stoppedValue C τ ω} =
@@ -200,16 +200,31 @@ theorem isConfSeq_tfae (hC : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}
     · simp [hτ, mem_stoppedEvent_of_eq_top, mem_liminf_iff_eventually_mem, frequently_atTop]
     · simp [hτ, mem_stoppedEvent_of_ne_top, stoppedValue]
   -- the equivalence lemma for the events `{θ ∉ C n}`, for each parameter `θ`
-  simp only [isConfSeq_iff_forall_isTimeUniform, h_event]
-  exact List.forall_tfae [_, _, _, _, _] fun θ ↦ isTimeUniform_tfae fun n ↦ (hC θ n).compl
+  have h_tu (θ : Θ) := isTimeUniform_tfae (A := fun n ↦ {ω | θ ∉ C n ω}) (S := S θ) (α := α)
+    fun n ↦ (hC θ n).compl
+  tfae_have 1 ↔ 2 := by
+    simp only [isConfSeq_iff_forall_isTimeUniform, h_event]
+    exact forall_congr' fun θ ↦ (h_tu θ).out 1 2
+  tfae_have 1 ↔ 3 := by
+    simp only [isConfSeq_iff_forall_isTimeUniform, h_event]
+    exact forall_congr' fun θ ↦ (h_tu θ).out 1 3
+  tfae_have 1 → 4 := fun h θ _ hP τ ↦ h.measure_notMem_le τ hP
+  tfae_have 4 → 5 := fun h θ P hP τ _ _ _ ↦ h θ P hP τ
+  tfae_have 5 → 1 := fun h ↦ isConfSeq_iff_forall_isTimeUniform.2 fun θ ↦
+    ((h_tu θ).out 1 5).2 fun P hP τ hτ N hτN ↦ by
+      -- a bounded time is finite, where the event is read through `stoppedValue`
+      rw [stoppedEvent_of_forall_ne_top _
+        fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)]
+      exact h θ P hP τ hτ N hτN
+  tfae_finish
 
 /-- **Confidence sequences are valid at stopping times** [RRLK, §4.3]. Adapted random sets form a
-confidence sequence at level `α` exactly when, read at every stopping time with values in `ℕ`,
-they miss every true parameter with probability at most `α`. -/
+confidence sequence at level `α` exactly when, read at every bounded stopping time, they miss
+every true parameter with probability at most `α`. -/
 theorem isConfSeq_iff_forall_isStoppingTime :
     IsConfSeq C ℱ S α ↔ (∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ C n ω}) ∧
-      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-        P {ω | θ ∉ C (τ ω) ω} ≤ α :=
+      ∀ θ, ∀ P ∈ S θ, ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → ∀ N : ℕ, (∀ ω, τ ω ≤ N) →
+        P {ω | θ ∉ stoppedValue C τ ω} ≤ α :=
   ⟨fun h ↦ ⟨h.measurableSet_mem, (isConfSeq_tfae h.measurableSet_mem).out 1 5 |>.1 h⟩,
     fun ⟨hC, h⟩ ↦ (isConfSeq_tfae hC).out 1 5 |>.2 h⟩
 

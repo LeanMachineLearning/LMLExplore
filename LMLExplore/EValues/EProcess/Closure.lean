@@ -16,8 +16,8 @@ import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 # Closure properties of e-processes
 
 An e-process for a null `S` and a filtration `ℱ` (`ProbabilityTheory.IsEProcess`) is an adapted
-`ℝ≥0∞`-valued process whose value at every stopping time with values in `ℕ` is an e-variable for
-`S`. This file proves the operations under which e-processes are closed, beyond those of
+`ℝ≥0∞`-valued process whose value at every bounded stopping time is an e-variable for `S`. This
+file proves the operations under which e-processes are closed, beyond those of
 `LMLExplore.EValues.EProcess.Basic` (restriction of the null, domination, convex combinations):
 
 * **Enlarging the null.** A null and its effective null have the same e-processes; this covers
@@ -37,10 +37,11 @@ An e-process for a null `S` and a filtration `ℱ` (`ProbabilityTheory.IsEProces
   e-process.
 
 Optional continuation rests on a conditional form of validity: if an e-process `E` is at least `1`
-at a stopping time `ρ`, then its value at every later stopping time `σ` is a conditional e-variable
-given the σ-algebra at `ρ` (`ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`). It follows from
-the validity of `E` at the stopping time equal to `σ` on an event of that σ-algebra and to `ρ`
-off it (`MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`).
+at a stopping time `ρ`, then its value at every later stopping time `σ` that is finite everywhere
+is a conditional e-variable given the σ-algebra at `ρ`
+(`ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`). It follows from the validity of `E` at the
+stopping time equal to `σ` on an event of that σ-algebra and to `ρ` off it
+(`MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`).
 
 ## Main statements
 
@@ -55,8 +56,8 @@ off it (`MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`).
 * `ProbabilityTheory.isEProcess_lintegral`: mixtures of e-processes over a probability measure.
 * `ProbabilityTheory.isEProcess_sum_mul`: time mixtures of e-variables [RW, Proposition 7.23].
 * `ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`: the value of an e-process at a stopping
-  time `σ` is a conditional e-variable given the σ-algebra at a stopping time `ρ ≤ σ` at which
-  the process is at least `1`.
+  time `σ` that is finite everywhere is a conditional e-variable given the σ-algebra at a stopping
+  time `ρ ≤ σ` at which the process is at least `1`.
 * `ProbabilityTheory.IsEProcess.stoppedProcess_mul`: optional continuation of e-processes
   [RW, Proposition 7.9].
 
@@ -91,7 +92,7 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S T
 @[simp]
 theorem isEProcess_effectiveSet_iff : IsEProcess E ℱ (effectiveSet S) ↔ IsEProcess E ℱ S :=
   ⟨fun hE ↦ hE.anti_set subset_effectiveSet, fun hE ↦
-    ⟨hE.adapted, fun τ hτ ↦ isEVar_effectiveSet_iff.2 (hE.isEVar_stoppedValue τ hτ)⟩⟩
+    ⟨hE.adapted, fun _ hτ _ hτN ↦ isEVar_effectiveSet_iff.2 (hE.isEVar_stoppedValue_of_le hτ hτN)⟩⟩
 
 /-- **Mixtures of the null.** An e-process for a null is an e-process for every mixture
 `κ ∘ₘ π`, over a probability measure `π`, of a kernel with values `π`-almost surely in the
@@ -105,7 +106,8 @@ theorem IsEProcess.singleton_comp (hE : IsEProcess E ℱ S) {Θ : Type*} {mΘ : 
 /-- A process that is an e-process for `S` and for `T` is an e-process for `S ∪ T`. -/
 theorem IsEProcess.union (hS : IsEProcess E ℱ S) (hT : IsEProcess E ℱ T) :
     IsEProcess E ℱ (S ∪ T) :=
-  ⟨hS.adapted, fun τ hτ ↦ (hS.isEVar_stoppedValue τ hτ).union (hT.isEVar_stoppedValue τ hτ)⟩
+  ⟨hS.adapted, fun _ hτ _ hτN ↦
+    (hS.isEVar_stoppedValue_of_le hτ hτN).union (hT.isEVar_stoppedValue_of_le hτ hτN)⟩
 
 /-- A process is an e-process for `S ∪ T` exactly when it is one for `S` and for `T`. -/
 theorem isEProcess_union_iff : IsEProcess E ℱ (S ∪ T) ↔ IsEProcess E ℱ S ∧ IsEProcess E ℱ T :=
@@ -132,16 +134,17 @@ theorem isEProcess_lintegral {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measu
     (hE : ∀ θ, IsEProcess (E θ) ℱ S) :
     IsEProcess (fun n ω ↦ ∫⁻ θ, E θ n ω ∂π) ℱ S := by
   have hM := adapted_lintegral (π := π) hE_meas
-  refine ⟨hM, fun τ hτ ↦ ⟨hM.measurable_apply_stoppingTime hτ, fun P hP ↦ ?_⟩⟩
+  refine .of_lintegral_le_one hM fun τ hτ N hτN P hP ↦ ?_
   have := hS P hP
   -- the value at `τ` is jointly measurable, since `τ` takes countably many values
-  have h_meas : Measurable fun q : Ω × Θ ↦ E q.2 (τ q.1) q.1 :=
+  have h_meas : Measurable fun q : Ω × Θ ↦ stoppedValue (E q.2) τ q.1 :=
     measurable_apply_of_countable (u := fun n (q : Ω × Θ) ↦ E q.2 n q.1)
       (fun n ↦ ((hE_meas n).mono (MeasurableSpace.prod_mono le_rfl (ℱ.le n)) le_rfl).comp
-        measurable_swap) (hτ.measurable_nat.comp measurable_fst)
-  calc ∫⁻ ω, ∫⁻ θ, E θ (τ ω) ω ∂π ∂P
-  _ = ∫⁻ θ, ∫⁻ ω, E θ (τ ω) ω ∂P ∂π := lintegral_lintegral_swap h_meas.aemeasurable
-  _ ≤ ∫⁻ _, 1 ∂π := lintegral_mono fun θ ↦ ((hE θ).isEVar_stoppedValue τ hτ).lintegral_le_one hP
+        measurable_swap) (hτ.measurable'.untopA.comp measurable_fst)
+  calc ∫⁻ ω, stoppedValue (fun n ω ↦ ∫⁻ θ, E θ n ω ∂π) τ ω ∂P
+  _ = ∫⁻ θ, ∫⁻ ω, stoppedValue (E θ) τ ω ∂P ∂π := lintegral_lintegral_swap h_meas.aemeasurable
+  _ ≤ ∫⁻ _, 1 ∂π := lintegral_mono fun θ ↦
+    ((hE θ).isEVar_stoppedValue_of_le hτ hτN).lintegral_le_one hP
   _ = 1 := by simp
 
 /-- **Time mixtures of e-variables** [RW, (7.12), Proposition 7.23]. For e-variables `E j` that
@@ -155,42 +158,48 @@ theorem isEProcess_sum_mul (hE_meas : ∀ j, Measurable[ℱ j] (E j)) (hE : ∀ 
     Finset.measurable_fun_sum _ fun j hj ↦
       ((hE_meas j).mono (ℱ.mono (Finset.mem_Iic.1 hj)) le_rfl).const_mul (w j)
   -- at every time, the process is at most the e-variable `∑' j, w j * E j`
-  exact ⟨hM, fun τ hτ ↦ (isEVar_tsum_mul hE hw).mono (hM.measurable_apply_stoppingTime hτ)
+  exact ⟨hM, fun τ hτ _ _ ↦ (isEVar_tsum_mul hE hw).mono
+    (measurable_stoppedValue_of_countable (fun _ ↦ hM.measurable) hτ.measurable')
     fun ω ↦ sum_le_tsum _⟩
 
 /-! ### Conditional validity and optional continuation -/
 
 /-- **Conditional validity of e-processes.** For a null of probability measures, an e-process `E`
-and stopping times `ρ ≤ σ` with values in `ℕ` such that `1 ≤ E (ρ ω) ω` for every `ω`, the value
-`fun ω ↦ E (σ ω) ω` at `σ` is a conditional e-variable given the σ-algebra at `ρ`. -/
+and stopping times `ρ ≤ σ`, with `σ` finite everywhere, such that `1 ≤ stoppedValue E ρ ω` for
+every `ω`, the value `stoppedValue E σ` at `σ` is a conditional e-variable given the σ-algebra at
+`ρ`. -/
 theorem IsEProcess.isCondEVar_of_one_le (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hE : IsEProcess E ℱ S) {ρ σ : Ω → ℕ} (hρ : IsStoppingTime ℱ fun ω ↦ (ρ ω : WithTop ℕ))
-    (hσ : IsStoppingTime ℱ fun ω ↦ (σ ω : WithTop ℕ)) (hρσ : ρ ≤ σ)
-    (hE1 : ∀ ω, 1 ≤ E (ρ ω) ω) :
-    IsCondEVar (fun ω ↦ E (σ ω) ω) hρ.measurableSpace S := by
+    (hE : IsEProcess E ℱ S) {ρ σ : Ω → WithTop ℕ} (hρ : IsStoppingTime ℱ ρ)
+    (hσ : IsStoppingTime ℱ σ) (hσ_top : ∀ ω, σ ω ≠ ⊤) (hρσ : ρ ≤ σ)
+    (hE1 : ∀ ω, 1 ≤ stoppedValue E ρ ω) :
+    IsCondEVar (stoppedValue E σ) hρ.measurableSpace S := by
   classical
   refine ⟨hE.measurable_stoppedValue hσ, fun P hP s hs ↦ ?_⟩
   have := hS P hP
   have hs' : MeasurableSet s := hρ.measurableSpace_le s hs
-  -- the time equal to `σ` on `s` and to `ρ` off `s` is a stopping time
-  have hσs : IsStoppingTime ℱ fun ω ↦ (s.piecewise σ ρ ω : WithTop ℕ) := by
-    have h := hσ.piecewise_of_stoppingTime_le hρ hρ (fun ω ↦ WithTop.coe_le_coe.2 (hρσ ω))
-      (fun _ ↦ le_rfl) hs
-    rwa [piecewise_op (h := fun _ (n : ℕ) ↦ (n : WithTop ℕ))] at h
+  -- the time equal to `σ` on `s` and to `ρ` off `s` is a stopping time, finite everywhere
+  have hσs : IsStoppingTime ℱ (s.piecewise σ ρ) :=
+    hσ.piecewise_of_stoppingTime_le hρ hρ hρσ (fun _ ↦ le_rfl) hs
+  have hσs_top (ω : Ω) : s.piecewise σ ρ ω ≠ ⊤ := by
+    by_cases hω : ω ∈ s
+    · rw [piecewise_eq_of_mem _ _ _ hω]
+      exact hσ_top ω
+    · rw [piecewise_eq_of_notMem _ _ _ hω]
+      exact ne_top_of_le_ne_top (hσ_top ω) (hρσ ω)
   -- validity at that time, split into `s`, where it reads `E σ`, and `sᶜ`, where `1 ≤ E ρ`
   refine (ENNReal.add_le_add_iff_right (measure_ne_top P sᶜ)).1 ?_
-  calc ∫⁻ ω in s, E (σ ω) ω ∂P + P sᶜ
-  _ ≤ ∫⁻ ω in s, E (σ ω) ω ∂P + ∫⁻ ω in sᶜ, E (ρ ω) ω ∂P := by
+  calc ∫⁻ ω in s, stoppedValue E σ ω ∂P + P sᶜ
+  _ ≤ ∫⁻ ω in s, stoppedValue E σ ω ∂P + ∫⁻ ω in sᶜ, stoppedValue E ρ ω ∂P := by
     gcongr
     exact (setLIntegral_one sᶜ).symm.trans_le (lintegral_mono hE1)
-  _ = ∫⁻ ω, E (s.piecewise σ ρ ω) ω ∂P := by
-    rw [← lintegral_add_compl (fun ω ↦ E (s.piecewise σ ρ ω) ω) hs']
+  _ = ∫⁻ ω, stoppedValue E (s.piecewise σ ρ) ω ∂P := by
+    rw [← lintegral_add_compl (stoppedValue E (s.piecewise σ ρ)) hs']
     congr 1
     · refine setLIntegral_congr_fun hs' fun ω hω ↦ ?_
-      rw [piecewise_eq_of_mem _ _ _ hω]
+      exact stoppedValue_congr (piecewise_eq_of_mem _ _ _ hω).symm
     · refine setLIntegral_congr_fun hs'.compl fun ω hω ↦ ?_
-      rw [piecewise_eq_of_notMem _ _ _ hω]
-  _ ≤ 1 := (hE.isEVar_stoppedValue _ hσs).lintegral_le_one hP
+      exact stoppedValue_congr (piecewise_eq_of_notMem _ _ _ hω).symm
+  _ ≤ 1 := (hE.isEVar_stoppedValue hσs hσs_top).lintegral_le_one hP
   _ = P s + P sᶜ := by rw [measure_add_measure_compl hs', measure_univ]
 
 /-- **Optional continuation of e-processes** [RW, Proposition 7.9]. For a null of probability
@@ -203,32 +212,25 @@ theorem IsEProcess.stoppedProcess_mul (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     IsEProcess (stoppedProcess A τ * B) ℱ S := by
   have hM : Adapted ℱ (stoppedProcess A τ * B) :=
     (hA.adapted.stoppedProcess_of_discrete hτ).mul hB.adapted
-  refine ⟨hM, fun σ hσ ↦ ⟨hM.measurable_apply_stoppingTime hσ, fun P hP ↦ ?_⟩⟩
-  -- `ρ = min σ τ`, the time at which `A` is read, with values in `ℕ`
-  have hmin_ne (ω : Ω) : min (σ ω : WithTop ℕ) (τ ω) ≠ ⊤ :=
-    ne_top_of_le_ne_top WithTop.coe_ne_top (min_le_left _ _)
-  obtain ⟨ρ, hρ_def⟩ : ∃ ρ : Ω → ℕ, ∀ ω, ρ ω = (min (σ ω : WithTop ℕ) (τ ω)).untopA :=
-    ⟨_, fun _ ↦ rfl⟩
-  have hρ_coe (ω : Ω) : (ρ ω : WithTop ℕ) = min (σ ω : WithTop ℕ) (τ ω) := by
-    rw [hρ_def, WithTop.natCast_untopA (hmin_ne ω)]
-  have hρ : IsStoppingTime ℱ fun ω ↦ (ρ ω : WithTop ℕ) := by
-    simp_rw [hρ_coe]
-    exact hσ.min hτ
-  have hρσ : ρ ≤ σ := fun ω ↦ WithTop.coe_le_coe.1 ((hρ_coe ω).trans_le (min_le_left _ _))
-  have hB_cond : IsCondEVar (fun ω ↦ B (σ ω) ω) hρ.measurableSpace S :=
-    hB.isCondEVar_of_one_le hS hρ hσ hρσ fun ω ↦
-      hB1 _ ω ((hρ_coe ω).trans_le (min_le_right _ _))
+  refine .of_lintegral_le_one hM fun σ hσ N hσN P hP ↦ ?_
+  have hσ_top (ω : Ω) : σ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hσN ω)
+  -- `ρ = min σ τ`, the time at which `A` is read
+  set ρ : Ω → WithTop ℕ := fun ω ↦ min (σ ω) (τ ω) with hρ_def
+  have hρ : IsStoppingTime ℱ ρ := hσ.min hτ
+  have hρ_top (ω : Ω) : ρ ω ≠ ⊤ := ne_top_of_le_ne_top (hσ_top ω) (min_le_left _ _)
+  have hB_cond : IsCondEVar (stoppedValue B σ) hρ.measurableSpace S :=
+    hB.isCondEVar_of_one_le hS hρ hσ hσ_top (fun ω ↦ min_le_left _ _) fun ω ↦
+      hB1 _ ω ((WithTop.natCast_untopA (hρ_top ω)).trans_le (min_le_right _ _))
   -- the value of `A` read at `ρ` is known at `ρ`
-  have hAρ : Measurable[hρ.measurableSpace] fun ω ↦ A (ρ ω) ω :=
-    hA.adapted.measurable_measurableSpace_apply_stoppingTime hρ
+  have hAρ : Measurable[hρ.measurableSpace] (stoppedValue A ρ) :=
+    hA.adapted.measurable_stoppedValue hρ
   -- the value at `σ` is `A ρ * B σ`
-  have h_eq : (fun ω ↦ (stoppedProcess A τ * B) (σ ω) ω) =
-      fun ω ↦ A (ρ ω) ω * B (σ ω) ω := by
+  have h_eq : stoppedValue (stoppedProcess A τ * B) σ =
+      fun ω ↦ stoppedValue A ρ ω * stoppedValue B σ ω := by
     ext ω
-    simp only [Pi.mul_apply]
-    rw [stoppedProcess_eq_stoppedValue_apply, stoppedValue, hρ_def, Nat.cast_withTop]
+    rw [stoppedValue_mul, Pi.mul_apply, stoppedValue_stoppedProcess_apply (hσ_top ω)]
   rw [h_eq]
   exact (hB_cond.lintegral_mul_le (hρ.measurableSpace_le) hP hAρ).trans
-    ((hA.isEVar_stoppedValue ρ hρ).lintegral_le_one hP)
+    ((hA.isEVar_stoppedValue hρ hρ_top).lintegral_le_one hP)
 
 end ProbabilityTheory

@@ -230,8 +230,11 @@ theorem not_isEProcess_numeraires_bernoulli {X : (n : ℕ) → (Fin n → Bool) 
         {Ber(true, false, ⟨1 / 5, by norm_num⟩), Ber(true, false, ⟨4 / 5, by norm_num⟩)}) := by
   intro h
   have hle : ∫⁻ ω, X (if ω 0 then 2 else 1) (fun i ↦ ω i)
-      ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) ≤ 1 :=
-    h.lintegral_le_one isStoppingTime_bernoulli_stop (infinitePi_mem_iidNull (Set.mem_insert _ _))
+      ∂Measure.infinitePi (fun _ : ℕ ↦ Ber(true, false, ⟨1 / 5, by norm_num⟩)) ≤ 1 := by
+    refine le_of_eq_of_le (lintegral_congr fun ω ↦ ?_) (h.lintegral_le_one
+      isStoppingTime_bernoulli_stop (fun _ ↦ WithTop.natCast_ne_top _)
+      (infinitePi_mem_iidNull (Set.mem_insert _ _)))
+    simp only [stoppedValue_natCast]
   rw [lintegral_numeraires_bernoulli_stop_eq hX,
     ENNReal.div_le_iff (by norm_num) (by norm_num)] at hle
   norm_num at hle

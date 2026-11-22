@@ -577,7 +577,9 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin n → α) �
     (T := fun x ↦ if x = x₀ then k + 1 else k + 2) Measurable.of_discrete
     fun x ↦ by split_ifs <;> omega
   simp only [initSeg_def] at hτ
-  have hle := hE.lintegral_le_one hτ (infinitePi_mem_iidNull hPS)
+  have hle := hE.lintegral_le_one hτ (fun _ ↦ WithTop.natCast_ne_top _)
+    (infinitePi_mem_iidNull hPS)
+  rw [stoppedValue_natCast] at hle
   have hF₂ : ∫⁻ z, X (k + 2) z ∂(Measure.pi fun _ : Fin (k + 2) ↦ P) = 1 := by
     rw [lintegral_fintype, ← ENNReal.ofReal_one, ← hEP,
       ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (piMass_nonneg _ _)

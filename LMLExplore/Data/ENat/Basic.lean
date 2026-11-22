@@ -20,6 +20,10 @@ rather than the coercion `WithTop.some n`.
   finite, so its value as a natural number casts back to it.
 * `WithTop.untopA_natCast`, `WithTop.natCast_untopA`: `WithTop.untopA` inverts the cast
   `ℕ → WithTop ℕ` on finite values.
+* `WithTop.ne_top_of_le_natCast`: an element below the cast of a natural number is finite.
+* `WithTop.exists_eq_natCast_of_ne_top`, `WithTop.exists_eq_natCast_of_forall_ne_top`: a finite
+  element of `WithTop ℕ` is the cast of a natural number, and a function with finite values in
+  `WithTop ℕ` is the cast of a function with values in `ℕ`.
 -/
 
 public section
@@ -44,5 +48,21 @@ theorem untopA_natCast (n : ℕ) : (n : WithTop ℕ).untopA = n := by
 /-- The value `x.untopA` of a finite `x : WithTop ℕ` casts back to `x`. -/
 theorem natCast_untopA {x : WithTop ℕ} (hx : x ≠ ⊤) : (x.untopA : WithTop ℕ) = x := by
   rw [Nat.cast_withTop, untopA_eq_untop hx, coe_untop]
+
+/-- An element of `WithTop α` below the cast `(n : WithTop α)` of a natural number is finite. -/
+theorem ne_top_of_le_natCast {α : Type*} [AddMonoidWithOne α] [PartialOrder α] {x : WithTop α}
+    {n : ℕ} (h : x ≤ n) : x ≠ ⊤ :=
+  ne_top_of_le_ne_top (natCast_ne_top n) h
+
+/-- A finite element of `WithTop ℕ` is the cast `(n : WithTop ℕ)` of a natural number. Unlike
+`ENat.ne_top_iff_exists`, stated for `ℕ∞`, the cast is the one into `WithTop ℕ`, so the equation
+rewrites terms of type `WithTop ℕ`. -/
+theorem exists_eq_natCast_of_ne_top {x : WithTop ℕ} (hx : x ≠ ⊤) : ∃ n : ℕ, x = n :=
+  ⟨x.untopA, (natCast_untopA hx).symm⟩
+
+/-- A function with finite values in `WithTop ℕ` is the cast of a function with values in `ℕ`. -/
+theorem exists_eq_natCast_of_forall_ne_top {α : Type*} {f : α → WithTop ℕ} (h : ∀ a, f a ≠ ⊤) :
+    ∃ g : α → ℕ, f = fun a ↦ (g a : WithTop ℕ) :=
+  ⟨fun a ↦ (f a).untopA, funext fun a ↦ (natCast_untopA (h a)).symm⟩
 
 end WithTop

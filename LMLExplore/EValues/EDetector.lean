@@ -38,10 +38,9 @@ e-detectors are the classical procedures, with the recursions `R (n + 1) = (R n 
 `W (n + 1) = max (W n) 1 * F n`.
 
 The null is an arbitrary set of measures, with no dominating measure, and the filtration is
-arbitrary. Stopping times in the definitions take values in `ℕ`, as in
-`ProbabilityTheory.IsEProcess`; the bound of an e-detector extends to the stopping times with
-values in `WithTop ℕ` with the value `stoppedValueLimsup` at infinity, and the alarm time at
-`α⁻¹` is such a stopping time.
+arbitrary. The definitions ask their bounds at the stopping times that are finite everywhere; the
+bound of an e-detector extends to every stopping time, with the value `stoppedValueLimsup` at
+infinity, and the alarm time at `α⁻¹` is such a stopping time.
 
 ## Main definitions
 
@@ -100,13 +99,13 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {S T
 /-! ### E-detectors -/
 
 /-- `M : ℕ → Ω → ℝ≥0∞` is an **e-detector** for the pre-change null `S` and the filtration `ℱ`: it
-is adapted and, for every stopping time `τ` with values in `ℕ` and every `P ∈ S`, its expectation
-at `τ` is at most the expectation of `τ` [SRR24, Definition 2.2]. -/
+is adapted and, for every stopping time `τ` that is finite everywhere and every `P ∈ S`, its
+expectation at `τ` is at most the expectation of `τ` [SRR24, Definition 2.2]. -/
 structure IsEDetector (M : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) :
     Prop where
   adapted : Adapted ℱ M
-  lintegral_le : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-    ∀ P ∈ S, ∫⁻ ω, M (τ ω) ω ∂P ≤ ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P
+  lintegral_le : ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → (∀ ω, τ ω ≠ ⊤) →
+    ∀ P ∈ S, ∫⁻ ω, stoppedValue M τ ω ∂P ≤ ∫⁻ ω, ENat.toENNReal (τ ω) ∂P
 
 namespace IsEDetector
 
@@ -116,15 +115,16 @@ theorem measurable (hM : IsEDetector M ℱ S) (n : ℕ) : Measurable (M n) :=
 
 /-- An e-detector for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hM : IsEDetector M ℱ T) : IsEDetector M ℱ S :=
-  ⟨hM.adapted, fun τ hτ P hP ↦ hM.lintegral_le τ hτ P (hST hP)⟩
+  ⟨hM.adapted, fun τ hτ hτ_top P hP ↦ hM.lintegral_le τ hτ hτ_top P (hST hP)⟩
 
 /-- **Domination.** An adapted process quasi-surely at most an e-detector at every time is an
 e-detector. -/
 theorem mono_ae (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N)
     (hNM : ∀ n, N n ≤ᶠ[quasiSure S] M n) : IsEDetector N ℱ S := by
-  refine ⟨hN, fun τ hτ P hP ↦ (lintegral_mono_ae ?_).trans (hM.lintegral_le τ hτ P hP)⟩
+  refine ⟨hN, fun τ hτ hτ_top P hP ↦
+    (lintegral_mono_ae ?_).trans (hM.lintegral_le τ hτ hτ_top P hP)⟩
   filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hNM n) hP] with ω hω
-    using hω (τ ω)
+    using hω _
 
 /-- **Domination.** An adapted process that is at most an e-detector is an e-detector. -/
 theorem mono (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N) (hNM : N ≤ M) : IsEDetector N ℱ S :=
@@ -132,8 +132,11 @@ theorem mono (hM : IsEDetector M ℱ S) (hN : Adapted ℱ N) (hNM : N ≤ M) : I
 
 /-- An e-detector vanishes at time `0`, almost surely under every member of the null. -/
 theorem apply_zero_ae_eq_zero (hM : IsEDetector M ℱ S) (hP : P ∈ S) : M 0 =ᵐ[P] 0 := by
-  have h := hM.lintegral_le (fun _ ↦ 0) (isStoppingTime_natCast 0) P hP
-  simp only [Nat.cast_zero, lintegral_zero, nonpos_iff_eq_zero] at h
+  -- `ℕ∞` is by definition `WithTop ℕ`, so the time `((0 : ℕ) : WithTop ℕ)` is `(0 : ℕ∞)`
+  have h : ∫⁻ ω, stoppedValue M (fun _ ↦ ((0 : ℕ) : WithTop ℕ)) ω ∂P ≤
+      ∫⁻ _, ENat.toENNReal (0 : ℕ∞) ∂P :=
+    hM.lintegral_le _ (isStoppingTime_natCast 0) (fun _ ↦ WithTop.natCast_ne_top 0) P hP
+  rw [stoppedValue_natCast, ENat.toENNReal_zero, lintegral_zero, nonpos_iff_eq_zero] at h
   exact (lintegral_eq_zero_iff (hM.measurable 0)).1 h
 
 /-- The bound of an e-detector at every stopping time `τ` with values in `WithTop ℕ`, with the value
@@ -144,25 +147,22 @@ theorem lintegral_stoppedValueLimsup_le (hM : IsEDetector M ℱ S) {τ : Ω → 
     ∫⁻ ω, stoppedValueLimsup M τ ω ∂P ≤ ∫⁻ ω, ENat.toENNReal (τ ω) ∂P := by
   by_cases htop : P {ω | τ ω = ⊤} = 0
   · -- `τ` is almost surely finite: the bound at the truncations `min τ N`, and Fatou's lemma
-    have hcoe (N : ℕ) (ω : Ω) : ((ENat.toNat (min (τ ω) N) : ℕ) : WithTop ℕ) = min (τ ω) N :=
-      ENat.natCast_toNat_min (τ ω) N
-    have hN (N : ℕ) :
-        ∫⁻ ω, M (ENat.toNat (min (τ ω) N)) ω ∂P ≤ ∫⁻ ω, ENat.toENNReal (τ ω) ∂P := by
-      refine (hM.lintegral_le _ (hτ.toNat_min N) P hP).trans (lintegral_mono fun ω ↦ ?_)
-      have h : ((ENat.toNat (min (τ ω) N) : ℕ) : ℕ∞) ≤ τ ω := (hcoe N ω).trans_le (min_le_left _ _)
-      exact_mod_cast ENat.toENNReal_le.2 h
+    have hN (N : ℕ) : ∫⁻ ω, stoppedValue M (fun ω ↦ min (τ ω) N) ω ∂P ≤
+        ∫⁻ ω, ENat.toENNReal (τ ω) ∂P :=
+      (hM.lintegral_le _ (hτ.min_natCast N)
+        (fun ω ↦ WithTop.ne_top_of_le_natCast (min_le_right _ _)) P hP).trans
+        (lintegral_mono fun ω ↦ ENat.toENNReal_le.2 (min_le_left _ _))
     refine lintegral_le_of_tendsto_of_eventually_le (l := atTop)
-      (f := fun (N : ℕ) ω ↦ M (ENat.toNat (min (τ ω) N)) ω)
-      (fun N ↦ (hM.adapted.measurable_apply_stoppingTime (hτ.toNat_min N)).aemeasurable) ?_
-      (.of_forall hN)
+      (f := fun (N : ℕ) ↦ stoppedValue M (fun ω ↦ min (τ ω) N))
+      (fun N ↦ (measurable_stoppedValue_of_countable hM.measurable
+        (hτ.min_natCast N).measurable').aemeasurable) ?_ (.of_forall hN)
     filter_upwards [measure_eq_zero_iff_ae_notMem.1 htop] with ω hω
     have hk : ((τ ω).untopA : WithTop ℕ) = τ ω := WithTop.natCast_untopA hω
     rw [stoppedValueLimsup_of_eq_natCast hk.symm]
     refine tendsto_const_nhds.congr' ?_
     -- from `N ≥ τ ω` on, the truncation `min τ N` is `τ`
     filter_upwards [eventually_ge_atTop (τ ω).untopA] with N hkN
-    refine congrArg (M · ω) (Nat.cast_injective (R := WithTop ℕ) ?_).symm
-    rw [hcoe, min_eq_left (by rw [← hk]; exact Nat.cast_le.2 hkN), hk]
+    rw [stoppedValue, min_eq_left (by rw [← hk]; exact Nat.cast_le.2 hkN)]
   · -- `τ` is infinite with positive probability, so its expectation is infinite
     rw [lintegral_toENNReal_eq_top_of_measure_ne_zero hτ.measurable_enat.aemeasurable htop]
     exact le_top
@@ -204,27 +204,31 @@ theorem convex_isEDetector (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) :
     Convex ℝ≥0∞ {M : ℕ → Ω → ℝ≥0∞ | IsEDetector M ℱ S} := by
   intro M hM N hN a b _ _ hab
   refine ⟨fun n ↦ ((hM.adapted n).const_smul a).add ((hN.adapted n).const_smul b),
-    fun τ hτ P hP ↦ ?_⟩
-  have hMτ := hM.adapted.measurable_apply_stoppingTime hτ
-  simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul]
-  rw [lintegral_add_left (hMτ.const_mul a), lintegral_const_mul a hMτ,
-    lintegral_const_mul b (hN.adapted.measurable_apply_stoppingTime hτ)]
-  calc a * ∫⁻ ω, M (τ ω) ω ∂P + b * ∫⁻ ω, N (τ ω) ω ∂P
-      ≤ a * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P + b * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P := by
+    fun τ hτ hτ_top P hP ↦ ?_⟩
+  have hMτ := measurable_stoppedValue_of_countable hM.measurable hτ.measurable'
+  have hNτ := measurable_stoppedValue_of_countable hN.measurable hτ.measurable'
+  -- the stopped value of `a • M + b • N` is `a • stoppedValue M τ + b • stoppedValue N τ`, by
+  -- definition of `stoppedValue`
+  have h_eq : stoppedValue (a • M + b • N) τ =
+      fun ω ↦ a * stoppedValue M τ ω + b * stoppedValue N τ ω := rfl
+  rw [h_eq, lintegral_add_left (hMτ.const_mul a), lintegral_const_mul a hMτ,
+    lintegral_const_mul b hNτ]
+  calc a * ∫⁻ ω, stoppedValue M τ ω ∂P + b * ∫⁻ ω, stoppedValue N τ ω ∂P
+      ≤ a * ∫⁻ ω, ENat.toENNReal (τ ω) ∂P + b * ∫⁻ ω, ENat.toENNReal (τ ω) ∂P := by
         gcongr a * ?_ + b * ?_
-        exacts [hM.lintegral_le τ hτ P hP, hN.lintegral_le τ hτ P hP]
-    _ = ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P := by rw [← add_mul, hab, one_mul]
+        exacts [hM.lintegral_le τ hτ hτ_top P hP, hN.lintegral_le τ hτ hτ_top P hP]
+    _ = ∫⁻ ω, ENat.toENNReal (τ ω) ∂P := by rw [← add_mul, hab, one_mul]
 
 /-! ### E-processes from a time -/
 
 /-- `E : ℕ → Ω → ℝ≥0∞` is an **e-process from time `j`** for the null `S` and the filtration `ℱ`:
-it is adapted and, for every stopping time `τ ≥ j` with values in `ℕ`, its value
-`fun ω ↦ E (τ ω) ω` at `τ` is a conditional e-variable given `ℱ j` [SRR24, Definition 2.5]. -/
+it is adapted and, for every stopping time `τ ≥ j` that is finite everywhere, its value
+`stoppedValue E τ` at `τ` is a conditional e-variable given `ℱ j` [SRR24, Definition 2.5]. -/
 structure IsEProcessFrom (E : ℕ → Ω → ℝ≥0∞) (j : ℕ) (ℱ : Filtration ℕ mΩ)
     (S : Set (Measure Ω)) : Prop where
   adapted : Adapted ℱ E
-  isCondEVar_stoppedValue : ∀ τ : Ω → ℕ, IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ)) →
-    (∀ ω, j ≤ τ ω) → IsCondEVar (fun ω ↦ E (τ ω) ω) (ℱ j) S
+  isCondEVar_stoppedValue : ∀ τ : Ω → WithTop ℕ, IsStoppingTime ℱ τ → (∀ ω, τ ω ≠ ⊤) →
+    (∀ ω, (j : WithTop ℕ) ≤ τ ω) → IsCondEVar (stoppedValue E τ) (ℱ j) S
 
 namespace IsEProcessFrom
 
@@ -232,33 +236,34 @@ namespace IsEProcessFrom
 theorem measurable (hE : IsEProcessFrom E j ℱ S) (n : ℕ) : Measurable (E n) :=
   hE.adapted.measurable
 
-/-- An e-process from time `j` has set integral at most `P s` at every stopping time `τ` with values
-in `ℕ`, over every `ℱ j`-measurable set `s` on which `j ≤ τ`. -/
-theorem setLIntegral_le (hE : IsEProcessFrom E j ℱ S) {τ : Ω → ℕ}
-    (hτ : IsStoppingTime ℱ (fun ω ↦ (τ ω : WithTop ℕ))) (hP : P ∈ S) {s : Set Ω}
-    (hs : MeasurableSet[ℱ j] s) (hsτ : s ⊆ {ω | j ≤ τ ω}) :
-    ∫⁻ ω in s, E (τ ω) ω ∂P ≤ P s := by
+/-- An e-process from time `j` has set integral at most `P s` at every stopping time `τ` that is
+finite everywhere, over every `ℱ j`-measurable set `s` on which `j ≤ τ`. -/
+theorem setLIntegral_le (hE : IsEProcessFrom E j ℱ S) {τ : Ω → WithTop ℕ}
+    (hτ : IsStoppingTime ℱ τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) (hP : P ∈ S) {s : Set Ω}
+    (hs : MeasurableSet[ℱ j] s) (hsτ : s ⊆ {ω | (j : WithTop ℕ) ≤ τ ω}) :
+    ∫⁻ ω in s, stoppedValue E τ ω ∂P ≤ P s := by
   -- on `s`, `τ` agrees with the stopping time `max τ j ≥ j`
-  have hτj : IsStoppingTime ℱ fun ω ↦ ((max (τ ω) j : ℕ) : WithTop ℕ) := by
-    simp_rw [Nat.mono_cast.map_max]
-    exact hτ.max (isStoppingTime_natCast j)
+  have hτj : IsStoppingTime ℱ fun ω ↦ max (τ ω) j := hτ.max (isStoppingTime_natCast j)
+  have hτj_top (ω : Ω) : max (τ ω) j ≠ ⊤ := max_ne_top (hτ_top ω) (WithTop.natCast_ne_top j)
   refine le_of_eq_of_le (setLIntegral_congr_fun (ℱ.le j _ hs) fun ω hω ↦ ?_)
-    ((hE.isCondEVar_stoppedValue _ hτj fun _ ↦ le_max_right _ _).setLIntegral_le P hP s hs)
-  rw [max_eq_left (hsτ hω)]
+    ((hE.isCondEVar_stoppedValue _ hτj hτj_top fun _ ↦ le_max_right _ _).setLIntegral_le P hP s
+      hs)
+  rw [stoppedValue, stoppedValue, max_eq_left (hsτ hω)]
 
 /-- An e-process from time `j` for `T` is one for every subset of `T`. -/
 theorem anti_set (hST : S ⊆ T) (hE : IsEProcessFrom E j ℱ T) : IsEProcessFrom E j ℱ S :=
-  ⟨hE.adapted, fun τ hτ hjτ ↦ (hE.isCondEVar_stoppedValue τ hτ hjτ).anti_set hST⟩
+  ⟨hE.adapted, fun τ hτ hτ_top hjτ ↦ (hE.isCondEVar_stoppedValue τ hτ hτ_top hjτ).anti_set hST⟩
 
 /-- **Domination.** An adapted process quasi-surely at most an e-process from time `j` at every
 time is an e-process from time `j`. -/
 theorem mono_ae (hE : IsEProcessFrom E j ℱ S) (hF : Adapted ℱ F)
     (hFE : ∀ n, F n ≤ᶠ[quasiSure S] E n) : IsEProcessFrom F j ℱ S := by
-  refine ⟨hF, fun τ hτ hjτ ↦ ⟨hF.measurable_apply_stoppingTime hτ, fun P hP s hs ↦ ?_⟩⟩
+  refine ⟨hF, fun τ hτ hτ_top hjτ ↦ ⟨measurable_stoppedValue_of_countable
+    (fun _ ↦ hF.measurable) hτ.measurable', fun P hP s hs ↦ ?_⟩⟩
   refine (lintegral_mono_ae (ae_restrict_of_ae ?_)).trans
-    ((hE.isCondEVar_stoppedValue τ hτ hjτ).setLIntegral_le P hP s hs)
+    ((hE.isCondEVar_stoppedValue τ hτ hτ_top hjτ).setLIntegral_le P hP s hs)
   filter_upwards [ae_all_iff.2 fun n ↦ ae_of_eventually_quasiSure (hFE n) hP] with ω hω
-    using hω (τ ω)
+    using hω _
 
 /-- **Domination.** An adapted process that is at most an e-process from time `j` is an e-process
 from time `j`. -/
@@ -269,9 +274,10 @@ theorem mono (hE : IsEProcessFrom E j ℱ S) (hF : Adapted ℱ F) (hFE : F ≤ E
 /-- An e-process from time `0`, for a null of measures of mass at most `1`, is an e-process. -/
 theorem isEProcess (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEProcessFrom E 0 ℱ S) :
     IsEProcess E ℱ S :=
-  .of_lintegral_le_one hE.adapted fun τ hτ P hP ↦ by
-    simpa using (hE.setLIntegral_le hτ hP MeasurableSet.univ fun ω _ ↦ Nat.zero_le (τ ω)).trans
-      (hS P hP)
+  .of_lintegral_le_one hE.adapted fun τ hτ N hτN P hP ↦ by
+    simpa using (hE.setLIntegral_le hτ
+      (fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)) hP MeasurableSet.univ
+      fun ω _ ↦ by simp).trans (hS P hP)
 
 end IsEProcessFrom
 
@@ -279,8 +285,9 @@ end IsEProcessFrom
 e-variable given `ℱ j` is an e-process from time `j`. -/
 theorem IsENNSupermartingale.isEProcessFrom (hM : IsENNSupermartingale M ℱ S)
     (hj : IsCondEVar (M j) (ℱ j) S) : IsEProcessFrom M j ℱ S :=
-  ⟨hM.adapted, fun _ hτ hjτ ↦ ⟨hM.adapted.measurable_apply_stoppingTime hτ, fun P hP _ hs ↦
-    (hM.setLIntegral_stoppedValue_le hP hτ hjτ hs).trans (hj.setLIntegral_le P hP _ hs)⟩⟩
+  ⟨hM.adapted, fun _ hτ hτ_top hjτ ↦ ⟨measurable_stoppedValue_of_countable
+    (fun _ ↦ hM.adapted.measurable) hτ.measurable', fun P hP _ hs ↦
+    (hM.setLIntegral_stoppedValue_le hP hτ hτ_top hjτ hs).trans (hj.setLIntegral_le P hP _ hs)⟩⟩
 
 /-- **Products from a time.** For factors `F k`, `k ≥ j`, that are `ℱ (k + 1)`-measurable
 conditional e-variables given `ℱ k`, for instance likelihood ratios of the observations, the
@@ -360,10 +367,15 @@ theorem adapted_cusum (hΛ : ∀ j, Adapted ℱ (Λ j)) : Adapted ℱ (cusum Λ)
 time `j`, the Shiryaev–Roberts process `n ↦ ∑ j < n, Λ j n` is an e-detector. -/
 theorem isEDetector_shiryaevRoberts (hΛ : ∀ j, IsEProcessFrom (Λ j) j ℱ S) :
     IsEDetector (shiryaevRoberts Λ) ℱ S := by
-  refine ⟨adapted_shiryaevRoberts fun j ↦ (hΛ j).adapted, fun τ hτ P hP ↦ ?_⟩
+  refine ⟨adapted_shiryaevRoberts fun j ↦ (hΛ j).adapted, fun τ' hτ' hτ_top P hP ↦ ?_⟩
+  -- `τ'` is finite, so it is the cast of the time `τ` with values in `ℕ`
+  obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
+  have hτ_meas : Measurable τ := by
+    simpa only [WithTop.untopA_natCast] using hτ'.measurable'.untopA
+  simp only [stoppedValue_natCast]
   -- the sum over `j < τ` is the sum over all `j` of the restrictions to `{j < τ}`
   have hset (j : ℕ) : MeasurableSet[ℱ j] {ω | j < τ ω} := by
-    simpa using hτ.measurableSet_natCast_lt j
+    simpa using hτ'.measurableSet_natCast_lt j
   have hsum (g : ℕ → Ω → ℝ≥0∞) (ω : Ω) :
       ∑ j ∈ Finset.range (τ ω), g j ω = ∑' j, {ω | j < τ ω}.indicator (g j) ω := by
     rw [tsum_eq_sum (s := Finset.range (τ ω)) fun j hj ↦
@@ -374,15 +386,17 @@ theorem isEDetector_shiryaevRoberts (hΛ : ∀ j, IsEProcessFrom (Λ j) j ℱ S)
       = ∫⁻ ω, ∑' j, {ω | j < τ ω}.indicator (fun ω ↦ Λ j (τ ω) ω) ω ∂P :=
         lintegral_congr fun ω ↦ hsum (fun j ω ↦ Λ j (τ ω) ω) ω
     _ = ∑' j, ∫⁻ ω in {ω | j < τ ω}, Λ j (τ ω) ω ∂P := by
-        rw [lintegral_tsum fun j ↦ (((hΛ j).adapted.measurable_apply_stoppingTime hτ).indicator
-          (hmeas j)).aemeasurable]
+        rw [lintegral_tsum fun j ↦ ((measurable_apply_of_countable (hΛ j).measurable
+          hτ_meas).indicator (hmeas j)).aemeasurable]
         exact tsum_congr fun j ↦ lintegral_indicator (hmeas j) _
-    _ ≤ ∑' j, P {ω | j < τ ω} := tsum_le_tsum fun j ↦
-        (hΛ j).setLIntegral_le hτ hP (hset j) fun _ hω ↦ mem_ofPred.2 (mem_ofPred.1 hω).le
+    _ ≤ ∑' j, P {ω | j < τ ω} := tsum_le_tsum fun j ↦ by
+        simpa only [stoppedValue_natCast] using
+          (hΛ j).setLIntegral_le hτ' hτ_top hP (hset j)
+            fun _ hω ↦ mem_ofPred.2 (Nat.cast_le.2 (mem_ofPred.1 hω).le)
     _ = ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P := by
         -- the tail-sum formula for the expectation of `τ`
         simpa using (lintegral_toENNReal_eq_tsum_measure_lt (μ := P) (f := fun ω ↦ (τ ω : ℕ∞))
-          ((measurable_of_countable _).comp hτ.measurable_nat).aemeasurable).symm
+          ((measurable_of_countable _).comp hτ_meas).aemeasurable).symm
 
 /-- **The CUSUM e-detector** [SRR24, Definition 2.6]. For e-processes `Λ j` from each time `j`, the
 CUSUM process `n ↦ max_{j < n} Λ j n` is an e-detector. -/

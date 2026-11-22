@@ -44,8 +44,8 @@ version for bounded stopping times, under integrability. Convergence is derived 
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValueLimsup_le_of_le_const`: optional
   stopping for bounded stopping times, for every `ℝ≥0∞`-valued supermartingale.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValue_le`: optional stopping from a
-  fixed time to a stopping time with values in `ℕ`, for every `ℝ≥0∞`-valued supermartingale and
-  every measure.
+  fixed time to a stopping time that is finite everywhere, for every `ℝ≥0∞`-valued supermartingale
+  and every measure.
 * `ProbabilityTheory.IsENNSupermartingale.setLIntegral_stoppedValueLimsup_le`: optional stopping for
   arbitrary stopping times with values in `WithTop ℕ`.
 * `ProbabilityTheory.IsTestSupermartingale.lintegral_limsup_le_one`: the almost sure limit of a
@@ -184,28 +184,34 @@ theorem setLIntegral_stoppedValueLimsup_le_of_le_const (hM : IsENNSupermartingal
   rw [← hg0, ← hgN]
   exact antitone_nat_of_succ_le (f := fun k ↦ ∫⁻ ω in s, g k ω ∂P) hstep N.zero_le
 
-/-- **Optional stopping at finite stopping times.** For a stopping time `τ` with values in `ℕ` and
-`j ≤ τ`, and an `ℱ j`-measurable set `s`, the set integral over `s` of an `ℝ≥0∞`-valued
-supermartingale at `τ` is at most its set integral at time `j`. The stopping time need not be
-bounded, and neither the measure nor the process needs to be integrable. -/
+/-- **Optional stopping at finite stopping times.** For a stopping time `τ` that is finite
+everywhere with `j ≤ τ`, and an `ℱ j`-measurable set `s`, the set integral over `s` of an
+`ℝ≥0∞`-valued supermartingale at `τ` is at most its set integral at time `j`. The stopping time need
+not be bounded, and neither the measure nor the process needs to be integrable. -/
 theorem setLIntegral_stoppedValue_le (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S) {j : ℕ}
-    {τ : Ω → ℕ} (hτ : IsStoppingTime ℱ fun ω ↦ (τ ω : WithTop ℕ)) (hjτ : ∀ ω, j ≤ τ ω)
-    (hs : MeasurableSet[ℱ j] s) :
-    ∫⁻ ω in s, M (τ ω) ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
+    {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ) (hτ_top : ∀ ω, τ ω ≠ ⊤)
+    (hjτ : ∀ ω, (j : WithTop ℕ) ≤ τ ω) (hs : MeasurableSet[ℱ j] s) :
+    ∫⁻ ω in s, stoppedValue M τ ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
   have hσ : IsStoppingTime ℱ fun _ ↦ (j : WithTop ℕ) := isStoppingTime_natCast j
+  have hmin_top (N : ℕ) (ω : Ω) : min (τ ω) N ≠ ⊤ :=
+    WithTop.ne_top_of_le_natCast (min_le_right _ _)
   -- bounded case at `min τ N` for `N ≥ j`, then Fatou's lemma: `M (min τ N)` is eventually
   -- `M τ` at every point
-  have hN : ∀ᶠ N in atTop, ∫⁻ ω in s, M (min (τ ω) N) ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
+  have hN : ∀ᶠ N : ℕ in atTop,
+      ∫⁻ ω in s, stoppedValue M (fun ω ↦ min (τ ω) N) ω ∂P ≤ ∫⁻ ω in s, M j ω ∂P := by
     filter_upwards [eventually_ge_atTop j] with N hjN
-    have h := hM.setLIntegral_stoppedValueLimsup_le_of_le_const hP hσ (hτ.natCast_min N)
-      (fun ω ↦ by exact_mod_cast le_min (hjτ ω) hjN) (fun ω ↦ by exact_mod_cast min_le_right _ _)
+    have h := hM.setLIntegral_stoppedValueLimsup_le_of_le_const hP hσ (hτ.min_natCast N)
+      (fun ω ↦ le_min (hjτ ω) (by exact_mod_cast hjN)) (fun ω ↦ min_le_right _ _)
       (hσ.le_measurableSpace_of_const_le (fun _ ↦ (Nat.cast_withTop j).ge) s hs)
-    rwa [stoppedValueLimsup_natCast, stoppedValueLimsup_const] at h
-  refine lintegral_le_of_tendsto_of_eventually_le (l := atTop) (f := fun N ω ↦ M (min (τ ω) N) ω)
-    (fun N ↦ (hM.adapted.measurable_apply_stoppingTime (hτ.natCast_min N)).aemeasurable)
+    rwa [stoppedValueLimsup_of_forall_ne_top _ (hmin_top N), stoppedValueLimsup_const] at h
+  refine lintegral_le_of_tendsto_of_eventually_le (l := atTop)
+    (f := fun N : ℕ ↦ stoppedValue M (fun ω ↦ min (τ ω) N))
+    (fun N ↦ (measurable_stoppedValue_of_countable (fun _ ↦ hM.adapted.measurable)
+      (hτ.min_natCast N).measurable').aemeasurable)
     (ae_of_all _ fun ω ↦ tendsto_const_nhds.congr' ?_) hN
-  filter_upwards [eventually_ge_atTop (τ ω)] with N hN
-  rw [min_eq_left hN]
+  obtain ⟨b, hb⟩ := WithTop.exists_eq_natCast_of_ne_top (hτ_top ω)
+  filter_upwards [eventually_ge_atTop b] with N hN
+  exact stoppedValue_congr (by rw [hb, min_eq_left (by exact_mod_cast hN)])
 
 /-- **Optional stopping.** For an `ℝ≥0∞`-valued supermartingale with finite initial expectation
 under a finite measure, stopping times `σ ≤ τ` with values in `WithTop ℕ` and a set `s`
@@ -231,7 +237,7 @@ theorem setLIntegral_stoppedValueLimsup_le (hM : IsENNSupermartingale M ℱ S) (
   have hsN (N : ℕ) : MeasurableSet (s ∩ {ω | σ ω ≤ N}) :=
     hs'.inter (ℱ.le N _ (hσ.measurableSet_le_natCast N))
   have hsub (N : ℕ) : s ∩ {ω | σ ω ≤ N} ⊆ s \ {ω | σ ω = ⊤} := fun _ hω ↦
-    ⟨hω.1, ne_top_of_le_ne_top (WithTop.natCast_ne_top N) hω.2⟩
+    ⟨hω.1, WithTop.ne_top_of_le_natCast hω.2⟩
   have hF_meas (N : ℕ) : Measurable (F N) :=
     (measurable_stoppedValueLimsup hM.measurable
       (hτ.min_natCast N).measurable').indicator (hsN N)
