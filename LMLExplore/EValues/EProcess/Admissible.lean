@@ -280,19 +280,20 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le (R : Measure Ω) [SFinite R]
 /-- **Every e-process for a locally dominated null is dominated by an admissible e-process**
 [RRLK, Proposition 9]. Let `S` be a null that is locally dominated by a measure `μ`: at every
 time `n`, the restrictions of the members to `ℱ n` are absolutely continuous with respect to the
-restriction of `μ`, and all these restrictions are σ-finite. Then every e-process for `S` is at
-most an admissible e-process. -/
+restriction of `μ`, whose restrictions are σ-finite, and the members are s-finite. Then every
+e-process for `S` is at most an admissible e-process. -/
 theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : Measure Ω)
     [SigmaFiniteFiltration μ ℱ] (hSμ : ∀ P ∈ S, ∀ n, P.trim (ℱ.le n) ≪ μ.trim (ℱ.le n))
-    (hS : ∀ P ∈ S, SigmaFiniteFiltration P ℱ) (hE : IsEProcess E ℱ S) :
+    (hS : ∀ P ∈ S, SFinite P) (hE : IsEProcess E ℱ S) :
     ∃ E' : ℕ → Ω → ℝ≥0∞, IsAdmissibleEProcess E' ℱ S ∧ E ≤ E' := by
-  have (P : S) : SigmaFiniteFiltration (P : Measure Ω) ℱ := hS P P.2
-  have (P : S) : SigmaFinite (P : Measure Ω) := .of_trim (ℱ.le 0)
+  have (P : S) : SFinite (P : Measure Ω) := hS P P.2
   -- at every time, a countable subfamily with the null `ℱ n`-measurable sets of the null, by the
   -- Halmos–Savage lemma; the sum of the members of their union is a reference measure
   have h (n : ℕ) : ∃ T : Set S, T.Countable ∧ ∀ A, MeasurableSet[ℱ n] A →
       (∀ P ∈ T, (P : Measure Ω) A = 0) → ∀ P ∈ S, P A = 0 := by
-    have (P : S) : SFinite ((P : Measure Ω).trim (ℱ.le n)) := inferInstance
+    -- each restriction is s-finite, being absolutely continuous with respect to that of `μ`
+    have (P : S) : SFinite ((P : Measure Ω).trim (ℱ.le n)) :=
+      sfinite_of_absolutelyContinuous (hSμ P P.2 n)
     obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
       (μ := μ.trim (ℱ.le n)) (ν := fun P : S ↦ (P : Measure Ω).trim (ℱ.le n))
       fun P ↦ hSμ P P.2 n
