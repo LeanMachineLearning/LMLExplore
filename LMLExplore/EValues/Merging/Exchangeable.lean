@@ -10,7 +10,7 @@ public import TauCeti.Probability.Exchangeability.Family
 import Mathlib.Data.Fintype.Perm
 import LMLExplore.Algebra.BigOperators.Perm
 import LMLExplore.Basic.ENNReal.BigOperators
-import LMLExplore.EValues.Merging
+public import LMLExplore.EValues.Merging
 
 /-!
 # Merging functions for exchangeable e-values
@@ -20,7 +20,10 @@ A merging function for exchangeable e-values indexed by `ι` is a measurable
 that is invariant under the permutations of the coordinates and whose coordinates have expectation
 at most `1`. It turns e-variables that form an exchangeable family under every member of the null
 into an e-variable (`ProbabilityTheory.IsExchangeableEMerging.isEVar_comp`). No monotonicity is
-assumed.
+assumed. Equivalently, these functions are the e-variables of the merging null of the
+exchangeable laws `ProbabilityTheory.exchangeableLaws`, the measures invariant under the
+permutations of the coordinates (`ProbabilityTheory.isExchangeableEMerging_iff_isEVar_mergingNull`);
+so every e-merging function is one.
 
 For finite `ι`, a measurable `F` is a merging function for exchangeable e-values exactly when its
 symmetrization, the average of `F` over the orderings of its arguments, is at most a convex
@@ -35,6 +38,8 @@ which dominates it and differs from it.
 
 ## Main definitions
 
+* `ProbabilityTheory.exchangeableLaws`: the measures on `ι → α` invariant under the permutations
+  of the coordinates.
 * `ProbabilityTheory.IsExchangeableEMerging F`: `F` is a merging function for exchangeable
   e-values.
 * `ProbabilityTheory.RunningMeanReaches β e`: some running mean of the `K` e-values `e` reaches
@@ -44,6 +49,9 @@ which dominates it and differs from it.
 
 ## Main statements
 
+* `ProbabilityTheory.isExchangeableEMerging_iff_isEVar_mergingNull`: the merging functions for
+  exchangeable e-values are the e-variables of the merging null of the exchangeable laws, and
+  `ProbabilityTheory.IsEMerging.isExchangeableEMerging`: e-merging functions are among them.
 * `ProbabilityTheory.IsExchangeableEMerging.isEVar_comp`: a merging function for exchangeable
   e-values of an exchangeable family of e-variables is an e-variable.
 * `ProbabilityTheory.isExchangeableEMerging_iff`: the characterization by the symmetrization.
@@ -90,6 +98,35 @@ open scoped ENNReal NNReal
 
 namespace ProbabilityTheory
 
+/-! ### The exchangeable laws -/
+
+section ExchangeableLaws
+
+variable {ι α Ω : Type*} {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω} {μ : Measure (ι → α)}
+
+/-- The **exchangeable laws** on `ι → α`: the measures invariant under the permutations of the
+coordinates, the joint laws of exchangeable families
+(`ProbabilityTheory.ExchangeableFamily.map_mem_exchangeableLaws`). Their merging null is the null
+of the joint laws of exchangeable e-values. -/
+def exchangeableLaws : Set (Measure (ι → α)) :=
+  {μ | ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ}
+
+@[simp]
+theorem mem_exchangeableLaws :
+    μ ∈ exchangeableLaws ↔ ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ :=
+  Iff.rfl
+
+/-- The joint law of an exchangeable family of almost everywhere measurable random variables,
+indexed by a countable type, under a finite measure is an exchangeable law. -/
+theorem _root_.TauCeti.Probability.ExchangeableFamily.map_mem_exchangeableLaws [Countable ι]
+    {P : Measure Ω} [IsFiniteMeasure P] {X : ι → Ω → α} (h : ExchangeableFamily P X)
+    (hX : ∀ i, AEMeasurable (X i) P) : P.map (fun ω i ↦ X i ω) ∈ exchangeableLaws := fun σ ↦ by
+  have hσ : Measurable fun (e : ι → α) i ↦ e (σ i) := by fun_prop
+  rw [AEMeasurable.map_map_of_aemeasurable hσ.aemeasurable (AEMeasurable.of_eval hX)]
+  exact h.map_eq_of_injective hX σ.injective Function.injective_id
+
+end ExchangeableLaws
+
 /-! ### Merging functions for exchangeable e-values -/
 
 section Definition
@@ -106,10 +143,24 @@ structure IsExchangeableEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop
     (∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ) → (∀ i, ∫⁻ e, e i ∂μ ≤ 1) →
     ∫⁻ e, F e ∂μ ≤ 1
 
+/-- **Merging functions for exchangeable e-values are the e-variables of the merging null of the
+exchangeable laws**: they are the bets on the space of values against the joint laws of
+exchangeable e-values. -/
+theorem isExchangeableEMerging_iff_isEVar_mergingNull :
+    IsExchangeableEMerging F ↔ IsEVar F (mergingNull exchangeableLaws) :=
+  ⟨fun hF ↦ ⟨hF.measurable, fun μ hμ ↦ have := isProbabilityMeasure_of_mem_mergingNull hμ;
+      hF.lintegral_le_one μ (mem_mergingNull.1 hμ).1 (mem_mergingNull.1 hμ).2.2⟩,
+    fun hF ↦ ⟨hF.measurable, fun μ _ hσ hμ ↦ hF.lintegral_le_one (mem_mergingNull.2 ⟨hσ, ‹_›, hμ⟩)⟩⟩
+
+/-- An e-merging function is a merging function for exchangeable e-values. -/
+theorem IsEMerging.isExchangeableEMerging (hF : IsEMerging F) : IsExchangeableEMerging F :=
+  isExchangeableEMerging_iff_isEVar_mergingNull.2 (hF.isEVar_mergingNull _)
+
 /-- A measurable function below a merging function for exchangeable e-values is one. -/
 theorem IsExchangeableEMerging.of_le (hG : IsExchangeableEMerging G) (hF : Measurable F)
     (hle : F ≤ G) : IsExchangeableEMerging F :=
-  ⟨hF, fun μ _ hσ hμ ↦ (lintegral_mono hle).trans (hG.lintegral_le_one μ hσ hμ)⟩
+  isExchangeableEMerging_iff_isEVar_mergingNull.2
+    ((isExchangeableEMerging_iff_isEVar_mergingNull.1 hG).mono hF hle)
 
 /-- A constant at most one is a merging function for exchangeable e-values. -/
 theorem isExchangeableEMerging_const {c : ℝ≥0∞} (hc : c ≤ 1) :
@@ -121,18 +172,10 @@ family under every member of the null, is an e-variable. -/
 theorem IsExchangeableEMerging.isEVar_comp [Countable ι] {Ω : Type*} {mΩ : MeasurableSpace Ω}
     {S : Set (Measure Ω)} (hF : IsExchangeableEMerging F) (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, IsEVar (E i) S) (hexch : ∀ P ∈ S, ExchangeableFamily P E) :
-    IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
-  have hm : Measurable fun ω i ↦ E i ω := measurable_pi_iff.2 fun i ↦ (hE i).measurable
-  refine ⟨hF.measurable.comp hm, fun P hP ↦ ?_⟩
-  have := hS P hP
-  rw [← lintegral_map hF.measurable hm]
-  refine hF.lintegral_le_one _ (fun σ ↦ ?_) fun i ↦ ?_
-  · -- the law of an exchangeable family is invariant under the permutations of the coordinates
-    rw [Measure.map_map (by fun_prop) hm]
-    exact (hexch P hP).map_eq_of_injective (fun i ↦ (hE i).measurable.aemeasurable) σ.injective
-      Function.injective_id
-  · rw [lintegral_map (measurable_pi_apply i) hm]
-    exact (hE i).lintegral_le_one hP
+    IsEVar (fun ω ↦ F fun i ↦ E i ω) S :=
+  (isExchangeableEMerging_iff_isEVar_mergingNull.1 hF).comp_isEVar hS hE fun P hP ↦
+    have := hS P hP
+    (hexch P hP).map_mem_exchangeableLaws fun i ↦ (hE i).measurable.aemeasurable
 
 end Definition
 

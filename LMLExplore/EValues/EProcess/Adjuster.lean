@@ -43,7 +43,9 @@ show how evidence moves to a finer filtration.
 
 ## Main statements
 
-* `ProbabilityTheory.isAdjuster_iff_isPToECalibrator`: adjusters and p-to-e calibrators
+* `ProbabilityTheory.isAdjuster_iff_isEVar_mapNull_inv`: the adjusters are the functions monotone
+  on `[1, ∞]` whose restriction to `[1, ∞]` is an e-variable for the laws of inverse p-values, and
+  `ProbabilityTheory.isAdjuster_iff_isPToECalibrator`: adjusters and p-to-e calibrators
   correspond through `p = x⁻¹` [CR26, §2.4].
 * `ProbabilityTheory.IsEProcess.isEProcess_comp_max_iSup`: e-lifting [CR26, Theorem 2].
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess_comp_max_iSup`,
@@ -96,19 +98,34 @@ structure IsAdjuster (A : ℝ≥0∞ → ℝ≥0∞) : Prop where
   monotoneOn : MonotoneOn A (Ici 1)
   lintegral_le_one : ∫⁻ x in Ioi (1 : ℝ), A (ENNReal.ofReal x) / ENNReal.ofReal (x ^ 2) ≤ 1
 
+/-- **Adjusters are the bets on inverse p-values** [CR26, §2.4]. A function `A` is an adjuster
+exactly when it is monotone on `[1, ∞]` and its restriction to `[1, ∞]` is an e-variable for the
+laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform null by
+`x ↦ x⁻¹`: the change of variables `p = x⁻¹` turns the integral condition of an adjuster into the
+calibration condition of `p ↦ A p⁻¹`. -/
+theorem isAdjuster_iff_isEVar_mapNull_inv :
+    IsAdjuster A ↔ MonotoneOn A (Ici 1) ∧
+      IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) := by
+  have h (hA : MonotoneOn A (Ici 1)) :
+      IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
+        ∫⁻ x in Ioi (1 : ℝ), A (ENNReal.ofReal x) / ENNReal.ofReal (x ^ 2) ≤ 1 := by
+    rw [isEVar_mapNull_iff measurable_inv hA.measurable_indicator_Ici_one, indicator_Ici_comp_inv,
+      isEVar_superUniformNull_iff_of_antitone hA.antitone_indicator_Iic_comp_inv,
+      setLIntegral_indicator_Iic_comp_inv]
+  exact ⟨fun hA ↦ ⟨hA.monotoneOn, (h hA.monotoneOn).2 hA.lintegral_le_one⟩,
+    fun ⟨hA, hE⟩ ↦ ⟨hA, (h hA).1 hE⟩⟩
+
 /-- **Adjusters and calibrators** [CR26, §2.4]. A function `A` is an adjuster exactly when
-`p ↦ A p⁻¹`, on `[0, 1]` and zero on `(1, ∞]`, is a p-to-e calibrator: the change of variables
-`p = x⁻¹` exchanges the two integral conditions. -/
+`p ↦ A p⁻¹`, on `[0, 1]` and zero on `(1, ∞]`, is a p-to-e calibrator: the two are the same bet,
+on the inverse p-values and on the p-values, the two presentations of the super-uniform null
+exchanged by `x ↦ x⁻¹`. -/
 theorem isAdjuster_iff_isPToECalibrator :
     IsAdjuster A ↔ IsPToECalibrator ((Iic 1).indicator fun p ↦ A p⁻¹) := by
-  refine ⟨fun hA ↦ ⟨hA.monotoneOn.antitone_indicator_Iic_comp_inv,
-    fun x hx ↦ indicator_of_notMem (not_le.2 hx) _,
-    (setLIntegral_indicator_Iic_comp_inv A).trans_le hA.lintegral_le_one⟩, fun hf ↦
-    ⟨fun x hx y hy hxy ↦ ?_,
-      (setLIntegral_indicator_Iic_comp_inv A).symm.trans_le hf.lintegral_le_one⟩⟩
-  have h := hf.antitone (ENNReal.inv_le_inv.2 hxy)
-  rwa [indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 hx)),
-    indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 hy)), inv_inv, inv_inv] at h
+  rw [isAdjuster_iff_isEVar_mapNull_inv, isPToECalibrator_iff_isEVar_superUniformNull,
+    antitone_indicator_Iic_comp_inv_iff]
+  refine and_congr_right fun hA ↦ ?_
+  rw [isEVar_mapNull_iff measurable_inv hA.measurable_indicator_Ici_one, indicator_Ici_comp_inv]
+  exact (and_iff_right fun x hx ↦ indicator_of_notMem (not_le.2 hx) _).symm
 
 /-- A p-to-e calibrator `f` gives the adjuster `x ↦ f x⁻¹` [CR26, §2.4]. -/
 theorem IsPToECalibrator.isAdjuster_comp_inv {f : ℝ≥0∞ → ℝ≥0∞} (hf : IsPToECalibrator f) :

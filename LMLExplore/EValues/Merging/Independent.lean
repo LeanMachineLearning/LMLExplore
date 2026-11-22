@@ -8,12 +8,13 @@ module
 public import Mathlib.MeasureTheory.Constructions.Pi
 public import Mathlib.Probability.Independence.Basic
 public import Statlib.EValues.EVariable
-import LMLExplore.EValues.Merging
+public import LMLExplore.EValues.Merging
 import LMLExplore.Probability.Distributions.Bernoulli
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
 import Mathlib.Algebra.BigOperators.Fin
+import TauCeti.MeasureTheory.Integral.Pi
 
 /-!
 # Merging functions for independent e-values
@@ -23,7 +24,10 @@ A merging function for independent e-values indexed by a finite type `ι` is a m
 `ℝ≥0∞` with expectation at most `1`. The law of e-variables that are independent under a
 probability measure is such a product, so `F` turns e-variables that are independent under every
 member of the null into an e-variable, and this characterizes merging functions for independent
-e-values (`ProbabilityTheory.isIEMerging_iff_forall_isEVar`). No monotonicity is assumed. Such a
+e-values (`ProbabilityTheory.isIEMerging_iff_forall_isEVar`). Equivalently, they are the
+e-variables of the merging null of the product laws `ProbabilityTheory.productLaws`, the joint laws
+of independent e-values (`ProbabilityTheory.isIEMerging_iff_isEVar_mergingNull`); so every
+e-merging function, and the product of the e-values, is one. No monotonicity is assumed. Such a
 function is precise when its integral is `1` against every product of laws with expectation `1`.
 As for e-merging functions, the values at infinite arguments are irrelevant
 (`ProbabilityTheory.IsIEMerging.of_le`), so domination is a statement about finite arguments.
@@ -48,12 +52,19 @@ the precise merging functions do not dominate every increasing one either
 
 ## Main definitions
 
+* `ProbabilityTheory.productLaws`: the products of probability measures on `ι → α`.
 * `ProbabilityTheory.IsIEMerging F`: `F` is a merging function for independent e-values.
 * `ProbabilityTheory.IsPreciseIEMerging F`: `F` is a precise merging function for independent
   e-values.
 
 ## Main statements
 
+* `ProbabilityTheory.map_mem_productLaws_iff`: the joint law of random variables is a product law
+  exactly when they are independent.
+* `ProbabilityTheory.isIEMerging_iff_isEVar_mergingNull`: the merging functions for independent
+  e-values are the e-variables of the merging null of the product laws.
+* `ProbabilityTheory.IsEMerging.isIEMerging`, `ProbabilityTheory.isIEMerging_prod`: e-merging
+  functions and the product are merging functions for independent e-values.
 * `ProbabilityTheory.IsIEMerging.isEVar_comp`: a merging function for independent e-values of
   e-variables that are independent under every member of the null is an e-variable, and
   `ProbabilityTheory.isIEMerging_iff_forall_isEVar` characterizes these functions by this property.
@@ -109,6 +120,47 @@ namespace ProbabilityTheory
 
 universe u
 
+/-! ### The product laws -/
+
+section ProductLaws
+
+variable {ι α Ω : Type*} [Fintype ι] {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω}
+  {μ : Measure (ι → α)}
+
+/-- The **product laws** on `ι → α`: the products `Measure.pi ν` of probability measures `ν i` on
+`α`, the joint laws of independent random variables (`ProbabilityTheory.map_mem_productLaws_iff`).
+Their merging null is the null of the joint laws of independent e-values. -/
+def productLaws : Set (Measure (ι → α)) :=
+  {μ | ∃ ν : ι → Measure α, (∀ i, IsProbabilityMeasure (ν i)) ∧ Measure.pi ν = μ}
+
+@[simp]
+theorem mem_productLaws :
+    μ ∈ productLaws ↔ ∃ ν : ι → Measure α, (∀ i, IsProbabilityMeasure (ν i)) ∧ Measure.pi ν = μ :=
+  Iff.rfl
+
+theorem pi_mem_productLaws (ν : ι → Measure α) [∀ i, IsProbabilityMeasure (ν i)] :
+    Measure.pi ν ∈ productLaws :=
+  ⟨ν, inferInstance, rfl⟩
+
+/-- **The joint law of independent random variables is a product law**: for a probability measure
+`P`, the joint law of almost everywhere measurable `X i` is a product of laws exactly when the
+`X i` are independent. -/
+theorem map_mem_productLaws_iff {P : Measure Ω} [IsProbabilityMeasure P] {X : ι → Ω → α}
+    (hX : ∀ i, AEMeasurable (X i) P) :
+    P.map (fun ω i ↦ X i ω) ∈ productLaws ↔ iIndepFun X P := by
+  refine ⟨fun ⟨ν, hν, h⟩ ↦ (iIndepFun_iff_map_fun_eq_pi_map hX).2 ?_, fun h ↦ ?_⟩
+  · -- the factors of the product are the laws of the `X i`
+    have hm : AEMeasurable (fun ω i ↦ X i ω) P := AEMeasurable.of_eval hX
+    have hmarg (i : ι) : P.map (X i) = ν i := by
+      rw [← (measurePreserving_eval ν i).map_eq, h, AEMeasurable.map_map_of_aemeasurable
+        (measurable_pi_apply i).aemeasurable hm]
+      rfl
+    simp_rw [hmarg, h]
+  · rw [h.map_fun_eq_pi_map hX]
+    exact pi_mem_productLaws _
+
+end ProductLaws
+
 /-! ### Merging functions for independent e-values -/
 
 section Definition
@@ -130,31 +182,53 @@ structure IsPreciseIEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop ext
   lintegral_eq_one : ∀ (μ : ι → Measure ℝ≥0∞) [∀ i, IsProbabilityMeasure (μ i)],
     (∀ i, ∫⁻ x, x ∂μ i = 1) → ∫⁻ e, F e ∂Measure.pi μ = 1
 
+/-- The members of the merging null of the product laws are the products of laws on `ℝ≥0∞` with
+expectation at most `1`. -/
+theorem pi_mem_mergingNull_productLaws_iff (μ : ι → Measure ℝ≥0∞)
+    [∀ i, IsProbabilityMeasure (μ i)] :
+    Measure.pi μ ∈ mergingNull productLaws ↔ ∀ i, ∫⁻ x, x ∂μ i ≤ 1 := by
+  simp only [mem_mergingNull, pi_mem_productLaws, true_and,
+    fun i ↦ (measurePreserving_eval μ i).lintegral_comp measurable_id']
+  exact ⟨And.right, fun h ↦ ⟨inferInstance, h⟩⟩
+
+/-- **Merging functions for independent e-values are the e-variables of the merging null of the
+product laws**: they are the bets on the space of values against the joint laws of independent
+e-values. -/
+theorem isIEMerging_iff_isEVar_mergingNull :
+    IsIEMerging F ↔ IsEVar F (mergingNull productLaws) := by
+  refine ⟨fun hF ↦ ⟨hF.measurable, fun P hP ↦ ?_⟩, fun hF ↦ ⟨hF.measurable, fun μ _ hμ ↦
+    hF.lintegral_le_one ((pi_mem_mergingNull_productLaws_iff μ).2 hμ)⟩⟩
+  obtain ⟨⟨μ, hμ, rfl⟩, -⟩ := mem_mergingNull.1 hP
+  exact hF.lintegral_le_one μ ((pi_mem_mergingNull_productLaws_iff μ).1 hP)
+
+/-- An e-merging function is a merging function for independent e-values. -/
+theorem IsEMerging.isIEMerging (hF : IsEMerging F) : IsIEMerging F :=
+  isIEMerging_iff_isEVar_mergingNull.2 (hF.isEVar_mergingNull _)
+
+/-- **The product merges independent e-values** [VW21, Section 4]: the product of the e-values is a
+merging function for independent e-values. -/
+theorem isIEMerging_prod : IsIEMerging fun e : ι → ℝ≥0∞ ↦ ∏ i, e i := by
+  refine ⟨by fun_prop, fun μ _ hμ ↦ ?_⟩
+  rw [TauCeti.lintegral_fintype_prod_eq_prod μ (f := fun _ x ↦ x) fun _ ↦ measurable_id]
+  exact Finset.prod_le_one fun i _ ↦ hμ i
+
 /-- A measurable function dominated on finite arguments by a merging function for independent
 e-values is one: the values at infinite arguments are irrelevant, since the coordinates are
 almost surely finite under a product of laws with finite expectations. -/
 theorem IsIEMerging.of_le (hG : IsIEMerging G) (hF : Measurable F)
-    (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsIEMerging F := by
-  refine ⟨hF, fun μ _ hμ ↦ (lintegral_mono_ae (ae_le_of_forall_nnreal_le ?_ hle)).trans
-    (hG.lintegral_le_one μ hμ)⟩
-  exact Filter.eventually_all.2 fun i ↦
-    Measure.tendsto_eval_ae_ae.eventually <| (ae_lt_top measurable_id'
-      ((hμ i).trans_lt ENNReal.one_lt_top).ne).mono fun _ h ↦ h.ne
+    (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsIEMerging F :=
+  isIEMerging_iff_isEVar_mergingNull.2
+    ((isIEMerging_iff_isEVar_mergingNull.1 hG).mono_mergingNull hF hle)
 
 /-- A merging function for independent e-values, applied to e-variables that are independent under
 every member of the null, is an e-variable. -/
 theorem IsIEMerging.isEVar_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {S : Set (Measure Ω)}
     (hF : IsIEMerging F) (hS : ∀ P ∈ S, IsProbabilityMeasure P) {E : ι → Ω → ℝ≥0∞}
     (hE : ∀ i, IsEVar (E i) S) (hindep : ∀ P ∈ S, iIndepFun E P) :
-    IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
-  have hm : Measurable fun ω i ↦ E i ω := measurable_pi_iff.2 fun i ↦ (hE i).measurable
-  refine ⟨hF.measurable.comp hm, fun P hP ↦ ?_⟩
-  have := hS P hP
-  rw [← lintegral_map hF.measurable hm,
-    (hindep P hP).map_fun_eq_pi_map fun i ↦ (hE i).measurable.aemeasurable]
-  refine hF.lintegral_le_one _ fun i ↦ ?_
-  rw [lintegral_map measurable_id' (hE i).measurable]
-  exact (hE i).lintegral_le_one hP
+    IsEVar (fun ω ↦ F fun i ↦ E i ω) S :=
+  (isIEMerging_iff_isEVar_mergingNull.1 hF).comp_isEVar hS hE fun P hP ↦
+    have := hS P hP
+    (map_mem_productLaws_iff fun i ↦ (hE i).measurable.aemeasurable).2 (hindep P hP)
 
 /-- A function of e-values is a merging function for independent e-values exactly when it turns
 e-variables that are independent under every member of the null into an e-variable, for every
@@ -166,22 +240,12 @@ theorem isIEMerging_iff_forall_isEVar {ι : Type u} [Fintype ι] {F : (ι → �
       (∀ P ∈ S, IsProbabilityMeasure P) → ∀ E : ι → Ω → ℝ≥0∞, (∀ i, IsEVar (E i) S) →
         (∀ P ∈ S, iIndepFun E P) → IsEVar (fun ω ↦ F fun i ↦ E i ω) S := by
   refine ⟨fun hF Ω _ S hS E hE hindep ↦ hF.isEVar_comp hS hE hindep, fun h ↦ ?_⟩
-  -- the products of laws with expectation at most `1`, and the coordinates
-  set S : Set (Measure (ι → ℝ≥0∞)) := {P | ∃ μ : ι → Measure ℝ≥0∞,
-    (∀ i, IsProbabilityMeasure (μ i)) ∧ (∀ i, ∫⁻ x, x ∂μ i ≤ 1) ∧ P = Measure.pi μ}
-  have hS : ∀ P ∈ S, IsProbabilityMeasure P := by
-    rintro _ ⟨μ, hμ, -, rfl⟩
-    infer_instance
-  have hF := h (ι → ℝ≥0∞) S hS (fun i e ↦ e i)
-    (fun i ↦ ⟨measurable_pi_apply i, fun P ↦ by
-      rintro ⟨μ, hμ, hmean, rfl⟩
-      rw [(measurePreserving_eval μ i).lintegral_comp measurable_id']
-      exact hmean i⟩)
-    (by
-      rintro _ ⟨μ, hμ, -, rfl⟩
-      exact iIndepFun_pi (X := fun _ x ↦ x) fun _ ↦ aemeasurable_id')
-  refine ⟨hF.measurable, fun μ _ hμ ↦ ?_⟩
-  exact hF.lintegral_le_one ⟨μ, inferInstance, hμ, rfl⟩
+  -- Apply the hypothesis to the coordinates, under the merging null of the product laws.
+  refine isIEMerging_iff_isEVar_mergingNull.2 <| h (ι → ℝ≥0∞) (mergingNull productLaws)
+    (fun _ ↦ isProbabilityMeasure_of_mem_mergingNull) (fun i e ↦ e i)
+    (isEVar_eval_mergingNull productLaws) fun P hP ↦ ?_
+  obtain ⟨⟨μ, hμ, rfl⟩, -⟩ := mem_mergingNull.1 hP
+  exact iIndepFun_pi (X := fun _ x ↦ x) fun _ ↦ aemeasurable_id'
 
 end Definition
 
