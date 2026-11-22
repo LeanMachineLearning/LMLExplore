@@ -44,7 +44,7 @@ divided by an envelope of the null densities of the second block.
   is an e-process [WRB20, Theorem 9; RW, Proposition 7.18].
 * `ProbabilityTheory.isEProcess_rnDeriv_trim_div_infinitePi`: the same for an i.i.d. null, with an
   envelope of the products of the densities of the observations.
-* `ProbabilityTheory.isPProcess_inv_iSup_rnDeriv_trim_div`: the anytime-valid p-value
+* `ProbabilityTheory.isPProcess_inv_partialSups_rnDeriv_trim_div`: the anytime-valid p-value
   [WRB20, Theorem 10].
 * `ProbabilityTheory.isConfSeq_rnDeriv_trim_div`: the universal confidence sequence
   [WRB20, Theorem 11].
@@ -110,13 +110,13 @@ theorem isEProcess_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
 hypotheses of `ProbabilityTheory.isEProcess_rnDeriv_trim_div`, the inverse of the running maximum
 of the universal inference e-process is a p-process: under every member of the null, the
 probability that it is ever at most `α` is at most `α`. -/
-theorem isPProcess_inv_iSup_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
+theorem isPProcess_inv_partialSups_rnDeriv_trim_div (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     [SigmaFiniteFiltration μ ℱ] (hSμ : ∀ P ∈ S, ∀ n, P.trim (ℱ.le n) ≪ μ.trim (ℱ.le n))
     (hQ : Q univ ≤ 1) (hℓ : Adapted ℱ ℓ)
     (hle : ∀ P ∈ S, ∀ n, (P.trim (ℱ.le n)).rnDeriv (μ.trim (ℱ.le n)) ≤ᵐ[μ] ℓ n) :
-    IsPProcess
-      (fun n ω ↦ (⨆ k ≤ n, (Q.trim (ℱ.le k)).rnDeriv (μ.trim (ℱ.le k)) ω / ℓ k ω)⁻¹) ℱ S :=
-  (isEProcess_rnDeriv_trim_div hS hSμ hQ hℓ hle).isPProcess_inv_iSup
+    IsPProcess (fun n ω ↦ (partialSups
+      (fun k ω ↦ (Q.trim (ℱ.le k)).rnDeriv (μ.trim (ℱ.le k)) ω / ℓ k ω) n ω)⁻¹) ℱ S :=
+  (isEProcess_rnDeriv_trim_div hS hSμ hQ hℓ hle).isPProcess_inv_partialSups
 
 end EProcess
 

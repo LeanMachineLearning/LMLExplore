@@ -151,12 +151,10 @@ private lemma exists_bounded_bet (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q�
     by_contra! h
     exact (hWL.trans_le (eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hWm)
       h)).not_ge (EReal.coe_le_coe_iff.2 (by linarith))
-  set v : (Fin m → 𝓧) → ℝ := fun x ↦ (min (ENNReal.log (W x)) (c : EReal)).toReal
-  have hv (x : Fin m → 𝓧) : (v x : EReal) = min (ENNReal.log (W x)) (c : EReal) :=
-    EReal.coe_toReal (ne_top_of_le_ne_top (EReal.natCast_ne_top c) (min_le_right _ _))
-      (by simp [hW0 x, EReal.natCast_ne_bot])
-  have hvm : Measurable v :=
-    measurable_ereal_toReal.comp ((ENNReal.measurable_log.comp hWm).min measurable_const)
+  set v : (Fin m → 𝓧) → ℝ := fun x ↦ ENNReal.truncLog c (W x)
+  have hv (x : Fin m → 𝓧) : (v x : EReal) = min (ENNReal.log (W x)) (c : EReal) := by
+    rw [ENNReal.coe_truncLog (hW0 x), EReal.coe_natCast]
+  have hvm : Measurable v := (ENNReal.measurable_truncLog c).comp hWm
   refine ⟨v, hvm, ⟨c, fun x ↦ EReal.coe_le_coe_iff.1 ((hv x).trans_le (min_le_right _ _))⟩,
     fun P hP hPp ↦ ?_, ?_⟩
   · -- the bet `exp v` is at most `W`, whose expectation under the null is at most `1`

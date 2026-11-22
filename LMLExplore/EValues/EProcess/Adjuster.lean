@@ -26,8 +26,8 @@ show how evidence moves to a finer filtration.
 * **e-lifting** [CR26, Theorem 2]. An **adjuster** is a function `A : ℝ≥0∞ → ℝ≥0∞`, monotone on
   `[1, ∞]`, with `∫₁^∞ A x / x ^ 2 dx ≤ 1` [ShSVV11; DdRSSVV11]. The substitution `p = x⁻¹` makes
   `p ↦ A p⁻¹` a p-to-e calibrator, and conversely. For an e-process `E` for `𝒢`, the inverse of
-  `max 1 (⨆ k ≤ n, E k)` is a p-process for `𝒢`, hence for `ℱ`, and the calibrator turns it into
-  `A (max 1 (⨆ k ≤ n, E k))`: the adjusted running maximum is an e-process for `ℱ`. The case
+  `max 1 (partialSups E n)` is a p-process for `𝒢`, hence for `ℱ`, and the calibrator turns it into
+  `A (max 1 (partialSups E n))`: the adjusted running maximum is an e-process for `ℱ`. The case
   `𝒢 = ℱ` is the classical adjustment of the running maximum of a test supermartingale
   [ShSVV11, Theorem 4; DdRSSVV11, Theorem 1].
 * **Only adjusters lift** [CR26, Theorem 3]. Conversely, a function monotone on `[1, ∞]` that
@@ -47,10 +47,10 @@ show how evidence moves to a finer filtration.
   on `[1, ∞]` whose restriction to `[1, ∞]` is an e-variable for the laws of inverse p-values, and
   `ProbabilityTheory.isAdjuster_iff_isPToECalibrator`: adjusters and p-to-e calibrators
   correspond through `p = x⁻¹` [CR26, §2.4].
-* `ProbabilityTheory.IsEProcess.isEProcess_comp_max_iSup`: e-lifting [CR26, Theorem 2].
-* `ProbabilityTheory.IsTestSupermartingale.isEProcess_comp_max_iSup`,
-  `ProbabilityTheory.IsTestSupermartingale.exists_isTestSupermartingale_ae_le_comp_max_iSup`: the
-  adjusted running maximum of a test supermartingale is an e-process, dominated by a test
+* `ProbabilityTheory.IsEProcess.isEProcess_comp_max_partialSups`: e-lifting [CR26, Theorem 2].
+* `ProbabilityTheory.IsTestSupermartingale.isEProcess_comp_max_partialSups`,
+  `ProbabilityTheory.IsTestSupermartingale.exists_isTestSupermartingale_ae_le_comp_max_partialSups`:
+  the adjusted running maximum of a test supermartingale is an e-process, dominated by a test
   supermartingale under each member of the null [ShSVV11, Theorem 4; DdRSSVV11, Theorem 1].
 * `ProbabilityTheory.IsEProcess.lintegral_iSup_comp_max_le_one`: the supremum over time of an
   adjusted e-process has expectation at most `1` [RRLK, Lemma 3].
@@ -145,31 +145,30 @@ theorem IsPToECalibrator.isAdjuster_comp_inv {f : ℝ≥0∞ → ℝ≥0∞} (hf
 /-! ### Lifting e-processes -/
 
 /-- The inverse of `max 1` of the running maximum of an e-process is a p-process: below the level
-`1` its events are those of the p-process `(⨆ k ≤ n, E k)⁻¹`. -/
-private lemma IsEProcess.isPProcess_inv_max_one_iSup (hS : ∀ P ∈ S, P univ ≤ 1)
-    (hE : IsEProcess E ℱ S) : IsPProcess (fun n ω ↦ (max 1 (⨆ k ≤ n, E k ω))⁻¹) ℱ S := by
-  have hp := hE.isPProcess_inv_iSup
-  refine isPProcess_iff_measure_exists_le_le.2 ⟨fun n ↦ (measurable_const.max
-    (Measurable.iSup fun k ↦ Measurable.iSup fun hk ↦
-      (hE.adapted k).mono (ℱ.mono hk) le_rfl)).inv, fun P hP α ↦ ?_⟩
+`1` its events are those of the p-process `(partialSups E n)⁻¹`. -/
+private lemma IsEProcess.isPProcess_inv_max_one_partialSups (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hE : IsEProcess E ℱ S) : IsPProcess (fun n ω ↦ (max 1 (partialSups E n ω))⁻¹) ℱ S := by
+  have hp := hE.isPProcess_inv_partialSups
+  refine isPProcess_iff_measure_exists_le_le.2 ⟨fun n ↦
+    (measurable_const.max (hE.adapted.partialSups n)).inv, fun P hP α ↦ ?_⟩
   rcases le_or_gt 1 α with hα | hα
   · exact (measure_mono (subset_univ _)).trans ((hS P hP).trans hα)
   refine (hp.measure_exists_le_le hP α).trans' (measure_mono fun ω ⟨n, hn⟩ ↦ ⟨n, ?_⟩)
-  have h1 : 1 < max 1 (⨆ k ≤ n, E k ω) := ENNReal.inv_lt_one.1 (hn.trans_lt hα)
+  have h1 : 1 < max 1 (partialSups E n ω) := ENNReal.inv_lt_one.1 (hn.trans_lt hα)
   rwa [max_eq_right (lt_max_iff.1 h1 |>.resolve_left (lt_irrefl 1)).le] at hn
 
 /-- **e-lifting** [CR26, Theorem 2]. For an adjuster `A`, a null of measures of mass at most one
-and filtrations `𝒢 ≤ ℱ`, the adjusted running maximum `A (max 1 (⨆ k ≤ n, E k))` of an e-process `E`
-for the coarser filtration `𝒢` is an e-process for the finer filtration `ℱ`. -/
-theorem IsEProcess.isEProcess_comp_max_iSup (hA : IsAdjuster A)
+and filtrations `𝒢 ≤ ℱ`, the adjusted running maximum `A (max 1 (partialSups E n))` of an
+e-process `E` for the coarser filtration `𝒢` is an e-process for the finer filtration `ℱ`. -/
+theorem IsEProcess.isEProcess_comp_max_partialSups (hA : IsAdjuster A)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEProcess E 𝒢 S) (h𝒢ℱ : 𝒢 ≤ ℱ) :
-    IsEProcess (fun n ω ↦ A (max 1 (⨆ k ≤ n, E k ω))) ℱ S := by
-  -- the inverse of `max 1 (⨆ k ≤ n, E k)` is a p-process for `𝒢`, hence for `ℱ`, and the
+    IsEProcess (fun n ω ↦ A (max 1 (partialSups E n ω))) ℱ S := by
+  -- the inverse of `max 1 (partialSups E n)` is a p-process for `𝒢`, hence for `ℱ`, and the
   -- calibrator of `A` turns it into the adjusted running maximum
-  have h := ((hE.isPProcess_inv_max_one_iSup hS).mono_filtration h𝒢ℱ).isEProcess_comp
+  have h := ((hE.isPProcess_inv_max_one_partialSups hS).mono_filtration h𝒢ℱ).isEProcess_comp
     (isAdjuster_iff_isPToECalibrator.1 hA) hS
-  have h_eq : (fun n ω ↦ A (max 1 (⨆ k ≤ n, E k ω))) =
-      fun n ω ↦ (Iic 1).indicator (fun p ↦ A p⁻¹) (max 1 (⨆ k ≤ n, E k ω))⁻¹ := by
+  have h_eq : (fun n ω ↦ A (max 1 (partialSups E n ω))) =
+      fun n ω ↦ (Iic 1).indicator (fun p ↦ A p⁻¹) (max 1 (partialSups E n ω))⁻¹ := by
     ext n ω
     rw [indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 (le_max_left _ _))), inv_inv]
   rwa [h_eq]
@@ -182,36 +181,36 @@ theorem IsEProcess.lintegral_iSup_comp_max_le_one (hA : IsAdjuster A)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEProcess E ℱ S) (hP : P ∈ S) :
     ∫⁻ ω, ⨆ n, A (max 1 (E n ω)) ∂P ≤ 1 := by
   -- the adjusted running maxima are e-processes, and they increase to the adjusted supremum
-  have h := hE.isEProcess_comp_max_iSup hA hS le_rfl
+  have h := hE.isEProcess_comp_max_partialSups hA hS le_rfl
   have hA_mono : Monotone fun x ↦ A (max 1 x) := fun x y hxy ↦ hA.monotoneOn
     (mem_Ici.2 (le_max_left _ _)) (mem_Ici.2 (le_max_left _ _)) (max_le_max_left _ hxy)
   calc ∫⁻ ω, ⨆ n, A (max 1 (E n ω)) ∂P
-      ≤ ∫⁻ ω, ⨆ n, A (max 1 (⨆ k ≤ n, E k ω)) ∂P :=
-        lintegral_mono fun ω ↦ iSup_mono fun n ↦ hA_mono (le_iSup₂_of_le n le_rfl le_rfl)
-    _ = ⨆ n, ∫⁻ ω, A (max 1 (⨆ k ≤ n, E k ω)) ∂P :=
+      ≤ ∫⁻ ω, ⨆ n, A (max 1 (partialSups E n ω)) ∂P :=
+        lintegral_mono fun ω ↦ iSup_mono fun n ↦ hA_mono (le_partialSups E n ω)
+    _ = ⨆ n, ∫⁻ ω, A (max 1 (partialSups E n ω)) ∂P :=
         lintegral_iSup h.measurable fun m n hmn ω ↦
-          hA_mono (biSup_mono fun k hk ↦ hk.trans hmn)
+          hA_mono ((partialSups E).monotone hmn ω)
     _ ≤ 1 := iSup_le fun n ↦ (h.isEVar n).lintegral_le_one hP
 
 /-- **Adjusting the running maximum of a test supermartingale** [ShSVV11, Theorem 4;
 DdRSSVV11, Theorem 1]: for an adjuster `A` and a null of measures of mass at most one, the
-adjusted running maximum `A (max 1 (⨆ k ≤ n, M k))` of a test supermartingale is an e-process.
+adjusted running maximum `A (max 1 (partialSups M n))` of a test supermartingale is an e-process.
 This is the case `𝒢 = ℱ` of e-lifting. -/
-theorem IsTestSupermartingale.isEProcess_comp_max_iSup (hA : IsAdjuster A)
+theorem IsTestSupermartingale.isEProcess_comp_max_partialSups (hA : IsAdjuster A)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hM : IsTestSupermartingale M ℱ S) :
-    IsEProcess (fun n ω ↦ A (max 1 (⨆ k ≤ n, M k ω))) ℱ S :=
-  (hM.isEProcess fun P hP ↦ ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩).isEProcess_comp_max_iSup hA
-    hS le_rfl
+    IsEProcess (fun n ω ↦ A (max 1 (partialSups M n ω))) ℱ S :=
+  (hM.isEProcess fun P hP ↦ ⟨(hS P hP).trans_lt ENNReal.one_lt_top⟩).isEProcess_comp_max_partialSups
+    hA hS le_rfl
 
 /-- **The game-theoretic form of adjusters** [CR26, (26); ShSVV11, Theorem 4]: for an adjuster
 `A`, a test supermartingale `M` for a null `S` and a probability measure `P ∈ S`, the adjusted
-running maximum `A (max 1 (⨆ k ≤ n, M k))` is dominated, `P`-almost surely at every time, by a
+running maximum `A (max 1 (partialSups M n))` is dominated, `P`-almost surely at every time, by a
 test supermartingale for `P`. -/
-theorem IsTestSupermartingale.exists_isTestSupermartingale_ae_le_comp_max_iSup
+theorem IsTestSupermartingale.exists_isTestSupermartingale_ae_le_comp_max_partialSups
     (hA : IsAdjuster A) (hM : IsTestSupermartingale M ℱ S) (hP : P ∈ S) [IsProbabilityMeasure P] :
     ∃ M', IsTestSupermartingale M' ℱ {P} ∧
-      ∀ n, (fun ω ↦ A (max 1 (⨆ k ≤ n, M k ω))) ≤ᵐ[P] M' n :=
-  ((hM.anti_set (singleton_subset_iff.2 hP)).isEProcess_comp_max_iSup hA
+      ∀ n, (fun ω ↦ A (max 1 (partialSups M n ω))) ≤ᵐ[P] M' n :=
+  ((hM.anti_set (singleton_subset_iff.2 hP)).isEProcess_comp_max_partialSups hA
     (by simp)).exists_isTestSupermartingale_ae_le (mem_singleton P)
 
 /-! ### The converse: only adjusters lift e-processes -/
@@ -256,12 +255,12 @@ private lemma exists_isTestSupermartingale_fin {K : ℕ} (hK : 0 < K) :
   rw [fiberAvg_def, h_num, h_den, one_div]
 
 /-- **Only adjusters lift e-processes** [CR26, Theorem 3]. A function `A`, monotone on `[1, ∞]`,
-such that the adjusted running maximum `A (max 1 (⨆ k ≤ n, M k))` of every test supermartingale
+such that the adjusted running maximum `A (max 1 (partialSups M n))` of every test supermartingale
 `M` for a probability measure has expectation at most `1` at every time, is an adjuster. -/
 theorem isAdjuster_of_forall_lintegral_le_one (hA : MonotoneOn A (Ici 1))
     (h : ∀ (Ω : Type) (mΩ : MeasurableSpace Ω) (ℱ : Filtration ℕ mΩ) (P : Measure Ω),
       IsProbabilityMeasure P → ∀ M : ℕ → Ω → ℝ≥0∞, IsTestSupermartingale M ℱ {P} →
-        ∀ n, ∫⁻ ω, A (max 1 (⨆ k ≤ n, M k ω)) ∂P ≤ 1) :
+        ∀ n, ∫⁻ ω, A (max 1 (partialSups M n ω)) ∂P ≤ 1) :
     IsAdjuster A := by
   have hC := hA.antitone_indicator_Iic_comp_inv
   refine isAdjuster_iff_isPToECalibrator.2 ⟨hC, fun x hx ↦ indicator_of_notMem (not_le.2 hx) _, ?_⟩
@@ -291,21 +290,20 @@ theorem isAdjuster_of_forall_lintegral_le_one (hA : MonotoneOn A (Ici 1))
     ENNReal.div_le_of_le_mul (by rw [one_mul]; exact_mod_cast Nat.sub_le _ _)
   rw [indicator_of_mem (mem_Iic.2 hj)]
   exact hA (mem_Ici.2 (ENNReal.one_le_inv.2 hj)) (mem_Ici.2 (le_max_left _ _))
-    ((hMj j).trans ((le_iSup₂_of_le (f := fun i (_ : i ≤ k) ↦ M i j) (j : ℕ)
-      (Nat.lt_succ_iff.1 j.2) le_rfl).trans (le_max_right _ _)))
+    ((hMj j).trans ((le_partialSups_of_le M (Nat.lt_succ_iff.1 j.2) j).trans (le_max_right _ _)))
 
 /-- **The characterization of adjusters as e-lifters** [CR26, Theorem 3]. A function `A`, monotone
 on `[1, ∞]`, is an adjuster exactly when, for every pair of filtrations `𝒢 ≤ ℱ` and every null of
-probability measures, it turns the running maximum `max 1 (⨆ k ≤ n, E k)` of every e-process `E`
+probability measures, it turns the running maximum `max 1 (partialSups E n)` of every e-process `E`
 for `𝒢` into an e-process for `ℱ`. -/
 theorem isAdjuster_iff_forall_isEProcess :
     IsAdjuster A ↔ MonotoneOn A (Ici 1) ∧
       ∀ (Ω : Type) (mΩ : MeasurableSpace Ω) (𝒢 ℱ : Filtration ℕ mΩ), 𝒢 ≤ ℱ →
         ∀ S : Set (Measure Ω), (∀ P ∈ S, IsProbabilityMeasure P) →
           ∀ E : ℕ → Ω → ℝ≥0∞, IsEProcess E 𝒢 S →
-            IsEProcess (fun n ω ↦ A (max 1 (⨆ k ≤ n, E k ω))) ℱ S := by
+            IsEProcess (fun n ω ↦ A (max 1 (partialSups E n ω))) ℱ S := by
   refine ⟨fun hA ↦ ⟨hA.monotoneOn, fun Ω mΩ 𝒢 ℱ h𝒢ℱ S hS E hE ↦
-    hE.isEProcess_comp_max_iSup hA (fun P hP ↦ (hS P hP).measure_univ.le) h𝒢ℱ⟩, fun ⟨hA, h⟩ ↦
+    hE.isEProcess_comp_max_partialSups hA (fun P hP ↦ (hS P hP).measure_univ.le) h𝒢ℱ⟩, fun ⟨hA, h⟩ ↦
     isAdjuster_of_forall_lintegral_le_one hA fun Ω mΩ ℱ P hP M hM n ↦ ?_⟩
   have hS : ∀ Q ∈ ({P} : Set (Measure Ω)), IsProbabilityMeasure Q := by simpa using hP
   exact ((h Ω mΩ ℱ ℱ le_rfl {P} hS M

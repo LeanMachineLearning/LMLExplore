@@ -60,8 +60,8 @@ bound: for an adjuster `A`, `⨆ n, A (max 1 (E n))` has expectation at most `1`
   expectation at most `1` under every member of the null is an e-process [RRLK, Lemma 3].
 * `ProbabilityTheory.exists_isEProcess_one_lt_lintegral_iSup`: some e-process has a supremum of
   expectation larger than `1` [RRLK, Lemma 3].
-* `ProbabilityTheory.exists_isEProcess_not_isEProcess_iSup`: the running maximum of an e-process
-  need not be an e-process [RRLK, Remark 16].
+* `ProbabilityTheory.exists_isEProcess_not_isEProcess_partialSups`: the running maximum of an
+  e-process need not be an e-process [RRLK, Remark 16].
 
 ## Implementation notes
 
@@ -263,9 +263,10 @@ private lemma isEProcess_doubleOrNothing :
     have h0 : (0 : WithTop ℕ).untopA = 0 := by simp
     simp [stoppedValue, doubleOrNothing, hτ0, h0, ← two_mul]
 
-/-- The supremum of the running maximum of the martingale up to time `1`. -/
-private lemma iSup_le_one_doubleOrNothing (ω : Bool) :
-    ⨆ k ≤ 1, doubleOrNothing k ω = if ω then 2 else 1 := by
+/-- The running maximum of the martingale at time `1`. -/
+private lemma partialSups_one_doubleOrNothing (ω : Bool) :
+    partialSups doubleOrNothing 1 ω = if ω then 2 else 1 := by
+  simp only [partialSups_eq_biSup, iSup_apply]
   refine le_antisymm (iSup₂_le fun k hk ↦ ?_) ?_
   · rcases Nat.le_one_iff_eq_zero_or_eq_one.1 hk with rfl | rfl <;> cases ω <;>
       simp [doubleOrNothing]
@@ -273,10 +274,10 @@ private lemma iSup_le_one_doubleOrNothing (ω : Bool) :
     · exact le_iSup₂_of_le 0 zero_le_one (by simp [doubleOrNothing])
     · exact le_iSup₂_of_le 1 le_rfl (by simp [doubleOrNothing])
 
-private lemma one_lt_lintegral_iSup_le_one_doubleOrNothing :
-    1 < ∫⁻ ω, ⨆ k ≤ 1, doubleOrNothing k ω ∂coinLaw := by
+private lemma one_lt_lintegral_partialSups_one_doubleOrNothing :
+    1 < ∫⁻ ω, partialSups doubleOrNothing 1 ω ∂coinLaw := by
   -- the expectation is `2⁻¹ * (2 + 1) = 1 + 2⁻¹`
-  simp only [iSup_le_one_doubleOrNothing, lintegral_coinLaw, ↓reduceIte, Bool.false_eq_true,
+  simp only [partialSups_one_doubleOrNothing, lintegral_coinLaw, ↓reduceIte, Bool.false_eq_true,
     mul_add, ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top, mul_one]
   exact ENNReal.lt_add_right ENNReal.one_ne_top (by simp)
 
@@ -288,18 +289,20 @@ theorem exists_isEProcess_one_lt_lintegral_iSup :
       (_ : IsProbabilityMeasure P) (E : ℕ → Ω → ℝ≥0∞),
       IsEProcess E ℱ {P} ∧ 1 < ∫⁻ ω, ⨆ n, E n ω ∂P := by
   refine ⟨Bool, ⊤, revealFiltration, coinLaw, inferInstance, doubleOrNothing,
-    isEProcess_doubleOrNothing, one_lt_lintegral_iSup_le_one_doubleOrNothing.trans_le ?_⟩
-  exact lintegral_mono fun ω ↦ iSup₂_le fun k _ ↦ le_iSup (doubleOrNothing · ω) k
+    isEProcess_doubleOrNothing, one_lt_lintegral_partialSups_one_doubleOrNothing.trans_le ?_⟩
+  refine lintegral_mono fun ω ↦ ?_
+  simp only [partialSups_eq_biSup, iSup_apply]
+  exact iSup₂_le fun k _ ↦ le_iSup (doubleOrNothing · ω) k
 
 /-- **The running maximum of an e-process need not be an e-process** [RRLK, Remark 16]. For the
 martingale on two points that starts at `1` and then doubles or vanishes, the running maximum has
 expectation `3 / 2` at time `1`. -/
-theorem exists_isEProcess_not_isEProcess_iSup :
+theorem exists_isEProcess_not_isEProcess_partialSups :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (ℱ : Filtration ℕ mΩ) (P : Measure Ω)
       (_ : IsProbabilityMeasure P) (E : ℕ → Ω → ℝ≥0∞),
-      IsEProcess E ℱ {P} ∧ ¬ IsEProcess (fun n ω ↦ ⨆ k ≤ n, E k ω) ℱ {P} :=
+      IsEProcess E ℱ {P} ∧ ¬ IsEProcess (partialSups E) ℱ {P} :=
   ⟨Bool, ⊤, revealFiltration, coinLaw, inferInstance, doubleOrNothing,
     isEProcess_doubleOrNothing, fun h ↦ (h.isEVar 1).lintegral_le_one (mem_singleton _) |>.not_gt
-      one_lt_lintegral_iSup_le_one_doubleOrNothing⟩
+      one_lt_lintegral_partialSups_one_doubleOrNothing⟩
 
 end ProbabilityTheory

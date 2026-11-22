@@ -29,6 +29,9 @@ with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most
 * `MeasureTheory.eintegral_min_log_le_integral_truncLog_sub`: under a probability measure, the
   extended integral of `min (log E) k` is at most the integral of the truncated logarithm
   `ENNReal.truncLog k ((1 - ε) E + ε)`, minus `log (1 - ε)`.
+* `MeasureTheory.exists_integrable_truncLog_lt_integral`: if the extended integral of `log f`
+  exceeds a real `a`, and the negative part of `log f` has a finite mean, then so does the integral
+  of the truncated logarithm `ENNReal.truncLog c f` for some level `c`.
 -/
 
 public section
@@ -104,5 +107,32 @@ theorem eintegral_min_log_le_integral_truncLog_sub {Ω : Type*} [MeasurableSpace
   _ = _ := by
     rw [integral_sub hint (integrable_const _), integral_const]
     simp
+
+/-- **Truncation of an expected logarithm.** Let `f` be measurable, with a logarithm whose negative
+part has a finite mean under a finite measure (so `f` is almost everywhere nonzero). If the extended
+mean of `log f` exceeds `a`, then for some level `c` the logarithm truncated at `c` is integrable
+with mean above `a`: the truncations at the levels `0, 1, 2, …` increase to `log f`. -/
+theorem exists_integrable_truncLog_lt_integral {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    [IsFiniteMeasure μ] {f : Ω → ℝ≥0∞} (hf : Measurable f)
+    (hneg : ∫⁻ x, (-ENNReal.log (f x)).toENNReal ∂μ ≠ ∞) {a : ℝ}
+    (ha : (a : EReal) < ∫ᵉ x, ENNReal.log (f x) ∂μ) :
+    ∃ c : ℝ, Integrable (fun x ↦ ENNReal.truncLog c (f x)) μ ∧
+      a < ∫ x, ENNReal.truncLog c (f x) ∂μ := by
+  obtain ⟨c, hc⟩ : ∃ c : ℕ, (a : EReal) < ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ := by
+    by_contra! h
+    exact absurd (eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hf) h) (not_le.2 ha)
+  have hi := ENNReal.integrable_truncLog_comp_of_lintegral_ne_top hf hneg c
+  refine ⟨c, hi, ?_⟩
+  have heq : ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ =
+      ∫ᵉ x, (ENNReal.truncLog c (f x) : EReal) ∂μ := by
+    refine eintegral_congr_ae ?_
+    filter_upwards [ae_lt_top' (ENNReal.measurable_log.comp hf).neg.ereal_toENNReal.aemeasurable
+      hneg] with x hx
+    have hx0 : f x ≠ 0 := by
+      rintro h0
+      simp [h0] at hx
+    rw [ENNReal.coe_truncLog hx0, EReal.coe_natCast]
+  rw [heq, eintegral_eq_integral hi] at hc
+  exact_mod_cast hc
 
 end MeasureTheory
