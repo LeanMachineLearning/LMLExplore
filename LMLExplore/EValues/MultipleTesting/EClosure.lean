@@ -23,8 +23,10 @@ set may be selected from `𝓡 ω` after seeing the data.
 
 An e-collection (`ProbabilityTheory.IsECollection`) is a family `e S` of statistics, indexed by
 the sets of hypotheses, with `e ∅ = 0`, such that `e (trueNulls H P)` has expectation at most one
-under every probability measure `P` [XSF+26, Definition 5]; statistics `e S` that are e-variables
-for the intersections `⋂ i ∈ S, H i` are one. Its e-closure at level `α` is the candidate family
+under every probability measure `P` [XSF+26, Definition 5]. Equivalently, `e N` is an e-variable
+for the probability measures whose true nulls are exactly `N`, for every `N`: an e-collection is a
+family of e-variables indexed by the truth. Statistics `e S` that are e-variables for the
+intersections `⋂ i ∈ S, H i` are one. Its e-closure at level `α` is the candidate family
 of the sets `R` with `f S R ≤ α * e S ω` for every `S` (`ProbabilityTheory.eClosure`). The
 e-Closure Principle [XSF+26, Theorem 6] states that, for every loss vanishing when there are no
 true nulls and every level `α ∉ {0, ∞}`, a measurable candidate family controls `f`
@@ -55,6 +57,8 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 
 ## Main statements
 
+* `ProbabilityTheory.isECollection_iff`: an e-collection is a family of e-variables indexed by
+  the truth.
 * `ProbabilityTheory.IsECollection.lintegral_iSup_div_le_one`,
   `ProbabilityTheory.exists_isECollection_of_lintegral_iSup_div_le_one`: the post-hoc
   e-Closure Principle [XSF+26, Theorem 48].
@@ -220,21 +224,30 @@ structure IsECollection (e : Finset ι → Ω → ℝ≥0∞) (H : ι → Set (M
   lintegral_le_one (P : Measure Ω) [IsProbabilityMeasure P] :
     ∫⁻ ω, e (trueNulls H P) ω ∂P ≤ 1
 
+/-- **E-collections are families of e-variables indexed by the truth**: `e` is an e-collection
+exactly when `e ∅ = 0` and, for every set `N` of hypotheses, `e N` is an e-variable for the
+probability measures whose true nulls are exactly `N` [XSF+26, Definition 5]. A set `N` that is
+the set of true nulls of no probability measure leaves `e N` free, beyond measurability. -/
+theorem isECollection_iff {e : Finset ι → Ω → ℝ≥0∞} :
+    IsECollection e H ↔
+      e ∅ = 0 ∧ ∀ N, IsEVar (e N) {P | IsProbabilityMeasure P ∧ trueNulls H P = N} := by
+  refine ⟨fun he ↦ ⟨he.apply_empty, fun N ↦ ⟨he.measurable N, ?_⟩⟩, fun ⟨he₀, he⟩ ↦
+    ⟨fun N ↦ (he N).measurable, he₀, fun P hP ↦ (he _).lintegral_le_one ⟨hP, rfl⟩⟩⟩
+  rintro P ⟨hP, rfl⟩
+  exact he.lintegral_le_one P
+
 /-- Statistics `e S` that are e-variables for the intersections `⋂ i ∈ S, H i` of the nonempty
 sets of hypotheses form an e-collection [XSF+26, §4, after Definition 5]. -/
 theorem IsECollection.of_isEVar {e : Finset ι → Ω → ℝ≥0∞}
     (he : ∀ S : Finset ι, S.Nonempty → IsEVar (e S) (⋂ i ∈ S, H i)) (he₀ : e ∅ = 0) :
-    IsECollection e H where
-  measurable S := by
-    rcases S.eq_empty_or_nonempty with rfl | hS
-    · rw [he₀]
-      exact measurable_const
-    · exact (he S hS).measurable
-  apply_empty := he₀
-  lintegral_le_one P _ := by
-    rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
-    · simp [hN, he₀]
-    · exact (he _ hN).lintegral_le_one (by simp)
+    IsECollection e H := by
+  refine isECollection_iff.2 ⟨he₀, fun S ↦ ?_⟩
+  rcases S.eq_empty_or_nonempty with rfl | hS
+  · rw [he₀]
+    exact isEVar_zero
+  · refine (he S hS).anti_set ?_
+    rintro P ⟨-, rfl⟩
+    exact Set.mem_iInter₂.2 fun i hi ↦ mem_trueNulls.1 hi
 
 /-- Measurable statistics below those of an e-collection, with `e' ∅ = 0`, form an
 e-collection. -/
@@ -433,21 +446,15 @@ indicator of `A S` is a test of level `α` for the probability measures whose tr
 theorem isECollection_indicator {A : Finset ι → Set Ω}
     (hA : ∀ S : Finset ι, S.Nonempty →
       IsTest ((A S).indicator 1) {P | IsProbabilityMeasure P ∧ trueNulls H P = S} α) :
-    IsECollection (fun S ↦ if S = ∅ then 0 else (A S).indicator fun _ ↦ α⁻¹) H where
-  measurable S := by
-    rcases S.eq_empty_or_nonempty with rfl | hS
-    · simpa using measurable_zero
-    · simpa [hS.ne_empty] using
-        measurable_const.indicator (isTest_indicator_iff.1 (hA S hS)).1
-  apply_empty := by simp
-  lintegral_le_one P _ := by
-    rcases (trueNulls H P).eq_empty_or_nonempty with hN | hN
-    · simp [hN]
-    · obtain ⟨hAm, hAP⟩ := isTest_indicator_iff.1 (hA _ hN)
-      simp only [hN.ne_empty, ↓reduceIte]
-      rw [lintegral_indicator_const hAm]
-      calc α⁻¹ * P (A (trueNulls H P)) ≤ α⁻¹ * α := by gcongr; exact hAP P ⟨‹_›, rfl⟩
-        _ ≤ 1 := ENNReal.inv_mul_le_one α
+    IsECollection (fun S ↦ if S = ∅ then 0 else (A S).indicator fun _ ↦ α⁻¹) H := by
+  refine isECollection_iff.2 ⟨by simp, fun S ↦ ?_⟩
+  rcases S.eq_empty_or_nonempty with rfl | hS
+  · simpa using isEVar_zero
+  -- A test of level `α`, divided by `α`, is an e-variable.
+  have h : (A S).indicator (fun _ ↦ α⁻¹) = fun ω ↦ (A S).indicator 1 ω / α := by
+    ext ω
+    by_cases hω : ω ∈ A S <;> simp [hω]
+  simpa only [hS.ne_empty, ↓reduceIte, h] using (hA S hS).isEVar_div
 
 /-- The closed testing rejection set and the e-closure for the family-wise loss
 [XSF+26, Corollary 13]: for a level `α ∉ {0, ∞}`, the members of the e-closure of the thresholded

@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.MultipleTesting.EBH
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 import LMLExplore.Algebra.BigOperators.Intervals
 import LMLExplore.Data.Fintype.BigOperators
@@ -19,25 +20,24 @@ import LMLExplore.MeasureTheory.Measure.Weighted
 
 Let `M i`, for `i` in a finite type `ι` of `K` hypotheses, be test supermartingales for one
 filtration. The e-BH procedure at level `α` [WR22] applied to the running maxima `⨆ n, M i n`
-makes a rejection exactly when some nonempty set `R` of hypotheses is self-consistent:
-`K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`. For every `K` and every `α ≤ (K + 1) / (2 * K)`,
-this file constructs test martingales for one filtration, with every hypothesis true, for which
-the procedure rejects with probability exactly `2 * K * α / (K + 1)` [EVR26, Note 18]. For two and
-three hypotheses this is `4 * α / 3` and `3 * α / 2`: the upper bounds
-`ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_two` and
-`ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three` are attained. Since
+makes a rejection, `(eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty`, exactly when some nonempty set
+`R` of hypotheses is self-consistent: `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`. For every
+`K` and every `α ≤ (K + 1) / (2 * K)`, this file constructs test martingales for one filtration,
+with every hypothesis true, for which the procedure rejects with probability exactly
+`2 * K * α / (K + 1)` [EVR26, Note 18]. For two and three hypotheses this is `4 * α / 3` and
+`3 * α / 2`: the upper bounds `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_two` and
+`ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_three` are attained. Since
 `2 * K / (K + 1) > 1` for `K ≥ 2`, the procedure does not control the false discovery rate at its
 level [TGdH25].
 
 ## Main statements
 
-* `ProbabilityTheory.exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq`: test
-  martingales for which e-BH on the running maxima rejects with probability
-  `2 * K * α / (K + 1)`.
-* `ProbabilityTheory.exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_of_card_eq_two`
-  and `…_of_card_eq_three`: the bounds `4 * α / 3` for two hypotheses and `3 * α / 2` for three
-  are attained.
-* `ProbabilityTheory.exists_isTestMartingale_lt_measure_exists_selfConsistent_iSup`: for at least
+* `ProbabilityTheory.exists_isTestMartingale_measure_eBH_iSup_nonempty_eq`: test martingales for
+  which e-BH on the running maxima rejects with probability `2 * K * α / (K + 1)`.
+* `ProbabilityTheory.exists_isTestMartingale_measure_eBH_iSup_nonempty_eq_of_card_eq_two` and
+  `…_of_card_eq_three`: the bounds `4 * α / 3` for two hypotheses and `3 * α / 2` for three are
+  attained.
+* `ProbabilityTheory.exists_isTestMartingale_lt_measure_eBH_iSup_nonempty`: for at least
   two hypotheses and every level `0 < α < 1`, there are test martingales for one filtration, with
   every hypothesis true, for which e-BH on the running maxima rejects with probability larger
   than `α`.
@@ -61,8 +61,7 @@ The Doob martingales are the weighted fiber averages `ProbabilityTheory.fiberAvg
 space, for the filtration `ProbabilityTheory.fiberFiltration` whose σ-algebra at time `t` is
 pulled back from the information revealed up to time `t`
 (`ProbabilityTheory.isTestMartingale_fiberAvg`). A finite type `ι` of `K` hypotheses is reduced to
-`Fin K` through `Fintype.equivFinOfCardEq` and
-`ProbabilityTheory.measure_exists_selfConsistent_le_of_equiv`.
+`Fin K` through `Fintype.equivFinOfCardEq` and `ProbabilityTheory.eBH_comp_equiv_nonempty`.
 
 The construction and its proof are adapted from `EValuesResearch/Results/RunningMaxima.lean`
 (commit `ffba78a`) in the paper project `RemyDegenne/evalues_research`, which formalizes
@@ -367,15 +366,14 @@ private lemma sum_ladderWeight_mul_ladderValue (p a : ℝ≥0∞) (i : Fin (n + 
   rw [← Finset.sum_filter, Finset.sum_const, nsmul_eq_mul, mul_comm, Equiv.coe_addLeft]
 
 /-- E-BH rejects on the running maxima of the ladder exactly when the coin is `true`. -/
-private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α ≠ 0) (hαtop : α ≠ ⊤)
+private lemma eBH_ladder_nonempty_iff {α p : ℝ≥0∞} (hα0 : α ≠ 0) (hαtop : α ≠ ⊤)
     (hp0 : p ≠ 0) (hp : p ≠ ⊤) (ω : LadderΩ n) :
-    (∃ R : Finset (Fin (n + 1)), R.Nonempty ∧ ∀ i ∈ R,
-      ((n + 1 : ℕ) : ℝ≥0∞) ≤ α * R.card * ⨆ t, ladder n p ((n + 1 : ℕ) / α) i t ω) ↔
-      ω.1 = true := by
+    (eBH (fun i ↦ ⨆ t, ladder n p ((n + 1 : ℕ) / α) i t ω) α).Nonempty ↔ ω.1 = true := by
+  rw [eBH_nonempty_iff]
   constructor
   · rintro ⟨S, ⟨i, hi⟩, hSe⟩
     by_contra hb
-    have := hSe i hi
+    have := isSelfConsistent_iff.1 hSe i hi
     simp [ladder_of_false i _ (by simpa using hb)] at this
   · intro hb
     obtain ⟨b, s, H⟩ := ω
@@ -394,7 +392,7 @@ private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α �
     have hS : S.card = (Finset.univ.filter fun l : Fin (n + 1) ↦
         (l : ℕ) < J ∧ m ≤ (H l : ℕ)).card :=
       Finset.card_equiv (Equiv.addRight s) fun i ↦ by simp [S]
-    refine ⟨S, ?_, fun i hi ↦ ?_⟩
+    refine ⟨S, ?_, isSelfConsistent_iff.2 fun i hi ↦ ?_⟩
     · rw [← Finset.card_pos, hS]
       omega
     · -- the player of `i` climbs before `J`, so the running maximum of `i` is
@@ -405,6 +403,7 @@ private lemma exists_selfConsistent_ladder_iff {α p : ℝ≥0∞} (hα0 : α �
       set x : ℕ := n + 1 - H (i + s)
       have hx0 : (x : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (by have := (H (i + s)).is_lt; omega)
       have hxS : x ≤ S.card := by rw [hS]; omega
+      rw [Fintype.card_fin]
       calc ((n + 1 : ℕ) : ℝ≥0∞)
           = α * (x * (((n + 1 : ℕ) : ℝ≥0∞) / α / x)) := by
             rw [ENNReal.mul_div_cancel hx0 (ENNReal.natCast_ne_top _),
@@ -629,14 +628,13 @@ end Ladder
 /-! ### The construction -/
 
 /-- The construction for the hypotheses `Fin (n + 1)` at a positive level `α`: the ladder. -/
-private lemma exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_fin (n : ℕ)
+private lemma exists_isTestMartingale_measure_eBH_iSup_nonempty_eq_fin (n : ℕ)
     {α : ℝ≥0∞} (hα0 : α ≠ 0)
     (hα : α ≤ (((n + 1 : ℕ) : ℝ≥0∞) + 1) / (2 * ((n + 1 : ℕ) : ℝ≥0∞))) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
       (M : Fin (n + 1) → ℕ → Ω → ℝ≥0∞), IsProbabilityMeasure P ∧
       (∀ i, IsTestMartingale (M i) ℱ {P}) ∧
-      P {ω | ∃ R : Finset (Fin (n + 1)), R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card (Fin (n + 1)) : ℝ≥0∞) ≤ α * R.card * ⨆ t, M i t ω} =
+      P {ω | (eBH (fun i ↦ ⨆ t, M i t ω) α).Nonempty} =
         2 * ((n + 1 : ℕ) : ℝ≥0∞) * α / (((n + 1 : ℕ) : ℝ≥0∞) + 1) := by
   have hα' : α ≤ ((n + 1 + 1 : ℕ) : ℝ≥0∞) / ((2 * (n + 1) : ℕ) : ℝ≥0∞) := by
     push_cast at hα ⊢
@@ -664,77 +662,57 @@ private lemma exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_fin 
   · classical
     rw [← setLIntegral_one, setLIntegral_sum_smul_dirac]
     simpa using sum_ladderWeight (n := n) hp1
-  · have hset : {ω : LadderΩ n | ∃ R : Finset (Fin (n + 1)), R.Nonempty ∧ ∀ i ∈ R,
-        (Fintype.card (Fin (n + 1)) : ℝ≥0∞) ≤
-          α * R.card * ⨆ t, ladder n p ((n + 1 : ℕ) / α) i t ω} = {ω | ω.1 = true} := by
-      ext ω
-      simpa only [Set.mem_ofPred_eq, Fintype.card_fin] using
-        exists_selfConsistent_ladder_iff hα0 hαtop hp0 hptop ω
+  · have hset : {ω : LadderΩ n |
+        (eBH (fun i ↦ ⨆ t, ladder n p ((n + 1 : ℕ) / α) i t ω) α).Nonempty} =
+        {ω | ω.1 = true} :=
+      Set.ext fun ω ↦ eBH_ladder_nonempty_iff hα0 hαtop hp0 hptop ω
     rw [hset, hp_eq, ← setLIntegral_one, setLIntegral_sum_smul_dirac]
     simpa using sum_ladderWeight_true (n := n) p
 
 /-- **E-BH on the running maxima of test martingales rejects with probability
 `2 * K * α / (K + 1)`.** For every finite type `ι` of `K` hypotheses and every level
 `α ≤ (K + 1) / (2 * K)` there are test martingales `M i`, `i : ι`, for one filtration, under a
-probability measure `P`, for which e-BH at level `α` on the running maxima makes a rejection, that
-is, some nonempty set `R` of hypotheses has `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
+probability measure `P`, for which e-BH at level `α` on the running maxima makes a rejection with
 probability `2 * K * α / (K + 1)`. Every hypothesis `{P}` is true. This is the construction of
 [EVR26, Note 18]. -/
-theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq (ι : Type*) [Fintype ι]
+theorem exists_isTestMartingale_measure_eBH_iSup_nonempty_eq (ι : Type*) [Fintype ι]
     {α : ℝ≥0∞} (hα : α ≤ (Fintype.card ι + 1) / (2 * Fintype.card ι)) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
       (M : ι → ℕ → Ω → ℝ≥0∞), IsProbabilityMeasure P ∧ (∀ i, IsTestMartingale (M i) ℱ {P}) ∧
-      P {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} =
+      P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} =
         2 * Fintype.card ι * α / (Fintype.card ι + 1) := by
   -- no hypotheses, or level `0`: the constant test martingales `1`, no rejection
   by_cases hK : Fintype.card ι = 0 ∨ α = 0
   · refine ⟨Unit, inferInstance, Measure.dirac (), ⊥, fun _ ↦ 1, inferInstance,
-      fun _ ↦ isTestMartingale_one fun P hP ↦ by simp [Set.mem_singleton_iff.1 hP],
-      ?_⟩
-    have : {ω : Unit | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, (1 : ℕ → Unit → ℝ≥0∞) n ω} =
-        ∅ := by
-      refine Set.eq_empty_of_forall_notMem fun ω ⟨R, ⟨i, hi⟩, hR⟩ ↦ ?_
-      have : Nonempty ι := ⟨i⟩
-      rcases hK with h | rfl
-      · exact Fintype.card_ne_zero h
-      · have h := hR i hi
-        simp only [zero_mul, nonpos_iff_eq_zero, Nat.cast_eq_zero] at h
-        exact Fintype.card_ne_zero h
-    rw [this, measure_empty]
+      fun _ ↦ isTestMartingale_one fun P hP ↦ by simp [Set.mem_singleton_iff.1 hP], ?_⟩
     rcases hK with h | rfl
-    · simp [h]
+    · have : IsEmpty ι := Fintype.card_eq_zero_iff.1 h
+      simp [Finset.eq_empty_of_isEmpty]
     · simp
   push Not at hK
   obtain ⟨hK0, hα0⟩ := hK
   obtain ⟨n, hn⟩ : ∃ n, Fintype.card ι = n + 1 := Nat.exists_eq_add_one.2 (Nat.pos_of_ne_zero hK0)
   obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
-    exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_fin n hα0 (by rwa [hn] at hα)
+    exists_isTestMartingale_measure_eBH_iSup_nonempty_eq_fin n hα0 (by rwa [hn] at hα)
   -- transport along an enumeration of `ι`
   let e : ι ≃ Fin (n + 1) := Fintype.equivFinOfCardEq hn
-  have hval : 2 * (Fintype.card ι : ℝ≥0∞) * α / (Fintype.card ι + 1) =
-      2 * ((n + 1 : ℕ) : ℝ≥0∞) * α / (((n + 1 : ℕ) : ℝ≥0∞) + 1) := by
-    rw [hn]
+  have hset : {ω | (eBH (fun i ↦ ⨆ t, M (e i) t ω) α).Nonempty} =
+      {ω | (eBH (fun k ↦ ⨆ t, M k t ω) α).Nonempty} :=
+    Set.ext fun ω ↦ eBH_comp_equiv_nonempty (e := fun k ↦ ⨆ t, M k t ω) e
   refine ⟨Ω, mΩ, P, ℱ, fun i ↦ M (e i), hP, fun i ↦ hM (e i), ?_⟩
-  rw [hval, ← hEq]
-  refine le_antisymm ?_ ?_
-  · simpa only [Equiv.apply_symm_apply] using
-      measure_exists_selfConsistent_le_of_equiv e (fun i ↦ M (e i)) α
-  · simpa only [Equiv.symm_symm] using measure_exists_selfConsistent_le_of_equiv e.symm M α
+  rw [hset, hEq, hn]
 
 /-- **The bound `4 * α / 3` for two hypotheses is attained.** For every finite type `ι` of two
 hypotheses and every level `α ≤ 3 / 4` there are test martingales for one filtration for which
 e-BH at level `α` on the running maxima makes a rejection with probability `4 * α / 3`, the bound
-of `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_two`. -/
-theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_of_card_eq_two
+of `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_two`. -/
+theorem exists_isTestMartingale_measure_eBH_iSup_nonempty_eq_of_card_eq_two
     {ι : Type*} [Fintype ι] (hι : Fintype.card ι = 2) {α : ℝ≥0∞} (hα : α ≤ 3 / 4) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
       (M : ι → ℕ → Ω → ℝ≥0∞), IsProbabilityMeasure P ∧ (∀ i, IsTestMartingale (M i) ℱ {P}) ∧
-      P {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} = 4 * α / 3 := by
+      P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} = 4 * α / 3 := by
   obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
-    exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq ι (α := α)
+    exists_isTestMartingale_measure_eBH_iSup_nonempty_eq ι (α := α)
       (by rwa [hι, show (((2 : ℕ) : ℝ≥0∞) + 1) / (2 * ((2 : ℕ) : ℝ≥0∞)) = 3 / 4 by
         rw [ENNReal.div_eq_div_iff (by norm_num) (by norm_num) (by norm_num) (by norm_num)]
         norm_num])
@@ -745,15 +723,14 @@ theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_of_card_eq
 /-- **The bound `3 * α / 2` for three hypotheses is attained.** For every finite type `ι` of three
 hypotheses and every level `α ≤ 2 / 3` there are test martingales for one filtration for which
 e-BH at level `α` on the running maxima makes a rejection with probability `3 * α / 2`, the bound
-of `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three`. -/
-theorem exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq_of_card_eq_three
+of `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_three`. -/
+theorem exists_isTestMartingale_measure_eBH_iSup_nonempty_eq_of_card_eq_three
     {ι : Type*} [Fintype ι] (hι : Fintype.card ι = 3) {α : ℝ≥0∞} (hα : α ≤ 2 / 3) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
       (M : ι → ℕ → Ω → ℝ≥0∞), IsProbabilityMeasure P ∧ (∀ i, IsTestMartingale (M i) ℱ {P}) ∧
-      P {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} = 3 * α / 2 := by
+      P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} = 3 * α / 2 := by
   obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
-    exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq ι (α := α) (by
+    exists_isTestMartingale_measure_eBH_iSup_nonempty_eq ι (α := α) (by
       rwa [hι, show (((3 : ℕ) : ℝ≥0∞) + 1) / (2 * ((3 : ℕ) : ℝ≥0∞)) = 2 / 3 by
         rw [ENNReal.div_eq_div_iff (by norm_num) (by norm_num) (by norm_num) (by norm_num)]
         norm_num])
@@ -767,25 +744,24 @@ at its level.** For every finite type `ι` of at least two hypotheses and every 
 `0 < α < 1` there are test martingales for one filtration for which e-BH at level `α` on the
 running maxima makes a rejection with probability larger than `α`. Every hypothesis is true, so
 this probability is the false discovery rate of the procedure [TGdH25]. -/
-theorem exists_isTestMartingale_lt_measure_exists_selfConsistent_iSup {ι : Type*} [Fintype ι]
+theorem exists_isTestMartingale_lt_measure_eBH_iSup_nonempty {ι : Type*} [Fintype ι]
     (hι : 2 ≤ Fintype.card ι) {α : ℝ≥0∞} (hα0 : α ≠ 0) (hα1 : α < 1) :
     ∃ (Ω : Type) (mΩ : MeasurableSpace Ω) (P : Measure Ω) (ℱ : Filtration ℕ mΩ)
       (M : ι → ℕ → Ω → ℝ≥0∞), IsProbabilityMeasure P ∧ (∀ i, IsTestMartingale (M i) ℱ {P}) ∧
-      α < P {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} := by
+      α < P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} := by
   have hK0 : (2 * Fintype.card ι : ℝ≥0∞) ≠ 0 :=
     mul_ne_zero two_ne_zero (Nat.cast_ne_zero.2 (by omega))
   by_cases hα : α ≤ (Fintype.card ι + 1) / (2 * Fintype.card ι)
   · -- the construction at the level `α` rejects with probability `2 * K * α / (K + 1) > α`
     obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
-      exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq ι hα
+      exists_isTestMartingale_measure_eBH_iSup_nonempty_eq ι hα
     refine ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq ▸ ?_⟩
     rw [ENNReal.lt_div_iff_mul_lt (Or.inl (by simp)) (Or.inl (by simp)), mul_comm α]
     exact ENNReal.mul_lt_mul_left hα0 hα1.ne_top
       (by exact_mod_cast (by omega : Fintype.card ι + 1 < 2 * Fintype.card ι))
   · -- above `(K + 1) / (2 * K)`, the construction at that level rejects with probability `1`
     obtain ⟨Ω, mΩ, P, ℱ, M, hP, hM, hEq⟩ :=
-      exists_isTestMartingale_measure_exists_selfConsistent_iSup_eq ι le_rfl
+      exists_isTestMartingale_measure_eBH_iSup_nonempty_eq ι le_rfl
     refine ⟨Ω, mΩ, P, ℱ, M, hP, hM, hα1.trans_le ?_⟩
     calc (1 : ℝ≥0∞)
         = 2 * Fintype.card ι * ((Fintype.card ι + 1) / (2 * Fintype.card ι)) /
@@ -793,9 +769,6 @@ theorem exists_isTestMartingale_lt_measure_exists_selfConsistent_iSup {ι : Type
           rw [ENNReal.mul_div_cancel hK0 (ENNReal.mul_ne_top ENNReal.ofNat_ne_top
             (ENNReal.natCast_ne_top _)), ENNReal.div_self (by simp) (by simp)]
       _ = _ := hEq.symm
-      _ ≤ _ := by
-          refine measure_mono fun ω ⟨R, hR, hRe⟩ ↦ ⟨R, hR, fun i hi ↦ (hRe i hi).trans ?_⟩
-          gcongr
-          exact (not_le.1 hα).le
+      _ ≤ _ := measure_mono fun ω hω ↦ Finset.Nonempty.mono (eBH_mono (not_le.1 hα).le le_rfl) hω
 
 end ProbabilityTheory

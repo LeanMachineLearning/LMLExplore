@@ -59,14 +59,15 @@ Theorems 9.18–9.19].
 * `ProbabilityTheory.IsSelfConsistent.mem_eClosure`: a self-consistent set belongs to the
   e-closure of the mean e-collection for the false discovery proportion.
 * `ProbabilityTheory.isGreatest_eBH`, `ProbabilityTheory.mem_eBH_iff_exists`: e-BH is the largest
-  self-consistent set and the union of all of them [WR22, §5].
+  self-consistent set and the union of all of them [WR22, §5]; it makes a rejection exactly when
+  some nonempty set is self-consistent (`ProbabilityTheory.eBH_nonempty_iff`).
 * `ProbabilityTheory.card_eBH`, `ProbabilityTheory.mem_eBH_iff_le_mul_card`: the number of
   rejections of e-BH, and its threshold form [WR22, Proposition 1].
 * `ProbabilityTheory.mem_eBH_iff_one_le_mul`: for one hypothesis, e-BH is the e-test.
 * `ProbabilityTheory.eBH_zero`, `ProbabilityTheory.eBH_mono`,
-  `ProbabilityTheory.mem_eBH_comp_equiv`, `ProbabilityTheory.card_eBH_comp_equiv`: e-BH rejects
-  nothing at level `0`, is monotone in the level and the e-values, and commutes with relabelling
-  the hypotheses.
+  `ProbabilityTheory.mem_eBH_comp_equiv`, `ProbabilityTheory.card_eBH_comp_equiv`,
+  `ProbabilityTheory.eBH_comp_equiv_nonempty`: e-BH rejects nothing at level `0`, is monotone in
+  the level and the e-values, and commutes with relabelling the hypotheses.
 * `ProbabilityTheory.measurable_eBH`, `ProbabilityTheory.measurable_eBH_id`,
   `ProbabilityTheory.measurable_card_eBH`: e-BH and its number of rejections are measurable.
 * `ProbabilityTheory.lintegral_iSup_fdp_div_le_of_isSelfConsistent`,
@@ -245,6 +246,10 @@ self-consistent set contains `i`. -/
 theorem mem_eBH_iff_exists : i ∈ eBH e α ↔ ∃ R, IsSelfConsistent e α R ∧ i ∈ R :=
   ⟨fun hi ↦ ⟨_, isSelfConsistent_eBH, hi⟩, fun ⟨_, h, hi⟩ ↦ h.subset_eBH hi⟩
 
+/-- **e-BH makes a rejection exactly when some nonempty set is self-consistent.** -/
+theorem eBH_nonempty_iff : (eBH e α).Nonempty ↔ ∃ R, R.Nonempty ∧ IsSelfConsistent e α R :=
+  ⟨fun h ↦ ⟨_, h, isSelfConsistent_eBH⟩, fun ⟨_, hR, h⟩ ↦ Finset.Nonempty.mono h.subset_eBH hR⟩
+
 /-- **The number of rejections of e-BH** is `k*`, the largest `k ≤ K` such that at least `k`
 hypotheses `j` satisfy `K ≤ α * k * e j`. -/
 theorem card_eBH : #(eBH e α) = Nat.findGreatest
@@ -297,6 +302,11 @@ theorem mem_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) {i : κ} : i ∈ eBH (e
 /-- Relabelling the hypotheses does not change the number of rejections of e-BH. -/
 theorem card_eBH_comp_equiv [Fintype κ] (σ : κ ≃ ι) : #(eBH (e ∘ σ) α) = #(eBH e α) :=
   card_equiv σ fun _ ↦ mem_eBH_comp_equiv σ
+
+/-- Relabelling the hypotheses does not change whether e-BH makes a rejection. -/
+theorem eBH_comp_equiv_nonempty [Fintype κ] (σ : κ ≃ ι) :
+    (eBH (e ∘ σ) α).Nonempty ↔ (eBH e α).Nonempty := by
+  rw [← card_pos, card_eBH_comp_equiv, card_pos]
 
 /-- The e-BH rejection set is measurable in measurable e-values. -/
 theorem measurable_eBH {E : ι → Ω → ℝ≥0∞} (hE : ∀ i, Measurable (E i)) (α : ℝ≥0∞) :

@@ -14,12 +14,12 @@ Let `M i`, for `i` in a finite type `ι` of three hypotheses, be test supermarti
 filtration, and let every hypothesis be true under `P`. This file proves that e-BH at level `α`
 [WR22] applied to the running maxima `⨆ n, M i n` makes a rejection with probability at most
 `3 * α / 2` [EVR26, Note 18, Theorem B], by the potential argument
-`ProbabilityTheory.measure_exists_selfConsistent_le_of_key` of
+`ProbabilityTheory.measure_eBH_nonempty_le_of_key` of
 `LMLExplore.EValues.MultipleTesting.RunningMaxima`.
 
 ## Main statements
 
-* `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three`: for three
+* `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_three`: for three
   hypotheses, e-BH on the running maxima rejects with probability at most `3 * α / 2`
   [EVR26, Note 18, Theorem B].
 
@@ -553,11 +553,10 @@ private lemma isUpperSet_wins3 : IsUpperSet {b | Wins3 b} := by
   omega
 
 /-- The bound `3 * α / 2` for three test supermartingales indexed by `Fin 3`. -/
-private lemma measure_exists_selfConsistent_iSup_fin_three_le {M : Fin 3 → ℕ → Ω → ℝ≥0∞}
+private lemma measure_eBH_iSup_nonempty_le_fin_three {M : Fin 3 → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ {P}) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset (Fin 3), R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card (Fin 3) : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤ 3 * α / 2 := by
-  have h := measure_exists_selfConsistent_le_of_key hM monotone_lev3.measurable le_lev3
+    P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ 3 * α / 2 := by
+  have h := measure_eBH_nonempty_le_of_key hM monotone_lev3.measurable le_lev3
     (C := coef3) (C₀ := const3)
     (fun b j ↦ (coef3_props b j).1) (fun b j ↦ (coef3_props b j).2.1)
     (fun b j ↦ (coef3_props b j).2.2)
@@ -574,17 +573,20 @@ end Three
 
 /-- **E-BH on the running maxima of three test supermartingales.** Let `M i` be test
 supermartingales for one filtration and nulls `H i`, for three hypotheses, all true under `P`.
-E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection, that is, some
-nonempty set `R` of hypotheses has `3 ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
-probability at most `3 * α / 2` [EVR26, Note 18, Theorem B]. The measure `P` need not be a
-probability measure. -/
-theorem measure_exists_selfConsistent_iSup_le_of_card_eq_three {ι : Type*} [Fintype ι]
+E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection with probability
+at most `3 * α / 2` [EVR26, Note 18, Theorem B]. The measure `P` need not be a probability
+measure. -/
+theorem measure_eBH_iSup_nonempty_le_of_card_eq_three {ι : Type*} [Fintype ι]
     (hι : Fintype.card ι = 3) {H : ι → Set (Measure Ω)} {M : ι → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ (H i)) (hP : ∀ i, P ∈ H i) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset ι, R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤ 3 * α / 2 :=
-  (measure_exists_selfConsistent_le_of_equiv (Fintype.equivFinOfCardEq hι) M α).trans
-    (measure_exists_selfConsistent_iSup_fin_three_le
-      (fun _ ↦ (hM _).anti_set (Set.singleton_subset_iff.2 (hP _))) α)
+    P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ 3 * α / 2 := by
+  -- relabel the hypotheses by `Fin 3`
+  let σ := (Fintype.equivFinOfCardEq hι).symm
+  have h := measure_eBH_iSup_nonempty_le_fin_three (M := fun k ↦ M (σ k))
+    (fun _ ↦ (hM _).anti_set (Set.singleton_subset_iff.2 (hP _))) α
+  have hset : {ω | (eBH (fun k ↦ ⨆ n, M (σ k) n ω) α).Nonempty} =
+      {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} :=
+    Set.ext fun ω ↦ eBH_comp_equiv_nonempty (e := fun i ↦ ⨆ n, M i n ω) σ
+  rwa [hset] at h
 
 end ProbabilityTheory
