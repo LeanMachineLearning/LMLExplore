@@ -30,7 +30,9 @@ of the null laws and no finiteness of the numeraires is used for the bound
 `∫⁻ F_τ / E_τ ∂Q₁^ℕ ≤ 1` on the e-processes `F` (`lintegral_div_prod_le_one`). For a simple
 i.i.d. null `P₁` and an alternative `Q₁ ≪ P₁`, this makes the likelihood ratio process optimal at
 every stopping time that is finite everywhere (`isNumeraireAt_prod_rnDeriv`)
-[EVR26, Note 40, Proposition 6].
+[EVR26, Note 40, Proposition 6]. When the numeraires may be infinite with positive probability,
+the product is still optimal at every fixed time (`isNumeraireAt_prod_const`), by the same bound
+for the numeraires multiplied by the masses of their finite supports.
 
 ## Main statements
 
@@ -45,6 +47,8 @@ every stopping time that is finite everywhere (`isNumeraireAt_prod_rnDeriv`)
   is optimal at every stopping time that is finite everywhere [EVR26, Note 40, Theorem 5].
 * `ProbabilityTheory.isNumeraireAt_prod_sequentialNull`: the same for the sequential null of the
   one-step nulls.
+* `ProbabilityTheory.isNumeraireAt_prod_const`: with no finiteness of the numeraires, the product
+  is optimal at every fixed time [EVR26, Note 40, Proposition 6 (2)].
 * `ProbabilityTheory.isNumeraireAt_prod_rnDeriv`: the likelihood ratio process of i.i.d. laws is
   optimal at every stopping time that is finite everywhere.
 
@@ -372,6 +376,111 @@ theorem isNumeraireAt_prod_sequentialNull (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsPr
       (fun i ↦ measurable_piLT_apply (Nat.lt_succ_self i))
       (fun i ↦ (hX i).measurable.comp measurable_snd) fun i _ ↦ (hX i).isEVar).isEProcess
       fun _ hP ↦ have := isProbabilityMeasure_of_mem_sequentialNull hP; inferInstance
+
+/-- **The product of one-step numeraires is optimal at every fixed time**
+[EVR26, Note 40, Proposition 6 (2)], whether the numeraires are finite or not. Let `S₁ i` be
+nonempty sets of probability measures on `𝓧`, `Q₁ i` probability measures, and `X i` a numeraire
+of `S₁ i` against `Q₁ i`. Let `𝓝` be a null on the sequences that contains every product of
+members of the `S₁ i` and for which the product `E n ω = ∏ i < n, X i (ω i)` is an e-process for
+the filtration `Filtration.piLT` of the past observations. Then `E` is optimal at every constant
+time against the product of the `Q₁ i`. At a stopping time that is not constant this can fail
+when the numeraires are infinite with positive probability
+(`ProbabilityTheory.not_isNumeraireAt_one_and_ite`). -/
+theorem isNumeraireAt_prod_const (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbabilityMeasure P)
+    (hS₁_ne : ∀ i, (S₁ i).Nonempty) [∀ i, IsProbabilityMeasure (Q₁ i)]
+    (hX : ∀ i, IsNumeraire (X i) (S₁ i) (Q₁ i))
+    (h𝓝 : ∀ P : ℕ → Measure 𝓧, (∀ i, P i ∈ S₁ i) → Measure.infinitePi P ∈ 𝓝)
+    (hE : IsEProcess (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝) (n : ℕ) :
+    IsNumeraireAt (fun n ω ↦ ∏ i ∈ range n, X i (ω i)) piLT 𝓝 (Measure.infinitePi Q₁)
+      fun _ ↦ (n : WithTop ℕ) := by
+  rw [isNumeraireAt_iff measurable_const]
+  refine ⟨hE, fun F hF ↦ ?_⟩
+  simp only [stoppedValue_natCast (τ := fun _ ↦ n)]
+  have hS₁_le (i : ℕ) : ∀ P ∈ S₁ i, P univ ≤ 1 := fun P hP ↦ (hS₁ i P hP).measure_univ.le
+  -- `q i` is the mass of the finite support of the numeraire `X i`
+  set q : ℕ → ℝ≥0∞ := fun i ↦ Q₁ i (X i).fsupport with hq
+  have h_ne := ae_forall_ne_zero hS₁ hX
+  -- the product is positive and finite where each factor is
+  have h_supp : Measure.infinitePi Q₁ (fun ω ↦ ∏ i ∈ range n, X i (ω i)).fsupport =
+      ∏ i ∈ range n, q i := by
+    rw [← Measure.infinitePi_pi Q₁ fun i _ ↦ (hX i).measurable.measurable_fsupport]
+    refine measure_congr (Filter.eventuallyEqSet_iff.2 ?_)
+    filter_upwards [h_ne] with ω hω
+    simp only [Set.mem_pi, SetLike.mem_coe, Function.mem_fsupport]
+    refine ⟨fun h i hi ↦ ⟨fun h_top ↦ h.1 (WithTop.prod_eq_top hi h_top fun j _ ↦ hω j),
+      hω i⟩, fun h ↦ ⟨ENNReal.prod_ne_top fun i hi ↦ (h i hi).1,
+        prod_ne_zero_iff.2 fun i _ ↦ hω i⟩⟩
+  rw [h_supp]
+  by_cases hq0 : ∃ i ∈ range n, q i = 0
+  · -- a factor is almost surely infinite: so is the product, and the ratio is `0`
+    obtain ⟨i, hi, hqi⟩ := hq0
+    have hXi : ∀ᵐ x ∂Q₁ i, X i x = ∞ :=
+      ((hX i).measure_fsupport_ne_zero_or_ae_top (hS₁_le i)).resolve_left (not_not.2 hqi)
+    have hXi' : ∀ᵐ ω ∂Measure.infinitePi Q₁, X i (ω i) = ∞ :=
+      (measurePreserving_eval_infinitePi Q₁ i).quasiMeasurePreserving.ae hXi
+    refine le_of_eq_of_le (lintegral_eq_zero_of_ae_eq_zero ?_) zero_le
+    filter_upwards [hXi', h_ne] with ω hω hne
+    have h_top : ∏ j ∈ range n, X j (ω j) = ∞ := WithTop.prod_eq_top hi hω fun j _ ↦ hne j
+    rw [Pi.zero_apply, h_top, ENNReal.div_top]
+  -- otherwise, multiply the first `n` numeraires by the masses `q i` of their finite supports
+  have hq_ne : ∀ i ∈ range n, q i ≠ 0 := fun i hi h ↦ hq0 ⟨i, hi, h⟩
+  set c : ℕ → ℝ≥0∞ := fun i ↦ if i < n then q i else 1 with hc
+  have hqc (i : ℕ) : q i ≤ c i := by
+    simp only [hc]
+    split_ifs
+    exacts [le_rfl, prob_le_one]
+  have hc0 (i : ℕ) : c i ≠ 0 := by
+    simp only [hc]
+    split_ifs with h
+    exacts [hq_ne i (mem_range.2 h), one_ne_zero]
+  have hc_top (i : ℕ) : c i ≠ ∞ := by
+    simp only [hc]
+    split_ifs
+    exacts [measure_ne_top _ _, ENNReal.one_ne_top]
+  have hX'_le (i : ℕ) (Y : 𝓧 → ℝ≥0∞) (hY : IsEVar Y (S₁ i)) :
+      ∫⁻ x, Y x / (c i * X i x) ∂Q₁ i ≤ 1 := by
+    have h_eq : (fun x ↦ Y x / (c i * X i x)) = fun x ↦ (c i)⁻¹ * (Y x / X i x) := by
+      funext x
+      rw [div_eq_mul_inv, ENNReal.mul_inv (.inl (hc0 i)) (.inl (hc_top i)), div_eq_mul_inv,
+        mul_left_comm]
+    rw [h_eq, lintegral_const_mul' _ _ (ENNReal.inv_ne_top.2 (hc0 i))]
+    calc (c i)⁻¹ * ∫⁻ x, Y x / X i x ∂Q₁ i
+    _ ≤ (c i)⁻¹ * c i := by
+      gcongr
+      exact ((hX i).lintegral_div_le_measure_fsupport hY).trans (hqc i)
+    _ = 1 := ENNReal.inv_mul_cancel (hc0 i) (hc_top i)
+  -- the e-process `F` read at time `n` only, as a sum over the times `k ≤ n`
+  set g : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun k ω ↦ if k = n then F n ω else 0 with hg
+  have hg_eproc : IsEProcess g piLT 𝓝 :=
+    isEProcess_ite_eq (hF.adapted n) fun _ hP ↦ (hF.isEVar n).lintegral_le_one hP
+  have hg_meas (k : ℕ) : Measurable (g k) := hg_eproc.measurable k
+  have hg_dep (k : ℕ) : DependsOn (g k) (Set.Iio k) := (hg_eproc.adapted k).dependsOn_of_piLT
+  have hg_sum (ω : ℕ → 𝓧) (f : ℕ → ℝ≥0∞) :
+      ∑ k ∈ range (n + 1), g k ω * f k = F n ω * f n := by
+    rw [sum_eq_single_of_mem n (self_mem_range_succ n) fun k _ hk ↦ by simp [hg, hk]]
+    simp [hg]
+  have h_main := lintegral_sum_mul_prod_inv_le (X := fun i x ↦ c i * X i x) hS₁ hS₁_ne
+    (fun i ↦ (hX i).measurable.const_mul _) hX'_le hg_meas hg_dep (n + 1) (c := 1)
+    fun P hP ↦ by
+      have h_sum (ω : ℕ → 𝓧) : ∑ k ∈ range (n + 1), g k ω = F n ω := by
+        simpa using hg_sum ω fun _ ↦ 1
+      simp_rw [h_sum]
+      exact (hF.isEVar n).lintegral_le_one (h𝓝 P hP)
+  have hprod0 : ∏ i ∈ range n, q i ≠ 0 := prod_ne_zero_iff.2 hq_ne
+  have hprod_top : ∏ i ∈ range n, q i ≠ ∞ := ENNReal.prod_ne_top fun i _ ↦ measure_ne_top _ _
+  have h_ae : (fun ω ↦ ∑ k ∈ range (n + 1),
+        g k ω * ∏ i ∈ range k, (c i * X i (ω i))⁻¹) =ᵐ[Measure.infinitePi Q₁]
+      fun ω ↦ (∏ i ∈ range n, q i)⁻¹ * (F n ω / ∏ i ∈ range n, X i (ω i)) := by
+    filter_upwards [h_ne] with ω hω
+    rw [hg_sum ω fun k ↦ ∏ i ∈ range k, (c i * X i (ω i))⁻¹,
+      ENNReal.prod_inv_distrib fun i _ j _ _ ↦ .inl (hq_ne i ‹_›), div_eq_mul_inv,
+      ENNReal.prod_inv_distrib fun i _ j _ _ ↦ .inl (hω i), mul_left_comm, ← prod_mul_distrib]
+    congr 1
+    refine prod_congr rfl fun i hi ↦ ?_
+    have hci : c i = q i := by simp [hc, mem_range.1 hi]
+    rw [hci, ENNReal.mul_inv (.inl (hq_ne i hi)) (.inl (measure_ne_top _ _))]
+  rwa [lintegral_congr_ae h_ae, lintegral_const_mul' _ _ (ENNReal.inv_ne_top.2 hprod0),
+    ENNReal.inv_mul_le_iff hprod0 hprod_top, mul_one] at h_main
 
 /-- **The likelihood ratio process is optimal at every finite stopping time**
 [EVR26, Note 40, Proposition 6]. For probability measures `Q₁ ≪ P₁`, the likelihood ratio

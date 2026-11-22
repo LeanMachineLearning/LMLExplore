@@ -11,6 +11,7 @@ public import Statlib.EValues.Product
 public import LMLExplore.MeasureTheory.Measure.Prod
 import LMLExplore.MeasureTheory.Function.EssSupFamily
 import LMLExplore.MeasureTheory.Measure.HalmosSavage
+import LMLExplore.Topology.Instances.ENNReal.Lemmas
 
 /-!
 # Admissible e-variables
@@ -19,13 +20,19 @@ An e-variable for a null `S` is admissible when no e-variable is larger in a way
 see: every e-variable that dominates it quasi-surely is quasi-surely equal to it. This is the
 admissibility of `Filter.IsAdmissible` for the quasi-sure filter of the null, among the
 e-variables, so that the complete class lemmas of `LMLExplore.Order.Filter.CompleteClass` apply
-to it. This file defines admissible and strongly admissible e-variables and proves their first
-properties: a strongly admissible e-variable is admissible, an exact e-variable is strongly
-admissible, for a simple null the admissible e-variables are the exact ones, which are the
-likelihood ratios, for a finite null of finite measures the admissible e-variables are the strongly
-admissible ones, every e-variable is at most an admissible one for a null with a reference measure
-(a countable null, or a dominated null by the Halmos–Savage lemma), and products of strongly
-admissible e-variables are strongly admissible for the product null.
+to it.
+
+The criterion of Ramdas and Wang characterizes admissibility for every null: an e-variable `E` is
+admissible exactly when, on every measurable set `A` charged by the null, the deficits
+`1 - ∫⁻ E ∂P` are arbitrarily small compared with `P A`, since the infimum of these ratios is the
+largest amount that can be added to `E` on `A`. The sufficient condition of strong admissibility,
+the necessary condition `⨆ ∫⁻ E ∂P = 1` for a null of masses at most one and the case of a simple
+null are derived from it. This
+file also proves that for a simple null the admissible e-variables are the likelihood ratios, that
+for a finite null of finite measures the admissible e-variables are the strongly admissible ones,
+that every e-variable is at most an admissible one for a null with a reference measure (a countable
+null, or a dominated null by the Halmos–Savage lemma), and that products of strongly admissible
+e-variables are strongly admissible for the product null.
 
 Following Statlib, the null is an arbitrary set of measures and e-variables are `ℝ≥0∞`-valued;
 exact means `∫⁻ E ∂P = 1`.
@@ -43,12 +50,27 @@ exact means `∫⁻ E ∂P = 1`.
   e-variables that dominate `E` everywhere.
 * `ProbabilityTheory.IsAdmissibleEVar.congr`: a measurable function quasi-surely equal to an
   admissible e-variable is an admissible e-variable.
+* `ProbabilityTheory.IsEVar.isEVar_add_indicator_iff`: `E + t 𝟙_A` is an e-variable exactly when
+  `t ≤ ⨅ {(1 - ∫⁻ E ∂P) / P A | P ∈ S, P A ≠ 0}` [EVR26, Note 46].
+* `ProbabilityTheory.isAdmissibleEVar_iff_iInf_div_eq_zero`: **the admissibility criterion**, for
+  any null: `E` is admissible exactly when that infimum is zero for every measurable set charged by
+  the null [RW, Theorem 2.14; EVR26, Note 46, Theorem 1].
+* `ProbabilityTheory.isAdmissibleEVar_iff_liminf_eq_zero`: the criterion in the form of
+  [RW, Theorem 2.14], `liminf_{δ ↓ 0} ⨅ {(1 - ∫⁻ E ∂P) / δ | P ∈ S, δ < P A} = 0`, for a null of
+  masses at most one.
+* `ProbabilityTheory.IsAdmissibleEVar.iSup_lintegral_eq_one`: the necessary condition
+  `⨆ {∫⁻ E ∂P | P ∈ S, P A ≠ 0} = 1`, for a null of masses at most one [RW, Proposition 2.13].
 * `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
   almost surely under a member of the null under which `E` is exact is equal to `E` almost surely
   under that member.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.isAdmissibleEVar`: a strongly admissible e-variable
-  is admissible.
-* `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: so is an exact e-variable.
+  is admissible [RW, Corollary 2.15 (a)].
+* `ProbabilityTheory.IsEVar.isStronglyAdmissibleEVar_of_forall_exists_absolutelyContinuous`: an
+  e-variable such that every member of the null is absolutely continuous with respect to some
+  member under which the e-variable is exact is strongly admissible [RW, Corollary 2.15 (b)].
+* `ProbabilityTheory.IsExactEVar.isStronglyAdmissibleEVar`: an exact e-variable is strongly
+  admissible [RW, Corollary 2.15 (c)].
+* `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: an exact e-variable is admissible.
 * `ProbabilityTheory.isAdmissibleEVar_singleton_iff`: for a simple null `{P}` with `P` finite and
   nonzero, admissible and exact coincide.
 * `ProbabilityTheory.isExactEVar_singleton_iff_exists_rnDeriv`: the exact e-variables for `{P}`
@@ -73,19 +95,20 @@ exact means `∫⁻ E ∂P = 1`.
 ## References
 
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
-  Statistics 1 (2025), arXiv:2410.23614v6: Definition 2.11, Proposition 2.12, Corollary 2.15 (a),
-  Proposition 2.16 and Proposition 2.17.
+  Statistics 1 (2025), arXiv:2410.23614v6: Definition 2.11, Propositions 2.12 and 2.13,
+  Theorem 2.14, Corollary 2.15, Propositions 2.16 and 2.17.
 * [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and Lean
-  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026, Notes 42 and 46;
-  the section on finite nulls adapts the file `Results/NumeraireAdmissible.lean`.
+  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026: Note 42, whose file
+  `Results/NumeraireAdmissible.lean` the section on finite nulls adapts, and Note 46, with
+  Theorem 1 (`results/46-admissibility-criterion.md`), the form of the criterion with a ratio.
 * [LRR26] M. Larsson, A. Ramdas and J. Ruf, *Testing hypotheses generated by constraints*, Math.
   Oper. Res. (2026), arXiv:2504.02974v5: Lemma 6.2 and Theorem 6.3.
 -/
 
 public section
 
-open MeasureTheory Set
-open scoped ENNReal
+open MeasureTheory Set Filter
+open scoped ENNReal Topology
 
 namespace ProbabilityTheory
 
@@ -121,6 +144,111 @@ theorem IsAdmissibleEVar.congr (hE : IsAdmissibleEVar E S) (hF : Measurable F)
     (hEF : E =ᶠ[quasiSure S] F) : IsAdmissibleEVar F S :=
   Filter.IsAdmissible.congr hE (hE.mem.congr_quasiSure hF hEF) hEF
 
+/-! ### The criterion of Ramdas and Wang -/
+
+/-- **The largest amount that can be added on a set.** Adding `t` on a measurable set `A` to an
+e-variable `E` gives an e-variable exactly when `t` is at most the deficit `1 - ∫⁻ E ∂P` divided
+by `P A`, for every member `P` of the null that charges `A` [EVR26, Note 46]. -/
+theorem IsEVar.isEVar_add_indicator_iff (hE : IsEVar E S) {A : Set Ω} (hA : MeasurableSet A)
+    {t : ℝ≥0∞} :
+    IsEVar (fun ω ↦ E ω + A.indicator (fun _ ↦ t) ω) S ↔
+      t ≤ ⨅ P ∈ S, ⨅ (_ : P A ≠ 0), (1 - ∫⁻ ω, E ω ∂P) / P A := by
+  have h_int (P : Measure Ω) :
+      ∫⁻ ω, E ω + A.indicator (fun _ ↦ t) ω ∂P = ∫⁻ ω, E ω ∂P + t * P A := by
+    rw [lintegral_add_left hE.measurable, lintegral_indicator_const hA]
+  have h_iff (P : Measure Ω) (hP : P ∈ S) (hPA : P A ≠ 0) :
+      t ≤ (1 - ∫⁻ ω, E ω ∂P) / P A ↔ ∫⁻ ω, E ω ∂P + t * P A ≤ 1 := by
+    have h1 := hE.lintegral_le_one hP
+    rw [ENNReal.le_div_iff_mul_le (.inl hPA) (.inr (ENNReal.sub_ne_top ENNReal.one_ne_top)),
+      ENNReal.le_sub_iff_add_le_left (ne_top_of_le_ne_top ENNReal.one_ne_top h1) h1]
+  simp only [le_iInf_iff]
+  refine ⟨fun h P hP hPA ↦ (h_iff P hP hPA).2 (h_int P ▸ h.lintegral_le_one hP),
+    fun h ↦ ⟨hE.measurable.add (measurable_const.indicator hA), fun P hP ↦ ?_⟩⟩
+  rw [h_int]
+  by_cases hPA : P A = 0
+  · rw [hPA, mul_zero, add_zero]
+    exact hE.lintegral_le_one hP
+  · exact (h_iff P hP hPA).1 (h P hP hPA)
+
+/-- **The admissibility criterion** [RW, Theorem 2.14, in the form of EVR26, Note 46,
+Theorem 1]. An e-variable `E` for any null `S` is admissible exactly when, for every measurable set
+`A` charged by some member of the null, the deficits `1 - ∫⁻ E ∂P` of the members `P` that charge
+`A` are arbitrarily small compared with `P A`. The infimum is the largest amount that can be added
+to `E` on `A` (`ProbabilityTheory.IsEVar.isEVar_add_indicator_iff`). No domination, finiteness or
+mass hypothesis is needed. -/
+theorem isAdmissibleEVar_iff_iInf_div_eq_zero :
+    IsAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
+      ⨅ P ∈ S, ⨅ (_ : P A ≠ 0), (1 - ∫⁻ ω, E ω ∂P) / P A = 0 := by
+  refine ⟨fun hE ↦ ⟨hE.mem, fun A hA ⟨P, hP, hPA⟩ ↦ ?_⟩, fun ⟨hE, h⟩ ↦ ?_⟩
+  · -- adding the infimum on `A` gives a larger e-variable, which is quasi-surely `E`
+    by_contra ht
+    have hF := (hE.mem.isEVar_add_indicator_iff hA).2 le_rfl
+    refine hPA (measure_eq_zero_iff_ae_notMem.2 ?_)
+    filter_upwards [ae_of_eventually_quasiSure
+        (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) hP,
+      hE.mem.ae_lt_top hP] with ω hω hω_top hωA
+    rw [indicator_of_mem hωA] at hω
+    exact ht (le_zero_iff.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
+  refine isAdmissibleEVar_iff_forall_le.2 ⟨hE, fun F hF hEF ↦
+    eventuallyEq_quasiSure_iff.2 fun P hP ↦ ?_⟩
+  -- on each set where `F` exceeds `E` by `n⁻¹`, `E` can be raised by `n⁻¹`: that set is polar
+  have h_null (n : ℕ) : P {ω | E ω + (n : ℝ≥0∞)⁻¹ ≤ F ω} = 0 := by
+    have hB : MeasurableSet {ω | E ω + (n : ℝ≥0∞)⁻¹ ≤ F ω} :=
+      measurableSet_le (hE.measurable.add_const _) hF.measurable
+    by_contra hPB
+    have hG : IsEVar (fun ω ↦ E ω + {ω | E ω + (n : ℝ≥0∞)⁻¹ ≤ F ω}.indicator
+        (fun _ ↦ (n : ℝ≥0∞)⁻¹) ω) S := by
+      refine hF.mono (hE.measurable.add (measurable_const.indicator hB)) fun ω ↦ ?_
+      by_cases hω : ω ∈ {ω | E ω + (n : ℝ≥0∞)⁻¹ ≤ F ω}
+      · simpa [indicator_of_mem hω] using hω
+      · simpa [indicator_of_notMem hω] using hEF ω
+    have h_le := (hE.isEVar_add_indicator_iff hB).1 hG
+    rw [h _ hB ⟨P, hP, hPB⟩] at h_le
+    exact ENNReal.inv_ne_zero.2 (ENNReal.natCast_ne_top n) (le_zero_iff.1 h_le)
+  -- and `{E < F}` is their union
+  have h_lt : P {ω | E ω < F ω} = 0 := by
+    refine measure_mono_null (fun ω (hω : E ω < F ω) ↦ ?_) (measure_iUnion_null h_null)
+    obtain ⟨n, hn⟩ := ENNReal.exists_inv_nat_lt (tsub_pos_of_lt hω).ne'
+    exact mem_iUnion.2 ⟨n, (add_le_add le_rfl hn.le).trans (add_tsub_cancel_of_le hω.le).le⟩
+  filter_upwards [measure_eq_zero_iff_ae_notMem.1 h_lt] with ω hω
+  exact le_antisymm (not_lt.1 hω) (hEF ω)
+
+/-- **The admissibility criterion of Ramdas and Wang** [RW, Theorem 2.14]. For a null of measures
+of mass at most one, an e-variable `E` is admissible exactly when, for every measurable set `A`
+charged by some member of the null,
+`liminf_{δ ↓ 0} ⨅ {(1 - ∫⁻ E ∂P) / δ | P ∈ S, δ < P A} = 0`. Over a set `A` charged by no member
+the infimum is over no measure; [RW] then takes it to be `0`, while here such sets are excluded.
+Without a bound on the masses, the criterion fails: for the null `{∞ • δ₀}` the e-variable `0`
+is admissible, while for `A = univ` the infimum is `1 / δ`. -/
+theorem isAdmissibleEVar_iff_liminf_eq_zero (hS : ∀ P ∈ S, P univ ≤ 1) :
+    IsAdmissibleEVar E S ↔ IsEVar E S ∧ ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) →
+      liminf (fun δ ↦ ⨅ P ∈ S, ⨅ (_ : δ < P A), (1 - ∫⁻ ω, E ω ∂P) / δ) (𝓝[>] 0) = 0 := by
+  refine isAdmissibleEVar_iff_iInf_div_eq_zero.trans (and_congr_right fun _ ↦
+    forall_congr' fun A ↦ forall_congr' fun _ ↦ forall_congr' fun _ ↦ ?_)
+  exact (ENNReal.liminf_iInf_div_eq_zero_iff (a := fun P ↦ P A)
+    fun P hP ↦ (measure_mono (subset_univ A)).trans (hS P hP)).symm
+
+/-- **The necessary condition of Ramdas and Wang** [RW, Proposition 2.13]. For a null of measures
+of mass at most one, an admissible e-variable has expectation arbitrarily close to `1` under the
+members that charge any given measurable set charged by the null. The bound on the masses is
+needed: for the null `{∞ • δ₀}` the e-variable `0` is admissible. -/
+theorem IsAdmissibleEVar.iSup_lintegral_eq_one (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hE : IsAdmissibleEVar E S) {A : Set Ω} (hA : MeasurableSet A) (hSA : ∃ P ∈ S, P A ≠ 0) :
+    ⨆ P ∈ S, ⨆ (_ : P A ≠ 0), ∫⁻ ω, E ω ∂P = 1 := by
+  refine le_antisymm (iSup₂_le fun P hP ↦ iSup_le fun _ ↦ hE.mem.lintegral_le_one hP) ?_
+  -- the gap to `1` is at most every ratio of the criterion, since the masses are at most one
+  have h_gap : 1 - ⨆ P ∈ S, ⨆ (_ : P A ≠ 0), ∫⁻ ω, E ω ∂P ≤
+      ⨅ P ∈ S, ⨅ (_ : P A ≠ 0), (1 - ∫⁻ ω, E ω ∂P) / P A := by
+    refine le_iInf₂ fun P hP ↦ le_iInf fun hPA ↦ ?_
+    calc 1 - ⨆ P ∈ S, ⨆ (_ : P A ≠ 0), ∫⁻ ω, E ω ∂P
+    _ ≤ 1 - ∫⁻ ω, E ω ∂P := tsub_le_tsub_left (le_iSup₂_of_le P hP (by rw [iSup_pos hPA])) 1
+    _ ≤ (1 - ∫⁻ ω, E ω ∂P) / P A :=
+      (ENNReal.le_div_iff_mul_le (.inl hPA) (.inr (ENNReal.sub_ne_top ENNReal.one_ne_top))).2
+        (mul_le_of_le_one_right' ((measure_mono (subset_univ A)).trans (hS P hP)))
+  rw [(isAdmissibleEVar_iff_iInf_div_eq_zero.1 hE).2 A hA hSA, nonpos_iff_eq_zero,
+    tsub_eq_zero_iff_le] at h_gap
+  exact h_gap
+
 /-! ### Strongly admissible e-variables -/
 
 /-- An e-variable `E` for `S` is **strongly admissible** when every measurable set charged by some
@@ -149,25 +277,29 @@ theorem IsEVar.measure_lt_eq_zero_of_ae_le (hF : IsEVar F S) (hP : P ∈ S) (hEF
     hF.measurable.aemeasurable (by rw [hE]; exact hF.lintegral_le_one hP)
   exact measure_mono_null (fun ω hω ↦ (hω : E ω < F ω).ne) h_eq
 
-/-- A strongly admissible e-variable is admissible [RW, Corollary 2.15 (a)]. -/
+/-- A strongly admissible e-variable is admissible [RW, Corollary 2.15 (a)], a case of the
+criterion `isAdmissibleEVar_iff_iInf_div_eq_zero`. -/
 theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hE : IsStronglyAdmissibleEVar E S) :
-    IsAdmissibleEVar E S where
-  mem := hE.toIsEVar
-  eventuallyLE F hF hEF := by
-    refine eventuallyLE_quasiSure_iff.2 fun P₀ hP₀ ↦ ?_
-    by_contra h_not
-    have hA : MeasurableSet {ω | E ω < F ω} := measurableSet_lt hE.measurable hF.measurable
-    have hP₀A : P₀ {ω | E ω < F ω} ≠ 0 :=
-      fun h0 ↦ h_not (ae_iff.2 (by simpa only [not_le] using h0))
-    -- a member of the null that charges `{E < F}` and under which `E` is exact cannot charge it
-    obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq _ hA ⟨P₀, hP₀, hP₀A⟩
-    exact hPA (hF.measure_lt_eq_zero_of_ae_le hP (ae_of_eventually_quasiSure hEF hP) hPE)
+    IsAdmissibleEVar E S := by
+  refine isAdmissibleEVar_iff_iInf_div_eq_zero.2 ⟨hE.toIsEVar, fun A hA hSA ↦ ?_⟩
+  obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
+  exact le_zero_iff.1 (iInf₂_le_of_le P hP (iInf_le_of_le hPA (by simp [hPE])))
 
-/-- An exact e-variable is strongly admissible. -/
-theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
+/-- An e-variable such that every member of the null is absolutely continuous with respect to some
+member under which the e-variable is exact is strongly admissible [RW, Corollary 2.15 (b)]. -/
+theorem IsEVar.isStronglyAdmissibleEVar_of_forall_exists_absolutelyContinuous
+    (hE : IsEVar E S) (h : ∀ P ∈ S, ∃ P' ∈ S, P ≪ P' ∧ ∫⁻ ω, E ω ∂P' = 1) :
     IsStronglyAdmissibleEVar E S where
-  toIsEVar := hE.toIsEVar
-  exists_lintegral_eq _ _ := fun ⟨P, hP, hPA⟩ ↦ ⟨P, hP, hPA, hE.lintegral_eq_one hP⟩
+  toIsEVar := hE
+  exists_lintegral_eq _ _ := fun ⟨P, hP, hPA⟩ ↦
+    let ⟨P', hP', hPP', hP'E⟩ := h P hP
+    ⟨P', hP', fun h0 ↦ hPA (hPP' h0), hP'E⟩
+
+/-- An exact e-variable is strongly admissible [RW, Corollary 2.15 (c)]. -/
+theorem IsExactEVar.isStronglyAdmissibleEVar (hE : IsExactEVar E S) :
+    IsStronglyAdmissibleEVar E S :=
+  hE.toIsEVar.isStronglyAdmissibleEVar_of_forall_exists_absolutelyContinuous fun P hP ↦
+    ⟨P, hP, .rfl, hE.lintegral_eq_one hP⟩
 
 /-- An exact e-variable is admissible. -/
 theorem IsExactEVar.isAdmissibleEVar (hE : IsExactEVar E S) : IsAdmissibleEVar E S :=
@@ -175,31 +307,18 @@ theorem IsExactEVar.isAdmissibleEVar (hE : IsExactEVar E S) : IsAdmissibleEVar E
 
 /-! ### Simple nulls -/
 
-/-- An admissible e-variable for a simple null `{P}`, with `P` finite and nonzero, is exact:
-otherwise adding a positive constant gives a larger e-variable [RW, Proposition 2.12]. -/
+/-- An admissible e-variable for a simple null `{P}`, with `P` finite and nonzero, is exact
+[RW, Proposition 2.12]: the case `A = univ` of the criterion
+`isAdmissibleEVar_iff_iInf_div_eq_zero`. -/
 theorem IsAdmissibleEVar.isExactEVar_singleton [IsFiniteMeasure P] [NeZero P]
     (hE : IsAdmissibleEVar E {P}) : IsExactEVar E {P} where
   toIsEVar := hE.mem
   lintegral_eq_one := by
     simp only [mem_singleton_iff, forall_eq]
-    by_contra h_ne
-    have h_lt : ∫⁻ ω, E ω ∂P < 1 := lt_of_le_of_ne (hE.mem.lintegral_le_one rfl) h_ne
     have hP0 : P univ ≠ 0 := by simp [NeZero.ne P]
-    set c : ℝ≥0∞ := (1 - ∫⁻ ω, E ω ∂P) / P univ with hc
-    have hc0 : c ≠ 0 := (ENNReal.div_pos (tsub_pos_of_lt h_lt).ne' (measure_ne_top P univ)).ne'
-    have hF : IsEVar (fun ω ↦ E ω + c) {P} := by
-      refine ⟨hE.mem.measurable.add_const c, ?_⟩
-      simp only [mem_singleton_iff, forall_eq]
-      rw [lintegral_add_right _ measurable_const, lintegral_const, hc,
-        ENNReal.div_mul_cancel hP0 (measure_ne_top P univ), add_tsub_cancel_of_le h_lt.le]
-    have h_false : ∀ᵐ ω ∂P, False := by
-      filter_upwards [ae_of_eventually_quasiSure
-          (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) (mem_singleton P),
-        hE.mem.ae_lt_top (mem_singleton P)] with ω h_le h_top
-      have : c ≤ 0 := (ENNReal.add_le_add_iff_left h_top.ne).1 (by simpa using h_le)
-      exact hc0 (le_zero_iff.1 this)
-    have hP : P = 0 := ae_eq_bot.1 (Filter.eventually_false_iff_eq_bot.1 h_false)
-    exact hP0 (by simp [hP])
+    have h := (isAdmissibleEVar_iff_iInf_div_eq_zero.1 hE).2 univ .univ ⟨P, rfl, hP0⟩
+    rw [iInf_singleton, iInf_pos hP0, ENNReal.div_eq_zero_iff, tsub_eq_zero_iff_le] at h
+    exact le_antisymm (hE.mem.lintegral_le_one rfl) (h.resolve_right (measure_ne_top P univ))
 
 /-- For a simple null `{P}` with `P` finite and nonzero, the admissible e-variables are the exact
 ones [RW, Proposition 2.12]. -/
@@ -236,27 +355,14 @@ private lemma exists_isEVar_add_indicator (hS : S.Finite) (hSfin : ∀ P ∈ S, 
   -- the largest constant: the smallest ratio of the slack to the mass of `A`
   obtain ⟨P₁, ⟨hP₁, hP₁A⟩, hmin⟩ := exists_min_image {P | P ∈ S ∧ P A ≠ 0}
     (fun P ↦ (1 - ∫⁻ ω, E ω ∂P) / P A) (hS.subset fun P hP ↦ hP.1) (hA₀.imp fun P hP ↦ hP)
-  have h_int (P : Measure Ω) (ε : ℝ≥0∞) :
-      ∫⁻ ω, E ω + A.indicator (fun _ ↦ ε) ω ∂P = ∫⁻ ω, E ω ∂P + ε * P A := by
-    rw [lintegral_add_left hE.measurable, lintegral_indicator_const hA]
-  have h_cancel (P : Measure Ω) (hP : P ∈ S) (hPA : P A ≠ 0) :
-      ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P) / P A * P A = 1 := by
-    have := hSfin P hP
-    rw [ENNReal.div_mul_cancel hPA (measure_ne_top P A),
-      add_tsub_cancel_of_le (hE.lintegral_le_one hP)]
   have := hSfin P₁ hP₁
-  refine ⟨(1 - ∫⁻ ω, E ω ∂P₁) / P₁ A, ?_, ⟨hE.measurable.add (measurable_const.indicator hA),
-    fun P hP ↦ ?_⟩, P₁, hP₁, hP₁A, by rw [h_int, h_cancel P₁ hP₁ hP₁A]⟩
+  refine ⟨(1 - ∫⁻ ω, E ω ∂P₁) / P₁ A, ?_, (hE.isEVar_add_indicator_iff hA).2
+    (le_iInf₂ fun P hP ↦ le_iInf fun hPA ↦ hmin P ⟨hP, hPA⟩), P₁, hP₁, hP₁A, ?_⟩
   · refine (ENNReal.div_pos (tsub_pos_of_lt ?_).ne' (measure_ne_top P₁ A)).ne'
     exact lt_of_le_of_ne (hE.lintegral_le_one hP₁) (hAE P₁ hP₁ hP₁A)
-  · rw [h_int]
-    by_cases hPA : P A = 0
-    · rw [hPA, mul_zero, add_zero]
-      exact hE.lintegral_le_one hP
-    · calc ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P₁) / P₁ A * P A
-      _ ≤ ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P) / P A * P A :=
-        add_le_add le_rfl (mul_le_mul' (hmin P ⟨hP, hPA⟩) le_rfl)
-      _ = 1 := h_cancel P hP hPA
+  · rw [lintegral_add_left hE.measurable, lintegral_indicator_const hA,
+      ENNReal.div_mul_cancel hP₁A (measure_ne_top P₁ A),
+      add_tsub_cancel_of_le (hE.lintegral_le_one hP₁)]
 
 /-- **Admissible e-variables for a finite null** [RW, Proposition 2.16; EVR26, Note 42,
 Theorem 9 (1)]. For a finite null of finite measures, an e-variable is admissible if and only if

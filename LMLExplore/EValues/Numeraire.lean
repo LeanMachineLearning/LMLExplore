@@ -68,7 +68,11 @@ almost surely positive.
 * `ProbabilityTheory.isNumeraire_piecewise_rnDeriv_cond`: the numeraire of a simple null `{P}`
   with no absolute continuity: `∞` on a `P`-null set `N` off which `Q` is absolutely continuous
   with respect to `P`, and the likelihood ratio of `Q[|Nᶜ]` to `P` on `Nᶜ` [LRR25,
-  Corollary 3.15].
+  Corollary 3.15]. Its integrals over sets under `P` are
+  `ProbabilityTheory.setLIntegral_piecewise_rnDeriv_cond`, and a numeraire of `{P}` that is
+  infinite on a measurable set `N` off which `Q` is absolutely continuous with respect to `P` is
+  `Q`-almost surely positive and finite exactly off `N`
+  (`ProbabilityTheory.IsNumeraire.ae_mem_fsupport_iff_notMem`).
 * `ProbabilityTheory.IsNumeraire.nonempty_of_ae_ne_top`: a null with a numeraire that is almost
   surely finite under a nonzero alternative is not empty.
 * `ProbabilityTheory.isNumeraire_rnDeriv`: for `Q ≪ P`, the likelihood ratio `Q.rnDeriv P` is the
@@ -441,6 +445,32 @@ theorem isNumeraire_piecewise_rnDeriv_cond [IsFiniteMeasure Q] [IsProbabilityMea
     calc (Q X.fsupport)⁻¹ * Q Nᶜ ≤ (Q X.fsupport)⁻¹ * Q X.fsupport := by gcongr
     _ ≤ 1 := by rw [mul_comm]; exact ENNReal.mul_inv_le_one _
   _ = P s := one_mul _
+
+/-- The integral under `P`, on a set `A`, of the numeraire of the simple null `{P}` against `Q` of
+`isNumeraire_piecewise_rnDeriv_cond` is the mass that `Q` gives to `A` off the `P`-null set `N`,
+divided by the mass of `Nᶜ`. -/
+theorem setLIntegral_piecewise_rnDeriv_cond [SigmaFinite P] {N : Set Ω} [DecidablePred (· ∈ N)]
+    (hN : MeasurableSet N) (hPN : P N = 0) (hQN : Q.restrict Nᶜ ≪ P) (A : Set Ω) :
+    ∫⁻ ω in A, N.piecewise (fun _ ↦ ∞) ((Q[|Nᶜ]).rnDeriv P) ω ∂P = (Q Nᶜ)⁻¹ * Q (A \ N) := by
+  have hνP : Q[|Nᶜ] ≪ P := Measure.smul_absolutelyContinuous.trans hQN
+  have h_ae : N.piecewise (fun _ ↦ ∞) ((Q[|Nᶜ]).rnDeriv P) =ᵐ[P] (Q[|Nᶜ]).rnDeriv P := by
+    filter_upwards [measure_eq_zero_iff_ae_notMem.1 hPN] with ω hω
+    exact piecewise_eq_of_notMem _ _ _ hω
+  rw [lintegral_congr_ae (ae_restrict_of_ae h_ae), Measure.setLIntegral_rnDeriv hνP A,
+    cond_apply hN.compl Q A, inter_comm, sdiff_eq]
+
+/-- A numeraire `X` of a simple null `{P}`, with `P` of mass at most one, against `Q`, that is
+infinite on a measurable set `N` off which `Q` is absolutely continuous with respect to `P`, is
+positive and finite exactly off `N`, `Q`-almost surely. -/
+theorem IsNumeraire.ae_mem_fsupport_iff_notMem (hX : IsNumeraire X {P} Q) (hP : P univ ≤ 1)
+    {N : Set Ω} (hN : MeasurableSet N) (hQN : Q.restrict Nᶜ ≪ P) (hXN : ∀ ω ∈ N, X ω = ∞) :
+    ∀ᵐ ω ∂Q, ω ∈ X.fsupport ↔ ω ∉ N := by
+  have h_top : ∀ᵐ ω ∂Q, ω ∈ Nᶜ → X ω ≠ ∞ :=
+    (ae_restrict_iff' hN.compl).1 (hQN.ae_le (hX.isEVar.ae_ne_top (mem_singleton P)))
+  filter_upwards [h_top, hX.ae_ne_zero fun μ hμ ↦ (mem_singleton_iff.1 hμ) ▸ hP]
+    with ω hω_top hω_zero
+  rw [Function.mem_fsupport]
+  exact ⟨fun h hωN ↦ h.1 (hXN ω hωN), fun hωN ↦ ⟨hω_top hωN, hω_zero⟩⟩
 
 /-- **Likelihood ratios are numeraires** [RW, Theorem 3.20]. For probability measures `Q ≪ P`,
 the likelihood ratio `Q.rnDeriv P` is the numeraire of the simple null `{P}` under `Q`. By
