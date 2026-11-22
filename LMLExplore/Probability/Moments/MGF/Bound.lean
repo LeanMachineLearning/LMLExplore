@@ -92,7 +92,7 @@ weights of an exponential supermartingale.
 public section
 
 open MeasureTheory ProbabilityTheory Real
-open scoped ENNReal NNReal
+open scoped ENNReal NNReal Pointwise
 
 namespace ProbabilityTheory.Kernel
 

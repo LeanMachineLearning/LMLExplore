@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import TauCeti.Analysis.SpecialFunctions.Beta
+public import TauCeti.Analysis.SpecialFunctions.Beta.Basic
 public import TauCeti.Probability.Distributions.Beta.Basic
 
 /-!

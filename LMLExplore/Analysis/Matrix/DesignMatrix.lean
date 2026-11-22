@@ -101,20 +101,19 @@ theorem designMatrix_congr {x x' : ℕ → ι → ℝ} {t : ℕ} (h : ∀ s < t,
   rw [designMatrix, designMatrix, sum_congr rfl fun s hs ↦ by rw [h s (mem_range.1 hs)]]
 
 /-- The design matrix is positive semidefinite for a positive semidefinite regularizer `V₀`. -/
-theorem posSemidef_designMatrix [Finite ι] (hV₀ : V₀.PosSemidef) (x : ℕ → ι → ℝ) (t : ℕ) :
+theorem posSemidef_designMatrix (hV₀ : V₀.PosSemidef) (x : ℕ → ι → ℝ) (t : ℕ) :
     (designMatrix V₀ x t).PosSemidef :=
   hV₀.add <| posSemidef_sum _ fun s _ ↦ by
     simpa using posSemidef_vecMulVec_self_star (x s)
 
 /-- The design matrix is positive definite for a positive definite regularizer `V₀`. -/
-theorem posDef_designMatrix [Finite ι] (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t : ℕ) :
+theorem posDef_designMatrix (hV₀ : V₀.PosDef) (x : ℕ → ι → ℝ) (t : ℕ) :
     (designMatrix V₀ x t).PosDef :=
   hV₀.add_posSemidef <| posSemidef_sum _ fun s _ ↦ by
     simpa using posSemidef_vecMulVec_self_star (x s)
 
 /-- The design matrix `V_t(λ)` is positive definite for `λ > 0`. -/
-theorem posDef_designMatrix_smul_one [Finite ι] [DecidableEq ι] (hlam : 0 < lam) (x : ℕ → ι → ℝ)
-    (t : ℕ) :
+theorem posDef_designMatrix_smul_one [DecidableEq ι] (hlam : 0 < lam) (x : ℕ → ι → ℝ) (t : ℕ) :
     (designMatrix (lam • 1) x t).PosDef :=
   posDef_designMatrix (PosDef.one.smul hlam) x t
 

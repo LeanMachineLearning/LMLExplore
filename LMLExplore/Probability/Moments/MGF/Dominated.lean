@@ -67,7 +67,7 @@ by a member of the family without following its law.
 
 public section
 
-open MeasureTheory ProbabilityTheory Real Finset
+open MeasureTheory ProbabilityTheory Real Finset Pointwise
 
 namespace LMLExplore
 
