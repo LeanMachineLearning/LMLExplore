@@ -36,6 +36,8 @@ the same e-variables and the same effective null.
   mixture of members of `S` over a probability measure (with Statlib's `subset_effectiveSet`).
 * `ProbabilityTheory.convex_effectiveSet`, `ProbabilityTheory.convexHull_subset_effectiveSet`: the
   effective null is convex and contains the convex hull of `S`.
+* `ProbabilityTheory.isSigmaConvex_effectiveSet`: the effective null contains the countable
+  mixtures of its members.
 * `ProbabilityTheory.isLowerSet_effectiveSet`: the effective null is solid.
 * `ProbabilityTheory.mem_effectiveSet_of_measure_le_liminf`,
   `ProbabilityTheory.mem_effectiveSet_of_tendsto`: the effective null is closed under setwise
@@ -98,6 +100,12 @@ theorem comp_mem_effectiveSet {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Meas
 theorem convex_effectiveSet : Convex ℝ≥0∞ (effectiveSet S) := by
   rw [effectiveSet_eq_polarNull]
   exact convex_polarNull _
+
+/-- The effective null is σ-convex, as every polar is: it contains the countable mixtures of its
+members. -/
+theorem isSigmaConvex_effectiveSet : IsSigmaConvex (effectiveSet S) := by
+  rw [effectiveSet_eq_polarNull]
+  exact isSigmaConvex_polarNull _
 
 /-- The effective null contains the convex hull of the null. -/
 theorem convexHull_subset_effectiveSet : convexHull ℝ≥0∞ S ⊆ effectiveSet S :=

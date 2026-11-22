@@ -6,9 +6,12 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
+public import Mathlib.MeasureTheory.Measure.Decomposition.Lebesgue
 public import Mathlib.MeasureTheory.Measure.TotalVariation.Defs
 
+import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.MeasureTheory.Integral.IntegrableOn
+import Mathlib.MeasureTheory.Measure.Decomposition.RadonNikodym
 import Mathlib.MeasureTheory.Measure.TotalVariation.Basic
 import Mathlib.MeasureTheory.VectorMeasure.Integral
 import LMLExplore.Order.ConditionallyCompleteLattice.Group
@@ -74,6 +77,12 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   for probability measures.
 * `MeasureTheory.tendsto_tvDist_one_sub_smul_add_smul`: mixtures `(1 - α i) • μ + α i • ν i` of
   probability measures with weights `α i → 0` tend to `μ` in total variation.
+* `MeasureTheory.lintegral_eNorm_toReal_rnDeriv_sub_le_etvDist`: for every σ-finite `ξ`, the
+  `L¹(ξ)` distance of the densities of `μ` and `ν` with respect to `ξ` is at most
+  `etvDist μ ν`.
+* `MeasureTheory.exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist`: along a subsequence of a
+  sequence converging in total variation, the densities with respect to any σ-finite measure
+  converge almost everywhere.
 
 ## Implementation notes
 
@@ -86,6 +95,10 @@ Ceti's `ℓ¹` formula `MeasureTheory.tvDist_eq_tsum_abs_singleton`,
 `tvDist μ ν = ∑' x, |μ {x} - ν {x}|` on a countable type. The behaviour under sums and scalings is
 read off the supremum over finite measurable partitions,
 `MeasureTheory.tvDist_eq_iSup_finPartition_abs`, so it needs no assumption on the masses.
+The `L¹` bound on the densities splits the space where the density of `μ` dominates that of `ν`,
+removes from it a `ξ`-null set carrying the part of `ν` singular with respect to `ξ`, and
+compares the result with Tau Ceti's `MeasureTheory.etvDist_eq_iSup_sub_add_iSup_sub`. Neither
+measure need be absolutely continuous with respect to `ξ`.
 -/
 
 public section
@@ -406,5 +419,98 @@ theorem tendsto_tvDist_one_sub_smul_add_smul {ι : Type*} {l : Filter ι} [IsPro
     (.of_forall fun _ ↦ tvDist_nonneg) ?_
   filter_upwards [hα1, hν] with i hi _
   exact tvDist_one_sub_smul_add_smul_le hi
+
+/-! ### Densities of measures close in total variation -/
+
+/-- On a measurable set where the density of `μ` with respect to `ξ` dominates that of `ν`, the
+integral of the difference of the densities is at most the largest excess `μ B - ν B` over
+measurable events. -/
+private theorem setLIntegral_tsub_rnDeriv_le_iSup (μ ν ξ : Measure 𝓧) [IsFiniteMeasure ν]
+    [SigmaFinite ξ] {A : Set 𝓧} (hA : MeasurableSet A)
+    (hle : ∀ x ∈ A, ν.rnDeriv ξ x ≤ μ.rnDeriv ξ x) :
+    ∫⁻ x in A, μ.rnDeriv ξ x - ν.rnDeriv ξ x ∂ξ ≤
+      ⨆ (B : Set 𝓧) (_ : MeasurableSet B), μ B - ν B := by
+  -- remove from `A` a `ξ`-null set carrying the singular part of `ν`
+  set h := ν.mutuallySingular_singularPart ξ
+  set B := A ∩ h.nullSet
+  have hB : MeasurableSet B := hA.inter h.measurableSet_nullSet
+  have hAB : ξ.restrict B = ξ.restrict A :=
+    Measure.restrict_congr_set (inter_ae_eq_left_of_ae_eq_univ
+      (ae_eq_univ.2 h.measure_compl_nullSet))
+  have hν : ν B = ∫⁻ x in B, ν.rnDeriv ξ x ∂ξ := by
+    conv_lhs => rw [← ν.rnDeriv_add_singularPart ξ]
+    rw [add_apply, withDensity_apply _ hB,
+      measure_mono_null inter_subset_right h.measure_nullSet, add_zero]
+  refine le_trans ?_ (le_iSup₂ (f := fun B (_ : MeasurableSet B) ↦ μ B - ν B) B hB)
+  rw [← hAB, lintegral_sub (ν.measurable_rnDeriv ξ) ?_ ?_, hν]
+  · exact tsub_le_tsub_right (Measure.setLIntegral_rnDeriv_le B) _
+  · exact (hν.symm.trans_lt (measure_lt_top ν B)).ne
+  · exact (ae_restrict_iff' hB).2 (Filter.Eventually.of_forall fun x hx ↦ hle x hx.1)
+
+/-- **Densities of measures close in total variation**: for every σ-finite measure `ξ`, the
+`L¹(ξ)` distance of the densities of `μ` and `ν` with respect to `ξ` is at most their total
+variation distance. Neither measure need be absolutely continuous with respect to `ξ`, and no
+finiteness is assumed: the distance is `∞` unless both measures are finite. When both are
+absolutely continuous with respect to `ξ` the two sides are equal. -/
+theorem lintegral_eNorm_toReal_rnDeriv_sub_le_etvDist (μ ν ξ : Measure 𝓧) [SigmaFinite ξ] :
+    ∫⁻ x, ‖(μ.rnDeriv ξ x).toReal - (ν.rnDeriv ξ x).toReal‖ₑ ∂ξ ≤ etvDist μ ν := by
+  by_cases h : IsFiniteMeasure μ ∧ IsFiniteMeasure ν
+  swap
+  · simp [etvDist_of_not_isFiniteMeasure h]
+  obtain ⟨_, _⟩ := h
+  set f := μ.rnDeriv ξ
+  set g := ν.rnDeriv ξ
+  set A := {x | g x ≤ f x}
+  have hA : MeasurableSet A := measurableSet_le (ν.measurable_rnDeriv ξ) (μ.measurable_rnDeriv ξ)
+  rw [etvDist_eq_iSup_sub_add_iSup_sub, ← lintegral_add_compl _ hA]
+  gcongr ?_ + ?_
+  · calc ∫⁻ x in A, ‖(f x).toReal - (g x).toReal‖ₑ ∂ξ = ∫⁻ x in A, f x - g x ∂ξ := by
+          refine setLIntegral_congr_fun_ae hA ?_
+          filter_upwards [μ.rnDeriv_ne_top ξ, ν.rnDeriv_ne_top ξ] with x hf hg hx
+          rw [← ENNReal.toReal_sub_of_le hx hf, Real.eNorm_of_nonneg ENNReal.toReal_nonneg,
+            ENNReal.ofReal_toReal (by finiteness)]
+      _ ≤ _ := setLIntegral_tsub_rnDeriv_le_iSup μ ν ξ hA fun x hx ↦ hx
+  · calc ∫⁻ x in Aᶜ, ‖(f x).toReal - (g x).toReal‖ₑ ∂ξ = ∫⁻ x in Aᶜ, g x - f x ∂ξ := by
+          refine setLIntegral_congr_fun_ae hA.compl ?_
+          filter_upwards [μ.rnDeriv_ne_top ξ, ν.rnDeriv_ne_top ξ] with x hf hg hx
+          rw [eNorm_sub_rev, ← ENNReal.toReal_sub_of_le (not_le.1 hx).le hg,
+            Real.eNorm_of_nonneg ENNReal.toReal_nonneg, ENNReal.ofReal_toReal (by finiteness)]
+      _ ≤ _ := setLIntegral_tsub_rnDeriv_le_iSup ν μ ξ hA.compl fun x hx ↦ (not_le.1 hx).le
+
+/-- **Almost everywhere convergence of the densities along a subsequence**: if `μs n` tends to
+`ν` in total variation, then for every σ-finite measure `ξ` some subsequence of the densities of
+`μs n` with respect to `ξ` converges `ξ`-almost everywhere to the density of `ν`. -/
+theorem exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist {ξ : Measure 𝓧} [SigmaFinite ξ]
+    {μs : ℕ → Measure 𝓧} (h : Filter.Tendsto (fun n ↦ etvDist (μs n) ν) Filter.atTop (nhds 0)) :
+    ∃ ns : ℕ → ℕ, StrictMono ns ∧ ∀ᵐ x ∂ξ,
+      Filter.Tendsto (fun i ↦ (μs (ns i)).rnDeriv ξ x) Filter.atTop (nhds (ν.rnDeriv ξ x)) := by
+  -- eventually, the measures are finite
+  obtain ⟨N, hN⟩ := Filter.eventually_atTop.1
+    (h.eventually (gt_mem_nhds ENNReal.zero_lt_top))
+  have hfin (n : ℕ) (hn : N ≤ n) : IsFiniteMeasure (μs n) ∧ IsFiniteMeasure ν :=
+    etvDist_lt_top_iff.1 (hN n hn)
+  have : IsFiniteMeasure ν := (hfin N le_rfl).2
+  -- the real densities converge in `ξ`-measure
+  have hmeas : TendstoInMeasure ξ (fun n x ↦ ((μs n).rnDeriv ξ x).toReal) Filter.atTop
+      (fun x ↦ (ν.rnDeriv ξ x).toReal) := by
+    refine tendstoInMeasure_of_tendsto_eLpNorm (p := 1) one_ne_zero ?_
+    refine tendsto_of_tendsto_of_tendsto_of_le_of_le tendsto_const_nhds h (fun _ ↦ zero_le)
+      fun n ↦ ?_
+    rw [eLpNorm_one_eq_lintegral_eNorm (by fun_prop)]
+    exact lintegral_eNorm_toReal_rnDeriv_sub_le_etvDist (μs n) ν ξ
+  obtain ⟨ns, hns, hns_ae⟩ := hmeas.exists_seq_tendsto_ae
+  refine ⟨ns, hns, ?_⟩
+  have hfin_ae : ∀ᵐ x ∂ξ, ∀ n, N ≤ n → (μs n).rnDeriv ξ x ≠ ∞ :=
+    ae_all_iff.2 fun n ↦ by
+      by_cases hn : N ≤ n
+      · have := (hfin n hn).1
+        filter_upwards [Measure.rnDeriv_ne_top (μs n) ξ] with x hx _ using hx
+      · exact Filter.Eventually.of_forall fun _ hn' ↦ absurd hn' hn
+  filter_upwards [hns_ae, hfin_ae, Measure.rnDeriv_ne_top ν ξ] with x hx hxfin hν
+  have hlim := ENNReal.tendsto_ofReal hx
+  rw [ENNReal.ofReal_toReal hν] at hlim
+  refine hlim.congr' ?_
+  filter_upwards [Filter.eventually_ge_atTop N] with i hi
+  exact ENNReal.ofReal_toReal (hxfin _ (hi.trans (hns.id_le i)))
 
 end MeasureTheory

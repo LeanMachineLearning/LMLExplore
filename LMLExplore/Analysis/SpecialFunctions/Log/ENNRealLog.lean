@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
+import Mathlib.Analysis.MeanInequalities
 import LMLExplore.Data.EReal.Inv
 
 /-!
@@ -21,6 +22,8 @@ import LMLExplore.Data.EReal.Inv
   `-(log x) / n ≤ r`.
 * `ENNReal.toENNReal_log_le_div_add`: for `0 < r < ∞`, `(log a)⁺ ≤ a / r + (log r)⁺`.
 * `ENNReal.log_le_sub_one`: `log x ≤ x - 1` in `EReal`, for every `x : ℝ≥0∞`.
+* `ENNReal.mul_log_add_mul_log_le_log`: the concavity of the logarithm on `ℝ≥0∞`,
+  `s log x + t log y ≤ log (s x + t y)` for weights `s, t : ℝ≥0` of sum `1`.
 
 ## Implementation notes
 
@@ -31,7 +34,7 @@ import LMLExplore.Data.EReal.Inv
 
 public section
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace ENNReal
 
@@ -100,5 +103,13 @@ lemma log_le_sub_one (x : ℝ≥0∞) : log x ≤ (x : EReal) - 1 := by
   rw [log_pos_real h0 htop, ← EReal.coe_ennreal_toReal htop, ← EReal.coe_one, ← EReal.coe_sub,
     EReal.coe_le_coe_iff]
   exact Real.log_le_sub_one_of_pos (ENNReal.toReal_pos h0 htop)
+
+/-- **The concavity of the logarithm** on `ℝ≥0∞`: for weights `s, t : ℝ≥0` of sum `1`,
+`s log x + t log y ≤ log (s x + t y)` in `EReal`, for all `x, y : ℝ≥0∞`. A zero weight cancels
+an infinite logarithm, as `0 * ⊥ = 0` in `EReal`. -/
+lemma mul_log_add_mul_log_le_log {s t : ℝ≥0} (hst : s + t = 1) (x y : ℝ≥0∞) :
+    ((s : ℝ) : EReal) * log x + ((t : ℝ) : EReal) * log y ≤ log (s * x + t * y) := by
+  rw [← log_rpow, ← log_rpow, ← log_mul_add]
+  exact log_monotone (geom_mean_le_arith_mean2_weighted s t x y hst)
 
 end ENNReal

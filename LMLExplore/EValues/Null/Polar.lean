@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EVariable
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+public import LMLExplore.MeasureTheory.Measure.SigmaConvex
 public import Statlib.EValues.RIPr
 
 /-!
@@ -38,6 +39,8 @@ The set of e-variables of a null is written `{X | IsEVar X S}`: its convexity, i
 * `ProbabilityTheory.convex_polarNull`, `ProbabilityTheory.isLowerSet_polarNull`,
   `ProbabilityTheory.mem_polarNull_of_tendsto`: every polar is convex, solid and closed under
   setwise limits along any filter.
+* `ProbabilityTheory.isSigmaConvex_polarNull`: every polar contains the countable mixtures of its
+  members.
 * `ProbabilityTheory.measure_univ_le_one_of_mem_polarNull`: when the constant `1` is a bet, the
   members of the polar have mass at most one.
 
@@ -180,6 +183,16 @@ theorem convex_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : Convex ℝ≥0∞ (p
   intro μ hμ ν hν a b _ _ hab X hX
   rw [lintegral_add_measure, lintegral_smul_measure, lintegral_smul_measure, ← hab]
   exact add_le_add (mul_le_of_le_one_right' (hμ X hX)) (mul_le_of_le_one_right' (hν X hX))
+
+/-- Every polar is σ-convex: it contains the countable mixtures of its members. The bets need not
+be measurable. -/
+theorem isSigmaConvex_polarNull (𝓔 : Set (Ω → ℝ≥0∞)) : IsSigmaConvex (polarNull 𝓔) := by
+  refine isSigmaConvex_iff.2 fun w Qs hw hQs X hX ↦ ?_
+  rw [lintegral_sum_measure]
+  calc ∑' n, ∫⁻ ω, X ω ∂(w n • Qs n) = ∑' n, w n * ∫⁻ ω, X ω ∂Qs n := by
+        simp_rw [lintegral_smul_measure, smul_eq_mul]
+    _ ≤ ∑' n, w n := tsum_le_tsum fun n ↦ mul_le_of_le_one_right' (hQs n X hX)
+    _ = 1 := hw
 
 /-- Every polar contains the convex hull of each of its subsets. -/
 theorem convexHull_subset_polarNull (hS : S ⊆ polarNull 𝓔) : convexHull ℝ≥0∞ S ⊆ polarNull 𝓔 :=
