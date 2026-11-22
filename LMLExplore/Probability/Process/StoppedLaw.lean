@@ -83,6 +83,10 @@ instance [IsProbabilityMeasure P] : IsProbabilityMeasure (stoppedLaw ℱ P τ) :
   rw [stoppedLaw_def]
   infer_instance
 
+instance [SFinite P] : SFinite (stoppedLaw ℱ P τ) := by
+  rw [stoppedLaw_def]
+  infer_instance
+
 variable [Countable ι] [MeasurableSingletonClass ι]
 
 /-- The measure of a progressive set of stopped paths under a stopped law at a measurable random

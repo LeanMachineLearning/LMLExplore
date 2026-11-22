@@ -152,14 +152,16 @@ theorem isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull :
   have hle {F G : ℕ → Ω → ℝ≥0∞} (hF : Adapted ℱ F) (hG : Adapted ℱ G) :
       Function.uncurry F ≤ᶠ[quasiSure (stoppedNull ℱ S)] Function.uncurry G ↔
         ∀ n, F n ≤ᶠ[quasiSure S] G n :=
-    eventually_quasiSure_stoppedNull_iff (@measurableSet_le _ _ _ _ _ ℱ.progressive _ _ _ _ _
+    eventually_quasiSure_stoppedNull_iff (measurableSet_le (mδ := ℱ.progressive)
       (Filtration.measurable_uncurry_progressive_iff.2 hF)
       (Filtration.measurable_uncurry_progressive_iff.2 hG))
   refine ⟨fun hE ↦ ⟨isEProcess_iff_isEVar_stoppedNull.1 hE.mem, fun G hG hEG ↦ ?_⟩,
     fun hE ↦ isAdmissibleEProcess_iff.2 ⟨isEProcess_iff_isEVar_stoppedNull.2 hE.mem,
       fun F hF hEF ↦ ?_⟩⟩
-  · -- a progressive e-variable of the stopped null is an e-process
-    have hG' : IsEProcess (fun n ω ↦ G (n, ω)) ℱ S := isEProcess_iff_isEVar_stoppedNull.2 hG
+  · -- a progressive e-variable `G` of the stopped null is the uncurried form of the e-process
+    -- `Function.curry G`
+    rw [← Function.uncurry_curry G] at hG hEG ⊢
+    have hG' : IsEProcess (Function.curry G) ℱ S := isEProcess_iff_isEVar_stoppedNull.2 hG
     exact (hle hG'.adapted hE.mem.adapted).2
       ((isAdmissibleEProcess_iff.1 hE).2 _ hG' ((hle hE.mem.adapted hG'.adapted).1 hEG))
   · have hE' : IsEProcess E ℱ S := isEProcess_iff_isEVar_stoppedNull.2 hE.mem
@@ -253,9 +255,6 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le (R : Measure Ω) [SFinite R]
   -- through `isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull`
   set R' : @Measure (ℕ × Ω) ℱ.progressive := Measure.sum fun n : ℕ ↦ stoppedLaw ℱ R fun _ ↦ n
     with hR'_def
-  have (n : ℕ) : @SFinite _ ℱ.progressive (stoppedLaw ℱ R fun _ ↦ n) := by
-    rw [stoppedLaw_def]
-    infer_instance
   have : @SFinite _ ℱ.progressive R' := by
     rw [hR'_def]
     infer_instance
@@ -273,7 +272,9 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le (R : Measure Ω) [SFinite R]
     |>.exists_isAdmissibleEVar_le_of_absolutelyContinuousSet (mΩ := ℱ.progressive) R'
       (Measure.absolutelyContinuousSet_iff.2 fun A hA h ↦ (hR' hA).2 h)
       fun μ hμ ↦ .mk fun A hA h ↦ (hR' hA).1 h μ hμ
-  exact ⟨fun n ω ↦ G (n, ω), isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull.2 hG,
+  -- `G` is the uncurried form of the admissible e-process `Function.curry G`
+  rw [← Function.uncurry_curry G] at hG
+  exact ⟨Function.curry G, isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull.2 hG,
     fun n ω ↦ hEG (n, ω)⟩
 
 /-- **Every e-process for a locally dominated null is dominated by an admissible e-process**

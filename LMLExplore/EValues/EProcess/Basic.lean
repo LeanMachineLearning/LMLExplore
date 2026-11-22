@@ -354,14 +354,15 @@ theorem IsEProcess.exists_isTestMartingale_ae_le (hE : IsEProcess E ℱ S) (hP :
   -- add the missing initial expectation as a constant
   set c := 1 - ∫⁻ ω, M 0 ω ∂P with hc
   have hc_ne : c ≠ ∞ := ENNReal.sub_ne_top ENNReal.one_ne_top
+  have h_one : ∫⁻ ω, M 0 ω + c ∂P = 1 := by
+    rw [lintegral_add_right _ measurable_const, lintegral_const, measure_univ, mul_one, hc,
+      add_tsub_cancel_of_le (hM.lintegral_zero_le P rfl)]
   refine ⟨fun n ω ↦ M n ω + c, ⟨fun n ↦ (hM.adapted n).add_const c, fun Q hQ ↦ ?_,
-    fun Q hQ n s hs ↦ ?_⟩, ?_, fun n ↦ (hEM n).mono fun ω h ↦ h.trans le_self_add⟩
-  · rw [mem_singleton_iff.1 hQ, lintegral_add_right _ measurable_const, lintegral_const,
-      measure_univ, mul_one, hc, add_tsub_cancel_of_le (hM.lintegral_zero_le P rfl)]
+    fun Q hQ n s hs ↦ ?_⟩, h_one, fun n ↦ (hEM n).mono fun ω h ↦ h.trans le_self_add⟩
+  · rw [mem_singleton_iff.1 hQ]
+    exact h_one.le
   · rw [mem_singleton_iff.1 hQ, lintegral_add_right _ measurable_const,
       lintegral_add_right _ measurable_const, hM.setLIntegral_succ_eq P rfl n s hs]
-  · rw [lintegral_add_right _ measurable_const, lintegral_const, measure_univ, mul_one, hc,
-      add_tsub_cancel_of_le (hM.lintegral_zero_le P rfl)]
 
 /-- Under a probability measure `P`, the value at every stopping time with values in `WithTop ℕ`
 of a process almost surely dominated by a test supermartingale for `P` has expectation at most
