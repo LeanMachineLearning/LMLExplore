@@ -7,9 +7,11 @@ module
 
 public import LMLExplore.Analysis.MeanInequalities
 public import Mathlib.Analysis.Convex.SpecificFunctions.Pow
+public import Mathlib.Analysis.MeanInequalities
+public import TauCeti.Analysis.SpecialFunctions.Pow.NNReal
 
 /-!
-# Powers of nonnegative concave functions
+# Powers of nonnegative concave functions, and nonpositive powers on `ℝ≥0∞`
 
 Mathlib proves that `x ↦ x ^ p` is concave on `[0, ∞)` for `p ∈ [0, 1]` (`Real.concaveOn_rpow`).
 Since it is also nondecreasing there, it preserves concavity: for a nonnegative concave function
@@ -22,16 +24,26 @@ These are the facts behind the calculus of exp-concave functions: `f` is `α`-ex
 `exp (-(α * f))` is concave, and `exp (-(β * f)) = exp (-(α * f)) ^ (β / α)`,
 `exp (-(γ * (f + g))) = exp (-(α * f)) ^ (γ / α) * exp (-(β * g)) ^ (γ / β)`.
 
+For `p ≤ 0`, the function `x ↦ x ^ p` is convex on all of `ℝ≥0∞`, with weights in `ℝ≥0`: with the
+conventions `0 ^ p = ∞` for `p < 0` and `∞ ^ p = 0`, no positivity or finiteness hypothesis is
+needed. It follows from the weighted arithmetic-geometric mean inequality
+`x ^ a * y ^ b ≤ a * x + b * y` (Mathlib's `ENNReal.geom_mean_le_arith_mean2_weighted`), applied
+once to `x, y` and once to `x ^ p, y ^ p`, and the antitonicity of `t ↦ t ^ p` (Tau Ceti's
+`ENNReal.rpow_le_rpow_of_nonpos`). It makes the power utilities `x ↦ x ^ (1 - γ) / (1 - γ)`,
+`γ > 1`, concave on `ℝ≥0∞`.
+
 ## Main statements
 
 * `ConcaveOn.rpow`: a nonnegative concave function raised to a power `p ∈ [0, 1]` is concave.
 * `ConcaveOn.rpow_mul_rpow`: for nonnegative concave `f` and `g` and `p, q ≥ 0` with `p + q = 1`,
   `x ↦ f x ^ p * g x ^ q` is concave.
+* `ENNReal.convexOn_rpow_of_nonpos`: `x ↦ x ^ p` is convex on `ℝ≥0∞` for `p ≤ 0`.
 -/
 
 public section
 
 open Set
+open scoped ENNReal NNReal
 
 variable {E : Type*} [AddCommGroup E] [Module ℝ E] {s : Set E} {f g : E → ℝ} {p q : ℝ}
 
@@ -74,3 +86,32 @@ theorem rpow (hf : ConcaveOn ℝ s f) (hf₀ : ∀ x ∈ s, 0 ≤ f x) (hp₀ : 
     (add_sub_cancel _ _)).congr fun x _ ↦ by simp only [Real.one_rpow, mul_one]
 
 end ConcaveOn
+
+namespace ENNReal
+
+/-- For `p ≤ 0`, the function `x ↦ x ^ p` is convex on `ℝ≥0∞`, with weights in `ℝ≥0`. -/
+theorem convexOn_rpow_of_nonpos {p : ℝ} (hp : p ≤ 0) :
+    ConvexOn ℝ≥0 univ fun x : ℝ≥0∞ ↦ x ^ p := by
+  refine ⟨convex_univ, fun x _ y _ a b _ _ hab ↦ ?_⟩
+  simp only [smul_def, smul_eq_mul]
+  rcases eq_or_ne a 0 with rfl | ha
+  · simp_all
+  rcases eq_or_ne b 0 with rfl | hb
+  · simp_all
+  rcases eq_or_ne x 0 with rfl | hx
+  · rcases hp.lt_or_eq with hp | rfl
+    · simp [ENNReal.zero_rpow_of_neg hp, ha]
+    · simp [← ENNReal.coe_add, hab]
+  rcases eq_or_ne y 0 with rfl | hy
+  · rcases hp.lt_or_eq with hp | rfl
+    · simp [ENNReal.zero_rpow_of_neg hp, hb]
+    · simp [← ENNReal.coe_add, hab]
+  calc (a * x + b * y) ^ p
+  _ ≤ (x ^ (a : ℝ) * y ^ (b : ℝ)) ^ p :=
+    rpow_le_rpow_of_nonpos (geom_mean_le_arith_mean2_weighted a b x y hab) hp
+  _ = (x ^ p) ^ (a : ℝ) * (y ^ p) ^ (b : ℝ) := by
+    rw [mul_rpow_of_ne_zero (by simp [hx]) (by simp [hy]), ← rpow_mul, ← rpow_mul, ← rpow_mul,
+      ← rpow_mul, mul_comm (a : ℝ), mul_comm (b : ℝ)]
+  _ ≤ a * x ^ p + b * y ^ p := geom_mean_le_arith_mean2_weighted a b _ _ hab
+
+end ENNReal
