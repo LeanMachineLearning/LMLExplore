@@ -27,12 +27,13 @@ that the null can see. This file compares the two notions.
   domination it need not be: on `Bool`, the indicator of `true` is a numeraire of the two Dirac
   masses against the Dirac mass at `true`, and is not admissible.
 * **Finite nulls.** For a finite null of finite measures, an e-variable is admissible exactly when
-  it is strongly admissible: every measurable set charged by the null is charged by a member under
-  which the e-variable is exact [RW, Proposition 2.16]. Every e-variable is then at most an
-  admissible one, every admissible e-variable is a numeraire against some alternative, every
-  numeraire is almost surely equal to an admissible numeraire, and the numeraires against the
-  alternatives that dominate the null are the admissible e-variables that are almost surely
-  positive under the null.
+  it is strongly admissible [RW, Proposition 2.16], and every e-variable is at most an admissible
+  one; both are in `LMLExplore.EValues.Admissible`
+  (`ProbabilityTheory.isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite`,
+  `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`). Then every admissible e-variable is a
+  numeraire against some alternative, every numeraire is almost surely equal to an admissible
+  numeraire, and the numeraires against the alternatives that dominate the null are the admissible
+  e-variables that are almost surely positive under the null.
 * **The Poisson family.** For the null of the Poisson laws, `2 · 𝟙{k odd}` is an admissible
   e-variable, and it is a numeraire against no nonzero finite measure. So for an infinite null an
   admissible e-variable need not be a numeraire against any alternative.
@@ -48,14 +49,10 @@ mass of the member, and exact means `∫⁻ E ∂P = 1`.
 * `ProbabilityTheory.exists_isNumeraire_not_isAdmissibleEVar`: the domination is needed in
   `ProbabilityTheory.IsNumeraire.isAdmissibleEVar`, even for a finite null [EVR26, Note 42,
   Theorem 9 (3)].
-* `ProbabilityTheory.isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite`,
-  `ProbabilityTheory.isAdmissibleEVar_iff_forall_absolutelyContinuous_sum`: admissibility for a
-  finite null [RW, Proposition 2.16; EVR26, Note 42, Theorem 9 (1)].
 * `ProbabilityTheory.IsAdmissibleEVar.exists_isNumeraire_withDensity`: admissible e-variables of a
   finite null are numeraires [EVR26, Note 42, Theorem 9 (2)], through
   `ProbabilityTheory.isNumeraire_withDensity_of_mem_convexHull`.
-* `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`,
-  `ProbabilityTheory.IsNumeraire.exists_isAdmissibleEVar_ae_eq`: numeraires of a finite null are
+* `ProbabilityTheory.IsNumeraire.exists_isAdmissibleEVar_ae_eq`: numeraires of a finite null are
   almost surely equal to admissible ones [EVR26, Note 42, Theorem 9 (3)].
 * `ProbabilityTheory.exists_isNumeraire_absolutelyContinuous_iff`: the numeraires against
   dominating alternatives [EVR26, Note 42, Theorem 9 (4)].
@@ -156,90 +153,6 @@ theorem exists_isNumeraire_not_isAdmissibleEVar :
 
 /-! ### Finite nulls -/
 
-/-- **Raising an e-variable on a set that no exact member charges.** Let `E` be an e-variable
-for a finite null `S` of finite measures, and `A` a measurable set charged by a member of `S` and
-by no member under which `E` is exact. Then for some `ε ≠ 0`, `E + ε 𝟙_A` is an e-variable, and
-it is exact under a member of `S` that charges `A`. -/
-private lemma exists_isEVar_add_indicator (hS : S.Finite) (hSfin : ∀ P ∈ S, IsFiniteMeasure P)
-    (hE : IsEVar E S) {A : Set Ω} (hA : MeasurableSet A) (hA₀ : ∃ P ∈ S, P A ≠ 0)
-    (hAE : ∀ P ∈ S, P A ≠ 0 → ∫⁻ ω, E ω ∂P ≠ 1) :
-    ∃ ε : ℝ≥0∞, ε ≠ 0 ∧ IsEVar (fun ω ↦ E ω + A.indicator (fun _ ↦ ε) ω) S ∧
-      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω + A.indicator (fun _ ↦ ε) ω ∂P = 1 := by
-  -- the largest constant: the smallest ratio of the slack to the mass of `A`
-  obtain ⟨P₁, ⟨hP₁, hP₁A⟩, hmin⟩ := exists_min_image {P | P ∈ S ∧ P A ≠ 0}
-    (fun P ↦ (1 - ∫⁻ ω, E ω ∂P) / P A) (hS.subset fun P hP ↦ hP.1) (hA₀.imp fun P hP ↦ hP)
-  have h_int (P : Measure Ω) (ε : ℝ≥0∞) :
-      ∫⁻ ω, E ω + A.indicator (fun _ ↦ ε) ω ∂P = ∫⁻ ω, E ω ∂P + ε * P A := by
-    rw [lintegral_add_left hE.measurable, lintegral_indicator_const hA]
-  have h_cancel (P : Measure Ω) (hP : P ∈ S) (hPA : P A ≠ 0) :
-      ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P) / P A * P A = 1 := by
-    have := hSfin P hP
-    rw [ENNReal.div_mul_cancel hPA (measure_ne_top P A),
-      add_tsub_cancel_of_le (hE.lintegral_le_one hP)]
-  have := hSfin P₁ hP₁
-  refine ⟨(1 - ∫⁻ ω, E ω ∂P₁) / P₁ A, ?_, ⟨hE.measurable.add (measurable_const.indicator hA),
-    fun P hP ↦ ?_⟩, P₁, hP₁, hP₁A, by rw [h_int, h_cancel P₁ hP₁ hP₁A]⟩
-  · refine (ENNReal.div_pos (tsub_pos_of_lt ?_).ne' (measure_ne_top P₁ A)).ne'
-    exact lt_of_le_of_ne (hE.lintegral_le_one hP₁) (hAE P₁ hP₁ hP₁A)
-  · rw [h_int]
-    by_cases hPA : P A = 0
-    · rw [hPA, mul_zero, add_zero]
-      exact hE.lintegral_le_one hP
-    · calc ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P₁) / P₁ A * P A
-      _ ≤ ∫⁻ ω, E ω ∂P + (1 - ∫⁻ ω, E ω ∂P) / P A * P A :=
-        add_le_add le_rfl (mul_le_mul' (hmin P ⟨hP, hPA⟩) le_rfl)
-      _ = 1 := h_cancel P hP hPA
-
-/-- **Admissible e-variables for a finite null** [RW, Proposition 2.16; EVR26, Note 42,
-Theorem 9 (1)]. For a finite null of finite measures, an e-variable is admissible if and only if
-it is strongly admissible: every measurable set charged by a member of the null is charged by a
-member under which the e-variable is exact. -/
-theorem isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite (hS : S.Finite)
-    (hSfin : ∀ P ∈ S, IsFiniteMeasure P) :
-    IsAdmissibleEVar E S ↔ IsStronglyAdmissibleEVar E S := by
-  refine ⟨fun hE ↦ ⟨hE.mem, fun A hA hA₀ ↦ ?_⟩, fun hE ↦ hE.isAdmissibleEVar⟩
-  by_contra hcon
-  push Not at hcon
-  -- otherwise `E + ε 𝟙_A` is a larger e-variable, on a set that a member charges
-  obtain ⟨ε, hε, hF, -⟩ := exists_isEVar_add_indicator hS hSfin hE.mem hA hA₀ hcon
-  obtain ⟨P, hP, hPA⟩ := hA₀
-  refine hPA (measure_eq_zero_iff_ae_notMem.2 ?_)
-  filter_upwards [ae_of_eventually_quasiSure
-      (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) hP,
-    hE.mem.ae_lt_top hP] with ω hω hω_top hωA
-  rw [indicator_of_mem hωA] at hω
-  exact hε (le_zero_iff.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
-
-/-- Every member of the null is absolutely continuous with respect to the sum of the members
-under which `E` is exact if and only if every measurable set charged by a member of the null is
-charged by a member under which `E` is exact. -/
-private lemma forall_absolutelyContinuous_sum_iff :
-    (∀ P ∈ S, P ≪ Measure.sum
-      fun P' : {P' : Measure Ω // P' ∈ S ∧ ∫⁻ ω, E ω ∂P' = 1} ↦ (P' : Measure Ω)) ↔
-      ∀ A, MeasurableSet A → (∃ P ∈ S, P A ≠ 0) → ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E ω ∂P = 1 := by
-  refine ⟨fun h A hA ⟨P, hP, hPA⟩ ↦ ?_, fun h P hP ↦ .mk fun A hA hA0 ↦ ?_⟩
-  · have h0 : Measure.sum (fun P' : {P' : Measure Ω // P' ∈ S ∧ ∫⁻ ω, E ω ∂P' = 1} ↦
-        (P' : Measure Ω)) A ≠ 0 := fun h0 ↦ hPA (h P hP h0)
-    rw [Ne, Measure.sum_apply_eq_zero' hA, not_forall] at h0
-    obtain ⟨P', hP'⟩ := h0
-    exact ⟨P', P'.2.1, hP', P'.2.2⟩
-  · by_contra hPA
-    obtain ⟨P', hP', hP'A, hP'E⟩ := h A hA ⟨P, hP, hPA⟩
-    exact hP'A (le_antisymm ((Measure.le_sum _ (⟨P', hP', hP'E⟩ :
-      {P' : Measure Ω // P' ∈ S ∧ ∫⁻ ω, E ω ∂P' = 1}) A).trans hA0.le) zero_le)
-
-/-- **Admissible e-variables for a finite null** [RW, Proposition 2.16; EVR26, Note 42,
-Theorem 9 (1)]. For a finite null `S` of finite measures, an e-variable `E` is admissible if and
-only if every member of `S` is absolutely continuous with respect to the sum of the members `P` of
-`S` under which `E` is exact, `∫⁻ E ∂P = 1`. -/
-theorem isAdmissibleEVar_iff_forall_absolutelyContinuous_sum (hS : S.Finite)
-    (hSfin : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsEVar E S) :
-    IsAdmissibleEVar E S ↔ ∀ P ∈ S, P ≪ Measure.sum
-      fun P' : {P' : Measure Ω // P' ∈ S ∧ ∫⁻ ω, E ω ∂P' = 1} ↦ (P' : Measure Ω) := by
-  rw [isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite hS hSfin,
-    forall_absolutelyContinuous_sum_iff]
-  exact ⟨fun h ↦ h.exists_lintegral_eq, fun h ↦ ⟨hE, h⟩⟩
-
 /-- **For a finite null, every admissible e-variable is a numeraire against some alternative**
 [EVR26, Note 42, Theorem 9 (2)]. If `E` is an admissible e-variable for a finite null `S` of
 finite measures, not all zero, then some member `P` of `S` has `∫⁻ E ∂P = 1`, and `E` is a
@@ -253,47 +166,6 @@ theorem IsAdmissibleEVar.exists_isNumeraire_withDensity (hS : S.Finite)
       univ .univ ⟨P₀, hP₀, by simpa using hP₀0⟩
   exact ⟨P, hP, hPE, isNumeraire_withDensity_of_mem_convexHull hE.mem
     (subset_convexHull _ _ ⟨hP, hPE⟩)⟩
-
-/-- **Every e-variable for a finite null is dominated by an admissible e-variable.** For a
-finite null of finite measures, every e-variable is at most an admissible e-variable. -/
-theorem IsEVar.exists_isAdmissibleEVar_le (hS : S.Finite) (hSfin : ∀ P ∈ S, IsFiniteMeasure P)
-    (hE : IsEVar E S) : ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' := by
-  -- raise the e-variable on sets that no exact member charges until it is strongly admissible, by
-  -- induction on the number of members under which it is not exact
-  suffices h : ∀ n : ℕ, ∀ E : Ω → ℝ≥0∞, IsEVar E S →
-      {P | P ∈ S ∧ ∫⁻ ω, E ω ∂P ≠ 1}.ncard ≤ n →
-      ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' from h _ E hE le_rfl
-  have h_fin (E : Ω → ℝ≥0∞) : {P | P ∈ S ∧ ∫⁻ ω, E ω ∂P ≠ 1}.Finite :=
-    hS.subset fun P hP ↦ hP.1
-  intro n
-  induction n with
-  | zero =>
-    intro E hE hn
-    have h_empty := (ncard_eq_zero (h_fin E)).1 (Nat.le_zero.1 hn)
-    refine ⟨E, IsExactEVar.isAdmissibleEVar ⟨hE, fun P hP ↦ ?_⟩, le_rfl⟩
-    by_contra hPE
-    exact notMem_empty P (h_empty ▸ (⟨hP, hPE⟩ : P ∈ {P | P ∈ S ∧ ∫⁻ ω, E ω ∂P ≠ 1}))
-  | succ n ih =>
-    intro E hE hn
-    by_cases hadm : IsStronglyAdmissibleEVar E S
-    · exact ⟨E, hadm.isAdmissibleEVar, le_rfl⟩
-    obtain ⟨A, hA, hA₀, hAE⟩ : ∃ A, MeasurableSet A ∧ (∃ P ∈ S, P A ≠ 0) ∧
-        ∀ P ∈ S, P A ≠ 0 → ∫⁻ ω, E ω ∂P ≠ 1 := by
-      by_contra hcon
-      push Not at hcon
-      exact hadm ⟨hE, fun A hA hA₀ ↦ hcon A hA hA₀⟩
-    obtain ⟨ε, -, hF, P₁, hP₁, hP₁A, hP₁F⟩ := exists_isEVar_add_indicator hS hSfin hE hA hA₀ hAE
-    -- the new e-variable is exact under one more member
-    have h_ssub : {P | P ∈ S ∧ ∫⁻ ω, E ω + A.indicator (fun _ ↦ ε) ω ∂P ≠ 1} ⊂
-        {P | P ∈ S ∧ ∫⁻ ω, E ω ∂P ≠ 1} := by
-      refine ⟨fun P ⟨hP, hPF⟩ ↦ ⟨hP, fun hPE ↦ hPF ?_⟩,
-        fun h_sub ↦ (h_sub ⟨hP₁, hAE P₁ hP₁ hP₁A⟩).2 hP₁F⟩
-      have hPA : P A = 0 := by_contra fun hPA ↦ hAE P hP hPA hPE
-      rw [lintegral_add_left hE.measurable, lintegral_indicator_const hA, hPA, mul_zero, add_zero,
-        hPE]
-    have h_lt := ncard_lt_ncard h_ssub (h_fin E)
-    obtain ⟨E', hE', hFE'⟩ := ih _ hF (by omega)
-    exact ⟨E', hE', fun ω ↦ le_self_add.trans (hFE' ω)⟩
 
 /-- **Every numeraire of a finite null is almost surely equal to an admissible numeraire**
 [EVR26, Note 42, Theorem 9 (3)]. If `E` is a numeraire of a finite null `S` of finite measures
@@ -361,6 +233,27 @@ alternative -/
 private lemma exp_neg_two_mul_le_one {x : ℝ} (hx : 0 ≤ x) : Real.exp (-(2 * x)) ≤ 1 :=
   Real.exp_le_one_iff.2 (by linarith)
 
+/-- `exp (-2 x) ≤ 2` in `ℝ≥0∞`, for `x ≥ 0`. -/
+private lemma ofReal_exp_neg_two_mul_le_two {x : ℝ} (hx : 0 ≤ x) :
+    ENNReal.ofReal (Real.exp (-(2 * x))) ≤ 2 :=
+  (ENNReal.ofReal_le_one.2 (exp_neg_two_mul_le_one hx)).trans one_le_two
+
+/-- `exp (-2 x) = exp (-x) * exp (-x)` in `ℝ≥0∞`. -/
+private lemma ofReal_exp_neg_two_mul (x : ℝ) :
+    ENNReal.ofReal (Real.exp (-(2 * x))) =
+      ENNReal.ofReal (Real.exp (-x)) * ENNReal.ofReal (Real.exp (-x)) := by
+  rw [← ENNReal.ofReal_mul (Real.exp_pos _).le, ← Real.exp_add]
+  ring_nf
+
+/-- `exp (-n) * (1 / k!) ≤ Po(n) {k}` for an integer `n ≥ 1`: the product form of
+`LMLExplore.ofReal_exp_neg_div_factorial_le_poissonMeasure_singleton`. -/
+private lemma ofReal_exp_neg_mul_le_poissonMeasure_singleton {n : ℕ} (hn : 1 ≤ n) (k : ℕ) :
+    ENNReal.ofReal (Real.exp (-(n : ℝ))) * ENNReal.ofReal ((k.factorial : ℝ))⁻¹ ≤
+      poissonMeasure (n : ℝ≥0) {k} := by
+  have h := LMLExplore.ofReal_exp_neg_div_factorial_le_poissonMeasure_singleton
+    (r := (n : ℝ≥0)) (by exact_mod_cast hn) k
+  rwa [NNReal.coe_natCast, div_eq_mul_inv, ENNReal.ofReal_mul (Real.exp_pos _).le] at h
+
 /-- `(1 - exp (-2 x)) + exp (-2 x) = 1` in `ℝ≥0∞`, for `x ≥ 0`. -/
 private lemma ofReal_one_sub_exp_add_ofReal_exp {x : ℝ} (hx : 0 ≤ x) :
     ENNReal.ofReal (1 - Real.exp (-(2 * x))) + ENNReal.ofReal (Real.exp (-(2 * x))) = 1 := by
@@ -420,20 +313,24 @@ theorem isAdmissibleEVar_indicator_odd_poissonMeasure :
   suffices h : F = E by rw [h]
   funext k
   refine le_antisymm ?_ (hEF k)
-  set c : ℝ≥0∞ := ENNReal.ofReal ((k.factorial : ℝ))⁻¹ with hc
+  set c : ℝ≥0∞ := ENNReal.ofReal ((k.factorial : ℝ))⁻¹
   have h_bound (n : ℕ) (hn : 1 ≤ n) :
       (F k - E k) * c ≤ ENNReal.ofReal (Real.exp (-(n : ℝ))) := by
     have h_single : (F k - E k) * poissonMeasure (n : ℝ≥0) {k} ≤
         ∫⁻ j, F j - E j ∂poissonMeasure (n : ℝ≥0) := by
       rw [lintegral_countable']
       exact le_tsum (fun a ↦ (F a - E a) * poissonMeasure (n : ℝ≥0) {a}) k
-    have h_main := (mul_le_mul_right
-      (LMLExplore.ofReal_exp_neg_div_factorial_le_poissonMeasure_singleton
-        (by exact_mod_cast hn) k) (F k - E k)).trans
-      (h_single.trans (lintegral_sub_indicator_odd_le hF hEF n))
-    rw [NNReal.coe_natCast, div_eq_mul_inv, ENNReal.ofReal_mul (Real.exp_pos _).le, ← hc,
-      two_mul, neg_add, Real.exp_add, ENNReal.ofReal_mul (Real.exp_pos _).le,
-      mul_left_comm] at h_main
+    -- `(F k - E k) * exp (-n) * c ≤ exp (-2 n) = exp (-n) * exp (-n)`; cancel `exp (-n)`
+    have h_main : ENNReal.ofReal (Real.exp (-(n : ℝ))) * ((F k - E k) * c) ≤
+        ENNReal.ofReal (Real.exp (-(n : ℝ))) * ENNReal.ofReal (Real.exp (-(n : ℝ))) := by
+      calc ENNReal.ofReal (Real.exp (-(n : ℝ))) * ((F k - E k) * c)
+      _ = (F k - E k) * (ENNReal.ofReal (Real.exp (-(n : ℝ))) * c) := mul_left_comm _ _ _
+      _ ≤ (F k - E k) * poissonMeasure (n : ℝ≥0) {k} := by
+        gcongr
+        exact ofReal_exp_neg_mul_le_poissonMeasure_singleton hn k
+      _ ≤ ENNReal.ofReal (Real.exp (-(2 * ((n : ℝ≥0) : ℝ)))) :=
+        h_single.trans (lintegral_sub_indicator_odd_le hF hEF n)
+      _ = _ := by rw [NNReal.coe_natCast, ofReal_exp_neg_two_mul]
     exact (ENNReal.mul_le_mul_iff_right (by simpa using Real.exp_pos _) ENNReal.ofReal_ne_top).1
       h_main
   have h_lim : Tendsto (fun n : ℕ ↦ ENNReal.ofReal (Real.exp (-(n : ℝ)))) atTop (𝓝 0) := by
@@ -487,11 +384,10 @@ private lemma isEVar_oddShift {k₀ k₁ : ℕ} (hk₀ : Odd k₀) (hk₁ : Odd 
     IsEVar (oddShift k₀ k₁ (ENNReal.ofReal (Real.exp (-(2 * (k₁ : ℝ))))))
       (range poissonMeasure) := by
   set a : ℝ≥0∞ := ENNReal.ofReal (Real.exp (-(2 * (k₁ : ℝ)))) with ha_def
-  have ha2 : a ≤ 2 :=
-    (ENNReal.ofReal_le_one.2 (exp_neg_two_mul_le_one k₁.cast_nonneg)).trans one_le_two
   refine ⟨.of_discrete, ?_⟩
   rintro _ ⟨r, rfl⟩
-  have h := lintegral_oddShift_add hk₀ hk₁ hk₀₁.ne ha2 (poissonMeasure r)
+  have h := lintegral_oddShift_add hk₀ hk₁ hk₀₁.ne (ofReal_exp_neg_two_mul_le_two k₁.cast_nonneg)
+    (poissonMeasure r)
   rw [lintegral_indicator_odd_poissonMeasure] at h
   rcases le_or_gt (k₁ : ℝ) r with hr₁ | hr₁
   · -- for `r ≥ k₁`, the Poisson law charges `k₁` more than `k₀`
@@ -543,8 +439,6 @@ theorem not_isNumeraire_indicator_odd_poissonMeasure (Q : Measure ℕ) [IsFinite
   set a : ℝ≥0∞ := ENNReal.ofReal (Real.exp (-(2 * (k₁ : ℝ)))) with ha_def
   set F : ℕ → ℝ≥0∞ := oddShift k₀ k₁ a with hF_def
   have ha0 : a ≠ 0 := (ENNReal.ofReal_pos.2 (Real.exp_pos _)).ne'
-  have ha2 : a ≤ 2 :=
-    (ENNReal.ofReal_le_one.2 (exp_neg_two_mul_le_one k₁.cast_nonneg)).trans one_le_two
   -- the ratio of `F` to `E` has too large an integral under `Q`
   have h_num := hE.lintegral_div_le_measure_fsupport hF
   have hE_top : ∀ᵐ k ∂Q, E k ≠ ∞ := .of_forall fun k ↦
@@ -556,7 +450,8 @@ theorem not_isNumeraire_indicator_odd_poissonMeasure (Q : Measure ℕ) [IsFinite
     rw [lintegral_congr_ae (h_two.mono fun k hk ↦ by rw [hk])]
     simp_rw [div_eq_mul_inv]
     rw [lintegral_mul_const _ hF.measurable]
-  have h := lintegral_oddShift_add (h_odd k₀ hk₀) hk₁_odd hk₀₁.ne ha2 Q
+  have h := lintegral_oddShift_add (h_odd k₀ hk₀) hk₁_odd hk₀₁.ne
+    (ofReal_exp_neg_two_mul_le_two k₁.cast_nonneg) Q
   rw [lintegral_congr_ae h_two, lintegral_const] at h
   have hFQ : ∫⁻ k, F k ∂Q ≤ 2 * Q univ := by
     rwa [h_div, ENNReal.div_le_iff_le_mul (.inl two_ne_zero) (.inl ENNReal.ofNat_ne_top),
