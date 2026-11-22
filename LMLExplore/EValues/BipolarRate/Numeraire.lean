@@ -206,7 +206,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
     rw [← maxEPower_eq_eintegral_numeraire hfin, ← maxLogGrowth_def]
     exact (EReal.coe_lt_div_natCast_iff (Nat.pos_of_ne_zero hm)).1 hk
   -- so does the expected logarithm truncated at a level `c`, which is integrable
-  obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm (hnum.ae_ne_zero hfin)
+  obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm
     (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot (hnum.eintegral_log_ne_bot hfin)) hmL
   set g : (Fin m → 𝓧) → ℝ := fun x ↦ ENNReal.truncLog c (Em x)
   have hlt : L < (m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
