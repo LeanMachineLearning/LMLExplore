@@ -8,11 +8,11 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
+import LMLExplore.Data.ENat.Basic
 import LMLExplore.EValues.BipolarRate.Round
 import LMLExplore.MeasureTheory.Integral.EReal
-import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
-import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Stopping
+import LMLExplore.Probability.ProductMeasure
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -305,21 +305,16 @@ theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure
     have := hS₁ P hP
     have hE₀ : Measurable[⊥] (E 0) := Filtration.piLT_zero (X := fun _ : ℕ ↦ 𝓧) ▸ hE.adapted 0
     obtain ⟨c, hc⟩ := eq_const_of_measurable_bot hE₀
-    have h_eq : stoppedValue E 0 = fun _ ↦ c := by
-      rw [← hc]
-      exact funext fun ω ↦ stoppedValue_of_eq_natCast rfl
     have hc1 : c ≤ 1 := by
-      have h := (hE.isEVar_stoppedValue (isStoppingTime_natCast 0)
-        fun _ ↦ WithTop.natCast_ne_top 0).lintegral_le_one (infinitePi_mem_iidNull hP)
-      simpa [Nat.cast_zero, ← Pi.zero_def, h_eq] using h
+      simpa [hc] using (hE.isEVar 0).lintegral_le_one (infinitePi_mem_iidNull hP)
     have h0 : ∫⁻ ω, ENat.toENNReal ((0 : (ℕ → 𝓧) → WithTop ℕ) ω)
         ∂Measure.infinitePi (fun _ ↦ Q₁) = 0 :=
       (lintegral_congr fun _ ↦ ENat.toENNReal_zero).trans lintegral_zero
-    rw [h_eq, h0, EReal.coe_ennreal_zero, zero_mul]
+    rw [stoppedValue_zero, hc, h0, EReal.coe_ennreal_zero, zero_mul]
     exact (eintegral_mono fun _ ↦ ENNReal.log_le_zero_iff.2 hc1).trans_eq (eintegral_zero _)
   · -- `τ = σ + 1` for a stopping time `σ` of `Filtration.piLE`
     have hσ_top (ω : ℕ → 𝓧) : σ ω ≠ ⊤ := fun h' ↦ hτ_top ω (by simp [h'])
-    rw [← stoppedValue_add_one E hσ_top, lintegral_toENNReal_add_one]
+    simp_rw [← stoppedValue_add_one E hσ_top, ENat.toENNReal_add_one]
     exact (hE.shift Filtration.piLT_add_one).eintegral_log_stoppedValue_le_mul_bipolarRate_piLE
       Q₁ hS₁ hσ hσ_top
 
@@ -519,7 +514,7 @@ theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
     (ENNReal.log α⁻¹).toENNReal / (bipolarRate Q₁ S₁).toENNReal ≤
       ∫⁻ ω, ENat.toENNReal (τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
   rcases hτ.isStoppingTime.eq_zero_or_exists_eq_add_one Filtration.piLT_zero
-    Filtration.piLT_add_one with rfl | ⟨σ, hσ, rfl⟩
+    Filtration.piLT_add_one with rfl | ⟨σ, -, rfl⟩
   · -- the test that stops at once has level `1`, unless the null is empty and `d = ∞`
     refine le_of_eq_of_le ?_ zero_le
     rcases S₁.eq_empty_or_nonempty with rfl | ⟨P, hP⟩
@@ -530,10 +525,9 @@ theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
     rw [EReal.toENNReal_of_nonpos (ENNReal.log_le_zero_iff.2 (ENNReal.inv_le_one.2 hα)),
       ENNReal.zero_div]
   · -- `τ = σ + 1` for a sequential test `σ` of the same level for `Filtration.piLE`
-    rw [lintegral_toENNReal_add_one]
-    refine toENNReal_log_inv_div_bipolarRate_le_lintegral_piLE Q₁ hS₁
-      ⟨hσ, fun P hP ↦ (measure_mono fun ω hω ↦ ?_).trans (hτ.measure_lt_top_le P hP)⟩
-    simpa using hω
+    simp_rw [ENat.toENNReal_add_one]
+    exact toENNReal_log_inv_div_bipolarRate_le_lintegral_piLE Q₁ hS₁
+      ((isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).1 hτ)
 
 end Test
 

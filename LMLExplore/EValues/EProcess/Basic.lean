@@ -287,8 +287,7 @@ theorem isEProcess_shift_iff (h₀ : 𝒢 0 = ⊥) (h : ∀ n, 𝒢 (n + 1) = �
   · exact (adapted_shift_iff h (hE₀ ▸ measurable_const)).1 hE.adapted
   -- `τ` is `0` everywhere, or `σ + 1` for a stopping time `σ` of `ℱ`
   rcases hτ.eq_zero_or_exists_eq_add_one h₀ h with rfl | ⟨σ, hσ, rfl⟩
-  · have h_eq : stoppedValue E 0 = E 0 := funext fun ω ↦ stoppedValue_of_eq_natCast rfl
-    rw [h_eq, hE₀]
+  · rw [stoppedValue_zero, hE₀]
     exact isEVar_one hS
   · have hσ_top (ω : Ω) : σ ω ≠ ⊤ := fun h' ↦ hτ_top ω (by simp [h'])
     rw [← stoppedValue_add_one E hσ_top]

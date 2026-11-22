@@ -9,14 +9,14 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.Data.ENat.Basic
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Integral.EReal
-import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 import LMLExplore.Probability.Independence.Wald
-import LMLExplore.Probability.ProductMeasure
 import LMLExplore.Probability.Process.Filtration
 import LMLExplore.Probability.Process.HittingTime
+import LMLExplore.Probability.ProductMeasure
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -381,9 +381,8 @@ theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure �
         (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
   -- the tests `σ α` for `Filtration.piLE`, shifted by one
   obtain ⟨σ, hσ, hlim⟩ := exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE Q₁ hd' hd'd
-  refine ⟨fun α ω ↦ σ α ω + 1, fun α ↦ ⟨(isStoppingTime_add_one_iff Filtration.piLT_add_one).2
-    (hσ α).isStoppingTime, fun P hP ↦ (measure_mono fun ω hω ↦ ?_).trans
-      ((hσ α).measure_lt_top_le P hP)⟩, by simpa only [lintegral_toENNReal_add_one] using hlim⟩
-  simpa using hω
+  exact ⟨fun α ω ↦ σ α ω + 1,
+    fun α ↦ (isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).2 (hσ α),
+    by simpa only [ENat.toENNReal_add_one] using hlim⟩
 
 end ProbabilityTheory
