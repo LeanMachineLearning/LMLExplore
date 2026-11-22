@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.EValues.Null.PrefixBet
 
 /-!
 # E-processes for an i.i.d. null grow at most at the bipolar rate, almost surely
@@ -83,7 +84,7 @@ formalizes [EVR26, Note 01], rewritten on the API of LMLExplore.
 public section
 
 open MeasureTheory Filter
-open TauCeti.Probability (shift measurable_shift measurable_shift_iterate)
+open TauCeti.Probability (shift measurable_shift_iterate)
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -174,20 +175,6 @@ private lemma coverMixture_succ (N : ℕ) (ω : ℕ → 𝓧) :
         coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) := by
   rw [coverMixture]
 
-/-- The covering mixture is measurable. -/
-private lemma measurable_coverMixture (hM : ∀ n, Measurable (M n)) (N : ℕ) :
-    Measurable (coverMixture M N) := by
-  induction N using Nat.strong_induction_on with
-  | _ N ih =>
-    rcases N with _ | N
-    · rw [funext coverMixture_zero]
-      exact measurable_const
-    · rw [funext (coverMixture_succ N)]
-      refine (measurable_const.mul ((ih N N.lt_succ_self).comp measurable_shift)).add
-        (measurable_const.mul (Finset.measurable_fun_sum _ fun j _ ↦ ?_))
-      exact (measurable_const.mul (hM (j + 1))).mul
-        ((ih (N - j) (by omega)).comp (measurable_shift_iterate (j + 1)))
-
 /-- The covering mixture of `N` observations is a function of the first `N` observations. -/
 private lemma dependsOn_coverMixture (hM : ∀ n, DependsOn (M n) (Set.Iio n)) (N : ℕ) :
     DependsOn (coverMixture M N) (Set.Iio N) := by
@@ -202,63 +189,34 @@ private lemma dependsOn_coverMixture (hM : ∀ n, DependsOn (M n) (Set.Iio n)) (
     congr 2
     refine Finset.sum_congr rfl fun j hj ↦ ?_
     have hj : j < N + 1 := Finset.mem_range.1 hj
-    rw [hM (j + 1) fun i (hi : i < j + 1) ↦ h i (show i < N + 1 by omega),
-      ih (N - j) (by omega) (x := (shift 𝓧)^[j + 1] ω) (y := (shift 𝓧)^[j + 1] ω')
-        fun i (hi : i < N - j) ↦ by
-          simpa using h (i + (j + 1)) (show i + (j + 1) < N + 1 by omega)]
+    simp_rw [mul_assoc]
+    exact congrArg _ (dependsOn_mul_comp_shift_iterate (hM (j + 1)) (ih (N - j) (by omega))
+      fun i (hi : i < j + 1 + (N - j)) ↦ h i (show i < N + 1 by omega))
 
-/-- The covering mixture has expectation at most `1` under an i.i.d. law under which the bets
-`M k` have expectation at most `1`. -/
-private lemma lintegral_coverMixture_le_one (P : Measure 𝓧) [IsProbabilityMeasure P]
-    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
-    (hMP : ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) (N : ℕ) :
-    ∫⁻ ω, coverMixture M N ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
-  have hV := measurable_coverMixture hMm
+/-- The covering mixture is an e-variable for the i.i.d. null when the bets `M k` are e-variables
+for it that are functions of the first `k` observations: it is a mixture of skips and of
+concatenations of bets. -/
+private lemma isEVar_coverMixture {S : Set (Measure 𝓧)} (hM : ∀ n, IsEVar (M n) (iidNull S))
+    (hMd : ∀ n, DependsOn (M n) (Set.Iio n)) (N : ℕ) :
+    IsEVar (coverMixture M N) (iidNull S) := by
   induction N using Nat.strong_induction_on with
   | _ N ih =>
     rcases N with _ | N
-    · simp [coverMixture_zero]
-    have h2 (j : ℕ) : Measurable fun ω ↦ ENNReal.ofReal (coverWeight (j + 1)) * M (j + 1) ω *
-        coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) :=
-      (measurable_const.mul (hMm (j + 1))).mul
-        ((hV (N - j)).comp (measurable_shift_iterate (j + 1)))
-    have h1 : Measurable fun ω ↦ coverMixture M N (shift 𝓧 ω) := (hV N).comp measurable_shift
-    simp_rw [coverMixture_succ]
-    rw [lintegral_add_left (f := fun ω ↦ 2⁻¹ * coverMixture M N (shift 𝓧 ω))
-        (measurable_const.mul h1),
-      lintegral_const_mul _ h1,
-      lintegral_const_mul (f := fun ω ↦ ∑ j ∈ Finset.range (N + 1),
-        ENNReal.ofReal (coverWeight (j + 1)) * M (j + 1) ω *
-          coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω)) _
-        (Finset.measurable_fun_sum _ fun j _ ↦ h2 j),
-      lintegral_finsetSum _ fun j _ ↦ h2 j, (measurePreserving_shift P).lintegral_comp (hV N)]
-    -- each block is independent of the rest of the observations
-    have hsum : ∑ j ∈ Finset.range (N + 1), ∫⁻ ω, ENNReal.ofReal (coverWeight (j + 1)) *
-        M (j + 1) ω * coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) ∂μ ≤ 1 := by
-      calc ∑ j ∈ Finset.range (N + 1), ∫⁻ ω, ENNReal.ofReal (coverWeight (j + 1)) *
-          M (j + 1) ω * coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) ∂μ
-      _ = ∑ j ∈ Finset.range (N + 1), ENNReal.ofReal (coverWeight (j + 1)) *
-          ((∫⁻ ω, M (j + 1) ω ∂μ) * ∫⁻ ω, coverMixture M (N - j) ω ∂μ) := by
-        refine Finset.sum_congr rfl fun j _ ↦ ?_
-        have h3 : Measurable fun ω ↦ M (j + 1) ω * coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) :=
-          (hMm (j + 1)).mul ((hV (N - j)).comp (measurable_shift_iterate (j + 1)))
-        simp_rw [mul_assoc]
-        rw [lintegral_const_mul _ h3,
-          lintegral_mul_comp_shift_iterate P (hMm (j + 1)) (hMd (j + 1)) (hV (N - j))]
-      _ ≤ ∑ j ∈ Finset.range (N + 1), ENNReal.ofReal (coverWeight (j + 1)) := by
-        refine Finset.sum_le_sum fun j _ ↦ mul_le_of_le_one_right' ?_
-        calc (∫⁻ ω, M (j + 1) ω ∂μ) * ∫⁻ ω, coverMixture M (N - j) ω ∂μ ≤ 1 * 1 :=
-              mul_le_mul' (hMP _) (ih (N - j) (by omega))
-        _ = 1 := one_mul 1
-      _ = ENNReal.ofReal (∑ j ∈ Finset.range (N + 1), coverWeight (j + 1)) :=
-        (ENNReal.ofReal_sum_of_nonneg fun j _ ↦ coverWeight_nonneg _).symm
-      _ ≤ 1 := ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one (N + 1))
-    calc 2⁻¹ * ∫⁻ ω, coverMixture M N ω ∂μ + 2⁻¹ * ∑ j ∈ Finset.range (N + 1),
-        ∫⁻ ω, ENNReal.ofReal (coverWeight (j + 1)) * M (j + 1) ω *
-          coverMixture M (N - j) ((shift 𝓧)^[j + 1] ω) ∂μ
-    _ ≤ 2⁻¹ * 1 + 2⁻¹ * 1 := by gcongr; exact ih N N.lt_succ_self
-    _ = 1 := by rw [mul_one, ENNReal.inv_two_add_inv_two]
+    · rw [funext coverMixture_zero]
+      exact isEVar_fun_one (measure_univ_le_one_of_mem_iidNull S)
+    have hblocks := isEVar_finsetSum_mul (Finset.range (N + 1))
+      (w := fun j ↦ ENNReal.ofReal (coverWeight (j + 1)))
+      (fun j hj ↦ (hM (j + 1)).mul_comp_shift_iterate (hMd (j + 1))
+        (ih (N - j) (by rw [Finset.mem_range] at hj; omega)))
+      (by
+        rw [← ENNReal.ofReal_sum_of_nonneg fun j _ ↦ coverWeight_nonneg _]
+        exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one (N + 1)))
+    have h : IsEVar (_ • _ + _ • _) (iidNull S) := convex_isEVar (iidNull S)
+      ((ih N N.lt_succ_self).comp_shift_iterate 1) hblocks zero_le zero_le
+      ENNReal.inv_two_add_inv_two
+    convert h using 1
+    funext ω
+    simp [coverMixture_succ, mul_assoc]
 
 /-- The covering mixture of `N` observations is at least `2⁻¹ ^ N`. -/
 private lemma pow_le_coverMixture (N : ℕ) (ω : ℕ → 𝓧) : 2⁻¹ ^ N ≤ coverMixture M N ω := by
@@ -473,8 +431,7 @@ probability of the bad event, gives a lower bound on the expected logarithm of t
 mixture, which is at most `N` times the bipolar rate. -/
 private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
-    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hM : ∀ n, IsEVar (M n) (iidNull S)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
     (hd : bipolarRate Q S ≠ ⊤) {L ε : ℝ} (hεL : ε ≤ L) {k₀ : ℕ} (hk₀ : 1 ≤ k₀)
     (hw : ∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) (K : ℕ) {N : ℕ} (hN : 1 ≤ N) :
     (L - ε) * (N - K - N * (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ) -
@@ -482,7 +439,7 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
         Real.log 2 ≤ N * (bipolarRate Q S).toReal := by
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q)
   set G := goodSet M L k₀ K
-  have hG := measurableSet_goodSet hMm L k₀ K
+  have hG := measurableSet_goodSet (fun n ↦ (hM n).measurable) L k₀ K
   have hbi : Integrable (badCount G N) μ :=
     .of_bound (measurable_badCount hG N).aestronglyMeasurable N (ae_of_all _ fun ω ↦ by
       rw [Real.norm_eq_abs, abs_of_nonneg (badCount_nonneg G N ω)]
@@ -511,10 +468,8 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
       exact ENNReal.log_le_log (ofReal_exp_le_coverMixture hεL hk₀ hw N ω)
     _ ≤ maxLogGrowth Q S N :=
       IsEVar.eintegral_log_le_maxLogGrowth Q hS
-        ⟨measurable_coverMixture hMm N, forall_mem_iidNull.2 fun P hP ↦ by
-          have := hS P hP
-          exact lintegral_coverMixture_le_one P hMm hMd (hMS P hP) N⟩
-        (Filtration.measurable_piLT_of_dependsOn (measurable_coverMixture hMm N)
+        (isEVar_coverMixture hM hMd N)
+        (Filtration.measurable_piLT_of_dependsOn (isEVar_coverMixture hM hMd N).measurable
           (dependsOn_coverMixture hMd N))
     _ ≤ N * bipolarRate Q S := maxLogGrowth_le_mul_bipolarRate Q S (by omega)
   rwa [← coe_toReal_bipolarRate (fun P hP ↦ (hS P hP).measure_univ.le) hd, ← EReal.coe_natCast,
@@ -524,8 +479,7 @@ private lemma cover_le_mul_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityM
 `cover_le_mul_toReal_bipolarRate`. -/
 private lemma sub_le_toReal_bipolarRate_of_goodSet (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
-    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hM : ∀ n, IsEVar (M n) (iidNull S)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
     (hd : bipolarRate Q S ≠ ⊤) {L ε : ℝ} (hεL : ε ≤ L) {k₀ : ℕ} (hk₀ : 1 ≤ k₀)
     (hw : ∀ k : ℕ, k₀ ≤ k → Real.log ((k : ℝ) * (k + 1)) ≤ ε * k) (K : ℕ) :
     (L - ε) - Real.log 2 / k₀ -
@@ -537,7 +491,7 @@ private lemma sub_le_toReal_bipolarRate_of_goodSet (Q : Measure 𝓧) [IsProbabi
   set b := K * (L - ε + Real.log 2)
   set d := (bipolarRate Q S).toReal
   have h (N : ℕ) (hN : 1 ≤ N) : N * a - b ≤ N * d := by
-    refine le_of_eq_of_le ?_ (cover_le_mul_toReal_bipolarRate Q hS hMm hMd hMS hd hεL hk₀ hw K hN)
+    refine le_of_eq_of_le ?_ (cover_le_mul_toReal_bipolarRate Q hS hM hMd hd hεL hk₀ hw K hN)
     ring
   by_contra hcon
   rw [not_le] at hcon
@@ -573,8 +527,7 @@ private lemma tendsto_measureReal_compl_goodSet {μ : Measure (ℕ → 𝓧)} [I
 `sub_le_toReal_bipolarRate_of_goodSet`. -/
 private lemma sub_log_two_div_le_toReal_bipolarRate (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
-    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+    (hM : ∀ n, IsEVar (M n) (iidNull S)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
     (hd : bipolarRate Q S ≠ ⊤) {L : ℝ}
     (hL : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       ∃ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (n * L)) ≤ M n ω) {ε : ℝ} (hεL : ε ≤ L)
@@ -583,10 +536,11 @@ private lemma sub_log_two_div_le_toReal_bipolarRate (Q : Measure 𝓧) [IsProbab
   have hlim : Tendsto (fun K : ℕ ↦ (L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) *
       (Measure.infinitePi fun _ : ℕ ↦ Q).real (goodSet M L k₀ K)ᶜ) atTop
       (nhds ((L - ε) - Real.log 2 / k₀ - (L - ε + Real.log 2) * 0)) :=
-    tendsto_const_nhds.sub (tendsto_const_nhds.mul (tendsto_measureReal_compl_goodSet hMm hL k₀))
+    tendsto_const_nhds.sub (tendsto_const_nhds.mul
+      (tendsto_measureReal_compl_goodSet (fun n ↦ (hM n).measurable) hL k₀))
   rw [mul_zero, sub_zero] at hlim
   exact le_of_tendsto' hlim
-    (sub_le_toReal_bipolarRate_of_goodSet Q hS hMm hMd hMS hd hεL hk₀ hw)
+    (sub_le_toReal_bipolarRate_of_goodSet Q hS hM hMd hd hεL hk₀ hw)
 
 /-- **The covering argument.** Let `M n` be functions of the first `n` observations with
 expectation at most `1` under the i.i.d. laws of the members of `S`. If, almost surely under the
@@ -596,8 +550,7 @@ the covering mixture of `N` observations has expected logarithm at least about
 `k₀ ≤ k ≤ K`, exceeds `exp (k L)`, and at most `N` times the bipolar rate. -/
 private lemma coe_le_bipolarRate_of_ae_frequently (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     {S : Set (Measure 𝓧)} (hS : ∀ P ∈ S, IsProbabilityMeasure P)
-    (hMm : ∀ n, Measurable (M n)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n))
-    (hMS : ∀ P ∈ S, ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) {L : ℝ}
+    (hM : ∀ n, IsEVar (M n) (iidNull S)) (hMd : ∀ n, DependsOn (M n) (Set.Iio n)) {L : ℝ}
     (hL : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       ∃ᶠ n : ℕ in atTop, ENNReal.ofReal (Real.exp (n * L)) ≤ M n ω) :
     (L : EReal) ≤ bipolarRate Q S := by
@@ -616,7 +569,7 @@ private lemma coe_le_bipolarRate_of_ae_frequently (Q : Measure 𝓧) [IsProbabil
   obtain ⟨k₀, hk₀, hw⟩ := exists_log_inv_coverWeight_le hε
   obtain ⟨k₁, hk₁⟩ := exists_nat_gt (Real.log 2 / (η / 2))
   have hk : 1 ≤ max k₀ k₁ := hk₀.trans (le_max_left _ _)
-  have h := sub_log_two_div_le_toReal_bipolarRate Q hS hMm hMd hMS hd hL (min_le_right _ _) hk
+  have h := sub_log_two_div_le_toReal_bipolarRate Q hS hM hMd hd hL (min_le_right _ _) hk
     fun k hk' ↦ hw k ((le_max_left _ _).trans hk')
   have hk₁' : (k₁ : ℝ) ≤ max k₀ k₁ := by exact_mod_cast le_max_right k₀ k₁
   have hpos : (0 : ℝ) < max k₀ k₁ := by exact_mod_cast hk
@@ -636,47 +589,28 @@ variable (M) in
 private noncomputable def shiftMixture (n : ℕ) (ω : ℕ → 𝓧) : ℝ≥0∞ :=
   ∑ s ∈ Finset.range n, 2⁻¹ ^ (s + 1) * M (n - s) ((shift 𝓧)^[s] ω)
 
-/-- The shift mixture is measurable. -/
-private lemma measurable_shiftMixture (hM : ∀ n, Measurable (M n)) (n : ℕ) :
-    Measurable (shiftMixture M n) :=
-  Finset.measurable_fun_sum _ fun s _ ↦ measurable_const.mul
-    ((hM (n - s)).comp (measurable_shift_iterate s))
-
 /-- The shift mixture of functions of the first observations is a function of the first `n`
 observations. -/
 private lemma dependsOn_shiftMixture (hM : ∀ n, DependsOn (M n) (Set.Iio n)) (n : ℕ) :
     DependsOn (shiftMixture M n) (Set.Iio n) := by
   intro ω ω' h
   refine Finset.sum_congr rfl fun s hs ↦ ?_
-  rw [hM (n - s) fun i (hi : i < n - s) ↦ ?_]
-  simpa using h (i + s) (show i + s < n by omega)
+  have hs : s < n := Finset.mem_range.1 hs
+  rw [show M (n - s) ((shift 𝓧)^[s] ω) = M (n - s) ((shift 𝓧)^[s] ω') from
+    dependsOn_comp_shift_iterate (hM (n - s)) s fun i (hi : i < s + (n - s)) ↦
+      h i (show i < n by omega)]
 
-/-- The shift mixture of functions with expectation at most `1` under an i.i.d. law has
-expectation at most `1`. -/
-private lemma lintegral_shiftMixture_le_one (P : Measure 𝓧) [IsProbabilityMeasure P]
-    (hMm : ∀ n, Measurable (M n))
-    (hMP : ∀ n, ∫⁻ ω, M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1) (n : ℕ) :
-    ∫⁻ ω, shiftMixture M n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  have hm (s : ℕ) : Measurable fun ω ↦ M (n - s) ((shift 𝓧)^[s] ω) :=
-    (hMm (n - s)).comp (measurable_shift_iterate s)
-  have hm' (s : ℕ) : Measurable fun ω ↦ 2⁻¹ ^ (s + 1) * M (n - s) ((shift 𝓧)^[s] ω) :=
-    measurable_const.mul (hm s)
-  simp only [shiftMixture]
-  rw [lintegral_finsetSum _ fun s _ ↦ hm' s]
-  calc ∑ s ∈ Finset.range n, ∫⁻ ω, 2⁻¹ ^ (s + 1) * M (n - s) ((shift 𝓧)^[s] ω)
-        ∂Measure.infinitePi (fun _ : ℕ ↦ P)
-  _ = ∑ s ∈ Finset.range n, 2⁻¹ ^ (s + 1) *
-        ∫⁻ ω, M (n - s) ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
-    refine Finset.sum_congr rfl fun s _ ↦ ?_
-    rw [lintegral_const_mul _ (hm s),
-      (measurePreserving_shift_iterate P s).lintegral_comp (hMm (n - s))]
-  _ ≤ ∑ s ∈ Finset.range n, (2⁻¹ : ℝ≥0∞) ^ (s + 1) :=
-    Finset.sum_le_sum fun s _ ↦ mul_le_of_le_one_right' (hMP _)
+/-- The shift mixture of e-variables for the i.i.d. null is an e-variable for it: a mixture of
+bets read after skipping observations. -/
+private lemma isEVar_shiftMixture {S : Set (Measure 𝓧)} (hM : ∀ n, IsEVar (M n) (iidNull S))
+    (n : ℕ) : IsEVar (shiftMixture M n) (iidNull S) := by
+  unfold shiftMixture
+  refine isEVar_finsetSum_mul _ (fun s _ ↦ (hM (n - s)).comp_shift_iterate s) ?_
+  calc ∑ s ∈ Finset.range n, (2⁻¹ : ℝ≥0∞) ^ (s + 1)
   _ ≤ ∑' s, (2⁻¹ : ℝ≥0∞) ^ (s + 1) := sum_le_tsum _
   _ = 1 := by
-    simp_rw [pow_succ', ENNReal.tsum_mul_left, ENNReal.tsum_geometric, ENNReal.one_sub_inv_two,
-      inv_inv]
-    exact ENNReal.inv_mul_cancel (by simp) (by simp)
+    rw [ENNReal.tsum_geometric_add_one, ENNReal.one_sub_inv_two, inv_inv,
+      ENNReal.inv_mul_cancel two_ne_zero ENNReal.ofNat_ne_top]
 
 /-- If `M m ≥ exp (m L)` for infinitely many `m` along the shifted sequence, then the shift
 mixture exceeds `exp (n L')` for infinitely many `n`, for every `L' < L`. -/
@@ -725,8 +659,6 @@ theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
       limsup (fun n : ℕ ↦ ENNReal.log (F n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ := by
   have hFm : ∀ n, Measurable (F n) := fun n ↦ (hFe n).measurable
   have hFn : ∀ n, DependsOn (F n) (Set.Iio n) := fun n ↦ (hF n).dependsOn_of_piLT
-  have h_null : ∀ P ∈ S₁, ∀ n, ∫⁻ ω, F n ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 :=
-    fun P hP n ↦ (hFe n).lintegral_le_one (infinitePi_mem_iidNull hP)
   by_cases hQ : IsProbabilityMeasure Q₁
   swap
   · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
@@ -772,10 +704,8 @@ theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
       filter_upwards [hUae] with ω hω
       obtain ⟨s, hs⟩ := Set.mem_iUnion.1 hω
       exact frequently_le_shiftMixture (by linarith) hs
-    have h := coe_le_bipolarRate_of_ae_frequently Q₁ hS₁ (measurable_shiftMixture hFm)
-      (dependsOn_shiftMixture hFn) (fun P hP n ↦ by
-        have := hS₁ P hP
-        exact lintegral_shiftMixture_le_one P hFm (h_null P hP) n) hae
+    have h := coe_le_bipolarRate_of_ae_frequently Q₁ hS₁ (isEVar_shiftMixture hFe)
+      (dependsOn_shiftMixture hFn) hae
     rw [← hdeq, EReal.coe_le_coe_iff] at h
     linarith
   have key' : ∀ᵐ ω ∂μ, ∀ k : ℕ, ∀ᶠ n in atTop,

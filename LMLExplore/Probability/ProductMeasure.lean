@@ -57,7 +57,9 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 * `MeasureTheory.shift_iterate_eqOn`: two sequences that agree on the first `t` terms have shifts
   by `s` that agree on the first `t - s` terms.
 * `MeasureTheory.dependsOn_comp_shift_iterate`: a function of the first `L` terms, read after
-  the shift by `a`, is a function of the first `a + L` terms.
+  the shift by `a`, is a function of the first `a + L` terms;
+  `MeasureTheory.dependsOn_mul_comp_shift_iterate`: the product of a function of the first `n`
+  terms and a function of the first `m` terms after them is a function of the first `n + m` terms.
 * `MeasureTheory.indepFun_initSeg_shift_iterate`: the first `t` terms are independent of the
   terms after them.
 * `MeasureTheory.lintegral_mul_comp_shift_iterate`, `MeasureTheory.integral_mul_comp_shift_iterate`:
@@ -177,6 +179,16 @@ lemma dependsOn_comp_shift_iterate {β : Type*} {L : ℕ} {g : (ℕ → 𝓧) �
   refine hg fun i hi ↦ ?_
   simp only [TauCeti.Probability.shift_iterate_apply]
   exact h _ (by simp only [Set.mem_Iio] at hi ⊢; omega)
+
+/-- **Concatenation.** The product of a function of the first `n` terms and a function of the
+first `m` terms of the sequence shifted by `n` is a function of the first `n + m` terms. -/
+lemma dependsOn_mul_comp_shift_iterate {M : Type*} [Mul M] {f g : (ℕ → 𝓧) → M} {n m : ℕ}
+    (hf : DependsOn f (Set.Iio n)) (hg : DependsOn g (Set.Iio m)) :
+    DependsOn (fun ω ↦ f ω * g ((shift 𝓧)^[n] ω)) (Set.Iio (n + m)) := by
+  intro ω ω' h
+  have hg' : g ((shift 𝓧)^[n] ω) = g ((shift 𝓧)^[n] ω') := dependsOn_comp_shift_iterate hg n h
+  simp only
+  rw [hf fun i hi ↦ h i (Set.Iio_subset_Iio (Nat.le_add_right n m) hi), hg']
 
 /-- Under an i.i.d. law, the first `t` terms are independent of the terms after them. -/
 lemma indepFun_initSeg_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P] (t : ℕ) :

@@ -43,8 +43,11 @@ unless every factor is a probability measure.
   sub-σ-algebra `m`, its image by the identity of `Ω` into `(Ω, m)`, are the `m`-measurable
   e-variables of the null.
 * `ProbabilityTheory.iidNull_subset_indepNull`: an i.i.d. sequence is an independent sequence.
+* `ProbabilityTheory.isEVar_iidNull_iff`: the e-variables for the i.i.d. null need only be checked
+  under the i.i.d. laws of the probability measures of the null.
 * `ProbabilityTheory.mapNull_initSeg_iidNull`: for a null of probability measures, the first `n`
   terms of the sequences of `iidNull S₁` have the laws of `sampleNull S₁ n`.
+* `ProbabilityTheory.mapNull_shift_iterate_iidNull`: the i.i.d. null is invariant under the shift.
 
 ## References
 
@@ -374,6 +377,18 @@ theorem measure_univ_le_one_of_mem_iidNull (S₁ : Set (Measure 𝓧)) :
     ∀ μ ∈ iidNull S₁, μ univ ≤ 1 :=
   fun μ hμ ↦ measure_univ_le_one_of_mem_indepNull S₁ μ (iidNull_subset_indepNull S₁ hμ)
 
+/-- The e-variables for the i.i.d. null are the measurable functions with expectation at most `1`
+under the i.i.d. law of every probability measure of `S₁`: the i.i.d. law of any other measure is
+`0`. -/
+theorem isEVar_iidNull_iff {X : (ℕ → 𝓧) → ℝ≥0∞} :
+    IsEVar X (iidNull S₁) ↔ Measurable X ∧ ∀ P ∈ S₁, IsProbabilityMeasure P →
+      ∫⁻ ω, X ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
+  refine ⟨fun h ↦ ⟨h.measurable, fun P hP _ ↦ h.lintegral_le_one (infinitePi_mem_iidNull hP)⟩,
+    fun ⟨hX, h⟩ ↦ ⟨hX, forall_mem_iidNull.2 fun P hP ↦ ?_⟩⟩
+  by_cases hPp : IsProbabilityMeasure P
+  · exact h P hP hPp
+  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hPp]
+
 /-- For a null of probability measures, the first `n` terms `initSeg n` of the sequences of
 `iidNull S₁` have the laws of `sampleNull S₁ n`. Without the probability measures this fails: the
 i.i.d. law of a measure of mass `2` is `0`, while its product law on `Fin n → 𝓧` has mass
@@ -384,6 +399,17 @@ theorem mapNull_initSeg_iidNull (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
   refine image_congr fun P hP ↦ ?_
   have := hS₁ P hP
   exact (measurePreserving_initSeg P n).map_eq
+
+/-- **The i.i.d. null is invariant under the shift.** The sequences of `iidNull S₁` shifted by `n`
+terms have the laws of `iidNull S₁`, for any `S₁`: the shift preserves the i.i.d. law of a
+probability measure, and the i.i.d. law of any other measure is `0`. -/
+theorem mapNull_shift_iterate_iidNull (S₁ : Set (Measure 𝓧)) (n : ℕ) :
+    mapNull (TauCeti.Probability.shift 𝓧)^[n] (iidNull S₁) = iidNull S₁ := by
+  rw [iidNull, mapNull, image_image]
+  refine image_congr fun P _ ↦ ?_
+  by_cases hP : IsProbabilityMeasure P
+  · exact (measurePreserving_shift_iterate P n).map_eq
+  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hP]
 
 end Sample
 
