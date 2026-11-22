@@ -308,6 +308,13 @@ lemma IsNumeraireFor.lintegral_rpow_le_measure_univ (hS : ∀ P ∈ S, P univ �
   simpa using (ENNReal.mul_le_mul_iff_right (ofReal_inv_sub_one_ne_zero hγ)
     ENNReal.ofReal_ne_top).1 h
 
+/-- The moment `∫⁻ Y ^ (1 - γ) ∂Q` of a numeraire `Y` for the power utility among the e-variables
+of a null of masses at most `1` under a finite measure `Q` is finite. -/
+lemma IsNumeraireFor.lintegral_rpow_ne_top [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hY : IsNumeraireFor (powerUtility γ hγ) Y {X | IsEVar X S} Q) :
+    ∫⁻ ω, Y ω ^ (1 - γ) ∂Q ≠ ∞ :=
+  ((hY.lintegral_rpow_le_measure_univ hS).trans_lt (measure_lt_top Q univ)).ne
+
 /-- **The reverse Rényi projection is in the effective null.** For a numeraire `Y` for the power
 utility among the e-variables of a null of masses at most `1`, the measure with density
 `Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q` gives every e-variable a mean at most `1`, by the
@@ -350,8 +357,7 @@ lemma IsNumeraireFor.rpow_lintegral_rnDeriv_withDensity_rpow_neg [IsFiniteMeasur
       simp [hYω, ENNReal.top_rpow_of_neg (show -γ < 0 by linarith)]
     rw [hR, hc0]
     simp [ENNReal.zero_rpow_of_pos (show 0 < γ by linarith)]
-  have hctop : c ≠ ∞ :=
-    ((hY.lintegral_rpow_le_measure_univ hS).trans_lt (measure_lt_top Q univ)).ne
+  have hctop : c ≠ ∞ := hY.lintegral_rpow_ne_top hS
   set g : Ω → ℝ≥0∞ := fun ω ↦ c⁻¹ * Y ω ^ (-γ) with hg_def
   have hg : Measurable g := (hYm.pow_const _).const_mul _
   -- the affinity of `Q` and `Q.withDensity g` is `∫⁻ g ^ (1 - γ⁻¹) ∂Q`

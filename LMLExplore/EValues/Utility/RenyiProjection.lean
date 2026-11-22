@@ -98,6 +98,14 @@ expectation controls the distance in probability of a nonnegative variable to `1
 noncomputable def truncNeymanChi (z : ℝ) : ℝ :=
   if z < 3⁻¹ then z + 1 else (z - 1) ^ 2 / z
 
+/-- Below `1 / 3`, `χ z = z + 1`. -/
+lemma truncNeymanChi_of_lt {z : ℝ} (h : z < 3⁻¹) : truncNeymanChi z = z + 1 :=
+  ite_eq_left h
+
+/-- From `1 / 3` on, `χ z = (z - 1) ^ 2 / z`. -/
+lemma truncNeymanChi_of_le {z : ℝ} (h : 3⁻¹ ≤ z) : truncNeymanChi z = (z - 1) ^ 2 / z :=
+  ite_eq_right (not_lt.2 h)
+
 /-- The function `χ` is measurable. -/
 @[fun_prop]
 lemma measurable_truncNeymanChi : Measurable truncNeymanChi :=
@@ -144,7 +152,7 @@ lemma truncNeymanChi_eq_zero_iff {z : ℝ} (hz : 0 ≤ z) : truncNeymanChi z = 0
   exact absurd this (not_le.2 (by positivity))
 
 /-- On `(0, ∞)`, `χ z = (z - 1) + min (1 / z - 1) 2`. -/
-private lemma truncNeymanChi_eq_of_pos {z : ℝ} (hz : 0 < z) :
+lemma truncNeymanChi_eq_of_pos {z : ℝ} (hz : 0 < z) :
     truncNeymanChi z = z - 1 + min (1 / z - 1) 2 := by
   unfold truncNeymanChi
   split_ifs with h
@@ -256,6 +264,14 @@ private lemma truncNeymanChi_add_le {x y : ℝ≥0∞} (hy : y ≠ 0) {γ : ℝ}
 
 /-! ### The moment `∫⁻ |X ^ (1 - γ) - 1|` -/
 
+/-- For `a > 0`, `a ^ (1 - γ) → 1` as `γ → 1`. -/
+private lemma tendsto_rpow_one_sub_nhds_one {a : ℝ} (ha : 0 < a) :
+    Tendsto (fun γ : ℝ ↦ a ^ (1 - γ)) (𝓝 1) (𝓝 1) := by
+  have h : Tendsto (fun γ : ℝ ↦ a ^ (1 - γ)) (𝓝 1) (𝓝 (a ^ (1 - 1 : ℝ))) :=
+    (Real.continuousAt_const_rpow ha.ne').tendsto.comp
+      ((continuous_const.sub continuous_id).tendsto 1)
+  rwa [sub_self, Real.rpow_zero] at h
+
 /-- For `x > 0` and `γ ∈ [1, 2]`, `x ^ (1 - γ) ≤ 1 + x⁻¹`. -/
 private lemma rpow_one_sub_le_one_add_inv {x γ : ℝ} (hx : 0 < x) (hγ1 : 1 ≤ γ) (hγ2 : γ ≤ 2) :
     x ^ (1 - γ) ≤ 1 + x⁻¹ := by
@@ -299,12 +315,7 @@ theorem tendsto_lintegral_abs_rpow_sub_one {Q : Measure Ω} [IsFiniteMeasure Q] 
     simp [hX_inv, ENNReal.mul_eq_top]
   · filter_upwards [hX0, hX_top] with ω h0 htop
     have ha : 0 < (X ω).toReal := ENNReal.toReal_pos h0 htop
-    have h1 : Tendsto (fun γ : ℝ ↦ (X ω).toReal ^ (1 - γ)) (𝓝 1)
-        (𝓝 ((X ω).toReal ^ (1 - 1 : ℝ))) :=
-      (Real.continuousAt_const_rpow ha.ne').tendsto.comp
-        ((continuous_const.sub continuous_id).tendsto 1)
-    rw [sub_self, Real.rpow_zero] at h1
-    have h2 := ENNReal.tendsto_ofReal ((h1.sub_const 1).abs)
+    have h2 := ENNReal.tendsto_ofReal (((tendsto_rpow_one_sub_nhds_one ha).sub_const 1).abs)
     rw [sub_self, abs_zero, ENNReal.ofReal_zero] at h2
     exact h2.mono_left nhdsWithin_le_nhds
 
@@ -374,6 +385,12 @@ private lemma rpow_mul_sub_le_lintegral_rpow {Q : Measure Ω} {X Y : Ω → ℝ�
 
 variable {Q : Measure Ω} {S : Set (Measure Ω)} {X : Ω → ℝ≥0∞}
 
+/-- For the numeraire `X` among the e-variables of a null of masses at most `1` under a finite
+measure `Q`, `∫⁻ X⁻¹ ∂Q` is finite. -/
+lemma IsNumeraire.lintegral_inv_ne_top [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hX : IsNumeraire X S Q) : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ :=
+  ((hX.lintegral_inv_le_measure_fsupport hS).trans_lt (measure_lt_top _ _)).ne
+
 /-- **The χ bound** [EVR26, Note 27, Theorem 1]: for a numeraire `Y` for the power utility of
 risk aversion `γ > 1` and the numeraire `X` for the logarithmic utility, among the e-variables of
 a null of masses at most `1` under a finite measure `Q`,
@@ -389,8 +406,7 @@ theorem IsNumeraireFor.lintegral_truncNeymanChi_div_le [IsFiniteMeasure Q] {γ :
   have h_num : ∫⁻ ω, Y ω / X ω ∂Q ≤ Q univ := hX.lintegral_div_le_measure_univ hY.mem
   have h_foc : ∫⁻ ω, Y ω ^ (-γ) * X ω ∂Q ≤ ∫⁻ ω, Y ω ^ (1 - γ) ∂Q :=
     hY.lintegral_rpow_neg_mul_le hS hX.isEVar
-  have h_fin : ∫⁻ ω, Y ω ^ (1 - γ) ∂Q ≠ ∞ :=
-    ((hY.lintegral_rpow_le_measure_univ hS).trans_lt (measure_lt_top Q univ)).ne
+  have h_fin : ∫⁻ ω, Y ω ^ (1 - γ) ∂Q ≠ ∞ := hY.lintegral_rpow_ne_top hS
   have hpt : ∀ᵐ ω ∂Q, ENNReal.ofReal (truncNeymanChi (Y ω / X ω).toReal) + 1 + Y ω ^ (1 - γ)
       ≤ Y ω / X ω + Y ω ^ (-γ) * X ω + 2 * ENNReal.ofReal |(X ω).toReal ^ (1 - γ) - 1| := by
     filter_upwards [hY.ae_ne_zero_powerUtility hS] with ω hω using truncNeymanChi_add_le hω hγ
@@ -424,8 +440,7 @@ theorem IsNumeraire.tendstoInMeasure_div_of_powerUtility [IsFiniteMeasure Q]
     (hS : ∀ P ∈ S, P univ ≤ 1) (hQS : Q.AbsolutelyContinuousSet S) (hX : IsNumeraire X S Q)
     (hY : ∀ γ (hγ : 1 < γ), IsNumeraireFor (powerUtility γ hγ) (Y γ) {Z | IsEVar Z S} Q) :
     TendstoInMeasure Q (fun γ ω ↦ (Y γ ω / X ω).toReal) (𝓝[>] 1) (fun _ ↦ 1) := by
-  have hX_inv : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ :=
-    ((hX.lintegral_inv_le_measure_fsupport hS).trans_lt (measure_lt_top _ _)).ne
+  have hX_inv : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ := hX.lintegral_inv_ne_top hS
   refine tendstoInMeasure_of_ne_top fun ε hε hεt ↦ ?_
   set e := ε.toReal
   have he : 0 < e := ENNReal.toReal_pos hε.ne' hεt
@@ -506,8 +521,8 @@ theorem tendsto_lintegral_rpow_one_sub_of_powerUtility [IsFiniteMeasure Q]
   set M := Q univ
   have hM : M ≠ ∞ := measure_ne_top Q univ
   set ε : ℝ → ℝ≥0∞ := fun γ ↦ ∫⁻ ω, ENNReal.ofReal |(X ω).toReal ^ (1 - γ) - 1| ∂Q
-  have hε : Tendsto ε (𝓝[>] 1) (𝓝 0) := tendsto_lintegral_abs_rpow_sub_one hXm.aemeasurable hX_top
-    ((hX.lintegral_inv_le_measure_fsupport hS).trans_lt (measure_lt_top _ _)).ne
+  have hε : Tendsto ε (𝓝[>] 1) (𝓝 0) :=
+    tendsto_lintegral_abs_rpow_sub_one hXm.aemeasurable hX_top (hX.lintegral_inv_ne_top hS)
   refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun b hb ↦ ?_⟩
   swap
   · filter_upwards [self_mem_nhdsWithin] with γ hγ
@@ -530,11 +545,8 @@ theorem tendsto_lintegral_rpow_one_sub_of_powerUtility [IsFiniteMeasure Q]
   -- the lower bound tends to `M - M / K > a`
   have hKpow : Tendsto (fun γ : ℝ ↦ (K : ℝ≥0∞) ^ (1 - γ)) (𝓝[>] 1) (𝓝 1) := by
     have hK' : (0 : ℝ) < K := by exact_mod_cast hK1
-    have h1 : Tendsto (fun γ : ℝ ↦ (K : ℝ) ^ (1 - γ)) (𝓝 1) (𝓝 ((K : ℝ) ^ (1 - 1 : ℝ))) :=
-      (Real.continuousAt_const_rpow hK'.ne').tendsto.comp
-        ((continuous_const.sub continuous_id).tendsto 1)
-    rw [sub_self, Real.rpow_zero] at h1
-    have h2 := (ENNReal.tendsto_ofReal h1).mono_left (nhdsWithin_le_nhds (s := Ioi 1))
+    have h2 := (ENNReal.tendsto_ofReal (tendsto_rpow_one_sub_nhds_one hK')).mono_left
+      (nhdsWithin_le_nhds (s := Ioi 1))
     rw [ENNReal.ofReal_one] at h2
     refine h2.congr fun γ ↦ ?_
     rw [← ENNReal.ofReal_rpow_of_pos hK', ENNReal.ofReal_natCast]
