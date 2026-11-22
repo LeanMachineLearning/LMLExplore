@@ -8,7 +8,7 @@ module
 public import Mathlib.Topology.Instances.ENNReal.Lemmas
 
 /-!
-# Suprema of `f x / x` over a dense set of points
+# Suprema of `f x / x` over a dense set, and ratios to small thresholds
 
 For `f : ℝ≥0∞ → ℝ≥0∞` monotone on an open interval `Ioo a b`, the supremum of `f x / x` over
 `x ∈ Ioo a b` is already the supremum over the points of any dense set: the value at `x` is
@@ -18,10 +18,19 @@ over an interval, an uncountable family, into a countable one, which is what mak
 when `f` depends measurably on a parameter; post-hoc valid families of tests, indexed by their
 levels, are the main instance.
 
+For a family of masses `a i ≤ 1` and values `f i`, the infimum of the ratios `f i / a i` is
+zero exactly when, as the threshold `δ` decreases to `0`, the infimum of `f i / δ` over the indices
+with `a i > δ` has `liminf` zero. This is the step between the two forms of the admissibility
+criterion of Ramdas and Wang for e-variables, one dividing by the mass `a i` itself and the other
+by a threshold below it.
+
 ## Main statements
 
 * `ENNReal.biSup_Ioo_div_eq_biSup_inter_of_dense`: for `f` monotone on `Ioo a b` and a dense set
   `D`, `⨆ x ∈ Ioo a b, f x / x = ⨆ x ∈ Ioo a b ∩ D, f x / x`.
+* `ENNReal.liminf_iInf_div_eq_zero_iff`: for `a i ≤ 1`,
+  `liminf (fun δ ↦ ⨅ i ∈ s, ⨅ (_ : δ < a i), f i / δ) (𝓝[>] 0) = 0` exactly when
+  `⨅ i ∈ s, ⨅ (_ : a i ≠ 0), f i / a i = 0`.
 -/
 
 public section
@@ -52,5 +61,50 @@ theorem biSup_Ioo_div_eq_biSup_inter_of_dense {f : ℝ≥0∞ → ℝ≥0∞} {a
       gcongr
       exact hf hx hc_mem hc.1.le
     _ ≤ ⨆ x ∈ Ioo a b ∩ D, f x / x := le_iSup₂_of_le c ⟨hc_mem, hcD⟩ le_rfl
+
+/-- For masses `a i ≤ 1`, the infimum of the ratios `f i / a i` over the indices of `s` with
+`a i ≠ 0` is zero exactly when the infimum of `f i / δ` over the indices with `δ < a i` has
+`liminf` zero as `δ` decreases to `0`. Both sides fail when no `a i` is positive, since an
+infimum over no index is `∞`. Without a bound on the masses, the ratios can tend to zero along
+masses `a i → ∞` while the values `f i` stay away from zero; then the `liminf` is `∞`. -/
+theorem liminf_iInf_div_eq_zero_iff {ι : Type*} {s : Set ι} {a f : ι → ℝ≥0∞}
+    (ha : ∀ i ∈ s, a i ≤ 1) :
+    liminf (fun δ ↦ ⨅ i ∈ s, ⨅ (_ : δ < a i), f i / δ) (𝓝[>] 0) = 0 ↔
+      ⨅ i ∈ s, ⨅ (_ : a i ≠ 0), f i / a i = 0 := by
+  constructor
+  · -- dividing by a threshold below the mass gives a larger ratio
+    refine fun h ↦ le_zero_iff.1 ((le_liminf_of_le (h := eventually_nhdsWithin_of_forall
+      fun (δ : ℝ≥0∞) (hδ : δ ∈ Ioi 0) ↦ le_iInf₂ fun i hi ↦ le_iInf fun hδi ↦ ?_)).trans h.le)
+    exact iInf₂_le_of_le i hi (iInf_le_of_le (hδ.out.trans hδi).ne'
+      (ENNReal.div_le_div_left hδi.le _))
+  intro h
+  -- otherwise the infimum over the indices above a small threshold stays above some `c * δ`
+  by_contra h_ne
+  obtain ⟨c, hc0, hc⟩ := exists_between (pos_iff_ne_zero.2 h_ne)
+  obtain ⟨u, hu0, hu⟩ := (mem_nhdsGT_iff_exists_Ioo_subset' zero_lt_one).1
+    (eventually_lt_of_lt_liminf hc)
+  rw [mem_Ioi] at hu0
+  set v := min u 1 with hv
+  have hv0 : v ≠ 0 := (lt_min hu0 zero_lt_one).ne'
+  have hv1 : v ≠ ∞ := ne_top_of_le_ne_top one_ne_top (min_le_right _ _)
+  -- so every ratio is at least `c * v / 2`, by the threshold `v * a i / 2`
+  refine (ENNReal.div_pos (mul_ne_zero hc0.ne' hv0) (ofNat_ne_top (n := 2))).ne' (le_zero_iff.1
+    ((le_iInf₂ fun i hi ↦ le_iInf fun hai ↦ ?_).trans h.le))
+  have hai1 : a i ≠ ∞ := ne_top_of_le_ne_top one_ne_top (ha i hi)
+  set δ := v * a i / 2 with hδ
+  have hδ0 : δ ≠ 0 := (ENNReal.div_pos (mul_ne_zero hv0 hai) (ofNat_ne_top (n := 2))).ne'
+  have hδ1 : δ ≠ ∞ := ENNReal.div_ne_top (mul_ne_top hv1 hai1) two_ne_zero
+  have hδu : δ < u := calc
+    δ ≤ v * 1 / 2 := by rw [hδ]; gcongr; exact ha i hi
+    _ < v := by rw [mul_one]; exact ENNReal.half_lt_self hv0 hv1
+    _ ≤ u := min_le_left _ _
+  have hδa : δ < a i := calc
+    δ ≤ 1 * a i / 2 := by rw [hδ]; gcongr; exact min_le_right _ _
+    _ < a i := by rw [one_mul]; exact ENNReal.half_lt_self hai hai1
+  have hcδ : c ≤ f i / δ :=
+    (hu ⟨pos_iff_ne_zero.2 hδ0, hδu⟩).le.trans (iInf₂_le_of_le i hi (iInf_le _ hδa))
+  rw [ENNReal.le_div_iff_mul_le (.inl hai) (.inl hai1)]
+  calc c * v / 2 * a i = c * δ := by simp only [hδ, div_eq_mul_inv]; ring
+    _ ≤ f i := (ENNReal.le_div_iff_mul_le (.inl hδ0) (.inl hδ1)).1 hcδ
 
 end ENNReal
