@@ -54,6 +54,10 @@ utility is `2 ^ (1 - γ) / (1 - γ)`, while `R_{γ⁻¹}(Q, P) = 0` for every no
   `∫⁻ Y ^ (-γ) * Z ∂Q ≤ ∫⁻ Y ^ (1 - γ) ∂Q` of a numeraire `Y` for the power utility.
 * `ProbabilityTheory.rpow_lintegral_rnDeriv_rpow_inv_le`: weak duality,
   `(∫⁻ (dQ/dP) ^ γ⁻¹ ∂P) ^ γ ≤ ∫⁻ X ^ (1 - γ) ∂Q` when `∫⁻ X ∂P ≤ 1`.
+* `ProbabilityTheory.IsNumeraireFor.withDensity_rpow_neg_mem_effectiveSet`,
+  `ProbabilityTheory.IsNumeraireFor.rpow_lintegral_rnDeriv_withDensity_rpow_neg`: the reverse
+  Rényi projection, the measure with density `Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q`
+  for the numeraire `Y` of the power utility, is in the effective null and attains weak duality.
 * `ProbabilityTheory.exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq`: strong duality,
   with an e-variable and a member of the effective null that attain it.
 * `ProbabilityTheory.maxUtility_powerUtility`,
@@ -304,48 +308,59 @@ lemma IsNumeraireFor.lintegral_rpow_le_measure_univ (hS : ∀ P ∈ S, P univ �
   simpa using (ENNReal.mul_le_mul_iff_right (ofReal_inv_sub_one_ne_zero hγ)
     ENNReal.ofReal_ne_top).1 h
 
-/-- **Strong duality** for the power utility [LRR25, Theorem 6.1]: some e-variable `X` and some
-member `P` of the effective null make the two sides of
-`rpow_lintegral_rnDeriv_rpow_inv_le` equal. The e-variable is Statlib's numeraire `Y` for the power
-utility, and `P` has density `Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q`: by the first-order
-condition of `Y`, it gives every e-variable a mean at most `1`. -/
-theorem exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq (hγ : 1 < γ)
-    (hS : ∀ P ∈ S, P univ ≤ 1) (Q : Measure Ω) [IsFiniteMeasure Q] :
-    ∃ X, IsEVar X S ∧ ∃ P ∈ effectiveSet S,
-      (∫⁻ ω, Q.rnDeriv P ω ^ γ⁻¹ ∂P) ^ γ = ∫⁻ ω, X ω ^ (1 - γ) ∂Q := by
-  obtain ⟨Y, hY⟩ := (isEVarClass_isEVar S hS).exists_isNumeraireFor (U := powerUtility γ hγ)
-    (b := 0) (fun x ↦ by simpa using powerUtility_le_zero x) Q
-  have hYS : IsEVar Y S := hY.mem
-  have hYm := hYS.measurable
-  refine ⟨Y, hYS, ?_⟩
-  set c := ∫⁻ ω, Y ω ^ (1 - γ) ∂Q
-  have ha1 : γ⁻¹ < 1 := inv_lt_one_of_one_lt₀ hγ
-  have hY0 : ∀ᵐ ω ∂Q, Y ω ≠ 0 := hY.ae_ne_zero_powerUtility hS
-  have hc_le : c ≤ Q univ := hY.lintegral_rpow_le_measure_univ hS
-  rcases eq_or_ne c 0 with hc0 | hc0
-  · refine ⟨0, fun X _ ↦ by simp, ?_⟩
-    simp [hc0, ENNReal.zero_rpow_of_pos (show 0 < γ by linarith)]
-  have hctop : c ≠ ∞ := (hc_le.trans_lt (measure_lt_top Q univ)).ne
-  -- the dual measure `R` with density `Y ^ (-γ) / c` with respect to `Q`
-  set g : Ω → ℝ≥0∞ := fun ω ↦ c⁻¹ * Y ω ^ (-γ) with hg_def
-  have hg : Measurable g := (hYm.pow_const _).const_mul _
-  set R := Q.withDensity g
-  have hR : R ∈ effectiveSet S := fun Z hZ ↦ by
-    rw [lintegral_withDensity_eq_lintegral_mul _ hg hZ.measurable]
-    calc ∫⁻ ω, (g * Z) ω ∂Q
+/-- **The reverse Rényi projection is in the effective null.** For a numeraire `Y` for the power
+utility among the e-variables of a null of masses at most `1`, the measure with density
+`Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q` gives every e-variable a mean at most `1`, by the
+first-order condition of `Y` [LRR25, Theorem 6.1]. -/
+lemma IsNumeraireFor.withDensity_rpow_neg_mem_effectiveSet (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hY : IsNumeraireFor (powerUtility γ hγ) Y {X | IsEVar X S} Q) :
+    Q.withDensity (fun ω ↦ (∫⁻ ω', Y ω' ^ (1 - γ) ∂Q)⁻¹ * Y ω ^ (-γ)) ∈ effectiveSet S :=
+  fun Z hZ ↦ by
+    have hYm : Measurable Y := hY.mem.measurable
+    set c := ∫⁻ ω, Y ω ^ (1 - γ) ∂Q
+    rw [lintegral_withDensity_eq_lintegral_mul _ ((hYm.pow_const _).const_mul _) hZ.measurable]
+    calc ∫⁻ ω, ((fun ω ↦ c⁻¹ * Y ω ^ (-γ)) * Z) ω ∂Q
     _ = c⁻¹ * ∫⁻ ω, Y ω ^ (-γ) * Z ω ∂Q := by
-      simp only [Pi.mul_apply, hg_def, mul_assoc]
+      simp only [Pi.mul_apply, mul_assoc]
       exact lintegral_const_mul _ ((hYm.pow_const _).mul hZ.measurable)
     _ ≤ c⁻¹ * c := by gcongr; exact hY.lintegral_rpow_neg_mul_le hS hZ
-    _ = 1 := ENNReal.inv_mul_cancel hc0 hctop
-  refine ⟨R, hR, ?_⟩
-  have : IsFiniteMeasure R := isFiniteMeasure_of_mem_effectiveSet hS hR
-  -- the affinity of `Q` and `R` is `∫⁻ g ^ (1 - γ⁻¹) ∂Q`
+    _ ≤ 1 := ENNReal.inv_mul_le_one c
+
+/-- **The reverse Rényi projection attains the dual problem.** For a numeraire `Y` for the power
+utility among the e-variables of a null of masses at most `1`, and the measure `R` with density
+`Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q`, the power `γ` of the affinity
+`∫⁻ (dQ/dR) ^ γ⁻¹ ∂R` is the moment `∫⁻ Y ^ (1 - γ) ∂Q`: the two sides of the weak duality
+`rpow_lintegral_rnDeriv_rpow_inv_le` are equal at `Y` and `R` [LRR25, Theorem 6.1]. -/
+lemma IsNumeraireFor.rpow_lintegral_rnDeriv_withDensity_rpow_neg [IsFiniteMeasure Q]
+    (hS : ∀ P ∈ S, P univ ≤ 1) (hY : IsNumeraireFor (powerUtility γ hγ) Y {X | IsEVar X S} Q) :
+    (∫⁻ ω, Q.rnDeriv (Q.withDensity fun ω ↦ (∫⁻ ω', Y ω' ^ (1 - γ) ∂Q)⁻¹ * Y ω ^ (-γ)) ω ^ γ⁻¹
+      ∂(Q.withDensity fun ω ↦ (∫⁻ ω', Y ω' ^ (1 - γ) ∂Q)⁻¹ * Y ω ^ (-γ))) ^ γ
+      = ∫⁻ ω, Y ω ^ (1 - γ) ∂Q := by
+  have hYm : Measurable Y := hY.mem.measurable
+  set c := ∫⁻ ω, Y ω ^ (1 - γ) ∂Q
+  have ha1 : γ⁻¹ < 1 := inv_lt_one_of_one_lt₀ hγ
+  rcases eq_or_ne c 0 with hc0 | hc0
+  · -- if `c = 0`, then `Y = ∞` almost surely and the measure is `0`
+    have hR : Q.withDensity (fun ω ↦ c⁻¹ * Y ω ^ (-γ)) = 0 := by
+      rw [← withDensity_zero]
+      refine withDensity_congr_ae ?_
+      filter_upwards [(lintegral_eq_zero_iff (hYm.pow_const _)).1 hc0] with ω hω
+      obtain ⟨hYω, -⟩ : Y ω = ∞ ∧ 1 < γ := by
+        simpa [ENNReal.rpow_eq_zero_iff, show ¬0 < 1 - γ by linarith] using hω
+      simp [hYω, ENNReal.top_rpow_of_neg (show -γ < 0 by linarith)]
+    rw [hR, hc0]
+    simp [ENNReal.zero_rpow_of_pos (show 0 < γ by linarith)]
+  have hctop : c ≠ ∞ :=
+    ((hY.lintegral_rpow_le_measure_univ hS).trans_lt (measure_lt_top Q univ)).ne
+  set g : Ω → ℝ≥0∞ := fun ω ↦ c⁻¹ * Y ω ^ (-γ) with hg_def
+  have hg : Measurable g := (hYm.pow_const _).const_mul _
+  -- the affinity of `Q` and `Q.withDensity g` is `∫⁻ g ^ (1 - γ⁻¹) ∂Q`
   have hg_top : ∀ᵐ ω ∂Q, g ω ≠ ∞ := by
-    filter_upwards [hY0] with ω hω
+    filter_upwards [hY.ae_ne_zero_powerUtility hS] with ω hω
     exact ENNReal.mul_ne_top (ENNReal.inv_ne_top.2 hc0)
       (by simp [ENNReal.rpow_eq_top_iff, hω, show 0 ≤ γ by linarith])
-  have hH : ∫⁻ ω, Q.rnDeriv R ω ^ γ⁻¹ ∂R = (c⁻¹) ^ (1 - γ⁻¹) * c := by
+  have hH : ∫⁻ ω, Q.rnDeriv (Q.withDensity g) ω ^ γ⁻¹ ∂(Q.withDensity g)
+      = (c⁻¹) ^ (1 - γ⁻¹) * c := by
     rw [Measure.lintegral_rpow_rnDeriv_withDensity hg.aemeasurable hg_top ha1,
       ← lintegral_const_mul _ (hYm.pow_const _)]
     refine lintegral_congr fun ω ↦ ?_
@@ -354,6 +369,21 @@ theorem exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq (hγ : 1 < γ)
   rw [hH, ENNReal.inv_rpow, ← ENNReal.rpow_neg, ← ENNReal.rpow_add_one hc0 hctop,
     ← ENNReal.rpow_mul,
     show (-(1 - γ⁻¹) + 1) * γ = 1 by field_simp; ring, ENNReal.rpow_one]
+
+/-- **Strong duality** for the power utility [LRR25, Theorem 6.1]: some e-variable `X` and some
+member `P` of the effective null make the two sides of
+`rpow_lintegral_rnDeriv_rpow_inv_le` equal. The e-variable is Statlib's numeraire `Y` for the power
+utility, and `P` has density `Y ^ (-γ) / ∫⁻ Y ^ (1 - γ) ∂Q` with respect to `Q`
+(`IsNumeraireFor.withDensity_rpow_neg_mem_effectiveSet`,
+`IsNumeraireFor.rpow_lintegral_rnDeriv_withDensity_rpow_neg`). -/
+theorem exists_isEVar_mem_effectiveSet_rpow_lintegral_rnDeriv_eq (hγ : 1 < γ)
+    (hS : ∀ P ∈ S, P univ ≤ 1) (Q : Measure Ω) [IsFiniteMeasure Q] :
+    ∃ X, IsEVar X S ∧ ∃ P ∈ effectiveSet S,
+      (∫⁻ ω, Q.rnDeriv P ω ^ γ⁻¹ ∂P) ^ γ = ∫⁻ ω, X ω ^ (1 - γ) ∂Q := by
+  obtain ⟨Y, hY⟩ := (isEVarClass_isEVar S hS).exists_isNumeraireFor (U := powerUtility γ hγ)
+    (b := 0) (fun x ↦ by simpa using powerUtility_le_zero x) Q
+  exact ⟨Y, hY.mem, _, hY.withDensity_rpow_neg_mem_effectiveSet hS,
+    hY.rpow_lintegral_rnDeriv_withDensity_rpow_neg hS⟩
 
 /-- **The maximal expected power utility** [LRR25, Theorem 6.1]: over the e-variables of a null of
 masses at most `1`, the largest expected power utility under a finite measure `Q` is
