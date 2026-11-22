@@ -485,18 +485,10 @@ theorem IsNumeraire.tendstoInMeasure_of_powerUtility [IsFiniteMeasure Q]
   obtain ⟨ns, hns, h_ae⟩ :=
     ((hX.tendstoInMeasure_div_of_powerUtility hS hQS hY).comp hu).exists_seq_tendsto_ae
   refine ⟨ns, hns, ?_⟩
-  have hu' : ∀ᶠ n in atTop, 1 < u (ns n) :=
-    (hu.comp hns.tendsto_atTop).eventually self_mem_nhdsWithin
-  have hY_top : ∀ᵐ ω ∂Q, ∀ n, 1 < u n → Y (u n) ω ≠ ∞ := ae_all_iff.2 fun n ↦ by
-    by_cases h : 1 < u n
-    · filter_upwards [hQS.ae_ne_top (hY _ h).mem] with ω hω _ using hω
-    · exact Eventually.of_forall fun _ h' ↦ absurd h' h
-  filter_upwards [h_ae, hY_top, hQS.ae_ne_top hX.isEVar, hX.ae_ne_zero hS]
-    with ω hω hYt hXt hX0
+  filter_upwards [h_ae, hQS.ae_ne_top hX.isEVar, hX.ae_ne_zero hS] with ω hω hXt hX0
   have h_eq : ∀ᶠ n in atTop,
-      (Y (u (ns n)) ω / X ω).toReal * (X ω).toReal = (Y (u (ns n)) ω).toReal := by
-    filter_upwards [hu'] with n hn
-    rw [← ENNReal.toReal_mul, ENNReal.div_mul_cancel hX0 hXt]
+      (Y (u (ns n)) ω / X ω).toReal * (X ω).toReal = (Y (u (ns n)) ω).toReal :=
+    Eventually.of_forall fun n ↦ by rw [← ENNReal.toReal_mul, ENNReal.div_mul_cancel hX0 hXt]
   simpa using (hω.mul_const (X ω).toReal).congr' h_eq
 
 /-- **The normalizing constants of the reverse Rényi projections converge**
