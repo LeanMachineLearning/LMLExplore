@@ -94,7 +94,7 @@ theorem eConfSet_top : eConfSet E ∞ ω = ∅ := by
   simp
 
 /-- The e-confidence sets shrink as the level grows. -/
-theorem eConfSet_anti (E : Θ → Ω → ℝ≥0∞) (ω : Ω) : Antitone fun α ↦ eConfSet E α ω :=
+theorem eConfSet_antitone (E : Θ → Ω → ℝ≥0∞) (ω : Ω) : Antitone fun α ↦ eConfSet E α ω :=
   fun _ _ hαβ _ hθ ↦ (mem_eConfSet.1 hθ).trans_le (ENNReal.inv_le_inv.2 hαβ)
 
 theorem measurableSet_mem_eConfSet (hE : Measurable (E θ)) (α : ℝ≥0∞) :
@@ -157,7 +157,7 @@ theorem IsLevelFreeEConfSet.isEConfSet {C : ℝ≥0∞ → Ω → Set Θ} (hC : 
 theorem IsLevelFreeEConfSet.antitone {C : ℝ≥0∞ → Ω → Set Θ} (hC : IsLevelFreeEConfSet C S)
     (ω : Ω) : Antitone fun α ↦ C α ω := by
   obtain ⟨E, -, rfl⟩ := hC
-  exact eConfSet_anti E ω
+  exact eConfSet_antitone E ω
 
 end ConfSet
 
