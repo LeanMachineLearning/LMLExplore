@@ -15,16 +15,16 @@ import Mathlib.MeasureTheory.Integral.Lebesgue.Sub
 
 For a group `G` acting measurably on `Ω`, the invariant null is the set of `G`-invariant
 probability measures on `Ω`, Tau Ceti's `invariantMeasuresOfMeasureUnivEq G Ω 1`. For a
-probability measure `η` on `G` that is invariant under left translations, such as the Haar
-probability measure of a compact group or the uniform measure on a finite group, its
-e-variables are described by the orbit average `avg X = orbitAverage η X`, the average of `X` over
-the orbits:
-* `X` is an e-variable exactly when `avg X ≤ 1` everywhere, and an exact e-variable exactly when
-  `avg X = 1` everywhere;
-* the e-variables are the measurable functions dominated by an exact e-variable `1 + f - avg f`,
-  for an `f` with values in `[-1, ∞]` whose orbit average is nonpositive [LRR26, Theorem 5.5];
-* for every measurable `f ≥ 0`, the ratio `f / avg f` with `0 / 0 = 1` is an e-variable, exact when
-  `avg f` is finite [LRR26, Example 5.7].
+probability measure `η` on `G`, such as the Haar probability measure of a compact group or the
+uniform measure on a finite group, its e-variables are described by the orbit average
+`avg X = orbitAverage η X`, the average of `X` over the orbits:
+* for a left-invariant `η`, `X` is an e-variable exactly when `avg X ≤ 1` everywhere, and an
+  exact e-variable exactly when `avg X = 1` everywhere;
+* for a left-invariant `η`, the e-variables are the measurable functions dominated by an exact
+  e-variable `1 + f - avg f`, for an `f` with values in `[-1, ∞]` whose orbit average is
+  nonpositive [LRR26, Theorem 5.5];
+* for a right-invariant `η` and every measurable `f ≥ 0`, the ratio `f / avg f` with `0 / 0 = 1`
+  is an e-variable, exact when `avg f` is finite everywhere [LRR26, Example 5.7].
 
 In `ℝ≥0∞` the function `1 + f` is a function `u ≥ 0` with `avg u ≤ 1`, and `1 + f - avg f` is
 `u + (1 - avg u)`, the form in which the statements are made. For a finite group the orbit
@@ -69,6 +69,11 @@ namespace ProbabilityTheory
 
 variable {G Ω : Type*} [Group G] {mΩ : MeasurableSpace Ω} [MulAction G Ω] {X f : Ω → ℝ≥0∞}
 
+/-- A member of the invariant null is a probability measure. -/
+private lemma isProbabilityMeasure_of_mem_invariantMeasures {μ : Measure Ω}
+    (hμ : μ ∈ invariantMeasuresOfMeasureUnivEq G Ω 1) : IsProbabilityMeasure μ :=
+  ⟨(mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ).2⟩
+
 section OrbitAverage
 
 variable [MeasurableSpace G] [MeasurableSMul₂ G Ω] {η : Measure G}
@@ -79,8 +84,8 @@ the same integral. -/
 private lemma lintegral_orbitAverage_of_mem {μ : Measure Ω}
     (hμ : μ ∈ invariantMeasuresOfMeasureUnivEq G Ω 1) (hX : Measurable X) :
     ∫⁻ x, orbitAverage η X x ∂μ = ∫⁻ x, X x ∂μ := by
-  obtain ⟨_, hμ₁⟩ := mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ
-  have : IsProbabilityMeasure μ := ⟨hμ₁⟩
+  have := (mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ).1
+  have := isProbabilityMeasure_of_mem_invariantMeasures hμ
   simp [lintegral_orbitAverage hX]
 
 /-- For a left-invariant `η`, the image `η.map (· • x)` of `η` on the orbit of `x` belongs to the
@@ -95,7 +100,7 @@ theorem isEVar_invariantMeasures_of_orbitAverage_le_one (hX : Measurable X)
     (h : orbitAverage η X ≤ 1) : IsEVar X (invariantMeasuresOfMeasureUnivEq G Ω 1) where
   measurable := hX
   lintegral_le_one μ hμ := by
-    have : IsProbabilityMeasure μ := ⟨(mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ).2⟩
+    have := isProbabilityMeasure_of_mem_invariantMeasures hμ
     rw [← lintegral_orbitAverage_of_mem (η := η) hμ hX]
     exact (lintegral_mono h).trans_eq (by simp)
 
@@ -120,7 +125,7 @@ null. -/
 theorem isExactEVar_invariantMeasures_of_orbitAverage_eq_one (hX : Measurable X)
     (h : orbitAverage η X = 1) : IsExactEVar X (invariantMeasuresOfMeasureUnivEq G Ω 1) :=
   .of_lintegral_eq_one hX fun μ hμ ↦ by
-    have : IsProbabilityMeasure μ := ⟨(mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ).2⟩
+    have := isProbabilityMeasure_of_mem_invariantMeasures hμ
     rw [← lintegral_orbitAverage_of_mem (η := η) hμ hX, h]
     simp
 
@@ -145,7 +150,7 @@ theorem isExactEVar_invariantMeasures_add_one_sub {u : Ω → ℝ≥0∞} (hu : 
       (invariantMeasuresOfMeasureUnivEq G Ω 1) := by
   have hu' := hu.orbitAverage (η := η)
   refine .of_lintegral_eq_one (hu.add (measurable_const.sub hu')) fun μ hμ ↦ ?_
-  have : IsProbabilityMeasure μ := ⟨(mem_invariantMeasuresOfMeasureUnivEq_iff.1 hμ).2⟩
+  have := isProbabilityMeasure_of_mem_invariantMeasures hμ
   have hle : ∫⁻ x, orbitAverage η u x ∂μ ≤ 1 := (lintegral_mono h).trans_eq (by simp)
   have hsub : ∫⁻ x, (1 - orbitAverage η u x) ∂μ = 1 - ∫⁻ x, orbitAverage η u x ∂μ := by
     simpa using lintegral_sub (μ := μ) (f := fun _ ↦ 1) hu'
@@ -181,7 +186,8 @@ theorem isExactEVar_invariantMeasures_ite_div [MeasurableMul G] [η.IsMulRightIn
 
 /-- **Normalized functions are e-variables**: for a right-invariant probability measure `η` on
 `G` and a measurable `f ≥ 0`, the ratio `f / avg f`, with `0 / 0 = 1`, is an e-variable for the
-invariant null. It is exact where `avg f` is finite (`isExactEVar_invariantMeasures_ite_div`). -/
+invariant null. It is exact when `avg f` is finite everywhere
+(`isExactEVar_invariantMeasures_ite_div`). -/
 theorem isEVar_invariantMeasures_ite_div [MeasurableMul G] [η.IsMulRightInvariant]
     (hf : Measurable f) :
     IsEVar (fun x ↦ if orbitAverage η f x = 0 then 1 else f x / orbitAverage η f x)
@@ -200,6 +206,11 @@ end OrbitAverage
 section Finite
 
 variable [Fintype G] [MeasurableConstSMul G Ω]
+
+omit [Group G] in
+/-- The number of elements of a finite group, as an extended nonnegative real, is not zero. -/
+private lemma natCast_card_ne_zero [Nonempty G] : (Fintype.card G : ℝ≥0∞) ≠ 0 :=
+  Nat.cast_ne_zero.2 Fintype.card_ne_zero
 
 /-- A finite group carries a σ-algebra and a left- and right-invariant probability measure `η`, the
 uniform measure, for which the action is jointly measurable and the orbit averages are the averages
@@ -222,7 +233,7 @@ theorem isEVar_invariantMeasures_iff_sum_le :
     IsEVar X (invariantMeasuresOfMeasureUnivEq G Ω 1) ↔
       Measurable X ∧ ∀ x, ∑ g : G, X (g • x) ≤ Fintype.card G := by
   obtain ⟨_, _, _, η, _, _, _, hη⟩ := exists_uniform (G := G) (Ω := Ω)
-  have hG : (Fintype.card G : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hG := natCast_card_ne_zero (G := G)
   rw [isEVar_invariantMeasures_iff (η := η), hη, Pi.le_def]
   simp_rw [Pi.one_apply, ENNReal.div_le_iff hG (ENNReal.natCast_ne_top _), one_mul]
 
@@ -233,7 +244,7 @@ theorem isExactEVar_invariantMeasures_iff_sum_eq :
     IsExactEVar X (invariantMeasuresOfMeasureUnivEq G Ω 1) ↔
       Measurable X ∧ ∀ x, ∑ g : G, X (g • x) = Fintype.card G := by
   obtain ⟨_, _, _, η, _, _, _, hη⟩ := exists_uniform (G := G) (Ω := Ω)
-  have hG : (Fintype.card G : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hG := natCast_card_ne_zero (G := G)
   rw [isExactEVar_invariantMeasures_iff (η := η), hη, funext_iff]
   simp_rw [Pi.one_apply, ENNReal.div_eq_one_iff hG (ENNReal.natCast_ne_top _)]
 
@@ -246,7 +257,7 @@ theorem isEVar_invariantMeasures_iff_exists_le_sum :
       Measurable X ∧ ∃ u : Ω → ℝ≥0∞, Measurable u ∧ (∀ x, ∑ g : G, u (g • x) ≤ Fintype.card G) ∧
         ∀ x, X x ≤ u x + (1 - (∑ g : G, u (g • x)) / Fintype.card G) := by
   obtain ⟨_, _, _, η, _, _, _, hη⟩ := exists_uniform (G := G) (Ω := Ω)
-  have hG : (Fintype.card G : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hG := natCast_card_ne_zero (G := G)
   rw [isEVar_invariantMeasures_iff_exists_le (η := η)]
   simp_rw [hη, Pi.le_def, Pi.one_apply, ENNReal.div_le_iff hG (ENNReal.natCast_ne_top _), one_mul]
 
@@ -260,7 +271,7 @@ theorem isExactEVar_invariantMeasures_ite_div_sum (hf : Measurable f) (hfin : �
         f x / ((∑ g : G, f (g • x)) / Fintype.card G))
       (invariantMeasuresOfMeasureUnivEq G Ω 1) := by
   obtain ⟨_, _, _, η, _, _, _, hη⟩ := exists_uniform (G := G) (Ω := Ω)
-  have hG : (Fintype.card G : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hG := natCast_card_ne_zero (G := G)
   have h := isExactEVar_invariantMeasures_ite_div (η := η) hf fun x ↦ by
     rw [hη]
     exact ENNReal.div_ne_top (ENNReal.sum_ne_top.2 fun g _ ↦ hfin _) hG

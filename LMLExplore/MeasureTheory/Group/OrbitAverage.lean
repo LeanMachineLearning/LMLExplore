@@ -74,6 +74,7 @@ theorem orbitAverage_apply (η : Measure G) (f : α → ℝ≥0∞) (x : α) :
     orbitAverage η f x = ∫⁻ g, f (g • x) ∂η := (rfl)
 
 /-- The orbit average of a constant is the constant times the mass of `η`. -/
+@[simp]
 theorem orbitAverage_const (η : Measure G) (c : ℝ≥0∞) :
     orbitAverage η (fun _ : α ↦ c) = fun _ ↦ c * η univ := by
   ext x
@@ -141,6 +142,7 @@ theorem orbitAverage_comp_smul [IsMulLeftInvariant η] (f : α → ℝ≥0∞) (
   exact lintegral_mul_left_eq_self (fun h ↦ f (h • x)) g
 
 /-- For a right-invariant `η`, the orbit average is constant on the orbits. -/
+@[simp]
 theorem orbitAverage_smul [IsMulRightInvariant η] (f : α → ℝ≥0∞) (g : G) (x : α) :
     orbitAverage η f (g • x) = orbitAverage η f x := by
   simp_rw [orbitAverage_apply, smul_smul]
