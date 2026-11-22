@@ -32,11 +32,11 @@ that the null can see. This file compares the two notions.
   (`ProbabilityTheory.isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite`,
   `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`). Then every admissible e-variable is a
   numeraire against some alternative, every numeraire is almost surely equal to an admissible
-  numeraire, and the numeraires against the alternatives that dominate the null are the admissible
-  e-variables that are almost surely positive under the null.
+  numeraire, and the numeraires against the finite alternatives that dominate the null are the
+  admissible e-variables that are almost surely positive under the null.
 * **The Poisson family.** For the null of the Poisson laws, `2 · 𝟙{k odd}` is an admissible
   e-variable, and it is a numeraire against no nonzero finite measure. So for an infinite null an
-  admissible e-variable need not be a numeraire against any alternative.
+  admissible e-variable need not be a numeraire against any nonzero finite alternative.
 
 Following Statlib, e-variables are `ℝ≥0∞`-valued, the bound of an e-variable is `1` whatever the
 mass of the member, and exact means `∫⁻ E ∂P = 1`.
