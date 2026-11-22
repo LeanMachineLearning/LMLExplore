@@ -204,6 +204,12 @@ theorem isNumeraire_iff_withDensity_inv_mem_effectiveSet [IsProbabilityMeasure Q
   ⟨IsNumeraire.withDensity_inv_mem_effectiveSet,
     isNumeraire_of_withDensity_inv_mem_effectiveSet hS hX hX_top⟩
 
+/-- For the numeraire `X` among the e-variables of a null of masses at most `1` under a finite
+measure `Q`, `∫⁻ X⁻¹ ∂Q` is finite. -/
+theorem IsNumeraire.lintegral_inv_ne_top [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hX : IsNumeraire X S Q) : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ :=
+  ((hX.lintegral_inv_le_measure_fsupport hS).trans_lt (measure_lt_top _ _)).ne
+
 /-! ### Alternatives absolutely continuous with respect to the null -/
 
 /-- The reverse information projection is the measure of density `X⁻¹` with respect to `Q`, for

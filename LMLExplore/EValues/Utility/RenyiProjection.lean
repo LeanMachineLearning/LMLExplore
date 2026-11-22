@@ -9,6 +9,7 @@ public import LMLExplore.EValues.Utility.Power
 public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import LMLExplore.EValues.EVariable
+import LMLExplore.EValues.Numeraire
 import LMLExplore.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.Analysis.SpecialFunctions.Pow.Continuity
 import Mathlib.MeasureTheory.Integral.Lebesgue.DominatedConvergence
@@ -384,12 +385,6 @@ private lemma rpow_mul_sub_le_lintegral_rpow {Q : Measure Ω} {X Y : Ω → ℝ�
 /-! ### The optimal e-variables of the power utilities and the numeraire -/
 
 variable {Q : Measure Ω} {S : Set (Measure Ω)} {X : Ω → ℝ≥0∞}
-
-/-- For the numeraire `X` among the e-variables of a null of masses at most `1` under a finite
-measure `Q`, `∫⁻ X⁻¹ ∂Q` is finite. -/
-lemma IsNumeraire.lintegral_inv_ne_top [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1)
-    (hX : IsNumeraire X S Q) : ∫⁻ ω, (X ω)⁻¹ ∂Q ≠ ∞ :=
-  ((hX.lintegral_inv_le_measure_fsupport hS).trans_lt (measure_lt_top _ _)).ne
 
 /-- **The χ bound** [EVR26, Note 27, Theorem 1]: for a numeraire `Y` for the power utility of
 risk aversion `γ > 1` and the numeraire `X` for the logarithmic utility, among the e-variables of
