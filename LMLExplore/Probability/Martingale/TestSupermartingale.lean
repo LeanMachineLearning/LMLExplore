@@ -148,6 +148,13 @@ theorem anti_set (hST : S ⊆ T) (hM : IsENNSupermartingale M ℱ T) :
     IsENNSupermartingale M ℱ S :=
   ⟨hM.adapted, fun P hP ↦ hM.setLIntegral_succ_le P (hST hP)⟩
 
+/-- A constant multiple of an `ℝ≥0∞`-valued supermartingale is a supermartingale. -/
+theorem const_mul (hM : IsENNSupermartingale M ℱ S) (c : ℝ≥0∞) :
+    IsENNSupermartingale (fun n ω ↦ c * M n ω) ℱ S :=
+  ⟨fun n ↦ (hM.adapted n).const_mul c, fun P hP n s hs ↦ by
+    rw [lintegral_const_mul c (hM.measurable (n + 1)), lintegral_const_mul c (hM.measurable n)]
+    exact mul_le_mul_right (hM.setLIntegral_succ_le P hP n s hs) c⟩
+
 /-- An adapted process quasi-surely equal at every time to a supermartingale is
 a supermartingale. -/
 theorem congr (hM : IsENNSupermartingale M ℱ S) (hM' : Adapted ℱ M')
