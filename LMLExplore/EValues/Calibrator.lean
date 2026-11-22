@@ -27,9 +27,10 @@ A p-to-e calibrator is a way of turning p-variables into e-variables: an antiton
 of every null hypothesis of probability measures on every measurable space. By
 [RW, Proposition 2.5], these are exactly the antitone functions vanishing on `(1, ∞]` with
 `∫₀¹ f ≤ 1`, and this characterization is taken here as the definition. The definition is
-justified by `IsPToECalibrator.isEVar_comp` and its converse `isPToECalibrator_iff_isEVar`, whose
-proof rests on the fact that a p-variable is stochastically larger than the uniform law on
-`[0, 1]` (`IsPVar.lintegral_comp_le`).
+justified by `IsPToECalibrator.isEVar_comp` and its converse `isPToECalibrator_iff_isEVar`: a
+calibrator is an e-variable for the super-uniform null, the null of the laws of the p-variables
+(`isPToECalibrator_iff_isEVar_superUniformNull`), since a p-variable is stochastically larger
+than the uniform law on `[0, 1]`.
 
 A calibrator is admissible when no other calibrator dominates it. The admissible calibrators are
 the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, Proposition 2.5].
@@ -55,10 +56,15 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   antitone e-variables for the super-uniform null `ProbabilityTheory.superUniformNull` that vanish
   on `(1, ∞]`.
 * `ProbabilityTheory.IsPToECalibrator.le_inv`: a calibrator is at most `x ↦ x⁻¹`.
-* `MonotoneOn.antitone_indicator_Iic_comp_inv` and
-  `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A`
-  monotone on `[1, ∞]` gives the antitone `p ↦ A p⁻¹` on `[0, 1]`, whose integral is
-  `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
+* `indicator_Ici_comp_inv`, `MonotoneOn.measurable_indicator_Ici_one`: the restriction of `A` to
+  `[1, ∞]`, read through `x = p⁻¹`, is `p ↦ A p⁻¹` on `[0, 1]`, and it is measurable when `A` is
+  monotone on `[1, ∞]`; `ProbabilityTheory.isEVar_indicator_Ici_mapNull_inv_iff`: so the former
+  is an e-variable for the laws of the inverse p-values exactly when the latter is one for the
+  super-uniform null.
+* `antitone_indicator_Iic_comp_inv_iff` and
+  `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A` is
+  monotone on `[1, ∞]` exactly when `p ↦ A p⁻¹` on `[0, 1]` is antitone, and the integral of the
+  latter is `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
 * `ProbabilityTheory.isAdmissiblePToECalibrator_iff`: the characterization of admissible
   calibrators [RW, Proposition 2.5].
 * `ProbabilityTheory.IsPToECalibrator.const_mul_comp_mul` and its admissible version: the
@@ -105,13 +111,22 @@ structure IsPToECalibrator (f : ℝ≥0∞ → ℝ≥0∞) : Prop where
 theorem IsPToECalibrator.measurable (hf : IsPToECalibrator f) : Measurable f :=
   hf.antitone.measurable
 
+/-- **Calibrators are the antitone bets against the super-uniform laws**: an antitone function
+vanishing on `(1, ∞]` is a calibrator exactly when it is an e-variable for the super-uniform null,
+the null of the laws of all p-variables. -/
+theorem isPToECalibrator_iff_isEVar_superUniformNull :
+    IsPToECalibrator f ↔ Antitone f ∧ (∀ x, 1 < x → f x = 0) ∧ IsEVar f superUniformNull :=
+  ⟨fun hf ↦ ⟨hf.antitone, hf.eq_zero_of_one_lt,
+      (isEVar_superUniformNull_iff_of_antitone hf.antitone).2 hf.lintegral_le_one⟩,
+    fun ⟨h_anti, h_zero, hE⟩ ↦
+      ⟨h_anti, h_zero, (isEVar_superUniformNull_iff_of_antitone h_anti).1 hE⟩⟩
+
 /-- **A calibrator turns p-variables into e-variables** [VW21, Proposition 2.1]: for a null of
 measures of mass at most one, `f ∘ p` is an e-variable for every calibrator `f` and every
-p-variable `p`. -/
+p-variable `p`, since `f` is an e-variable for the super-uniform null. -/
 theorem IsPToECalibrator.isEVar_comp (hf : IsPToECalibrator f)
     (hS : ∀ P ∈ S, P univ ≤ 1) (hp : IsPVar p S) : IsEVar (f ∘ p) S :=
-  ⟨hf.measurable.comp hp.measurable, fun P hP ↦
-    (hp.lintegral_comp_le hP (hS P hP) hf.antitone).trans hf.lintegral_le_one⟩
+  (isPToECalibrator_iff_isEVar_superUniformNull.1 hf).2.2.comp_isPVar hS hp
 
 /-- **The converse**: an antitone function vanishing on `(1, ∞]` is a calibrator exactly when it
 turns the identity of `[0, 1]`, an exact p-variable under the Lebesgue measure on `[0, 1]`, into
@@ -123,16 +138,6 @@ theorem isPToECalibrator_iff_isEVar :
   refine ⟨fun hf ↦ ⟨hf.antitone, hf.eq_zero_of_one_lt, ?_⟩, fun ⟨h_anti, h_zero, hE⟩ ↦
     ⟨h_anti, h_zero, hE.lintegral_le_one (mem_singleton _)⟩⟩
   exact hf.isEVar_comp (by simp) isExactPVar_ofReal_volume.toIsPVar
-
-/-- **Calibrators are the antitone bets against the super-uniform laws**: an antitone function
-vanishing on `(1, ∞]` is a calibrator exactly when it is an e-variable for the super-uniform null,
-the null of the laws of all p-variables. -/
-theorem isPToECalibrator_iff_isEVar_superUniformNull :
-    IsPToECalibrator f ↔ Antitone f ∧ (∀ x, 1 < x → f x = 0) ∧ IsEVar f superUniformNull :=
-  ⟨fun hf ↦ ⟨hf.antitone, hf.eq_zero_of_one_lt,
-      (isEVar_superUniformNull_iff_of_antitone hf.antitone).2 hf.lintegral_le_one⟩,
-    fun ⟨h_anti, h_zero, hE⟩ ↦
-      ⟨h_anti, h_zero, (isEVar_superUniformNull_iff_of_antitone h_anti).1 hE⟩⟩
 
 /-- A calibrator is at most `x ↦ x⁻¹`: `x f x ≤ ∫₀ˣ f ≤ 1`. -/
 theorem IsPToECalibrator.le_inv (hf : IsPToECalibrator f) (x : ℝ≥0∞) : f x ≤ x⁻¹ := by
@@ -162,6 +167,41 @@ theorem _root_.MonotoneOn.antitone_indicator_Iic_comp_inv {A : ℝ≥0∞ → �
     exact hA (mem_Ici.2 (ENNReal.one_le_inv.2 hq))
       (mem_Ici.2 (ENNReal.one_le_inv.2 (hpq.trans hq))) (ENNReal.inv_le_inv.2 hpq)
   · simp [indicator_of_notMem (show q ∉ Iic 1 from hq)]
+
+/-- A function `A` is monotone on `[1, ∞]` exactly when `p ↦ A p⁻¹` on `[0, 1]`, zero on
+`(1, ∞]`, is antitone. -/
+theorem _root_.antitone_indicator_Iic_comp_inv_iff {A : ℝ≥0∞ → ℝ≥0∞} :
+    Antitone ((Iic 1).indicator fun p ↦ A p⁻¹) ↔ MonotoneOn A (Ici 1) := by
+  refine ⟨fun h x hx y hy hxy ↦ ?_, MonotoneOn.antitone_indicator_Iic_comp_inv⟩
+  have h := h (ENNReal.inv_le_inv.2 hxy)
+  rwa [indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 hx)),
+    indicator_of_mem (mem_Iic.2 (ENNReal.inv_le_one.2 hy)), inv_inv, inv_inv] at h
+
+/-- Through `x = p⁻¹`, the restriction of `A` to `[1, ∞]` is the function `p ↦ A p⁻¹` on
+`[0, 1]`, zero on `(1, ∞]`. -/
+theorem _root_.indicator_Ici_comp_inv (A : ℝ≥0∞ → ℝ≥0∞) :
+    (Ici 1).indicator A ∘ (·⁻¹) = (Iic 1).indicator fun p ↦ A p⁻¹ := by
+  ext p
+  simp [indicator_apply, ENNReal.one_le_inv]
+
+/-- The restriction to `[1, ∞]` of a function monotone on `[1, ∞]` is measurable. -/
+theorem _root_.MonotoneOn.measurable_indicator_Ici_one {A : ℝ≥0∞ → ℝ≥0∞}
+    (hA : MonotoneOn A (Ici 1)) : Measurable ((Ici 1).indicator A) := by
+  -- it is the antitone `p ↦ A p⁻¹` on `[0, 1]`, read through the measurable involution `x ↦ x⁻¹`
+  refine (MeasurableEquiv.inv ℝ≥0∞).measurable_comp_iff.1 ?_
+  exact indicator_Ici_comp_inv A ▸ hA.antitone_indicator_Iic_comp_inv.measurable
+
+/-- **The change of variables `x = p⁻¹` between bets.** The restriction of `A` to `[1, ∞]` is an
+e-variable for the laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform
+null by `x ↦ x⁻¹`, exactly when `p ↦ A p⁻¹`, on `[0, 1]` and zero on `(1, ∞]`, is an e-variable
+for the super-uniform null. -/
+theorem isEVar_indicator_Ici_mapNull_inv_iff (A : ℝ≥0∞ → ℝ≥0∞) :
+    IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
+      IsEVar ((Iic 1).indicator fun p ↦ A p⁻¹) superUniformNull := by
+  rw [← indicator_Ici_comp_inv]
+  exact ⟨fun h ↦ (isEVar_mapNull_iff measurable_inv h.measurable).1 h, fun h ↦
+    (isEVar_mapNull_iff measurable_inv
+      ((MeasurableEquiv.inv ℝ≥0∞).measurable_comp_iff.1 h.measurable)).2 h⟩
 
 /-- **The change of variables `p = x⁻¹`.** For every `A : ℝ≥0∞ → ℝ≥0∞`, the integral over
 `[0, 1]` of `p ↦ A p⁻¹`, zero on `(1, ∞]`, is the integral of `x ↦ A x / x ^ 2` over `(1, ∞)`.

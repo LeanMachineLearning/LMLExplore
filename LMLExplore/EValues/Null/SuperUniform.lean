@@ -19,8 +19,8 @@ super-uniform laws are the laws of the p-variables: a measurable `p` is a p-vari
 `S` of probability measures exactly when its law under every member of `S` is super-uniform
 [RW, Definition 1.2]. The **super-uniform null** `superUniformNull` collects them, so that
 statements about all p-variables of all nulls become statements about one null on `ℝ≥0∞`: an
-e-variable `f` for `superUniformNull` turns every p-variable `p` of every null of probability
-measures into the e-variable `f ∘ p`, and conversely the identity is a p-variable for
+e-variable `f` for `superUniformNull` turns every p-variable `p` of every null of measures of mass
+at most one into the e-variable `f ∘ p`, and conversely the identity is a p-variable for
 `superUniformNull`.
 
 A super-uniform law dominates the uniform law on `[0, 1]` stochastically, so the integral of an
@@ -43,7 +43,7 @@ calibration theorem [VW21, Proposition 2.1].
 * `ProbabilityTheory.isPVar_iff_mapNull_subset_superUniformNull`: a measurable `p` is a p-variable
   for a null of probability measures exactly when its laws under the members are super-uniform.
 * `ProbabilityTheory.IsEVar.comp_isPVar`: an e-variable for the super-uniform null, composed with
-  a p-variable for a null of probability measures, is an e-variable for that null.
+  a p-variable for a null of measures of mass at most one, is an e-variable for that null.
 * `ProbabilityTheory.map_mem_superUniformNull_of_ofReal_le`: the law of a measurable function above
   a uniform variable on `[0, 1]` is super-uniform.
 * `ProbabilityTheory.lintegral_le_of_mem_superUniformNull`: a super-uniform law dominates the
@@ -127,13 +127,29 @@ theorem isPVar_iff_mapNull_subset_superUniformNull (hS : ∀ P ∈ S, IsProbabil
   exact ⟨fun h ↦ ⟨isProbabilityMeasure_of_mem_mapNull hS, h⟩, And.right⟩
 
 /-- **E-variables for the super-uniform null turn p-variables into e-variables**: for a null of
-probability measures and a p-variable `p`, `f ∘ p` is an e-variable whenever `f` is one for the
-super-uniform null. Conversely, the identity is a p-variable for the super-uniform null
+measures of mass at most one and a p-variable `p`, `f ∘ p` is an e-variable whenever `f` is one for
+the super-uniform null. Conversely, the identity is a p-variable for the super-uniform null
 (`isPVar_id_superUniformNull`). -/
-theorem IsEVar.comp_isPVar (hf : IsEVar f superUniformNull)
-    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hp : IsPVar p S) : IsEVar (f ∘ p) S :=
-  (isEVar_mapNull_iff hp.measurable hf.measurable).1
-    (hf.anti_set ((isPVar_iff_mapNull_subset_superUniformNull hS hp.measurable).1 hp))
+theorem IsEVar.comp_isPVar (hf : IsEVar f superUniformNull) (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hp : IsPVar p S) : IsEVar (f ∘ p) S := by
+  refine ⟨hf.measurable.comp hp.measurable, fun P hP ↦ ?_⟩
+  -- The law of `p`, completed by an atom at `∞` into a probability measure, is super-uniform.
+  set ν := P.map p + (1 - P univ) • Measure.dirac ∞
+  have hν : ν ∈ superUniformNull := by
+    refine mem_superUniformNull.2 ⟨⟨?_⟩, fun α ↦ ?_⟩
+    · simp [ν, Measure.map_apply hp.measurable MeasurableSet.univ, add_tsub_cancel_of_le (hS P hP)]
+    rcases eq_or_ne α ∞ with rfl | hα
+    · exact le_top
+    have h0 : Measure.dirac (∞ : ℝ≥0∞) (Iic α) = 0 := by
+      rw [Measure.dirac_apply' _ measurableSet_Iic]
+      exact indicator_of_notMem (by simpa using hα) _
+    calc ν (Iic α) = P.map p (Iic α) := by simp [ν, h0]
+      _ ≤ α := by
+        rw [Measure.map_apply hp.measurable measurableSet_Iic]
+        exact hp.measure_le_le P hP α
+  calc ∫⁻ ω, (f ∘ p) ω ∂P = ∫⁻ x, f x ∂P.map p := (lintegral_map hf.measurable hp.measurable).symm
+    _ ≤ ∫⁻ x, f x ∂ν := lintegral_mono' (Measure.le_add_right le_rfl) le_rfl
+    _ ≤ 1 := hf.lintegral_le_one hν
 
 /-- The law of a measurable function `q` above a uniform variable on `[0, 1]`, that is, with
 `ENNReal.ofReal x ≤ q x` for `x ∈ [0, 1]`, is super-uniform. -/
