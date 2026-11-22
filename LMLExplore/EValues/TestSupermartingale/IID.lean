@@ -7,11 +7,11 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.EValues.Null.Basic
-public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.ProductMeasure.Blocks
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.ProductMeasure
+import LMLExplore.EValues.TestSupermartingale.SequentialNull
 
 /-!
 # Products of i.i.d. copies of an e-variable
