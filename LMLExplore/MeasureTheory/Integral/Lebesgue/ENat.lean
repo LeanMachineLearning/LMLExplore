@@ -29,6 +29,7 @@ stopped.
   `T ≥ T₀`, then `∫⁻ f ∂μ ≤ T₀ + ∑' T, μ (E (T + T₀))ᶜ`.
 * `MeasureTheory.lintegral_toENNReal_eq_top_of_measure_ne_zero`: a function with values in `ℕ∞`
   that is infinite on a set of positive measure has infinite integral.
+* `MeasureTheory.lintegral_toENNReal_add_one`: the expectation of `τ + 1` is that of `τ` plus `1`.
 -/
 
 public section
@@ -71,5 +72,12 @@ lemma lintegral_toENNReal_eq_top_of_measure_ne_zero (hf : AEMeasurable f μ)
     (h : μ {ω | f ω = ⊤} ≠ 0) : ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ = ∞ :=
   lintegral_eq_top_of_measure_eq_top_ne_zero ((measurable_of_countable _).comp_aemeasurable hf)
     (by simpa using h)
+
+/-- The expectation of the successor `τ + 1` of a random time with values in `WithTop ℕ` is the
+expectation of `τ` plus `1`. On such terms, which are not `ℕ∞`-typed up to reducible
+transparency, `simp` does not apply `ENat.toENNReal_add`. -/
+lemma lintegral_toENNReal_add_one (τ : Ω → WithTop ℕ) :
+    ∫⁻ ω, ENat.toENNReal (τ ω + 1 : WithTop ℕ) ∂μ = ∫⁻ ω, ENat.toENNReal (τ ω) + 1 ∂μ :=
+  lintegral_congr fun ω ↦ (ENat.toENNReal_add (τ ω) 1).trans (by rw [ENat.toENNReal_one])
 
 end MeasureTheory
