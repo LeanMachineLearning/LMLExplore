@@ -62,9 +62,9 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
 
 ## Implementation notes
 
-The truncated logarithm `min (log x) c`, as a real number, is a private helper; the monotone
-convergence of the extended integrals of the truncations `min f k` is
-`MeasureTheory.eintegral_le_of_forall_min_le`. The statements and proofs are adapted from
+The logarithm of the numeraire is truncated above, as a real number, with `ENNReal.truncLog`, at
+a level where its mean still exceeds a given real, by monotone convergence
+(`MeasureTheory.exists_integrable_truncLog_lt_integral`). The statements and proofs are adapted from
 `EValuesResearch/Results/Numeraire.lean` and `EValuesResearch/Results/NumeraireAux.lean` (commit
 `dd4072f`) in the paper project `RemyDegenne/evalues_research`, which formalize [EVR26, Note 01],
 rewritten on the API of LMLExplore.
@@ -103,112 +103,17 @@ private lemma coe_le_of_coe_le_add {a b c : ℝ} {x : EReal} (h : (a : EReal) �
 
 /-! ### The truncated logarithm -/
 
-/-- The logarithm truncated above at `c`, as a real number. -/
-private noncomputable def truncLog (c : ℝ) (x : ℝ≥0∞) : ℝ := (min (ENNReal.log x) c).toReal
-
-/-- The truncated logarithm is measurable. -/
-private lemma measurable_truncLog (c : ℝ) : Measurable (truncLog c) :=
-  measurable_ereal_toReal.comp (ENNReal.measurable_log.min measurable_const)
-
-/-- The truncated logarithm of a positive finite number. -/
-private lemma truncLog_of_ne {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) (htop : x ≠ ∞) :
-    truncLog c x = min (Real.log x.toReal) c := by
-  rw [truncLog, ENNReal.log_pos_real h0 htop, ← EReal.coe_strictMono.monotone.map_min,
-    EReal.toReal_coe]
-
-/-- The truncated logarithm of `∞` is the truncation level. -/
-private lemma truncLog_top (c : ℝ) : truncLog c ∞ = c := by simp [truncLog]
-
-/-- The exponential of the truncated logarithm of `x` is at most `x`. -/
-private lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
-    ENNReal.ofReal (Real.exp (truncLog c x)) ≤ x := by
-  by_cases htop : x = ∞
-  · rw [htop]
-    exact le_top
-  · rw [truncLog_of_ne h0 htop]
-    calc ENNReal.ofReal (Real.exp (min (Real.log x.toReal) c))
-    _ ≤ ENNReal.ofReal (Real.exp (Real.log x.toReal)) :=
-      ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (min_le_left _ _))
-    _ = x := by
-      rw [Real.exp_log (ENNReal.toReal_pos h0 htop), ENNReal.ofReal_toReal htop]
-
-/-- The truncated logarithm of a nonzero `x`, as an extended real, is `min (log x) c`. -/
-private lemma coe_truncLog {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
-    (truncLog c x : EReal) = min (ENNReal.log x) c := by
-  refine EReal.coe_toReal (ne_top_of_le_ne_top (EReal.coe_ne_top c) (min_le_right _ _)) ?_
-  simp [h0, EReal.coe_ne_bot]
-
-/-- The truncated logarithm of `x` is at most `|c|` plus the negative part of `log x` in absolute
-value. -/
-private lemma abs_truncLog_le_abs_add (c : ℝ) (x : ℝ≥0∞) :
-    |truncLog c x| ≤ |c| + (-ENNReal.log x).toENNReal.toReal := by
-  have h0 : 0 ≤ (-ENNReal.log x).toENNReal.toReal := ENNReal.toReal_nonneg
-  rcases eq_or_ne x 0 with rfl | hx0
-  · simp only [truncLog, ENNReal.log_zero, bot_le, min_eq_left, EReal.toReal_bot, abs_zero]
-    positivity
-  rcases eq_or_ne x ∞ with rfl | hxtop
-  · rw [truncLog_top]
-    linarith [abs_nonneg c]
-  rw [truncLog_of_ne hx0 hxtop, ENNReal.log_pos_real hx0 hxtop, ← EReal.coe_neg,
-    EReal.toENNReal_of_ne_top (EReal.coe_ne_top _), EReal.toReal_coe, ENNReal.toReal_ofReal']
-  have h1 : -Real.log x.toReal ≤ max (-Real.log x.toReal) 0 := le_max_left _ _
-  have h2 : 0 ≤ max (-Real.log x.toReal) 0 := le_max_right _ _
-  rw [abs_le]
-  constructor
-  · rcases le_total (Real.log x.toReal) c with h | h
-    · rw [min_eq_left h]
-      linarith [abs_nonneg c]
-    · rw [min_eq_right h]
-      linarith [neg_abs_le c]
-  · linarith [min_le_right (Real.log x.toReal) c, le_abs_self c]
-
-/-- The truncated logarithm of a measurable function whose logarithm has a negative part of finite
-mean is integrable under a finite measure. -/
-private lemma integrable_truncLog_comp_of_lintegral_ne_top {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {μ : Measure Ω} [IsFiniteMeasure μ] {f : Ω → ℝ≥0∞} (hf : Measurable f)
-    (hneg : ∫⁻ x, (-ENNReal.log (f x)).toENNReal ∂μ ≠ ∞) (c : ℝ) :
-    Integrable (fun x ↦ truncLog c (f x)) μ := by
-  have hm : Measurable fun x ↦ (-ENNReal.log (f x)).toENNReal :=
-    measurable_ereal_toENNReal.comp (ENNReal.measurable_log.comp hf).neg
-  refine Integrable.mono' ((integrable_const |c|).add (integrable_toReal_of_lintegral_ne_top
-    hm.aemeasurable hneg)) ((measurable_truncLog c).comp hf).aestronglyMeasurable
-    (ae_of_all _ fun x ↦ ?_)
-  rw [Real.norm_eq_abs]
-  exact abs_truncLog_le_abs_add c (f x)
-
-/-- **Truncation of an expected logarithm.** Let `f` be measurable and almost everywhere nonzero,
-with a logarithm whose negative part has a finite mean under a finite measure. If the extended
-mean of `log f` exceeds `a`, then for some level `c` the logarithm truncated at `c` is integrable
-with mean above `a`: the truncations at the levels `0, 1, 2, …` increase to `log f`. -/
-private lemma exists_integrable_truncLog_lt_integral {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {μ : Measure Ω} [IsFiniteMeasure μ] {f : Ω → ℝ≥0∞} (hf : Measurable f)
-    (hf0 : ∀ᵐ x ∂μ, f x ≠ 0) (hneg : ∫⁻ x, (-ENNReal.log (f x)).toENNReal ∂μ ≠ ∞) {a : ℝ}
-    (ha : (a : EReal) < ∫ᵉ x, ENNReal.log (f x) ∂μ) :
-    ∃ c : ℝ, Integrable (fun x ↦ truncLog c (f x)) μ ∧ a < ∫ x, truncLog c (f x) ∂μ := by
-  obtain ⟨c, hc⟩ : ∃ c : ℕ, (a : EReal) < ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ := by
-    by_contra! h
-    exact absurd (eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hf) h) (not_le.2 ha)
-  have hi := integrable_truncLog_comp_of_lintegral_ne_top hf hneg c
-  refine ⟨c, hi, ?_⟩
-  have heq : ∫ᵉ x, min (ENNReal.log (f x)) (c : EReal) ∂μ =
-      ∫ᵉ x, (truncLog c (f x) : EReal) ∂μ := by
-    refine eintegral_congr_ae ?_
-    filter_upwards [hf0] with x hx
-    rw [coe_truncLog hx, EReal.coe_natCast]
-  rw [heq, eintegral_eq_integral hi] at hc
-  exact_mod_cast hc
-
 /-- The sum of the truncated logarithms of nonzero factors over blocks is at most the logarithm of
 their product. -/
 private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) → ℝ≥0∞} (c : ℝ) (k : ℕ)
     {ω : ℕ → 𝓧} (h : ∀ j, V (seqBlock m j ω) ≠ 0) :
-    ((∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω)) : ℝ) : EReal) ≤
+    ((∑ j ∈ Finset.range k, ENNReal.truncLog c (V (seqBlock m j ω)) : ℝ) : EReal) ≤
       ENNReal.log (seqBlockProd m V k ω) := by
-  rw [← ENNReal.log_ofReal_exp (∑ j ∈ Finset.range k, truncLog c (V (seqBlock m j ω))),
-    seqBlockProd_def]
+  rw [← ENNReal.log_ofReal_exp
+    (∑ j ∈ Finset.range k, ENNReal.truncLog c (V (seqBlock m j ω))), seqBlockProd_def]
   refine ENNReal.log_le_log ?_
   rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
-  exact Finset.prod_le_prod fun j _ ↦ ofReal_exp_truncLog_le (h j)
+  exact Finset.prod_le_prod fun j _ ↦ ENNReal.ofReal_exp_truncLog_le (h j)
 
 /-! ### Comparison with the numeraire -/
 
@@ -303,7 +208,7 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   -- so does the expected logarithm truncated at a level `c`, which is integrable
   obtain ⟨c, hgi, hgint⟩ := exists_integrable_truncLog_lt_integral hEm (hnum.ae_ne_zero hfin)
     (lintegral_toENNReal_neg_ne_top_of_eintegral_ne_bot (hnum.eintegral_log_ne_bot hfin)) hmL
-  set g : (Fin m → 𝓧) → ℝ := fun x ↦ truncLog c (Em x)
+  set g : (Fin m → 𝓧) → ℝ := fun x ↦ ENNReal.truncLog c (Em x)
   have hlt : L < (m : ℝ)⁻¹ • ∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
     rw [smul_eq_mul, ← div_eq_inv_mul, lt_div_iff₀ hm0]
     linarith
