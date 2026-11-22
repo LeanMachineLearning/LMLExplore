@@ -36,6 +36,8 @@ e-variables are `ℝ≥0∞`-valued.
 
 ## Main statements
 
+* `Function.mem_fsupport`: a point is in Statlib's finite support `Function.fsupport` of a function
+  exactly when the value there is neither `⊤` nor `0`.
 * `ProbabilityTheory.isEVar_iff_lintegral_le_one`, `ProbabilityTheory.isExactEVar_iff`: the
   e-variables and the exact e-variables in terms of `∫⁻`.
 * `ProbabilityTheory.IsEVar.congr_quasiSure`, `ProbabilityTheory.IsEVar.mono_ae`: the set
@@ -79,6 +81,12 @@ public section
 
 open MeasureTheory Set
 open scoped ENNReal
+
+/-- A point is in the finite support of a function exactly when the value there is neither `⊤`
+nor `0`: the positive form of Statlib's `Function.not_mem_fsupport_iff`. -/
+theorem Function.mem_fsupport {α β : Type*} [Top β] [Zero β] {f : α → β} {x : α} :
+    x ∈ f.fsupport ↔ f x ≠ ⊤ ∧ f x ≠ 0 :=
+  Iff.rfl
 
 namespace ProbabilityTheory
 
