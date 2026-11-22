@@ -7,10 +7,9 @@ module
 
 public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 public import LMLExplore.EValues.BipolarRate.Basic
-public import Mathlib.Probability.ProductMeasure
+public import LMLExplore.Probability.ProductMeasure.Restart
 import LMLExplore.EValues.BipolarRate.EProcess
-import LMLExplore.Logic.Function.DependsOn
-import LMLExplore.Probability.ProductMeasure
+import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.Probability.Process.StoppedValue
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 import TauCeti.Probability.Process.PathLaw.Shift
@@ -30,11 +29,6 @@ logarithm of the payoff, truncated above at `c` (`ENNReal.truncLog`), is at most
 `ProbabilityTheory.IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate` that uses the
 bipolar rate.
 
-## Main definitions
-
-* `ProbabilityTheory.DependsOnBefore σ f`: `f` is determined by the first `σ` observations
-  (`ProbabilityTheory.dependsOnBefore_iff`).
-
 ## Main statements
 
 * `ProbabilityTheory.integral_truncLog_le_bipolarRate_mul`: the Wald inequality for a round,
@@ -42,17 +36,18 @@ bipolar rate.
 
 ## Implementation notes
 
-The proof restarts the round on the fresh observations each time it ends (Tau Ceti's
-`TauCeti.Probability.shift`, iterated), and bets on the number of completed rounds with a
-geometric mixture. Within the first `N` observations, the mixture over the rounds completed so far
-of the products of their payoffs is an `N`-sample e-variable: by induction on the number of
-rounds, splitting along the value `t` of the restart time, using that under an i.i.d. law the
-first `t` observations are independent of the later ones. Its expected logarithm under `Q` is at
-most `maxLogGrowth Q₁ S₁ N ≤ N * d`. A Wald argument shows that the rounds that start within the
-first `N` observations use at least `N + 1` observations, hence that `(N + 1) / 𝔼_Q[σ]` of them
-start in expectation; letting `N → ∞` bounds the expected truncated logarithm of the payoff by
-`d * 𝔼_Q[σ]`. The proof uses neither the law of large numbers nor the strong Markov property.
-The restart construction and its lemmas are private.
+The proof restarts the round on the fresh observations each time it ends
+(`ProbabilityTheory.restartTime`, `ProbabilityTheory.restartPayoff`), and bets on the number of
+completed rounds with a geometric mixture. Within the first `N` observations, the mixture over the
+rounds completed so far of the products of their payoffs is an e-variable for the i.i.d. null and
+a function of the first `N` observations (`ProbabilityTheory.isEVar_indicator_restartPayoff`).
+Its expected logarithm under `Q` is at most `maxLogGrowth Q₁ S₁ N ≤ N * d`. A Wald argument shows
+that the rounds that start within the first `N` observations use at least `N + 1` observations,
+hence that `(N + 1) / 𝔼_Q[σ]` of them start in expectation; letting `N → ∞` bounds the expected
+truncated logarithm of the payoff by `d * 𝔼_Q[σ]`. The proof does not use the law of large
+numbers, and it uses the strong Markov property only at the restart times, where it holds for an
+i.i.d. sequence by independence
+(`ProbabilityTheory.DependsOnBefore.integral_indicator_comp_shift_iterate`).
 
 The proofs are adapted from `EValuesResearch/Results/BipolarRate.lean` and
 `EValuesResearch/Results/BipolarRateAux.lean` (commit `dd4072f`) in the paper project
@@ -76,253 +71,15 @@ namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}
 
-/-! ### Restarting a round on the fresh observations
+/-! ### Mixtures of restarted rounds
 
-A round is a pair of a duration `σ : (ℕ → 𝓧) → ℕ`, the number of observations that it uses, and a
-payoff `V : (ℕ → 𝓧) → ℝ≥0∞`, both determined by the observations of the round. Restarting the
-round on the fresh observations at its end gives the restart times `restartTime σ j` and the
-products `restartPayoff σ V j` of the payoffs of the first `j` rounds. -/
-
-/-- `f` is determined by the first `σ` observations: if `σ ω ≤ u` and `ω'` agrees with `ω` on the
-first `u` observations, then `f ω' = f ω`. For `f = σ`, this says that `σ` is a stopping time
-counted in observations. -/
-def DependsOnBefore {β : Type*} (σ : (ℕ → 𝓧) → ℕ) (f : (ℕ → 𝓧) → β) : Prop :=
-  ∀ ⦃u : ℕ⦄ ⦃ω ω' : ℕ → 𝓧⦄, (∀ i < u, ω i = ω' i) → σ ω ≤ u → f ω' = f ω
-
-/-- The defining property of `DependsOnBefore`. -/
-lemma dependsOnBefore_iff {β : Type*} {σ : (ℕ → 𝓧) → ℕ} {f : (ℕ → 𝓧) → β} :
-    DependsOnBefore σ f ↔
-      ∀ ⦃u : ℕ⦄ ⦃ω ω' : ℕ → 𝓧⦄, (∀ i < u, ω i = ω' i) → σ ω ≤ u → f ω' = f ω :=
-  Iff.rfl
+The restart times `restartTime σ j` and the payoffs `restartPayoff σ V j` of the first `j` rounds
+are those of `LMLExplore.Probability.ProductMeasure.Restart`. The proof bets on the number of
+rounds completed within the first `N` observations with a geometric mixture. -/
 
 section Restart
 
-variable (σ : (ℕ → 𝓧) → ℕ) (V : (ℕ → 𝓧) → ℝ≥0∞)
-
-/-- The number of observations used by the first `j` rounds, when a round that uses `σ ω`
-observations is restarted on the fresh observations at its end. -/
-private def restartTime : ℕ → (ℕ → 𝓧) → ℕ
-  | 0 => fun _ ↦ 0
-  | j + 1 => fun ω ↦ restartTime j ω + σ ((shift 𝓧)^[restartTime j ω] ω)
-
-/-- The product of the payoffs `V` of the first `j` restarted rounds. -/
-private noncomputable def restartPayoff : ℕ → (ℕ → 𝓧) → ℝ≥0∞
-  | 0 => fun _ ↦ 1
-  | j + 1 => fun ω ↦ restartPayoff j ω * V ((shift 𝓧)^[restartTime σ j ω] ω)
-
-/-- The round after the first `j` ones is played on the observations after them. -/
-private lemma restartTime_succ (j : ℕ) (ω : ℕ → 𝓧) :
-    restartTime σ (j + 1) ω = restartTime σ j ω + σ ((shift 𝓧)^[restartTime σ j ω] ω) :=
-  rfl
-
-/-- The payoff of `j + 1` rounds is that of the first `j` times that of the next one. -/
-private lemma restartPayoff_succ (j : ℕ) (ω : ℕ → 𝓧) :
-    restartPayoff σ V (j + 1) ω =
-      restartPayoff σ V j ω * V ((shift 𝓧)^[restartTime σ j ω] ω) :=
-  rfl
-
-/-- The restart times are nondecreasing in the number of rounds. -/
-private lemma monotone_restartTime (ω : ℕ → 𝓧) : Monotone fun j ↦ restartTime σ j ω :=
-  monotone_nat_of_le_succ fun _ ↦ Nat.le_add_right _ _
-
-/-- If every round uses at least one observation, `j` rounds use at least `j` observations. -/
-private lemma le_restartTime (hσ1 : ∀ ω, 1 ≤ σ ω) (j : ℕ) (ω : ℕ → 𝓧) :
-    j ≤ restartTime σ j ω := by
-  induction j with
-  | zero => exact le_rfl
-  | succ j ih => exact Nat.add_le_add ih (hσ1 _)
-
-/-- The first `j` rounds use the sum of their durations. -/
-private lemma restartTime_eq_sum (j : ℕ) (ω : ℕ → 𝓧) :
-    restartTime σ j ω = ∑ i ∈ Finset.range j, σ ((shift 𝓧)^[restartTime σ i ω] ω) := by
-  induction j with
-  | zero => rfl
-  | succ j ih => rw [Finset.sum_range_succ, ← ih, restartTime_succ]
-
-/-- The payoff of the first `j` rounds is the product of their payoffs. -/
-private lemma restartPayoff_eq_prod (j : ℕ) (ω : ℕ → 𝓧) :
-    restartPayoff σ V j ω = ∏ i ∈ Finset.range j, V ((shift 𝓧)^[restartTime σ i ω] ω) := by
-  induction j with
-  | zero => rfl
-  | succ j ih => rw [Finset.prod_range_succ, ← ih, restartPayoff_succ]
-
-variable {σ V}
-
-/-- The restart times are measurable. -/
-private lemma measurable_restartTime (hσm : Measurable σ) (j : ℕ) :
-    Measurable (restartTime σ j) := by
-  induction j with
-  | zero => exact measurable_const
-  | succ j ih =>
-    exact ih.add (measurable_apply_of_countable (fun t ↦ hσm.comp (measurable_shift_iterate t)) ih)
-
-/-- The products of the payoffs of the restarted rounds are measurable. -/
-private lemma measurable_restartPayoff (hσm : Measurable σ) (hVm : Measurable V) (j : ℕ) :
-    Measurable (restartPayoff σ V j) := by
-  induction j with
-  | zero => exact measurable_const
-  | succ j ih => exact ih.mul (measurable_apply_of_countable
-      (fun t ↦ hVm.comp (measurable_shift_iterate t)) (measurable_restartTime hσm j))
-
-/-- The first `j` rounds are determined by the observations that they use. -/
-private lemma restartTime_eq_of_eqOn (hσ : DependsOnBefore σ σ) (j : ℕ) {t : ℕ}
-    {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (hj : restartTime σ j ω ≤ t) :
-    restartTime σ j ω' = restartTime σ j ω := by
-  induction j with
-  | zero => rfl
-  | succ j ih =>
-    rw [restartTime_succ] at hj
-    have h1 := ih (by omega)
-    rw [restartTime_succ, restartTime_succ, h1, hσ (shift_iterate_eqOn h (restartTime σ j ω))
-      (by omega)]
-
-/-- The payoffs of the first `j` rounds are determined by the observations that they use. -/
-private lemma restartPayoff_eq_of_eqOn (hσ : DependsOnBefore σ σ) (hV : DependsOnBefore σ V)
-    (j : ℕ) {t : ℕ} {ω ω' : ℕ → 𝓧} (h : ∀ i < t, ω i = ω' i) (hj : restartTime σ j ω ≤ t) :
-    restartPayoff σ V j ω' = restartPayoff σ V j ω := by
-  induction j with
-  | zero => rfl
-  | succ j ih =>
-    rw [restartTime_succ] at hj
-    have h1 := restartTime_eq_of_eqOn hσ j h (by omega)
-    have h2 := ih (by omega)
-    rw [restartPayoff_succ, restartPayoff_succ, h1, h2,
-      hV (shift_iterate_eqOn h (restartTime σ j ω)) (by omega)]
-
-/-- Whether the first `j` rounds use exactly `t` observations is determined by the first `t`
-observations. -/
-private lemma restartTime_eq_iff_of_eqOn (hσ : DependsOnBefore σ σ) (j t : ℕ) {ω ω' : ℕ → 𝓧}
-    (h : ∀ i < t, ω i = ω' i) : restartTime σ j ω' = t ↔ restartTime σ j ω = t :=
-  ⟨fun h' ↦ (restartTime_eq_of_eqOn hσ j (fun i hi ↦ (h i hi).symm) h'.le).trans h',
-    fun h' ↦ (restartTime_eq_of_eqOn hσ j h h'.le).trans h'⟩
-
-/-- Whether the first `j` rounds use at most `N` observations is determined by the first `N`
-observations. -/
-private lemma restartTime_le_iff_of_eqOn (hσ : DependsOnBefore σ σ) (j N : ℕ) {ω ω' : ℕ → 𝓧}
-    (h : ∀ i < N, ω i = ω' i) : restartTime σ j ω' ≤ N ↔ restartTime σ j ω ≤ N :=
-  ⟨fun h' ↦ (restartTime_eq_of_eqOn hσ j (fun i hi ↦ (h i hi).symm) h') ▸ h',
-    fun h' ↦ (restartTime_eq_of_eqOn hσ j h h').symm ▸ h'⟩
-
-/-- On the event that the first `j` rounds use `t` observations, their payoff is a function of
-the first `t` observations. -/
-private lemma dependsOn_indicator_restartTime_eq (hσ : DependsOnBefore σ σ)
-    (hV : DependsOnBefore σ V) (j t : ℕ) :
-    DependsOn ({ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j)) (Set.Iio t) :=
-  dependsOn_indicator_of_eqOn (fun _ _ h ↦ restartTime_eq_iff_of_eqOn hσ j t h)
-    fun _ _ h hω ↦ restartPayoff_eq_of_eqOn hσ hV j h (le_of_eq hω)
-
-/-- The indicator of the event that the first `i` rounds use `t` observations is a function of
-the first `t` observations. -/
-private lemma dependsOn_indicator_one_restartTime_eq (hσ : DependsOnBefore σ σ) (i t : ℕ) :
-    DependsOn ({ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ)) (Set.Iio t) :=
-  dependsOn_indicator_of_eqOn (fun _ _ h ↦ restartTime_eq_iff_of_eqOn hσ i t h)
-    fun _ _ _ _ ↦ rfl
-
-/-- On the event that the first `j` rounds use at most `N` observations, their payoff is a
-function of the first `N` observations. -/
-private lemma dependsOn_indicator_restartTime_le (hσ : DependsOnBefore σ σ)
-    (hV : DependsOnBefore σ V) (j N : ℕ) :
-    DependsOn ({ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j)) (Set.Iio N) :=
-  dependsOn_indicator_of_eqOn (fun _ _ h ↦ restartTime_le_iff_of_eqOn hσ j N h)
-    fun _ _ h hω ↦ restartPayoff_eq_of_eqOn hσ hV j h hω
-
-/-- Summing the indicators of the events `{T = t}`, `t ≤ N`, gives the indicator of `{T ≤ N}`. -/
-private lemma sum_indicator_eq_indicator_le {Ω M : Type*} [AddCommMonoid M] (T : Ω → ℕ)
-    (f : Ω → M) (N : ℕ) (ω : Ω) :
-    ∑ t ∈ Finset.range (N + 1), {ω | T ω = t}.indicator f ω = {ω | T ω ≤ N}.indicator f ω := by
-  simp only [Set.indicator_apply, Set.mem_ofPred_eq, Finset.sum_ite_eq, Finset.mem_range,
-    Nat.lt_succ_iff]
-
-/-- On the event `{T = t}`, a function `G t` of the time `t` is the function `G (T ·)` of the
-random time: `𝟙{T = t} f * G t = 𝟙{T = t} (f * G T)`. -/
-private lemma indicator_eq_mul_apply {Ω M : Type*} [MulZeroClass M] (T : Ω → ℕ) (t : ℕ)
-    (f : Ω → M) (G : ℕ → Ω → M) (ω : Ω) :
-    {ω | T ω = t}.indicator f ω * G t ω =
-      {ω | T ω = t}.indicator (fun ω' ↦ f ω' * G (T ω') ω') ω := by
-  by_cases h : T ω = t
-  · rw [Set.indicator_of_mem (s := {x | T x = t}) h, Set.indicator_of_mem (s := {x | T x = t}) h,
-      h]
-  · rw [Set.indicator_of_notMem (s := {x | T x = t}) h,
-      Set.indicator_of_notMem (s := {x | T x = t}) h, zero_mul]
-
-/-- The event that the first `j` rounds use at most `N` observations is measurable. -/
-private lemma measurableSet_restartTime_le (hσm : Measurable σ) (j N : ℕ) :
-    MeasurableSet {ω | restartTime σ j ω ≤ N} :=
-  measurable_restartTime hσm j measurableSet_Iic
-
-/-- The event that the first `j` rounds use exactly `t` observations is measurable. -/
-private lemma measurableSet_restartTime_eq (hσm : Measurable σ) (j t : ℕ) :
-    MeasurableSet {ω | restartTime σ j ω = t} :=
-  measurable_restartTime hσm j (measurableSet_singleton t)
-
-/-- The payoff of `j + 1` rounds within `N` observations, decomposed along the number `t` of
-observations used by the first `j` rounds. -/
-private lemma indicator_restartTime_succ_le (j N : ℕ) (ω : ℕ → 𝓧) :
-    {ω | restartTime σ (j + 1) ω ≤ N}.indicator (restartPayoff σ V (j + 1)) ω =
-      ∑ t ∈ Finset.range (N + 1),
-        {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω *
-          {ω | σ ω ≤ N - t}.indicator V ((shift 𝓧)^[t] ω) := by
-  have hterm (t : ℕ) : {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω *
-      {ω | σ ω ≤ N - t}.indicator V ((shift 𝓧)^[t] ω) =
-        {ω | restartTime σ j ω = t}.indicator (fun ω' ↦ restartPayoff σ V j ω' *
-          {x | σ x ≤ N - restartTime σ j ω'}.indicator V
-            ((shift 𝓧)^[restartTime σ j ω'] ω')) ω :=
-    indicator_eq_mul_apply (restartTime σ j) t (restartPayoff σ V j)
-      (fun s ω ↦ {x | σ x ≤ N - s}.indicator V ((shift 𝓧)^[s] ω)) ω
-  rw [Finset.sum_congr rfl fun t _ ↦ hterm t, sum_indicator_eq_indicator_le]
-  simp only [Set.indicator, Set.mem_ofPred_eq, restartTime_succ, restartPayoff_succ]
-  by_cases h1 : restartTime σ j ω ≤ N
-  · by_cases h2 : σ ((shift 𝓧)^[restartTime σ j ω] ω) ≤ N - restartTime σ j ω
-    · have h3 : restartTime σ j ω + σ ((shift 𝓧)^[restartTime σ j ω] ω) ≤ N := by omega
-      simp only [h1, h2, h3, ↓reduceIte]
-    · have h3 : ¬ restartTime σ j ω + σ ((shift 𝓧)^[restartTime σ j ω] ω) ≤ N := by omega
-      simp only [h1, h2, h3, ↓reduceIte, mul_zero]
-  · have h3 : ¬ restartTime σ j ω + σ ((shift 𝓧)^[restartTime σ j ω] ω) ≤ N := by omega
-    simp only [h1, h3, ↓reduceIte]
-
-/-- If the payoff of a round has expectation at most `1` on each event `{σ ≤ n}` under an i.i.d.
-law, so has the product of the payoffs of `j` restarted rounds on each event that they use at most
-`N` observations. -/
-private lemma lintegral_indicator_restartPayoff_le_one (hσ : DependsOnBefore σ σ)
-    (hV : DependsOnBefore σ V) (hσm : Measurable σ) (hVm : Measurable V)
-    (P : Measure 𝓧) [IsProbabilityMeasure P]
-    (h_null : ∀ n : ℕ,
-      ∫⁻ ω, {ω | σ ω ≤ n}.indicator V ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
-    (j N : ℕ) :
-    ∫⁻ ω, {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω
-      ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
-  induction j generalizing N with
-  | zero =>
-    calc ∫⁻ ω, {ω | restartTime σ 0 ω ≤ N}.indicator (restartPayoff σ V 0) ω ∂μ
-    _ ≤ ∫⁻ _, 1 ∂μ := lintegral_mono fun ω ↦ Set.indicator_le (fun _ _ ↦ le_rfl) ω
-    _ = 1 := by simp
-  | succ j ih =>
-    have hf (t : ℕ) :
-        Measurable ({ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j)) :=
-      (measurable_restartPayoff hσm hVm j).indicator
-        (measurableSet_restartTime_eq hσm j t)
-    have hg (t : ℕ) : Measurable ({ω | σ ω ≤ N - t}.indicator V) :=
-      hVm.indicator (hσm measurableSet_Iic)
-    calc ∫⁻ ω, {ω | restartTime σ (j + 1) ω ≤ N}.indicator (restartPayoff σ V (j + 1)) ω ∂μ
-    _ = ∑ t ∈ Finset.range (N + 1),
-          ∫⁻ ω, {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω *
-            {ω | σ ω ≤ N - t}.indicator V ((shift 𝓧)^[t] ω) ∂μ := by
-      simp_rw [indicator_restartTime_succ_le]
-      exact lintegral_finsetSum _ fun t _ ↦
-        (hf t).mul ((hg t).comp (measurable_shift_iterate t))
-    _ = ∑ t ∈ Finset.range (N + 1),
-          (∫⁻ ω, {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω ∂μ) *
-            ∫⁻ ω, {ω | σ ω ≤ N - t}.indicator V ω ∂μ :=
-      Finset.sum_congr rfl fun t _ ↦ lintegral_mul_comp_shift_iterate P (hf t)
-        (dependsOn_indicator_restartTime_eq hσ hV j t) (hg t)
-    _ ≤ ∑ t ∈ Finset.range (N + 1),
-          ∫⁻ ω, {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω ∂μ :=
-      Finset.sum_le_sum fun t _ ↦ mul_le_of_le_one_right' (h_null _)
-    _ = ∫⁻ ω, {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω ∂μ := by
-      rw [← lintegral_finsetSum _ fun t _ ↦ hf t]
-      exact lintegral_congr fun ω ↦ sum_indicator_eq_indicator_le _ _ N ω
-    _ ≤ 1 := ih N
+variable {σ : (ℕ → 𝓧) → ℕ} {V : (ℕ → 𝓧) → ℝ≥0∞}
 
 variable (σ V) in
 /-- The geometric mixture, with weights `(1 - r) r ^ j`, of the products of the payoffs of the
@@ -331,48 +88,24 @@ private noncomputable def restartMixture (r : ℝ) (N : ℕ) (ω : ℕ → 𝓧)
   ∑ j ∈ Finset.range (N + 1), ENNReal.ofReal ((1 - r) * r ^ j) *
     {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω
 
-/-- The mixture of restarted rounds is measurable. -/
-private lemma measurable_restartMixture (hσm : Measurable σ) (hVm : Measurable V) (r : ℝ)
-    (N : ℕ) : Measurable (restartMixture σ V r N) :=
-  Finset.measurable_fun_sum _ fun j _ ↦ measurable_const.mul
-    ((measurable_restartPayoff hσm hVm j).indicator
-      (measurableSet_restartTime_le hσm j N))
-
 /-- The mixture of the rounds completed within the first `N` observations is a function of the
 first `N` observations. -/
 private lemma dependsOn_restartMixture (hσ : DependsOnBefore σ σ) (hV : DependsOnBefore σ V)
     (r : ℝ) (N : ℕ) : DependsOn (restartMixture σ V r N) (Set.Iio N) := fun ω ω' h ↦
-  Finset.sum_congr rfl fun j _ ↦ by rw [dependsOn_indicator_restartTime_le hσ hV j N h]
+  Finset.sum_congr rfl fun j _ ↦ by
+    rw [(dependsOnBefore_restartTime hσ j).dependsOn_indicator_le
+      (dependsOnBefore_restartPayoff hσ hV j) N h]
 
-/-- The mixture of restarted rounds has expectation at most `1` under an i.i.d. law for which the
-payoff of a round has expectation at most `1` on each event `{σ ≤ n}`. -/
-private lemma lintegral_restartMixture_le_one (hσ : DependsOnBefore σ σ)
-    (hV : DependsOnBefore σ V) (hσm : Measurable σ) (hVm : Measurable V) (P : Measure 𝓧)
-    [IsProbabilityMeasure P]
-    (h_null : ∀ n : ℕ,
-      ∫⁻ ω, {ω | σ ω ≤ n}.indicator V ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1)
+/-- The mixture of restarted rounds is an e-variable for the i.i.d. null if the payoff of a round
+on each event `{σ ≤ n}` is. -/
+private lemma isEVar_restartMixture (hσ : DependsOnBefore σ σ) (hV : DependsOnBefore σ V)
+    (hσm : Measurable σ) (hVσ : ∀ n : ℕ, IsEVar ({ω | σ ω ≤ n}.indicator V) (iidNull S₁))
     {r : ℝ} (hr0 : 0 ≤ r) (hr1 : r ≤ 1) (N : ℕ) :
-    ∫⁻ ω, restartMixture σ V r N ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) ≤ 1 := by
-  have hm (j : ℕ) :
-      Measurable ({ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j)) :=
-    (measurable_restartPayoff hσm hVm j).indicator
-      (measurableSet_restartTime_le hσm j N)
-  simp only [restartMixture]
-  rw [lintegral_finsetSum _ fun j _ ↦ (hm j).const_mul _]
-  calc ∑ j ∈ Finset.range (N + 1), ∫⁻ ω, ENNReal.ofReal ((1 - r) * r ^ j) *
-        {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω
-          ∂Measure.infinitePi (fun _ : ℕ ↦ P)
-  _ = ∑ j ∈ Finset.range (N + 1), ENNReal.ofReal ((1 - r) * r ^ j) *
-        ∫⁻ ω, {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω
-          ∂Measure.infinitePi (fun _ : ℕ ↦ P) :=
-    Finset.sum_congr rfl fun j _ ↦ lintegral_const_mul _ (hm j)
-  _ ≤ ∑ j ∈ Finset.range (N + 1), ENNReal.ofReal ((1 - r) * r ^ j) :=
-    Finset.sum_le_sum fun j _ ↦ mul_le_of_le_one_right'
-      (lintegral_indicator_restartPayoff_le_one hσ hV hσm hVm P h_null j N)
-  _ = ENNReal.ofReal (1 - r ^ (N + 1)) := by
-    rw [← ENNReal.ofReal_sum_of_nonneg fun j _ ↦ mul_nonneg (by linarith) (pow_nonneg hr0 j),
-      ← Finset.mul_sum, mul_neg_geom_sum]
-  _ ≤ 1 := ENNReal.ofReal_le_one.2 (by have := pow_nonneg hr0 (N + 1); linarith)
+    IsEVar (restartMixture σ V r N) (iidNull S₁) := by
+  refine isEVar_finsetSum_mul _ (fun j _ ↦ isEVar_indicator_restartPayoff hσ hV hσm hVσ j N) ?_
+  rw [← ENNReal.ofReal_sum_of_nonneg fun j _ ↦ mul_nonneg (by linarith) (pow_nonneg hr0 j),
+    ← Finset.mul_sum, mul_neg_geom_sum]
+  exact ENNReal.ofReal_le_one.2 (by have := pow_nonneg hr0 (N + 1); linarith)
 
 variable (σ) in
 /-- The number of rounds completed within the first `N` observations. -/
@@ -385,7 +118,8 @@ private lemma numRounds_le (N : ℕ) (ω : ℕ → 𝓧) : numRounds σ N ω ≤
 /-- The completed rounds use at most `N` observations. -/
 private lemma restartTime_numRounds_le (N : ℕ) (ω : ℕ → 𝓧) :
     restartTime σ (numRounds σ N ω) ω ≤ N :=
-  Nat.findGreatest_spec (P := fun j ↦ restartTime σ j ω ≤ N) (Nat.zero_le N) (Nat.zero_le N)
+  Nat.findGreatest_spec (P := fun j ↦ restartTime σ j ω ≤ N) (Nat.zero_le N)
+    ((restartTime_zero σ ω).trans_le (Nat.zero_le N))
 
 /-- For `i ≤ N`, the first `i` rounds use at most `N` observations if and only if they are among
 the completed rounds. -/
@@ -418,7 +152,7 @@ private lemma lt_restartTime_numRounds_succ (hσ1 : ∀ ω, 1 ≤ σ ω) (N : �
       (Nat.lt_succ_self _) hJ)
   · have hJN : numRounds σ N ω = N := le_antisymm (numRounds_le N ω) (by omega)
     rw [hJN]
-    exact Nat.lt_of_lt_of_le (Nat.lt_succ_self N) (le_restartTime σ hσ1 (N + 1) ω)
+    exact Nat.lt_of_lt_of_le (Nat.lt_succ_self N) (le_restartTime hσ1 (N + 1) ω)
 
 /-- **Wald's argument, pointwise.** The durations of the rounds that start within the first `N`
 observations add up to more than `N`. -/
@@ -432,52 +166,6 @@ private lemma add_one_le_sum_indicator (hσ1 : ∀ ω, 1 ≤ σ ω) (N : ℕ) (�
     rw [restartTime_eq_sum, Nat.cast_sum]
   _ = _ := (sum_range_indicator_restartTime_le
     (fun i ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) N ω).symm
-
-/-- **Wald's argument, in expectation.** Under an i.i.d. law, the observations after the first
-`i` rounds are independent of the event that these rounds use at most `N` observations. -/
-private lemma integral_indicator_comp_shift_restartTime (hσ : DependsOnBefore σ σ)
-    (hσm : Measurable σ) (P : Measure 𝓧) [IsProbabilityMeasure P] {g : (ℕ → 𝓧) → ℝ}
-    (hg : Measurable g) {C : ℝ} (hgC : ∀ ω, |g ω| ≤ C) (i N : ℕ) :
-    ∫ ω, {ω | restartTime σ i ω ≤ N}.indicator
-        (fun ω ↦ g ((shift 𝓧)^[restartTime σ i ω] ω)) ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
-      (Measure.infinitePi (fun _ : ℕ ↦ P)).real {ω | restartTime σ i ω ≤ N} *
-        ∫ ω, g ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) := by
-  set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
-  have hf (t : ℕ) : Measurable ({ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ)) :=
-    measurable_one.indicator (measurableSet_restartTime_eq hσm i t)
-  have hfi (t : ℕ) : Integrable ({ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ)) μ :=
-    (integrable_const (1 : ℝ)).indicator (measurableSet_restartTime_eq hσm i t)
-  have hfg (t : ℕ) : Integrable (fun ω ↦
-      {ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω * g ((shift 𝓧)^[t] ω)) μ := by
-    refine Integrable.of_bound
-      ((hf t).mul (hg.comp (measurable_shift_iterate t))).aestronglyMeasurable C
-      (ae_of_all _ fun ω ↦ ?_)
-    rw [Real.norm_eq_abs, abs_mul]
-    calc |{ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω| * |g ((shift 𝓧)^[t] ω)|
-    _ ≤ 1 * C := by
-      refine mul_le_mul ?_ (hgC _) (abs_nonneg _) zero_le_one
-      by_cases h : restartTime σ i ω = t <;> simp [Set.indicator, h]
-    _ = C := one_mul C
-  have hsum (ω : ℕ → 𝓧) : {ω | restartTime σ i ω ≤ N}.indicator
-      (fun ω ↦ g ((shift 𝓧)^[restartTime σ i ω] ω)) ω =
-        ∑ t ∈ Finset.range (N + 1),
-          {ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω * g ((shift 𝓧)^[t] ω) := by
-    rw [← sum_indicator_eq_indicator_le]
-    refine Finset.sum_congr rfl fun t _ ↦ ?_
-    rw [indicator_eq_mul_apply (restartTime σ i) t 1 (fun s ω ↦ g ((shift 𝓧)^[s] ω))]
-    simp only [Pi.one_apply, one_mul]
-  simp_rw [hsum]
-  rw [integral_finsetSum _ fun t _ ↦ hfg t]
-  calc ∑ t ∈ Finset.range (N + 1), ∫ ω,
-        {ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω * g ((shift 𝓧)^[t] ω) ∂μ
-  _ = ∑ t ∈ Finset.range (N + 1),
-        (∫ ω, {ω | restartTime σ i ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω ∂μ) * ∫ ω, g ω ∂μ :=
-    Finset.sum_congr rfl fun t _ ↦ integral_mul_comp_shift_iterate P (hf t)
-      (dependsOn_indicator_one_restartTime_eq hσ i t) hg
-  _ = μ.real {ω | restartTime σ i ω ≤ N} * ∫ ω, g ω ∂μ := by
-    rw [← Finset.sum_mul, ← integral_finsetSum _ fun t _ ↦ hfi t]
-    simp_rw [sum_indicator_eq_indicator_le]
-    rw [integral_indicator_one (measurableSet_restartTime_le hσm i N)]
 
 end Restart
 
@@ -599,9 +287,6 @@ private lemma add_one_le_integral_mul_sum_measureReal (hσ : DependsOnBefore σ 
   set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
   set m := ∫ ω, (σ ω : ℝ) ∂μ
   have hσm' : Measurable fun ω ↦ (σ ω : ℝ) := measurable_from_top.comp hσm
-  have hσC (ω : ℕ → 𝓧) : |(σ ω : ℝ)| ≤ K := by
-    rw [abs_of_nonneg (Nat.cast_nonneg _)]
-    exact_mod_cast hσK ω
   have hT (i : ℕ) : Measurable (restartTime σ i) := measurable_restartTime hσm i
   have hgi (i : ℕ) : Integrable (fun ω ↦ {ω | restartTime σ i ω ≤ N}.indicator
       (fun ω ↦ (σ ((shift 𝓧)^[restartTime σ i ω] ω) : ℝ)) ω) μ :=
@@ -616,7 +301,8 @@ private lemma add_one_le_integral_mul_sum_measureReal (hσ : DependsOnBefore σ 
   _ = ∑ i ∈ Finset.range (N + 1), μ.real {ω | restartTime σ i ω ≤ N} * m := by
     rw [integral_finsetSum _ fun i _ ↦ hgi i]
     exact Finset.sum_congr rfl fun i _ ↦
-      integral_indicator_comp_shift_restartTime hσ hσm P hσm' hσC i N
+      (dependsOnBefore_restartTime hσ i).integral_indicator_comp_shift_iterate (hT i) P hσm'
+        (integrable_natCast_of_le hσm hσK) N
   _ = m * ∑ i ∈ Finset.range (N + 1), μ.real {ω | restartTime σ i ω ≤ N} := by
     rw [Finset.mul_sum]
     exact Finset.sum_congr rfl fun i _ ↦ mul_comm _ _
@@ -648,6 +334,9 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     (ENNReal.integrable_truncLog_comp hδ (measurable_apply_of_countable
       (fun t ↦ hVm.comp (measurable_shift_iterate t)) (hT i)) (fun _ ↦ hVδ _)).indicator
       (hT i measurableSet_Iic)
+  have hmix : IsEVar (restartMixture σ V r N) (iidNull S₁) :=
+    isEVar_restartMixture hσ hV hσm (fun n ↦ isEVar_iidNull_iff.2
+      ⟨hVm.indicator (hσm measurableSet_Iic), fun P hP _ ↦ h_null P hP n⟩) hr0.le hr1.le N
   set B := Real.log (1 - r) + N * Real.log r - c
   have hsum : Integrable (fun ω ↦ ∑ i ∈ Finset.range (N + 1),
       {ω | restartTime σ i ω ≤ N}.indicator
@@ -664,8 +353,9 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
       Finset.mul_sum]
     simp only [integral_const, probReal_univ, one_smul]
     congr 1
-    exact Finset.sum_congr rfl fun i _ ↦ (integral_indicator_comp_shift_restartTime hσ hσm Q₁
-      hYm (fun ω ↦ ENNReal.abs_truncLog_le hδ (hVδ ω)) i N).trans (mul_comm _ _)
+    exact Finset.sum_congr rfl fun i _ ↦
+      ((dependsOnBefore_restartTime hσ i).integral_indicator_comp_shift_iterate (hT i) Q₁ hYm
+        (ENNReal.integrable_truncLog_comp hδ hVm hVδ) N).trans (mul_comm _ _)
   have hle : ((B + A * ∑ i ∈ Finset.range (N + 1), μ.real {ω | restartTime σ i ω ≤ N} : ℝ) :
       EReal) ≤ (N : EReal) * bipolarRate Q₁ S₁ := by
     rw [← hval, ← eintegral_eq_integral hint]
@@ -674,11 +364,8 @@ private lemma add_integral_truncLog_mul_sum_measureReal_le (Q₁ : Measure 𝓧)
     _ ≤ ∫ᵉ ω, ENNReal.log (restartMixture σ V r N ω) ∂μ :=
       eintegral_mono fun ω ↦ log_restartMixture_ge hδ hVδ c hr0 hr1 N ω
     _ ≤ maxLogGrowth Q₁ S₁ N :=
-      IsEVar.eintegral_log_le_maxLogGrowth Q₁ hS₁
-        ⟨measurable_restartMixture hσm hVm r N, forall_mem_iidNull.2 fun P hP ↦ by
-          have := hS₁ P hP
-          exact lintegral_restartMixture_le_one hσ hV hσm hVm P (h_null P hP) hr0.le hr1.le N⟩
-        (Filtration.measurable_piLT_of_dependsOn (measurable_restartMixture hσm hVm r N)
+      IsEVar.eintegral_log_le_maxLogGrowth Q₁ hS₁ hmix
+        (Filtration.measurable_piLT_of_dependsOn hmix.measurable
           (dependsOn_restartMixture hσ hV r N))
     _ ≤ N * bipolarRate Q₁ S₁ := maxLogGrowth_le_mul_bipolarRate Q₁ S₁ (by omega)
   rw [← coe_toReal_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) hd, ← EReal.coe_natCast,
