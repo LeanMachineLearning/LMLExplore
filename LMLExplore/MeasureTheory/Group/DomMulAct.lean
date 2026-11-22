@@ -11,8 +11,9 @@ public import Mathlib.MeasureTheory.Group.Arithmetic
 /-!
 # Measurability of the action of `Mᵈᵐᵃ` on functions
 
-If `M` acts on `ι`, then `Mᵈᵐᵃ` acts on `ι → α` by precomposition, `(c • f) i = f (c • i)` for
-`c = DomMulAct.mk m`. Every such precomposition is measurable for the product σ-algebra.
+If `M` acts on `ι`, then `Mᵈᵐᵃ` acts on `ι → α` by precomposition,
+`(DomMulAct.mk m • f) i = f (m • i)`. Every such precomposition is measurable for the product
+σ-algebra.
 
 ## Main statements
 

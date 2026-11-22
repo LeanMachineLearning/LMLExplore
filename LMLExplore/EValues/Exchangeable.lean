@@ -55,12 +55,6 @@ namespace ProbabilityTheory
 
 variable {ι α Ω : Type*} [MeasurableSpace α] {mΩ : MeasurableSpace Ω}
 
-omit [MeasurableSpace α] in
-/-- The action of `DomMulAct.mk σ` on `ι → α` is precomposition by `σ`. -/
-private lemma domMulAct_mk_smul (σ : Equiv.Perm ι) (e : ι → α) :
-    DomMulAct.mk σ • e = fun i ↦ e (σ i) :=
-  funext fun i ↦ by rw [DomMulAct.smul_apply, Equiv.symm_apply_apply, Equiv.Perm.smul_def]
-
 /-- **The exchangeable laws as an invariant null**: the probability measures on `ι → α` invariant
 under the action `e ↦ e ∘ σ` of the permutations of the coordinates are the exchangeable
 probability laws. -/
@@ -73,7 +67,7 @@ theorem invariantMeasuresOfMeasureUnivEq_domMulAct_perm :
     (smulInvariantMeasure_tfae (Equiv.Perm ι)ᵈᵐᵃ μ).out 1 6
   rw [mem_invariantMeasuresOfMeasureUnivEq_iff, hmap, Set.mem_inter_iff, mem_exchangeableLaws,
     Set.mem_ofPred_eq, isProbabilityMeasure_iff, ← DomMulAct.mk.forall_congr_right]
-  simp_rw [domMulAct_mk_smul]
+  simp_rw [DomMulAct.mk_smul, Equiv.Perm.smul_def]
 
 section Fintype
 
@@ -87,7 +81,7 @@ theorem isEVar_exchangeableLaws_iff :
       Measurable X ∧ ∀ x : ι → α,
         ∑ σ : Equiv.Perm ι, X (fun i ↦ x (σ i)) ≤ Fintype.card (Equiv.Perm ι) := by
   rw [← invariantMeasuresOfMeasureUnivEq_domMulAct_perm, isEVar_invariantMeasures_iff_sum_le]
-  simp_rw [Fintype.sum_domMulAct, domMulAct_mk_smul, Fintype.card_domMulAct]
+  simp_rw [Fintype.sum_domMulAct, DomMulAct.mk_smul, Equiv.Perm.smul_def, Fintype.card_domMulAct]
 
 /-- **The exact e-variables for exchangeability**: a function is an exact e-variable for the
 exchangeable probability laws on `ι → α` exactly when it is measurable and its sum over the
@@ -97,7 +91,7 @@ theorem isExactEVar_exchangeableLaws_iff :
       Measurable X ∧ ∀ x : ι → α,
         ∑ σ : Equiv.Perm ι, X (fun i ↦ x (σ i)) = Fintype.card (Equiv.Perm ι) := by
   rw [← invariantMeasuresOfMeasureUnivEq_domMulAct_perm, isExactEVar_invariantMeasures_iff_sum_eq]
-  simp_rw [Fintype.sum_domMulAct, domMulAct_mk_smul, Fintype.card_domMulAct]
+  simp_rw [Fintype.sum_domMulAct, DomMulAct.mk_smul, Equiv.Perm.smul_def, Fintype.card_domMulAct]
 
 /-- **The e-variables for exchangeability** [LRR26, Example 5.7]: a function is an e-variable for
 the exchangeable probability laws on `ι → α` exactly when it is measurable and dominated by
@@ -113,7 +107,7 @@ theorem isEVar_exchangeableLaws_iff_exists_le :
           (1 - (∑ σ : Equiv.Perm ι, u (fun i ↦ x (σ i))) / Fintype.card (Equiv.Perm ι)) := by
   rw [← invariantMeasuresOfMeasureUnivEq_domMulAct_perm,
     isEVar_invariantMeasures_iff_exists_le_sum]
-  simp_rw [Fintype.sum_domMulAct, domMulAct_mk_smul, Fintype.card_domMulAct]
+  simp_rw [Fintype.sum_domMulAct, DomMulAct.mk_smul, Equiv.Perm.smul_def, Fintype.card_domMulAct]
 
 /-- **Normalized scores are exact e-variables for exchangeability** [LRR26, Example 5.7]: for a
 measurable `f` with finite values, the ratio `f / avg f` of `f` to its symmetrization
@@ -125,7 +119,7 @@ theorem isExactEVar_exchangeableLaws_ite_div (hf : Measurable f) (hfin : ∀ x, 
         f x / ((∑ σ : Equiv.Perm ι, f (fun i ↦ x (σ i))) / Fintype.card (Equiv.Perm ι)))
       (exchangeableLaws ∩ {μ : Measure (ι → α) | IsProbabilityMeasure μ}) := by
   have h := isExactEVar_invariantMeasures_ite_div_sum (G := (Equiv.Perm ι)ᵈᵐᵃ) hf hfin
-  simp_rw [Fintype.sum_domMulAct, domMulAct_mk_smul, Fintype.card_domMulAct,
+  simp_rw [Fintype.sum_domMulAct, DomMulAct.mk_smul, Equiv.Perm.smul_def, Fintype.card_domMulAct,
     invariantMeasuresOfMeasureUnivEq_domMulAct_perm] at h
   exact h
 

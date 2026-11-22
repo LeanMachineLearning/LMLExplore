@@ -19,10 +19,11 @@ Haar probability measure, it is the symmetrization of `f`, the average of `f` ov
 `x`; for a finite group and the uniform measure, it is `(∑ g, f (g • x)) / #G`.
 
 The orbit average is the adjoint of the symmetrization `∫ g_* μ dη(g)` of measures, so that it
-does not change the integral of `f` against an invariant measure (`lintegral_orbitAverage`), and
-the invariant measures are exactly the measures against which every function and its orbit
-average have the same integral (`smulInvariantMeasure_iff_lintegral_orbitAverage`) [LRR26,
-Lemma 5.4]. This is how the e-variables for the invariant laws are described.
+scales the integral of `f` against an invariant measure by `η univ`, leaving it unchanged for a
+probability measure `η` (`lintegral_orbitAverage`), and the invariant measures are exactly the
+measures against which every function and its orbit average have the same integral
+(`smulInvariantMeasure_iff_lintegral_orbitAverage`) [LRR26, Lemma 5.4]. This is how the
+e-variables for the invariant laws are described.
 
 ## Main definitions
 
@@ -115,8 +116,9 @@ theorem lintegral_map_smul_const [MeasurableSMul G α] (hf : Measurable f) (x : 
     ∫⁻ y, f y ∂(η.map (· • x)) = orbitAverage η f x :=
   lintegral_map hf (measurable_smul_const x)
 
-/-- **The orbit average does not change integrals against invariant measures**:
-`∫⁻ orbitAverage η f ∂μ = η univ * ∫⁻ f ∂μ`. -/
+/-- **The orbit average scales integrals against invariant measures by `η univ`**:
+`∫⁻ orbitAverage η f ∂μ = η univ * ∫⁻ f ∂μ`, so it leaves them unchanged for a probability
+measure `η`. -/
 theorem lintegral_orbitAverage [MeasurableSMul₂ G α] [SFinite η] {μ : Measure α} [SFinite μ]
     [SMulInvariantMeasure G α μ] (hf : Measurable f) :
     ∫⁻ x, orbitAverage η f x ∂μ = η univ * ∫⁻ x, f x ∂μ := by

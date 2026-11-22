@@ -10,13 +10,15 @@ public import Mathlib.Data.Fintype.EquivFin
 public import Mathlib.GroupTheory.GroupAction.DomAct.Basic
 
 /-!
-# Finiteness of `Mᵈᵐᵃ`
+# Finiteness of `Mᵈᵐᵃ`, and the action of `DomMulAct.mk m` on functions
 
 The type synonym `Mᵈᵐᵃ` of a finite type `M` is finite, with the same cardinality, and a sum over
-`Mᵈᵐᵃ` is the sum over `M` through `DomMulAct.mk`.
+`Mᵈᵐᵃ` is the sum over `M` through `DomMulAct.mk`. The action of `DomMulAct.mk m` on functions
+`α → β` is precomposition by `(m • ·)`.
 
 ## Main statements
 
+* `DomMulAct.mk_smul_apply`, `DomMulAct.mk_smul`: `(DomMulAct.mk m • f) a = f (m • a)`.
 * `DomMulAct.instFintype`: `Mᵈᵐᵃ` is finite when `M` is.
 * `Fintype.card_domMulAct`: `Fintype.card Mᵈᵐᵃ = Fintype.card M`.
 * `Fintype.sum_domMulAct`: `∑ c : Mᵈᵐᵃ, f c = ∑ m : M, f (DomMulAct.mk m)`.
@@ -27,6 +29,24 @@ The type synonym `Mᵈᵐᵃ` of a finite type `M` is finite, with the same card
 variable {M : Type*}
 
 namespace DomMulAct
+
+section SMul
+
+variable {α β : Type*} [SMul M α]
+
+/-- The action of `DomMulAct.mk m` on a function is precomposition by `(m • ·)`. -/
+@[to_additive (attr := simp) /-- The action of `DomAddAct.mk m` on a function is precomposition
+by `(m +ᵥ ·)`. -/]
+theorem mk_smul_apply (m : M) (f : α → β) (a : α) : (mk m • f) a = f (m • a) := by
+  rw [smul_apply, Equiv.symm_apply_apply]
+
+/-- The action of `DomMulAct.mk m` on a function is precomposition by `(m • ·)`. -/
+@[to_additive /-- The action of `DomAddAct.mk m` on a function is precomposition by
+`(m +ᵥ ·)`. -/]
+theorem mk_smul (m : M) (f : α → β) : mk m • f = fun a ↦ f (m • a) :=
+  funext (mk_smul_apply m f)
+
+end SMul
 
 /-- `Mᵈᵐᵃ` is finite when `M` is. -/
 @[to_additive /-- `Mᵈᵃᵃ` is finite when `M` is. -/]
