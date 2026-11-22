@@ -28,8 +28,9 @@ on that block look unfavourable.
 
 Conversely, an e-process `E` for `ℱ` **sampled** along a monotone time map `t`, `k ↦ E (t k)`, is an
 e-process for the sampled filtration: a stopping time of the sampled filtration is read on the
-clock of `ℱ` (`MeasureTheory.IsStoppingTime.map_of_comp`). Lifting and sampling are inverse to each
-other, so a process is a blockwise e-process exactly when its lift is an e-process.
+clock of `ℱ` (`MeasureTheory.IsStoppingTime.map_of_comp`). Sampling undoes lifting: the lift of
+`E`, sampled at the block ends, is `E` again. So a process is a blockwise e-process exactly when
+its lift is an e-process.
 
 ## Main statements
 

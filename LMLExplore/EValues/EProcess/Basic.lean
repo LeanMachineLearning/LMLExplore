@@ -74,8 +74,6 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   form a convex set.
 * `ProbabilityTheory.isEProcess_ite_eq`: a function measurable at time `n` with expectation at
   most `1` under the null, placed at time `n` and `0` elsewhere, is an e-process.
-* `ProbabilityTheory.isEProcess_ite_le`: the same function, held from time `n` on, is an
-  e-process.
 * `ProbabilityTheory.IsTestSupermartingale.isEProcess`: a test supermartingale for a null of
   finite measures is an e-process [RW, Fact 7.5].
 * `ProbabilityTheory.IsEProcess.shift`, `ProbabilityTheory.isEProcess_shift_iff`: for filtrations
@@ -251,21 +249,6 @@ theorem isEProcess_ite_eq {n : ℕ} {f : Ω → ℝ≥0∞} (hf : Measurable[ℱ
     (lintegral_mono fun ω ↦ ?_).trans (hfS P hP)
   · split_ifs with hk
     · exact hk ▸ hf
-    · exact measurable_const
-  · simp only [stoppedValue]
-    split_ifs
-    exacts [le_rfl, zero_le]
-
-/-- **Holding a bet.** For a function `f` measurable at time `n` of the filtration `ℱ` with
-expectation at most `1` under every member of the null, the process equal to `0` before time `n`
-and to `f` from time `n` on is an e-process: its value at every time is at most `f`. -/
-theorem isEProcess_ite_le {n : ℕ} {f : Ω → ℝ≥0∞} (hf : Measurable[ℱ n] f)
-    (hfS : ∀ P ∈ S, ∫⁻ ω, f ω ∂P ≤ 1) :
-    IsEProcess (fun k ω ↦ if n ≤ k then f ω else 0) ℱ S := by
-  refine .of_lintegral_le_one (fun k ↦ ?_) fun τ _ _ _ P hP ↦
-    (lintegral_mono fun ω ↦ ?_).trans (hfS P hP)
-  · split_ifs with hk
-    · exact hf.mono (ℱ.mono hk) le_rfl
     · exact measurable_const
   · simp only [stoppedValue]
     split_ifs
