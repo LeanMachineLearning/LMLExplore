@@ -246,14 +246,6 @@ private lemma sum_mul_sum_perm_div_le_one {F : (ι → ℝ≥0∞) → ℝ≥0�
     (fun i ↦ by simpa [lintegral_finsetSum_measure, lintegral_apply_orbitMeasure] using h)
   simpa [lintegral_finsetSum_measure, lintegral_orbitMeasure] using this
 
-omit [DecidableEq ι] in
-/-- The mean of finite values is finite. -/
-private lemma sum_coe_div_card_ne_top (e : ι → ℝ≥0) :
-    (∑ i, (e i : ℝ≥0∞)) / Fintype.card ι ≠ ⊤ := by
-  rcases isEmpty_or_nonempty ι with hι | hι
-  · simp
-  · exact ENNReal.div_ne_top (by simp) (Nat.cast_ne_zero.mpr Fintype.card_ne_zero)
-
 /-- The symmetrization of a merging function for exchangeable e-values is finite at every point
 with finite coordinates: mix the uniform law on the orbit of the point with the Dirac mass at
 `0`. -/
@@ -261,7 +253,7 @@ private lemma IsExchangeableEMerging.sum_perm_div_ne_top {F : (ι → ℝ≥0∞
     (hF : IsExchangeableEMerging F) (e : ι → ℝ≥0) :
     (∑ σ : Equiv.Perm ι, F fun i ↦ e (σ i)) / (Fintype.card (Equiv.Perm ι) : ℝ≥0∞) ≠ ⊤ := by
   intro htop
-  have hM := sum_coe_div_card_ne_top e
+  have hM := ENNReal.sum_coe_div_card_ne_top e
   set p := ((∑ i, (e i : ℝ≥0∞)) / Fintype.card ι + 1)⁻¹
   have hp : p ≤ 1 := ENNReal.inv_le_one.mpr le_add_self
   have h := sum_mul_sum_perm_div_le_one hF (w := fun b : Bool ↦ if b then p else 1 - p)
@@ -293,7 +285,7 @@ theorem IsExchangeableEMerging.exists_sum_perm_div_le {F : (ι → ℝ≥0∞) �
   have hmix {α : Type} [Fintype α] (w : α → ℝ≥0∞) (x : α → ι → ℝ≥0) (hw : ∑ k, w k = 1)
       (h : ∑ k, w k * M (x k) ≤ 1) : ∑ k, w k * A (x k) ≤ 1 :=
     sum_mul_sum_perm_div_le_one hF (fun k i ↦ x k i) hw h
-  have hM_top (e : ι → ℝ≥0) : M e ≠ ⊤ := sum_coe_div_card_ne_top e
+  have hM_top (e : ι → ℝ≥0) : M e ≠ ⊤ := ENNReal.sum_coe_div_card_ne_top e
   have hM₀ : M 0 = 0 := by simp [M]
   have hA_top (e : ι → ℝ≥0) : A e ≠ ⊤ := hF.sum_perm_div_ne_top e
   -- the complete class theorem on `ι → ℝ≥0`, for the function `e ↦ A e - 1` and the constraint

@@ -65,8 +65,8 @@ Proposition 8.3].
   `ProbabilityTheory.IsEVar.comp_isEVar`: an e-variable for `mergingNull 𝒞` merges e-variables
   whose joint laws lie in `𝒞`. The validity of e-merging functions, and of the merging functions
   for independent and for exchangeable e-values, are its instances.
-* `ProbabilityTheory.quasiSure_mergingNull_univ`: the quasi-sure filter of `mergingNull univ` is
-  the principal filter of the points with finite coordinates.
+* `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: the quasi-sure filter of
+  `mergingNull univ` is the principal filter of the points with finite coordinates.
 * `ProbabilityTheory.IsEVar.mono_mergingNull`: a measurable function dominated on finite arguments
   by an e-variable for a merging null is one.
 * `ProbabilityTheory.mergingNull_univ_subset_constraintNull`,
@@ -266,7 +266,7 @@ theorem exists_mem_mergingNull_univ_measure_singleton_ne_zero [Finite ι] (e : �
 points with finite coordinates: the coordinates are almost surely finite under every member, and
 every point with finite coordinates is charged by some member
 (`exists_mem_mergingNull_univ_measure_singleton_ne_zero`). -/
-theorem quasiSure_mergingNull_univ [Finite ι] :
+theorem quasiSure_mergingNull_univ_eq_principal [Finite ι] :
     quasiSure (mergingNull (Set.univ : Set (Measure (ι → ℝ≥0∞)))) =
       Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞)) := by
   refine Filter.ext fun s ↦ ⟨fun h ↦ ?_, fun h ↦ mem_quasiSure_iff.2 fun μ hμ ↦ ?_⟩
@@ -502,10 +502,11 @@ private lemma le_and_forall_le_of_add_sum_mul_le [Fintype ι] {w₀ v₀ : ℝ�
 /-- An **admissible** e-merging function [VW21, §3]: an admissible e-variable for the merging
 null of all measures. Its e-variables are the e-merging functions
 (`isEMerging_iff_isEVar_mergingNull`) and its quasi-sure filter is the principal filter of the
-finite vectors (`quasiSure_mergingNull_univ`), so `F` is admissible when every e-merging function
-dominating it at finite arguments equals it there (`isAdmissibleEMerging_iff_isAdmissible`,
-`IsAdmissibleEMerging.eq_of_le`). Values at infinite arguments are not compared, since they do not
-affect the e-merging property (`ProbabilityTheory.IsEMerging.of_le`). -/
+finite vectors (`quasiSure_mergingNull_univ_eq_principal`), so `F` is admissible when every
+e-merging function dominating it at finite arguments equals it there
+(`isAdmissibleEMerging_iff_isAdmissible`, `IsAdmissibleEMerging.eq_of_le`). Values at infinite
+arguments are not compared, since they do not affect the e-merging property
+(`ProbabilityTheory.IsEMerging.of_le`). -/
 abbrev IsAdmissibleEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop :=
   IsAdmissibleEVar F (mergingNull Set.univ)
 
@@ -522,8 +523,8 @@ theorem isAdmissibleEMerging_iff_isAdmissible [Finite ι] :
     IsAdmissibleEMerging F ↔
       (Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))).IsAdmissible
         {G | IsEMerging G} F := by
-  simp only [IsAdmissibleEMerging, IsAdmissibleEVar, quasiSure_mergingNull_univ,
-    ← isEMerging_iff_isEVar_mergingNull]
+  simp only [IsAdmissibleEMerging, IsAdmissibleEVar,
+    quasiSure_mergingNull_univ_eq_principal, ← isEMerging_iff_isEVar_mergingNull]
 
 omit [Fintype ι] in
 /-- An e-merging function that dominates an admissible e-merging function at finite arguments is
