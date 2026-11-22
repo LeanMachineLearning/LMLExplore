@@ -11,7 +11,6 @@ import LMLExplore.Algebra.BigOperators.Intervals
 import LMLExplore.Data.Fintype.BigOperators
 import LMLExplore.Data.Int.Interval
 import LMLExplore.Data.Nat.Mod
-import LMLExplore.EValues.MultipleTesting.RunningMaxima
 import LMLExplore.EValues.TestSupermartingale.Finite
 import LMLExplore.MeasureTheory.Measure.Weighted
 
