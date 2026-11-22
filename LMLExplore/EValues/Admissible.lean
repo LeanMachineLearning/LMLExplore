@@ -24,7 +24,8 @@ The criterion of Ramdas and Wang characterizes admissibility for every null: an 
 admissible exactly when, on every measurable set `A` charged by the null, the deficits
 `1 - ∫⁻ E ∂P` are arbitrarily small compared with `P A`, since the infimum of these ratios is the
 largest amount that can be added to `E` on `A`. The sufficient condition of strong admissibility,
-the necessary condition `⨆ ∫⁻ E ∂P = 1` and the case of a simple null are derived from it. This
+the necessary condition `⨆ ∫⁻ E ∂P = 1` for a null of masses at most one and the case of a simple
+null are derived from it. This
 file also proves that for a simple null the admissible e-variables are the likelihood ratios, that
 for a finite null of finite measures the admissible e-variables are the strongly admissible ones
 and every e-variable is at most an admissible one, and that products of strongly admissible
@@ -55,16 +56,18 @@ exact means `∫⁻ E ∂P = 1`.
   [RW, Theorem 2.14], `liminf_{δ ↓ 0} ⨅ {(1 - ∫⁻ E ∂P) / δ | P ∈ S, δ < P A} = 0`, for a null of
   masses at most one.
 * `ProbabilityTheory.IsAdmissibleEVar.iSup_lintegral_eq_one`: the necessary condition
-  `⨆ {∫⁻ E ∂P | P ∈ S, P A ≠ 0} = 1` [RW, Proposition 2.13].
+  `⨆ {∫⁻ E ∂P | P ∈ S, P A ≠ 0} = 1`, for a null of masses at most one [RW, Proposition 2.13].
 * `ProbabilityTheory.IsEVar.measure_lt_eq_zero_of_ae_le`: an e-variable that dominates `E`
   almost surely under a member of the null under which `E` is exact is equal to `E` almost surely
   under that member.
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.isAdmissibleEVar`: a strongly admissible e-variable
   is admissible [RW, Corollary 2.15 (a)].
 * `ProbabilityTheory.IsEVar.isStronglyAdmissibleEVar_of_forall_exists_absolutelyContinuous`: an
-  e-variable exact under a member of the null that dominates each member is strongly admissible
-  [RW, Corollary 2.15 (b)].
-* `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: so is an exact e-variable.
+  e-variable such that every member of the null is absolutely continuous with respect to some
+  member under which the e-variable is exact is strongly admissible [RW, Corollary 2.15 (b)].
+* `ProbabilityTheory.IsExactEVar.isStronglyAdmissibleEVar`: an exact e-variable is strongly
+  admissible [RW, Corollary 2.15 (c)].
+* `ProbabilityTheory.IsExactEVar.isAdmissibleEVar`: an exact e-variable is admissible.
 * `ProbabilityTheory.isAdmissibleEVar_singleton_iff`: for a simple null `{P}` with `P` finite and
   nonzero, admissible and exact coincide.
 * `ProbabilityTheory.isExactEVar_singleton_iff_exists_rnDeriv`: the exact e-variables for `{P}`
@@ -272,8 +275,8 @@ theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hE : IsStronglyAdmissibleEVar
   obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
   exact le_zero_iff.1 (iInf₂_le_of_le P hP (iInf_le_of_le hPA (by simp [hPE])))
 
-/-- An e-variable that is exact under a member of the null dominating each member is strongly
-admissible [RW, Corollary 2.15 (b)]. -/
+/-- An e-variable such that every member of the null is absolutely continuous with respect to some
+member under which the e-variable is exact is strongly admissible [RW, Corollary 2.15 (b)]. -/
 theorem IsEVar.isStronglyAdmissibleEVar_of_forall_exists_absolutelyContinuous
     (hE : IsEVar E S) (h : ∀ P ∈ S, ∃ P' ∈ S, P ≪ P' ∧ ∫⁻ ω, E ω ∂P' = 1) :
     IsStronglyAdmissibleEVar E S where
