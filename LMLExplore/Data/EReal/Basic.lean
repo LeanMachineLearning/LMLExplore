@@ -28,6 +28,7 @@ function in `ℝ≥0∞`, both cast to `EReal`. This file collects two such comp
 * `EReal.exists_forall_gt_and_sum_lt`: if `∑ a ∈ s, f a < r`, there are reals `g a > f a` with
   `∑ a ∈ s, g a < r`.
 * `EReal.coe_ennreal_ofReal_mul_coe`: `ofReal w * c = w * c` in `EReal`, for `w ≥ 0` and `c : ℝ≥0`.
+* `EReal.coe_ennreal_ofReal_mul`: `ofReal w * c = w * c` in `EReal`, for `w ≥ 0` and `c : ℝ≥0∞`.
 * `EReal.coe_lt_coe_ennreal_ofReal_mul_iff`: `r < w * c ↔ r / w < c` for `w > 0`.
 * `EReal.coe_ennreal_ofReal_mul_lt_coe_iff`: `w * c < r ↔ c < r / w` for `w > 0`.
 -/
@@ -102,6 +103,12 @@ lemma coe_ennreal_ofReal_mul_coe {w : ℝ} (hw : 0 ≤ w) (c : ℝ≥0) :
     ((ENNReal.ofReal w * c : ℝ≥0∞) : EReal) = ((w * c : ℝ) : EReal) := by
   rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_mul hw, coe_ennreal_ofReal,
     max_eq_left (by positivity)]
+
+/-- For `w ≥ 0` and `c : ℝ≥0∞`, the product `ofReal w * c` in `ℝ≥0∞`, cast to `EReal`, is the
+product `w * c` in `EReal`. -/
+lemma coe_ennreal_ofReal_mul {w : ℝ} (hw : 0 ≤ w) (c : ℝ≥0∞) :
+    ((ENNReal.ofReal w * c : ℝ≥0∞) : EReal) = (w : EReal) * c := by
+  rw [coe_ennreal_mul, coe_ennreal_ofReal, max_eq_left hw]
 
 /-- For `w > 0`, a real `r` is below `w * c`, for `c : ℝ≥0∞`, if and only if `r / w` is below
 `c`. -/

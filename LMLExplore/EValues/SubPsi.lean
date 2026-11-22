@@ -12,6 +12,8 @@ public import LMLExplore.Probability.Martingale.ExactVille
 public import LMLExplore.Probability.Martingale.Freedman
 public import LMLExplore.Probability.Moments.MGF.Bound
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
+import LMLExplore.Analysis.SpecialFunctions.Log.ERealExp
+import LMLExplore.Data.EReal.Basic
 
 /-!
 # Sub-ψ processes and the line-crossing inequality
@@ -32,9 +34,10 @@ a conditional e-variable given the past, the process `exp (t ∑ k < n, X k - n 
 supermartingale. So the partial sums, with the intrinsic time `n`, are `1`-sub-ψ for that null.
 The laws with a conditional bound on the moment generating function (LMLExplore's
 `HasCondMGFBound`) are members of it, and the one-sided conditionally `1`-sub-Gaussian null is the
-case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Freedman's exponential supermartingale makes the partial sums
-of increments bounded above by `b` sub-Poisson, `ψ t = (exp (t b) - 1 - t b) / b ^ 2`, with the
-sum of the conditional second moments as intrinsic time.
+case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Under a fixed finite measure `μ` (the null `{μ}`), Freedman's
+exponential supermartingale makes the partial sums of supermartingale differences, square
+integrable and bounded above by some `b > 0`, sub-Poisson, `ψ t = (exp (t b) - 1 - t b) / b ^ 2`,
+with the sum of the conditional second moments as intrinsic time.
 
 Ville's inequality applied to the supermartingales `L` gives the bounds of [HRMS20, Theorem 1(a)],
 conditionally on `ℱ 0`: for a nonnegative intrinsic time, the probability that `S` ever crosses
@@ -77,7 +80,8 @@ line `a + b n`.
 [HRMS20] also asks `S 0 = V 0 = 0`, `V ≥ 0`, `l₀ ≥ 1` and the adaptedness of `S` and `V`. The
 definition here carries only the domination, and each statement assumes what it uses: the
 line-crossing inequalities a nonnegative intrinsic time, their form with the decay transform
-`1 ≤ l₀ < ∞`, and the e-processes adapted processes.
+`1 ≤ l₀ < ∞` and, conditionally on `ℱ 0`, a conditioning set of finite measure, and the e-processes
+adapted processes and a null of probability measures.
 
 ## References
 
@@ -280,8 +284,9 @@ end IsSubPsiProcess
 /-! ### The decay transform and the line-crossing inequality -/
 
 /-- The **decay transform** of `ψ` on `Λ` [HRMS20, §2.2]: `D b = sup {t ∈ Λ | 0 < t, ψ t ≤ b t}`,
-valued in `ℝ≥0∞`, with `D b = 0` when no such `t` exists. It is the rate of exponential decay, in
-the intercept `a`, of the probability that a sub-ψ process crosses the line `a + b V`. -/
+valued in `ℝ≥0∞`, with `D b = 0` when no such `t` exists. It gives the exponential decay rate, in
+the intercept `a`, of the line-crossing bound `l₀ exp (-a D b)` on the probability that a sub-ψ
+process crosses the line `a + b V`. -/
 noncomputable def decayTransform (ψ : ℝ → ℝ) (Λ : Set ℝ) (b : ℝ) : ℝ≥0∞ :=
   sSup (ENNReal.ofReal '' {t | t ∈ Λ ∧ 0 < t ∧ ψ t ≤ b * t})
 
@@ -300,12 +305,19 @@ theorem decayTransform_le_iff {x : ℝ≥0∞} :
     decayTransform ψ Λ b ≤ x ↔ ∀ t ∈ Λ, 0 < t → ψ t ≤ b * t → ENNReal.ofReal t ≤ x := by
   simp only [decayTransform_def, sSup_le_iff, forall_mem_image, mem_ofPred_eq, and_imp]
 
-/-- The decay transform is monotone in the slope. -/
-theorem monotone_decayTransform : Monotone (decayTransform ψ Λ) := fun _ _ hbb' ↦
+/-- The decay transform grows with the slope. -/
+@[gcongr]
+theorem decayTransform_le_decayTransform {b' : ℝ} (hbb' : b ≤ b') :
+    decayTransform ψ Λ b ≤ decayTransform ψ Λ b' :=
   decayTransform_le_iff.2 fun _ ht ht0 hψ ↦
     ofReal_le_decayTransform ht ht0 (hψ.trans (mul_le_mul_of_nonneg_right hbb' ht0.le))
 
+/-- The decay transform is monotone in the slope. -/
+theorem monotone_decayTransform : Monotone (decayTransform ψ Λ) := fun _ _ ↦
+  decayTransform_le_decayTransform
+
 /-- The decay transform grows with the set of parameters. -/
+@[gcongr]
 theorem decayTransform_mono (hΛ : Λ ⊆ Λ') : decayTransform ψ Λ b ≤ decayTransform ψ Λ' b :=
   decayTransform_le_iff.2 fun _ ht ht0 hψ ↦ ofReal_le_decayTransform (hΛ ht) ht0 hψ
 
@@ -330,12 +342,11 @@ theorem measure_inter_exists_add_mul_le_le (h : IsSubPsiProcess S V ψ Λ l₀ �
     (hs : MeasurableSet[ℱ 0] s) (hPs : P s ≠ ∞) :
     P (s ∩ {ω | ∃ n, a + b * V n ω ≤ S n ω}) ≤
       l₀ * EReal.exp (-(a * decayTransform ψ Λ b)) * P s := by
-  set A := {t | t ∈ Λ ∧ 0 < t ∧ ψ t ≤ b * t}
+  set A := {t | t ∈ Λ ∧ 0 < t ∧ ψ t ≤ b * t} with hA_def
   rcases A.eq_empty_or_nonempty with hA | hA
   · -- no parameter qualifies: `D b = 0` and the bound is `l₀ P s ≥ P s`
     have hD : decayTransform ψ Λ b = 0 := by
-      rw [decayTransform_def, show {t | t ∈ Λ ∧ 0 < t ∧ ψ t ≤ b * t} = A from rfl, hA,
-        image_empty]
+      rw [decayTransform_def, ← hA_def, hA, image_empty]
       simp
     rw [hD, EReal.coe_ennreal_zero, mul_zero, neg_zero, EReal.exp_zero, mul_one]
     exact (measure_mono Set.inter_subset_left).trans (le_mul_of_one_le_left zero_le hl₀)
@@ -352,14 +363,13 @@ theorem measure_inter_exists_add_mul_le_le (h : IsSubPsiProcess S V ψ Λ l₀ �
       (EReal.expHomeomorph.continuous.comp (continuous_neg.comp (continuous_coe_ennreal_ereal.comp
         (ENNReal.continuous_const_mul ENNReal.ofReal_ne_top)))))
   have hgD : l₀ * EReal.exp (-(a * decayTransform ψ Λ b)) * P s = g (decayTransform ψ Λ b) := by
-    simp only [g, EReal.coe_ennreal_mul, EReal.coe_ennreal_ofReal, max_eq_left ha]
+    simp only [g, EReal.coe_ennreal_ofReal_mul ha]
   rw [hgD, decayTransform_def,
     hg_anti.map_csSup_of_continuousAt hg_cont.continuousAt (hA.image _) (OrderTop.bddAbove _)]
   refine le_csInf ((hA.image _).image _) ?_
   rintro _ ⟨_, ⟨t, ⟨htΛ, ht0, hψ⟩, rfl⟩, rfl⟩
   refine (h.measure_inter_exists_add_mul_le_le_of_mem hP hV htΛ ht0.le hψ a hs).trans_eq ?_
-  simp only [g, ← ENNReal.ofReal_mul ha, EReal.coe_ennreal_ofReal,
-    max_eq_left (mul_nonneg ha ht0.le), ← EReal.coe_neg, EReal.exp_coe]
+  simp only [g, ← ENNReal.ofReal_mul ha, EReal.exp_neg_coe_ennreal_ofReal (mul_nonneg ha ht0.le)]
 
 /-- **The line-crossing inequality** [HRMS20, Theorem 1(a)]. Under every probability measure `P`
 of the null, for an `l₀`-sub-ψ process with `1 ≤ l₀ < ∞` and a nonnegative intrinsic time `V`,
@@ -420,8 +430,8 @@ theorem measure_exists_add_mul_le_sum_le_of_mem_oneSidedCondSubgaussianNull
   rw [← oneSidedCondSubgaussianNull_eq_condEVarNull] at hsub
   have h := hsub.measure_exists_add_mul_le_le hP (fun n ↦ ae_of_all _ fun _ ↦ Nat.cast_nonneg n)
     le_rfl ENNReal.one_ne_top ha b
-  rw [decayTransform_sq_div_two, EReal.coe_ennreal_ofReal, max_eq_left (by linarith), one_mul,
-    ← EReal.coe_mul, ← EReal.coe_neg, EReal.exp_coe] at h
+  rw [decayTransform_sq_div_two, one_mul, ← EReal.coe_ennreal_ofReal_mul ha,
+    ← ENNReal.ofReal_mul ha, EReal.exp_neg_coe_ennreal_ofReal (by positivity)] at h
   convert h using 3
   ring
 
