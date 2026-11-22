@@ -14,6 +14,7 @@ import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
+import LMLExplore.EValues.EProcess.Closure
 import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
@@ -67,7 +68,8 @@ The proof has three steps.
   and the numbers `k` of blocks of `g i` that fit in the first `n` observations, of these
   products, with weights `2⁻¹ ^ (i + 1) / ((k + 1) (k + 2))`. Each term is held from the time its
   blocks are observed on, which makes the process nondecreasing, and the sum of all the terms has
-  expectation at most `1` under the null, so the value at every stopping time is an e-variable.
+  expectation at most `1` under the null, so the value at every stopping time is an e-variable:
+  the mixture is a mixture of held bets (`ProbabilityTheory.isEProcess_tsum_ite_le_mul`).
   The weight of the number of blocks costs `o(n)` in the logarithm, which gives the lower bound
   on the growth; the upper bound is
   `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`.
@@ -343,46 +345,32 @@ private lemma monotone_blockMixture : Monotone (blockMixture len g) :=
     · rw [ite_eq_right h]
       exact zero_le
 
-/-- The mixture is at most the sum of all its terms. -/
-private lemma blockMixture_le_tsum (n : ℕ) (ω : ℕ → 𝓧) :
-    blockMixture len g n ω ≤ ∑' i, ∑' k, blockMixtureTerm len g i k ω :=
-  tsum_le_tsum fun i ↦ tsum_le_tsum fun k ↦ by
-    by_cases h : k * len i ≤ n
-    · rw [ite_eq_left h]
-    · rw [ite_eq_right h]
-      exact zero_le
-
-/-- The terms of the mixture are measurable. -/
-private lemma measurable_blockMixtureTerm (hg : ∀ i, Measurable (g i)) (i k : ℕ) :
-    Measurable (blockMixtureTerm len g i k) :=
-  measurable_const.mul (measurable_const.mul (measurable_seqBlockProd
-    (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hg i))) k))
-
-/-- The mixture is measurable. -/
-private lemma measurable_blockMixture (hg : ∀ i, Measurable (g i)) (n : ℕ) :
-    Measurable (blockMixture len g n) :=
-  Measurable.tsum fun i ↦ Measurable.tsum fun k ↦
-    Measurable.ite (MeasurableSet.const _) (measurable_blockMixtureTerm hg i k) measurable_const
-
-/-- The mixture at time `n` is a function of the first `n` observations. -/
-private lemma dependsOn_blockMixture (n : ℕ) : DependsOn (blockMixture len g n) (Set.Iio n) := by
-  intro ω ω' h
-  refine tsum_congr fun i ↦ tsum_congr fun k ↦ ?_
-  by_cases hk : k * len i ≤ n
-  · rw [ite_eq_left hk, ite_eq_left hk, blockMixtureTerm, blockMixtureTerm,
-      dependsOn_seqBlockProd _ k fun j hj ↦ h j (lt_of_lt_of_le hj hk)]
-  · rw [ite_eq_right hk, ite_eq_right hk]
-
-/-- The sum of all the terms of the mixture is an e-variable for the i.i.d. null: a countable
-mixture, over the family and over the numbers of blocks, of products over blocks. -/
-private lemma isEVar_tsum_blockMixtureTerm
-    (hg : ∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i))) :
-    IsEVar (fun ω ↦ ∑' i, ∑' k, blockMixtureTerm len g i k ω) (iidNull S₁) := by
-  have h := isEVar_tsum_mul (w := fun i ↦ (2⁻¹ : ℝ≥0∞) ^ (i + 1))
-    (fun i ↦ isEVar_tsum_mul (fun k ↦ isEVar_seqBlockProd (hg i) k)
-      tsum_ofReal_coverWeight_succ_le_one)
-    ENNReal.tsum_geometric_two_add_one.le
-  simpa only [blockMixtureTerm, ENNReal.tsum_mul_left] using h
+/-- **The mixture is an e-process.** It holds each product over blocks from the time its blocks
+are observed on, and the weights sum to at most `1`, so it is a mixture of held bets
+(`ProbabilityTheory.isEProcess_tsum_ite_le_mul`); each product over blocks is a bet for the
+i.i.d. null (`ProbabilityTheory.isEVar_seqBlockProd`). -/
+private lemma isEProcess_blockMixture (hg : ∀ i, Measurable (g i))
+    (hge : ∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i))) :
+    IsEProcess (blockMixture len g) (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁) := by
+  have hw : ∑' p : ℕ × ℕ, (2⁻¹ : ℝ≥0∞) ^ (p.1 + 1) * ENNReal.ofReal (coverWeight (p.2 + 1)) ≤ 1 :=
+    calc ∑' p : ℕ × ℕ, (2⁻¹ : ℝ≥0∞) ^ (p.1 + 1) * ENNReal.ofReal (coverWeight (p.2 + 1))
+    _ = ∑' i : ℕ, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) := by
+      rw [tsum_prod']
+      simp_rw [ENNReal.tsum_mul_left]
+    _ ≤ ∑' i : ℕ, (2⁻¹ : ℝ≥0∞) ^ (i + 1) * 1 := tsum_le_tsum fun i ↦ by
+      gcongr
+      exact tsum_ofReal_coverWeight_succ_le_one
+    _ = 1 := by simp only [mul_one, ENNReal.tsum_geometric_two_add_one]
+  have h := isEProcess_tsum_ite_le_mul (ℱ := Filtration.piLT (X := fun _ : ℕ ↦ 𝓧))
+    (t := fun p : ℕ × ℕ ↦ p.2 * len p.1)
+    (E := fun p ↦ seqBlockProd (len p.1) (fun x ↦ ENNReal.ofReal (Real.exp (g p.1 x))) p.2)
+    (fun p ↦ Filtration.measurable_piLT_of_dependsOn (measurable_seqBlockProd
+      (ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hg p.1))) p.2)
+      (dependsOn_seqBlockProd _ p.2))
+    (fun p ↦ isEVar_seqBlockProd (hge p.1) p.2) hw
+  convert h using 2 with n
+  ext ω
+  simp only [tsum_prod', blockMixture, blockMixtureTerm, mul_assoc]
 
 /-- The weight of `n / L` blocks costs `o(n)`: if the averages `s k / k` tend to `μ`, then
 `(s (n / L) + log (c * coverWeight (n / L + 1))) / n` tends to `μ / L`, for `c > 0` and `L ≥ 1`. -/
@@ -485,14 +473,7 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
         Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
           (𝓝 (bipolarRate Q₁ S₁)) := by
   obtain ⟨len, g, hlen, hgm, hgb, hge, hrate⟩ := exists_rateFamily hS₁ ρ
-  -- the sum of all the terms is an e-variable, and bounds the mixture at every time
-  have hT := isEVar_tsum_blockMixtureTerm hge
-  have hE : IsEProcess (blockMixture len g) (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧))
-      (iidNull S₁) := by
-    refine IsEProcess.of_lintegral_le_one (fun n ↦ Filtration.measurable_piLT_of_dependsOn
-      (measurable_blockMixture hgm n) (dependsOn_blockMixture n)) ?_
-    rintro τ - _ - _ hμ
-    exact (lintegral_mono fun ω ↦ blockMixture_le_tsum _ ω).trans (hT.lintegral_le_one hμ)
+  have hE := isEProcess_blockMixture (S₁ := S₁) hgm hge
   refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ρ ↦ ?_⟩
   by_cases hQ₁ : IsProbabilityMeasure Q₁
   swap

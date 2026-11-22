@@ -27,10 +27,13 @@ file proves the operations under which e-processes are closed, beyond those of
   a statistician who does not know which of two nulls to test can take the smaller evidence.
 * **Mixtures.** A mixture `∫⁻ θ, E θ n ω ∂π`, over a probability measure `π`, of a jointly
   measurable family of e-processes is an e-process, with no integrability condition.
-* **Time mixtures** [RW, (7.12), Proposition 7.23]. For e-variables `E j` measurable for `ℱ j`,
-  such as e-variables computed from the first `j` observations, and weights `w j` of sum at
-  most `1`, the nondecreasing process `n ↦ ∑ j ≤ n, w j * E j` is an e-process. This turns a
-  sequence of fixed-sample e-variables, which in general is not an e-process, into one.
+* **Mixtures of held bets.** For a countable family of e-variables `E i`, each measurable at a
+  time `t i`, and weights `w i` of sum at most `1`, the process that holds each bet `w i * E i`
+  from its time `t i` on is an e-process. The case `t = id` is the **time mixture**
+  [RW, (7.12), Proposition 7.23]: for e-variables `E j` measurable for `ℱ j`, such as
+  e-variables computed from the first `j` observations, the nondecreasing process
+  `n ↦ ∑ j ≤ n, w j * E j` is an e-process. This turns a sequence of fixed-sample e-variables,
+  which in general is not an e-process, into one.
 * **Optional continuation** [RW, Proposition 7.9]. For e-processes `A` and `B` and a stopping
   time `τ` with `1 ≤ B n` whenever `n ≤ τ`, the process `stoppedProcess A τ * B`, which carries
   the evidence `A τ` gathered up to `τ` and continues it with the new experiment `B`, is an
@@ -54,6 +57,7 @@ stopping time equal to `σ` on an event of that σ-algebra and to `ρ` off it
 * `ProbabilityTheory.IsEProcess.inf`: the minimum of an e-process for `S` and one for `T` is an
   e-process for `S ∪ T`.
 * `ProbabilityTheory.isEProcess_lintegral`: mixtures of e-processes over a probability measure.
+* `ProbabilityTheory.isEProcess_tsum_ite_le_mul`: countable mixtures of held bets.
 * `ProbabilityTheory.isEProcess_sum_mul`: time mixtures of e-variables [RW, Proposition 7.23].
 * `ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`: the value of an e-process at a stopping
   time `σ` that is finite everywhere is a conditional e-variable given the σ-algebra at a stopping
@@ -147,20 +151,37 @@ theorem isEProcess_lintegral {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measu
     ((hE θ).isEVar_stoppedValue_of_le hτ hτN).lintegral_le_one hP
   _ = 1 := by simp
 
+/-- **Mixtures of held bets.** For a countable family of e-variables `E i`, each measurable at a
+time `t i` of the filtration, and weights `w i` with `∑' i, w i ≤ 1`, the process that holds each
+weighted bet `w i * E i` from its time `t i` on, `n ↦ ∑' i, if t i ≤ n then w i * E i else 0`, is
+an e-process: its value at every time is at most the e-variable `∑' i, w i * E i`. -/
+theorem isEProcess_tsum_ite_le_mul {ι : Type*} [Countable ι] {t : ι → ℕ}
+    {E : ι → Ω → ℝ≥0∞} (hE_meas : ∀ i, Measurable[ℱ (t i)] (E i)) (hE : ∀ i, IsEVar (E i) S)
+    {w : ι → ℝ≥0∞} (hw : ∑' i, w i ≤ 1) :
+    IsEProcess (fun n ω ↦ ∑' i, if t i ≤ n then w i * E i ω else 0) ℱ S := by
+  have hM : Adapted ℱ (fun n ω ↦ ∑' i, if t i ≤ n then w i * E i ω else 0) := fun n ↦
+    @Measurable.tsum _ _ _ (ℱ n) _ _ _ _ _ _ _ _ _ _ _ _ fun i ↦ by
+      split_ifs with h
+      · exact ((hE_meas i).mono (ℱ.mono h) le_rfl).const_mul (w i)
+      · exact measurable_const
+  refine ⟨hM, fun τ hτ _ _ ↦ (isEVar_tsum_mul hE hw).mono
+    (measurable_stoppedValue_of_countable (fun _ ↦ hM.measurable) hτ.measurable')
+    fun ω ↦ tsum_le_tsum fun i ↦ ?_⟩
+  split_ifs
+  exacts [le_rfl, zero_le]
+
 /-- **Time mixtures of e-variables** [RW, (7.12), Proposition 7.23]. For e-variables `E j` that
 are `ℱ j`-measurable, and weights `w j` with `∑' j, w j ≤ 1`, the nondecreasing process
-`n ↦ ∑ j ≤ n, w j * E j` is an e-process. -/
+`n ↦ ∑ j ≤ n, w j * E j` is an e-process: the mixture of the bets `E j` held from time `j` on
+(`ProbabilityTheory.isEProcess_tsum_ite_le_mul`). -/
 theorem isEProcess_sum_mul (hE_meas : ∀ j, Measurable[ℱ j] (E j)) (hE : ∀ j, IsEVar (E j) S)
     {w : ℕ → ℝ≥0∞}
     (hw : ∑' j, w j ≤ 1) :
     IsEProcess (fun n ω ↦ ∑ j ∈ Finset.Iic n, w j * E j ω) ℱ S := by
-  have hM : Adapted ℱ (fun n ω ↦ ∑ j ∈ Finset.Iic n, w j * E j ω) := fun n ↦
-    Finset.measurable_fun_sum _ fun j hj ↦
-      ((hE_meas j).mono (ℱ.mono (Finset.mem_Iic.1 hj)) le_rfl).const_mul (w j)
-  -- at every time, the process is at most the e-variable `∑' j, w j * E j`
-  exact ⟨hM, fun τ hτ _ _ ↦ (isEVar_tsum_mul hE hw).mono
-    (measurable_stoppedValue_of_countable (fun _ ↦ hM.measurable) hτ.measurable')
-    fun ω ↦ sum_le_tsum _⟩
+  convert isEProcess_tsum_ite_le_mul (t := id) hE_meas hE hw using 3 with n ω
+  simp only [id]
+  rw [tsum_eq_sum (s := Finset.Iic n) fun j hj ↦ ite_eq_right_iff.2 fun h ↦
+    absurd (Finset.mem_Iic.2 h) hj, Finset.sum_ite_of_true fun j hj ↦ Finset.mem_Iic.1 hj]
 
 /-! ### Conditional validity and optional continuation -/
 
