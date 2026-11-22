@@ -5,23 +5,12 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.EVariable
+public import LMLExplore.EValues.ConfidenceSet
 public import LMLExplore.EValues.MultipleTesting.EClosure
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 
 /-!
-# E-confidence sets and the false coverage rate of the e-BY procedure
-
-For a type `Θ` of parameters and a family of nulls `S : Θ → Set (Measure Ω)`, with `P ∈ S θ`
-meaning that `θ` is a true parameter of `P`, a random set `C ω ⊆ Θ` is a confidence set at level
-`α` when it misses each true parameter with probability at most `α` (`ProbabilityTheory.IsConfSet`).
-For statistics `E θ`, the e-confidence set at level `α` is `{θ | E θ ω < α⁻¹}`
-(`ProbabilityTheory.eConfSet`), and it is an e-confidence set (`ProbabilityTheory.IsEConfSet`)
-when each `E θ` is an e-variable for `S θ` [RW, Definition 13.1]. By Markov's inequality an
-e-confidence set is a confidence set; conversely, at every level `α ≠ ∞`, every confidence set is
-the e-confidence set of the e-variables `α⁻¹ * 𝟙{θ ∉ C}`. A family of e-confidence sets indexed by
-the level is level-free (`ProbabilityTheory.IsLevelFreeEConfSet`) when the same e-variables serve
-at every level, `C α = eConfSet E α`; it is then antitone in the level.
+# The false coverage rate of the e-BY procedure
 
 For finitely many parameters `i : ι`, `K = Fintype.card ι`, each with its own type `Θ i` and its
 own nulls `S i`, a scientist selects after seeing the data, by any rule, a set `R` of parameters
@@ -29,20 +18,17 @@ and reports a confidence set for each of them. The false coverage proportion
 (`ProbabilityTheory.fcp`) is the proportion of the reported sets that miss the true parameters `θ`,
 and its expectation is the false coverage rate. The e-BY procedure at level `δ`
 (`ProbabilityTheory.eBY`) of [XWR24] reports for `i ∈ R` the confidence set of level
-`δ * #R / K` [RW, Definition 13.6]. For level-free e-confidence sets it controls the false
-coverage rate at `δ`, under arbitrary dependence and for every selection rule, and even post hoc:
-the expected largest ratio of the false coverage proportion to `δ`, over all selections and all
-levels, is at most one [RW, Theorem 13.7]. Under every measure `P`, the bound is
-`(∑ i, ∫⁻ E i (θ i) ∂P) / K` for any statistics, so that it suffices that the expectations of the
+`δ * #R / K` [RW, Definition 13.6]. For level-free e-confidence sets
+(`ProbabilityTheory.IsLevelFreeEConfSet`) it controls the false coverage rate at `δ`, under
+arbitrary dependence and for every selection rule, and even post hoc: the expected largest ratio of
+the false coverage proportion to `δ`, over all selections and all levels, is at most one
+[RW, Theorem 13.7]. Under every measure `P`, the bound is `(∑ i, ∫⁻ E i (θ i) ∂P) / K` for any
+almost everywhere measurable statistics, so that it suffices that the expectations of the
 statistics at the true parameters sum to at most `K`, as for compound e-values.
 This is the analogue for selected confidence sets of the false discovery rate control of e-BH.
 
 ## Main definitions
 
-* `ProbabilityTheory.IsConfSet C S α`: `C` is a confidence set at level `α` for the nulls `S`.
-* `ProbabilityTheory.eConfSet E α ω`: the e-confidence set `{θ | E θ ω < α⁻¹}`.
-* `ProbabilityTheory.IsEConfSet C S α`, `ProbabilityTheory.IsLevelFreeEConfSet C S`: `C` is an
-  e-confidence set at level `α`, and a level-free family of e-confidence sets.
 * `ProbabilityTheory.fcp C θ R`: the false coverage proportion of the sets `C i`, `i ∈ R`, at the
   true parameters `θ`.
 * `ProbabilityTheory.eBY C δ R ω`: the confidence sets that the e-BY procedure reports at level `δ`
@@ -50,13 +36,11 @@ This is the analogue for selected confidence sets of the false discovery rate co
 
 ## Main statements
 
-* `ProbabilityTheory.IsEConfSet.isConfSet`, `ProbabilityTheory.isEConfSet_iff_isConfSet`: an
-  e-confidence set is a confidence set, and at a level `α ≠ ∞` every confidence set is an
-  e-confidence set [RW, §13.1].
 * `ProbabilityTheory.fcp_eBY_eConfSet_div_le`: pointwise, the false coverage proportion of e-BY
-  divided by its level is at most the mean of the e-values at the true parameters.
+  divided by its level is at most the sum over the selected parameters of the statistics at the
+  true parameters, divided by `K`.
 * `ProbabilityTheory.lintegral_iSup_fcp_eBY_eConfSet_div_le`: the post-hoc bound
-  `(∑ i, ∫⁻ E i (θ i) ∂P) / K` for any statistics.
+  `(∑ i, ∫⁻ E i (θ i) ∂P) / K` for any almost everywhere measurable statistics.
 * `ProbabilityTheory.lintegral_iSup_fcp_eBY_div_le_one`,
   `ProbabilityTheory.lintegral_fcp_eBY_le`: **false coverage rate control by e-BY** for level-free
   e-confidence sets, post hoc and at a fixed level [RW, Theorem 13.7].
@@ -77,121 +61,6 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω}
-
-/-! ### Confidence sets and e-confidence sets -/
-
-section ConfSet
-
-variable {Θ : Type*} {S T : Θ → Set (Measure Ω)} {C D : Ω → Set Θ} {E : Θ → Ω → ℝ≥0∞}
-  {α β : ℝ≥0∞} {θ : Θ} {ω : Ω}
-
-/-- `C : Ω → Set Θ` is a **confidence set** at level `α` for the parameters of the nulls
-`S : Θ → Set (Measure Ω)`: the event `{ω | θ ∈ C ω}` is measurable for every `θ`, and for every
-parameter `θ` and every `P ∈ S θ` the probability that `C` misses `θ` is at most `α`
-[RW, Definition 13.1]. -/
-structure IsConfSet (C : Ω → Set Θ) (S : Θ → Set (Measure Ω)) (α : ℝ≥0∞) : Prop where
-  measurableSet_mem : ∀ θ, MeasurableSet {ω | θ ∈ C ω}
-  measure_notMem_le : ∀ θ, ∀ P ∈ S θ, P {ω | θ ∉ C ω} ≤ α
-
-/-- A confidence set for the nulls `T` is one for all smaller nulls `S θ ⊆ T θ`. -/
-theorem IsConfSet.anti_set (hST : ∀ θ, S θ ⊆ T θ) (hC : IsConfSet C T α) : IsConfSet C S α :=
-  ⟨hC.measurableSet_mem, fun θ P hP ↦ hC.measure_notMem_le θ P (hST θ hP)⟩
-
-/-- A confidence set at level `α` is one at every level `β ≥ α`. -/
-theorem IsConfSet.mono_level (hC : IsConfSet C S α) (hαβ : α ≤ β) : IsConfSet C S β :=
-  ⟨hC.measurableSet_mem, fun θ P hP ↦ (hC.measure_notMem_le θ P hP).trans hαβ⟩
-
-/-- The **e-confidence set** at level `α` of statistics `E θ` indexed by the parameters: the
-parameters `θ` whose e-value `E θ ω` is below `α⁻¹`, that is, the parameters that the e-test at
-level `α` does not reject [RW, Definition 13.1]. It is the empty set at level `∞`, and at level
-`0` the set of parameters with a finite e-value. -/
-def eConfSet (E : Θ → Ω → ℝ≥0∞) (α : ℝ≥0∞) (ω : Ω) : Set Θ :=
-  {θ | E θ ω < α⁻¹}
-
-@[simp]
-theorem mem_eConfSet : θ ∈ eConfSet E α ω ↔ E θ ω < α⁻¹ := Iff.rfl
-
-theorem notMem_eConfSet : θ ∉ eConfSet E α ω ↔ α⁻¹ ≤ E θ ω := by
-  rw [mem_eConfSet, not_lt]
-
-@[simp]
-theorem eConfSet_top : eConfSet E ∞ ω = ∅ := by
-  ext θ
-  simp
-
-/-- The e-confidence sets shrink as the level grows. -/
-theorem eConfSet_anti (E : Θ → Ω → ℝ≥0∞) (ω : Ω) : Antitone fun α ↦ eConfSet E α ω :=
-  fun _ _ hαβ _ hθ ↦ (mem_eConfSet.1 hθ).trans_le (ENNReal.inv_le_inv.2 hαβ)
-
-theorem measurableSet_mem_eConfSet (hE : Measurable (E θ)) (α : ℝ≥0∞) :
-    MeasurableSet {ω | θ ∈ eConfSet E α ω} :=
-  measurableSet_lt hE measurable_const
-
-/-- `C` is an **e-confidence set** at level `α` for the nulls `S` when it is the e-confidence set
-`eConfSet E α` of a family of e-variables `E θ` for the nulls `S θ` [RW, Definition 13.1]. -/
-def IsEConfSet (C : Ω → Set Θ) (S : Θ → Set (Measure Ω)) (α : ℝ≥0∞) : Prop :=
-  ∃ E : Θ → Ω → ℝ≥0∞, (∀ θ, IsEVar (E θ) (S θ)) ∧ C = eConfSet E α
-
-theorem isEConfSet_iff :
-    IsEConfSet C S α ↔ ∃ E : Θ → Ω → ℝ≥0∞, (∀ θ, IsEVar (E θ) (S θ)) ∧ C = eConfSet E α :=
-  Iff.rfl
-
-theorem isEConfSet_eConfSet (hE : ∀ θ, IsEVar (E θ) (S θ)) (α : ℝ≥0∞) :
-    IsEConfSet (eConfSet E α) S α :=
-  ⟨E, hE, rfl⟩
-
-/-- **E-confidence sets are confidence sets**, by Markov's inequality for e-variables
-[RW, §13.1]. -/
-theorem IsEConfSet.isConfSet (hC : IsEConfSet C S α) : IsConfSet C S α := by
-  obtain ⟨E, hE, rfl⟩ := hC
-  refine ⟨fun θ ↦ measurableSet_mem_eConfSet (hE θ).measurable α, fun θ P hP ↦ ?_⟩
-  simpa only [notMem_eConfSet] using (hE θ).measure_inv_le_le hP α
-
-/-- **Confidence sets are e-confidence sets** [RW, §13.1]: at a level `α ≠ ∞`, a confidence set
-`C` is the e-confidence set of the e-variables `α⁻¹ * 𝟙{θ ∉ C}`, so that the two notions agree.
-At level `∞` every random set with measurable events `{θ ∈ C}` is a confidence set, while the
-only e-confidence set is empty. -/
-theorem isEConfSet_iff_isConfSet (hα : α ≠ ∞) : IsEConfSet C S α ↔ IsConfSet C S α := by
-  refine ⟨IsEConfSet.isConfSet, fun hC ↦ ?_⟩
-  have hs (θ : Θ) : MeasurableSet {ω | θ ∉ C ω} := (hC.measurableSet_mem θ).compl
-  refine ⟨fun θ ↦ {ω | θ ∉ C ω}.indicator fun _ ↦ α⁻¹, fun θ ↦ ⟨?_, fun P hP ↦ ?_⟩, ?_⟩
-  · exact measurable_const.indicator (hs θ)
-  · dsimp only
-    rw [lintegral_indicator_const (hs θ)]
-    calc α⁻¹ * P {ω | θ ∉ C ω} ≤ α⁻¹ * α := by gcongr; exact hC.measure_notMem_le θ P hP
-      _ ≤ 1 := ENNReal.inv_mul_le_one α
-  · ext ω θ
-    by_cases hθ : θ ∈ C ω
-    · simpa [hθ] using hα
-    · simp [hθ]
-
-/-- A family `C : ℝ≥0∞ → Ω → Set Θ` of e-confidence sets indexed by the level is **level-free**
-for the nulls `S` when it is `eConfSet E` for a single family of e-variables `E θ` for the nulls
-`S θ`, which does not depend on the level [RW, Definition 13.1]. -/
-def IsLevelFreeEConfSet (C : ℝ≥0∞ → Ω → Set Θ) (S : Θ → Set (Measure Ω)) : Prop :=
-  ∃ E : Θ → Ω → ℝ≥0∞, (∀ θ, IsEVar (E θ) (S θ)) ∧ C = eConfSet E
-
-theorem isLevelFreeEConfSet_iff {C : ℝ≥0∞ → Ω → Set Θ} :
-    IsLevelFreeEConfSet C S ↔ ∃ E : Θ → Ω → ℝ≥0∞, (∀ θ, IsEVar (E θ) (S θ)) ∧ C = eConfSet E :=
-  Iff.rfl
-
-theorem isLevelFreeEConfSet_eConfSet (hE : ∀ θ, IsEVar (E θ) (S θ)) :
-    IsLevelFreeEConfSet (eConfSet E) S :=
-  ⟨E, hE, rfl⟩
-
-/-- The members of a level-free family of e-confidence sets are e-confidence sets. -/
-theorem IsLevelFreeEConfSet.isEConfSet {C : ℝ≥0∞ → Ω → Set Θ} (hC : IsLevelFreeEConfSet C S)
-    (α : ℝ≥0∞) : IsEConfSet (C α) S α := by
-  obtain ⟨E, hE, rfl⟩ := hC
-  exact isEConfSet_eConfSet hE α
-
-/-- A level-free family of e-confidence sets shrinks as the level grows. -/
-theorem IsLevelFreeEConfSet.antitone {C : ℝ≥0∞ → Ω → Set Θ} (hC : IsLevelFreeEConfSet C S)
-    (ω : Ω) : Antitone fun α ↦ C α ω := by
-  obtain ⟨E, -, rfl⟩ := hC
-  exact eConfSet_anti E ω
-
-end ConfSet
 
 /-! ### The false coverage proportion and the e-BY procedure -/
 
@@ -244,24 +113,21 @@ theorem fcp_eBY_eConfSet_div_le (E : ∀ i, Θ i → Ω → ℝ≥0∞) (θ : �
   rcases R.eq_empty_or_nonempty with rfl | ⟨j, hj⟩
   · simp
   set N := (Set.toFinite {i | θ i ∉ eBY (fun i ↦ eConfSet (E i)) δ R ω i}).toFinset
-  have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 :=
-    haveI : Nonempty ι := ⟨j⟩
-    Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (Fintype.card_pos_iff.2 ⟨j⟩).ne'
   have hR : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hj)
   -- Each missed parameter contributes `1 / (#R * δ)`, at most its e-value over `K`.
   have hi : ∀ i ∈ N, (#R : ℝ≥0∞)⁻¹ / δ ≤ E i (θ i) ω / Fintype.card ι := by
     intro i hi
-    rw [Set.Finite.mem_toFinset, Set.mem_ofPred_eq, eBY_apply, notMem_eConfSet,
-      ENNReal.inv_div (Or.inl (ENNReal.natCast_ne_top _)) (Or.inl hK)] at hi
-    rw [ENNReal.le_div_iff_mul_le (Or.inl hK) (Or.inl (ENNReal.natCast_ne_top _))]
-    refine le_of_eq_of_le ?_ hi
-    rw [div_eq_mul_inv, div_eq_mul_inv, ENNReal.mul_inv (Or.inr (ENNReal.natCast_ne_top _))
-      (Or.inr hR)]
-    ring
+    rw [Set.Finite.mem_toFinset, Set.mem_ofPred_eq, eBY_apply, notMem_eConfSet] at hi
+    calc (#R : ℝ≥0∞)⁻¹ / δ = (δ * #R / Fintype.card ι)⁻¹ / Fintype.card ι := by
+          -- `(δ * #R / K)⁻¹ / K = K / K / (δ * #R) = δ⁻¹ * #R⁻¹`
+          rw [ENNReal.inv_div (.inl (ENNReal.natCast_ne_top _)) (.inl hK), ENNReal.div_right_comm,
+            ENNReal.div_self hK (ENNReal.natCast_ne_top _), one_div,
+            ENNReal.mul_inv (.inr (ENNReal.natCast_ne_top _)) (.inr hR), div_eq_mul_inv, mul_comm]
+      _ ≤ E i (θ i) ω / Fintype.card ι := by gcongr
   calc fcp (eBY (fun i ↦ eConfSet (E i)) δ R ω) θ R / δ
       = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ / δ := by
-        rw [fcp_def, fdp_def, max_eq_left (Nat.one_le_cast.2 (card_pos.2 ⟨j, hj⟩)), sum_const,
-          nsmul_eq_mul, div_eq_mul_inv (b := δ), div_eq_mul_inv, div_eq_mul_inv, mul_assoc]
+        rw [fcp_def, fdp_eq_sum_inv_card _ ⟨j, hj⟩, ENNReal.sum_div]
     _ ≤ ∑ i ∈ R ∩ N, E i (θ i) ω / Fintype.card ι :=
         sum_le_sum fun i hi' ↦ hi i (mem_inter.1 hi').2
     _ ≤ ∑ i ∈ R, E i (θ i) ω / Fintype.card ι := sum_le_sum_of_subset inter_subset_left
@@ -289,7 +155,7 @@ after seeing the data. -/
 theorem lintegral_iSup_fcp_eBY_div_le_one (hC : ∀ i, IsLevelFreeEConfSet (C i) (S i))
     (hP : ∀ i, P ∈ S i (θ i)) :
     ∫⁻ ω, ⨆ (R : Finset ι) (δ : ℝ≥0∞), fcp (eBY C δ R ω) θ R / δ ∂P ≤ 1 := by
-  choose E hE hCE using hC
+  choose E hE hCE using fun i ↦ isLevelFreeEConfSet_iff.1 (hC i)
   obtain rfl : C = fun i ↦ eConfSet (E i) := funext hCE
   -- the mean of the `K` expectations, each at most one, is at most one
   exact (lintegral_iSup_fcp_eBY_eConfSet_div_le fun i ↦ (hE i (θ i)).measurable.aemeasurable).trans
@@ -306,36 +172,26 @@ theorem lintegral_fcp_eBY_le (hC : ∀ i, IsLevelFreeEConfSet (C i) (S i)) (hP :
     ∫⁻ ω, fcp (eBY C δ (R ω) ω) θ (R ω) ∂P ≤ δ := by
   rcases eq_or_ne δ ∞ with rfl | hδ
   · exact le_top
-  choose E hE hCE using hC
-  obtain rfl : C = fun i ↦ eConfSet (E i) := funext hCE
-  -- Almost surely every e-value is finite, so the pointwise bound can be multiplied by `δ`.
-  have hfin : ∀ᵐ ω ∂P, ∀ i, E i (θ i) ω < ∞ := ae_all_iff.2 fun i ↦ (hE i (θ i)).ae_lt_top (hP i)
-  have hle : ∀ᵐ ω ∂P, fcp (eBY (fun i ↦ eConfSet (E i)) δ (R ω) ω) θ (R ω) ≤
-      δ * ∑ i, E i (θ i) ω / Fintype.card ι := by
-    filter_upwards [hfin] with ω hω
-    set x := fcp (eBY (fun i ↦ eConfSet (E i)) δ (R ω) ω) θ (R ω)
-    have hx : x / δ ≤ ∑ i, E i (θ i) ω / Fintype.card ι :=
-      (fcp_eBY_eConfSet_div_le E θ δ (R ω) ω).trans (sum_le_sum_of_subset (subset_univ _))
-    rcases eq_or_ne δ 0 with rfl | hδ₀
-    · -- at level `0` a missed parameter has an infinite e-value, so nothing is missed
-      have hsum : ∑ i, E i (θ i) ω / Fintype.card ι ≠ ∞ :=
-        ENNReal.sum_ne_top.2 fun i _ ↦ ENNReal.div_ne_top (hω i).ne (by
-          have : Nonempty ι := ⟨i⟩
-          exact Nat.cast_ne_zero.2 Fintype.card_ne_zero)
-      by_contra hx₀
-      exact hsum (eq_top_mono hx (ENNReal.div_zero (fun h ↦ hx₀ (by simp [h]))))
-    · calc x = δ * (x / δ) := (ENNReal.mul_div_cancel hδ₀ hδ).symm
-        _ ≤ δ * ∑ i, E i (θ i) ω / Fintype.card ι := by gcongr
-  have hE' : ∀ i, AEMeasurable (E i (θ i)) P := fun i ↦ (hE i (θ i)).measurable.aemeasurable
-  calc ∫⁻ ω, fcp (eBY (fun i ↦ eConfSet (E i)) δ (R ω) ω) θ (R ω) ∂P
-      ≤ ∫⁻ ω, δ * ∑ i, E i (θ i) ω / Fintype.card ι ∂P := lintegral_mono_ae hle
-    _ = δ * ((∑ i, ∫⁻ ω, E i (θ i) ω ∂P) / Fintype.card ι) := by
-        rw [lintegral_const_mul'' _ (Finset.aemeasurable_fun_sum _ fun i _ ↦ (hE' i).div_const _),
-          lintegral_finsetSum_div fun i _ ↦ hE' i]
-    _ ≤ δ * 1 := by
-        gcongr
-        exact ENNReal.div_le_of_le_mul
-          ((sum_le_sum fun i _ ↦ (hE i (θ i)).lintegral_le_one (hP i)).trans_eq (by simp))
+  rcases eq_or_ne δ 0 with rfl | hδ₀
+  · -- at level `0` a missed parameter has an infinite e-value, so almost surely nothing is missed
+    choose E hE hCE using fun i ↦ isLevelFreeEConfSet_iff.1 (hC i)
+    obtain rfl : C = fun i ↦ eConfSet (E i) := funext hCE
+    refine (lintegral_congr_ae ?_).trans_le lintegral_zero.le
+    filter_upwards [ae_all_iff.2 fun i ↦ (hE i (θ i)).ae_lt_top (hP i)] with ω hω
+    by_contra hx₀
+    have hle := fcp_eBY_eConfSet_div_le E θ 0 (R ω) ω
+    rw [ENNReal.div_zero hx₀, top_le_iff, ENNReal.sum_eq_top] at hle
+    obtain ⟨i, -, hi⟩ := hle
+    exact ENNReal.div_ne_top (hω i).ne
+      (Nat.cast_ne_zero.2 (Fintype.card_pos_iff.2 ⟨i⟩).ne') hi
+  -- otherwise `fcp = δ * (fcp / δ)` is at most `δ` times the post-hoc supremum
+  calc ∫⁻ ω, fcp (eBY C δ (R ω) ω) θ (R ω) ∂P
+      ≤ ∫⁻ ω, δ * ⨆ (R : Finset ι) (δ : ℝ≥0∞), fcp (eBY C δ R ω) θ R / δ ∂P :=
+        lintegral_mono fun ω ↦ (ENNReal.mul_div_cancel hδ₀ hδ).symm.le.trans (by
+          gcongr; exact le_iSup₂ (f := fun R δ ↦ fcp (eBY C δ R ω) θ R / δ) (R ω) δ)
+    _ = δ * ∫⁻ ω, ⨆ (R : Finset ι) (δ : ℝ≥0∞), fcp (eBY C δ R ω) θ R / δ ∂P :=
+        lintegral_const_mul' _ _ hδ
+    _ ≤ δ * 1 := by gcongr; exact lintegral_iSup_fcp_eBY_div_le_one hC hP
     _ = δ := mul_one δ
 
 end EBY
