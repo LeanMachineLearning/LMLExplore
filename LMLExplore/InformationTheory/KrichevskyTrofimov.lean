@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
-public import TauCeti.Analysis.SpecialFunctions.Beta
+public import TauCeti.Analysis.SpecialFunctions.Beta.Basic
 public import LMLExplore.Probability.Distributions.Beta
 public import LMLExplore.Analysis.SpecialFunctions.Log.Basic
 

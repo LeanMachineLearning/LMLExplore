@@ -182,7 +182,7 @@ theorem klDiv_gammaMeasure {r' : ℝ} (ha : 0 < a) (hr : 0 < r) (hr' : 0 < r') :
   rwa [expFamily_natParam_gammaMeasure ha hr (div_pos ha hr),
     expFamily_natParam_gammaMeasure ha hr (div_pos ha hr'), div_div_cancel₀ ha.ne',
     div_div_cancel₀ ha.ne', expFamilyDiv_gammaMeasure ha hr (div_pos ha hr) (div_pos ha hr'),
-    div_div_div_cancel_left' _ _ ha.ne'] at h
+    div_div_div_cancel_left₀ _ _ ha.ne'] at h
 
 /-- The members of the exponential family of `gammaMeasure a r` are the gamma laws
 `gammaMeasure a b` of shape `a` and positive rate `b`. -/
