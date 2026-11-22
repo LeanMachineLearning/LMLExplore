@@ -22,7 +22,7 @@ the level is level-free (`ProbabilityTheory.IsLevelFreeEConfSet`) when the same 
 at every level, `C α = eConfSet E α`; it is then antitone in the level.
 
 These are the fixed-time counterparts of the confidence sequences of
-`LMLExplore.EValues.ConfidenceSequence`.
+`LMLExplore.EValues.Confidence.Sequence`.
 
 ## Main definitions
 
@@ -36,6 +36,8 @@ These are the fixed-time counterparts of the confidence sequences of
 * `ProbabilityTheory.IsEConfSet.isConfSet`, `ProbabilityTheory.isEConfSet_iff_isConfSet`: an
   e-confidence set is a confidence set, and at a level `α ≠ ∞` every confidence set is an
   e-confidence set [RW, §13.1].
+* `ProbabilityTheory.forall_isLevelFreeEConfSet_iff`: a family of level-free families of
+  e-confidence sets is given by a single family of e-variables.
 
 ## References
 
@@ -158,5 +160,15 @@ theorem IsLevelFreeEConfSet.antitone {C : ℝ≥0∞ → Ω → Set Θ} (hC : Is
   exact eConfSet_anti E ω
 
 end ConfSet
+
+/-- A family `C i` of level-free families of e-confidence sets, for parameters of types `Θ i`,
+is given by a single family of e-variables: `C i = eConfSet (E i)` for all `i`. -/
+theorem forall_isLevelFreeEConfSet_iff {ι : Type*} {Θ : ι → Type*}
+    {C : ∀ i, ℝ≥0∞ → Ω → Set (Θ i)} {S : ∀ i, Θ i → Set (Measure Ω)} :
+    (∀ i, IsLevelFreeEConfSet (C i) (S i)) ↔ ∃ E : ∀ i, Θ i → Ω → ℝ≥0∞,
+      (∀ i θ, IsEVar (E i θ) (S i θ)) ∧ C = fun i ↦ eConfSet (E i) := by
+  refine ⟨fun hC ↦ ?_, fun ⟨E, hE, hC⟩ ↦ hC ▸ fun i ↦ isLevelFreeEConfSet_eConfSet (hE i)⟩
+  choose E hE hCE using hC
+  exact ⟨E, hE, funext hCE⟩
 
 end ProbabilityTheory

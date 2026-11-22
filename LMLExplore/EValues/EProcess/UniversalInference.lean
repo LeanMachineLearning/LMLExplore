@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.ConfidenceSequence
+public import LMLExplore.EValues.Confidence.Sequence
 public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.EValues.TestSupermartingale.LikelihoodRatio
 public import LMLExplore.EValues.TestSupermartingale.Predictor

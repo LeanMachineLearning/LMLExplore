@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.ConfidenceSet
+public import LMLExplore.EValues.Confidence.Set
 public import LMLExplore.EValues.MultipleTesting.EClosure
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 
@@ -120,14 +120,13 @@ theorem fcp_eBY_eConfSet_div_le (E : ∀ i, Θ i → Ω → ℝ≥0∞) (θ : �
     intro i hi
     rw [Set.Finite.mem_toFinset, Set.mem_ofPred_eq, eBY_apply, notMem_eConfSet] at hi
     calc (#R : ℝ≥0∞)⁻¹ / δ = (δ * #R / Fintype.card ι)⁻¹ / Fintype.card ι := by
-          -- `(δ * #R / K)⁻¹ / K = K / K / (δ * #R) = δ⁻¹ * #R⁻¹`
-          rw [ENNReal.inv_div (.inl (ENNReal.natCast_ne_top _)) (.inl hK), ENNReal.div_right_comm,
-            ENNReal.div_self hK (ENNReal.natCast_ne_top _), one_div,
-            ENNReal.mul_inv (.inr (ENNReal.natCast_ne_top _)) (.inr hR), div_eq_mul_inv, mul_comm]
+          rw [ENNReal.inv_div (.inl (ENNReal.natCast_ne_top _)) (.inl hK)]
+          simp [div_eq_mul_inv, ENNReal.mul_inv, hR, mul_comm, mul_assoc,
+            ENNReal.mul_inv_cancel hK (ENNReal.natCast_ne_top _)]
       _ ≤ E i (θ i) ω / Fintype.card ι := by gcongr
   calc fcp (eBY (fun i ↦ eConfSet (E i)) δ R ω) θ R / δ
       = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ / δ := by
-        rw [fcp_def, fdp_eq_sum_inv_card _ ⟨j, hj⟩, ENNReal.sum_div]
+        rw [fcp_def, fdp_eq_sum_inv_card, ENNReal.sum_div]
     _ ≤ ∑ i ∈ R ∩ N, E i (θ i) ω / Fintype.card ι :=
         sum_le_sum fun i hi' ↦ hi i (mem_inter.1 hi').2
     _ ≤ ∑ i ∈ R, E i (θ i) ω / Fintype.card ι := sum_le_sum_of_subset inter_subset_left
@@ -155,8 +154,7 @@ after seeing the data. -/
 theorem lintegral_iSup_fcp_eBY_div_le_one (hC : ∀ i, IsLevelFreeEConfSet (C i) (S i))
     (hP : ∀ i, P ∈ S i (θ i)) :
     ∫⁻ ω, ⨆ (R : Finset ι) (δ : ℝ≥0∞), fcp (eBY C δ R ω) θ R / δ ∂P ≤ 1 := by
-  choose E hE hCE using fun i ↦ isLevelFreeEConfSet_iff.1 (hC i)
-  obtain rfl : C = fun i ↦ eConfSet (E i) := funext hCE
+  obtain ⟨E, hE, rfl⟩ := forall_isLevelFreeEConfSet_iff.1 hC
   -- the mean of the `K` expectations, each at most one, is at most one
   exact (lintegral_iSup_fcp_eBY_eConfSet_div_le fun i ↦ (hE i (θ i)).measurable.aemeasurable).trans
     (ENNReal.div_le_of_le_mul ((sum_le_sum fun i _ ↦ (hE i (θ i)).lintegral_le_one (hP i)).trans_eq
@@ -174,16 +172,10 @@ theorem lintegral_fcp_eBY_le (hC : ∀ i, IsLevelFreeEConfSet (C i) (S i)) (hP :
   · exact le_top
   rcases eq_or_ne δ 0 with rfl | hδ₀
   · -- at level `0` a missed parameter has an infinite e-value, so almost surely nothing is missed
-    choose E hE hCE using fun i ↦ isLevelFreeEConfSet_iff.1 (hC i)
-    obtain rfl : C = fun i ↦ eConfSet (E i) := funext hCE
+    obtain ⟨E, hE, rfl⟩ := forall_isLevelFreeEConfSet_iff.1 hC
     refine (lintegral_congr_ae ?_).trans_le lintegral_zero.le
     filter_upwards [ae_all_iff.2 fun i ↦ (hE i (θ i)).ae_lt_top (hP i)] with ω hω
-    by_contra hx₀
-    have hle := fcp_eBY_eConfSet_div_le E θ 0 (R ω) ω
-    rw [ENNReal.div_zero hx₀, top_le_iff, ENNReal.sum_eq_top] at hle
-    obtain ⟨i, -, hi⟩ := hle
-    exact ENNReal.div_ne_top (hω i).ne
-      (Nat.cast_ne_zero.2 (Fintype.card_pos_iff.2 ⟨i⟩).ne') hi
+    simp [fcp_def, hω]
   -- otherwise `fcp = δ * (fcp / δ)` is at most `δ` times the post-hoc supremum
   calc ∫⁻ ω, fcp (eBY C δ (R ω) ω) θ (R ω) ∂P
       ≤ ∫⁻ ω, δ * ⨆ (R : Finset ι) (δ : ℝ≥0∞), fcp (eBY C δ R ω) θ R / δ ∂P :=

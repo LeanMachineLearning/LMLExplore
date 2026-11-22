@@ -109,10 +109,11 @@ noncomputable def fdp (N R : Finset ι) : ℝ≥0∞ :=
 
 theorem fdp_def (N R : Finset ι) : fdp N R = #(R ∩ N) / max (#R : ℝ≥0∞) 1 := (rfl)
 
-/-- For a nonempty rejection set `R`, each true null of `R` contributes `1 / #R` to the false
-discovery proportion. -/
-theorem fdp_eq_sum_inv_card (N : Finset ι) (hR : R.Nonempty) :
-    fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := by
+/-- Each true null of the rejection set `R` contributes `1 / #R` to the false discovery
+proportion. -/
+theorem fdp_eq_sum_inv_card (N R : Finset ι) : fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := by
+  rcases R.eq_empty_or_nonempty with rfl | hR
+  · simp [fdp_def]
   rw [fdp_def, max_eq_left (Nat.one_le_cast.2 hR.card_pos), sum_const, nsmul_eq_mul,
     div_eq_mul_inv]
 
