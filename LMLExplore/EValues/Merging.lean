@@ -369,9 +369,8 @@ almost surely finite under every member of the merging null. -/
 theorem IsEVar.mono_mergingNull [Countable ι] {𝒞 : Set (Measure (ι → ℝ≥0∞))}
     (hG : IsEVar G (mergingNull 𝒞)) (hF : Measurable F)
     (hle : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) : IsEVar F (mergingNull 𝒞) :=
-  ⟨hF, fun _ hμ ↦ (lintegral_mono_ae (ae_le_of_forall_nnreal_le
-    (ae_all_iff.2 fun i ↦ (isEVar_eval_mergingNull 𝒞 i).ae_ne_top hμ) hle)).trans
-      (hG.lintegral_le_one hμ)⟩
+  hG.mono_ae hF (eventuallyLE_quasiSure_iff.2 fun _ hμ ↦ ae_le_of_forall_nnreal_le
+    (ae_all_iff.2 fun i ↦ (isEVar_eval_mergingNull 𝒞 i).ae_ne_top hμ) hle)
 
 omit [Fintype ι] in
 /-- A measurable function dominated on finite arguments by an e-merging function is e-merging:

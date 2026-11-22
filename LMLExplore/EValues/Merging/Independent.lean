@@ -103,6 +103,8 @@ against which the third function integrates to `47 / 43`.
 
 ## References
 
+* [VW21] V. Vovk and R. Wang, *E-values: calibration, combination and applications*, Ann. Statist.
+  49 (2021), arXiv:1912.06116v4: Section 4 (the product of independent e-values).
 * [VW24] V. Vovk and R. Wang, *Merging sequential e-values via martingales*, Electron. J.
   Statist. 18 (2024), arXiv:2007.06382v3: Section 2 (merging functions for independent e-values),
   Section 6 (generalized martingale merging functions), Section 7 (the questions answered here).
@@ -138,6 +140,9 @@ theorem mem_productLaws :
     μ ∈ productLaws ↔ ∃ ν : ι → Measure α, (∀ i, IsProbabilityMeasure (ν i)) ∧ Measure.pi ν = μ :=
   Iff.rfl
 
+/-- A product of probability measures is a product law. It has priority over the unfolding
+`ProbabilityTheory.mem_productLaws`, after which `simp` could not close the goal. -/
+@[simp high]
 theorem pi_mem_productLaws (ν : ι → Measure α) [∀ i, IsProbabilityMeasure (ν i)] :
     Measure.pi ν ∈ productLaws :=
   ⟨ν, inferInstance, rfl⟩

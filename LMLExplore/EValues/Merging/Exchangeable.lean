@@ -106,7 +106,7 @@ variable {ι α Ω : Type*} {mα : MeasurableSpace α} {mΩ : MeasurableSpace Ω
 
 /-- The **exchangeable laws** on `ι → α`: the measures invariant under the permutations of the
 coordinates, the joint laws of exchangeable families
-(`ProbabilityTheory.ExchangeableFamily.map_mem_exchangeableLaws`). Their merging null is the null
+(`TauCeti.Probability.ExchangeableFamily.map_mem_exchangeableLaws`). Their merging null is the null
 of the joint laws of exchangeable e-values. -/
 def exchangeableLaws : Set (Measure (ι → α)) :=
   {μ | ∀ σ : Equiv.Perm ι, μ.map (fun e i ↦ e (σ i)) = μ}

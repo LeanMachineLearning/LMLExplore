@@ -73,6 +73,9 @@ probability spaces in `Type`, which contains the finite spaces of the constructi
 * [DdRSSVV11] A. P. Dawid, S. de Rooij, G. Shafer, A. Shen, N. Vereshchagin and V. Vovk, *Insuring
   against loss of evidence in game-theoretic probability*, Statist. Probab. Lett. 81 (2011):
   Theorem 1.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, paper project
+  `RemyDegenne/evalues_research` (2026), `notes/book/verification-math.md`, §1b (adjusters as bets
+  on inverse p-values).
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
   inference must rely on nonnegative martingales*, arXiv:2009.03167v3, Lemma 3.
 * [ShSVV11] G. Shafer, A. Shen, N. Vereshchagin and V. Vovk, *Test martingales, Bayes factors and
@@ -102,14 +105,16 @@ structure IsAdjuster (A : ℝ≥0∞ → ℝ≥0∞) : Prop where
 exactly when it is monotone on `[1, ∞]` and its restriction to `[1, ∞]` is an e-variable for the
 laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform null by
 `x ↦ x⁻¹`: the change of variables `p = x⁻¹` turns the integral condition of an adjuster into the
-calibration condition of `p ↦ A p⁻¹`. -/
+calibration condition of `p ↦ A p⁻¹`. As [EVR26, §1b] points out, the null formulation does not
+remove this integral change of variables (`ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`),
+which is still needed. -/
 theorem isAdjuster_iff_isEVar_mapNull_inv :
     IsAdjuster A ↔ MonotoneOn A (Ici 1) ∧
       IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) := by
   have h (hA : MonotoneOn A (Ici 1)) :
       IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
         ∫⁻ x in Ioi (1 : ℝ), A (ENNReal.ofReal x) / ENNReal.ofReal (x ^ 2) ≤ 1 := by
-    rw [isEVar_mapNull_iff measurable_inv hA.measurable_indicator_Ici_one, indicator_Ici_comp_inv,
+    rw [isEVar_indicator_Ici_mapNull_inv_iff,
       isEVar_superUniformNull_iff_of_antitone hA.antitone_indicator_Iic_comp_inv,
       setLIntegral_indicator_Iic_comp_inv]
   exact ⟨fun hA ↦ ⟨hA.monotoneOn, (h hA.monotoneOn).2 hA.lintegral_le_one⟩,
@@ -123,8 +128,8 @@ theorem isAdjuster_iff_isPToECalibrator :
     IsAdjuster A ↔ IsPToECalibrator ((Iic 1).indicator fun p ↦ A p⁻¹) := by
   rw [isAdjuster_iff_isEVar_mapNull_inv, isPToECalibrator_iff_isEVar_superUniformNull,
     antitone_indicator_Iic_comp_inv_iff]
-  refine and_congr_right fun hA ↦ ?_
-  rw [isEVar_mapNull_iff measurable_inv hA.measurable_indicator_Ici_one, indicator_Ici_comp_inv]
+  refine and_congr_right fun _ ↦ ?_
+  rw [isEVar_indicator_Ici_mapNull_inv_iff]
   exact (and_iff_right fun x hx ↦ indicator_of_notMem (not_le.2 hx) _).symm
 
 /-- A p-to-e calibrator `f` gives the adjuster `x ↦ f x⁻¹` [CR26, §2.4]. -/

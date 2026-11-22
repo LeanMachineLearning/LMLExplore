@@ -56,10 +56,12 @@ the upper semicontinuous calibrators with `f 0 = ∞` and `∫₀¹ f = 1` [RW, 
   antitone e-variables for the super-uniform null `ProbabilityTheory.superUniformNull` that vanish
   on `(1, ∞]`.
 * `ProbabilityTheory.IsPToECalibrator.le_inv`: a calibrator is at most `x ↦ x⁻¹`.
-* `ProbabilityTheory.indicator_Ici_comp_inv`, `MonotoneOn.measurable_indicator_Ici_one`: the
-  restriction of `A` to `[1, ∞]`, read through `x = p⁻¹`, is `p ↦ A p⁻¹` on `[0, 1]`, and it is
-  measurable when `A` is monotone on `[1, ∞]`.
-* `ProbabilityTheory.antitone_indicator_Iic_comp_inv_iff` and
+* `indicator_Ici_comp_inv`, `MonotoneOn.measurable_indicator_Ici_one`: the restriction of `A` to
+  `[1, ∞]`, read through `x = p⁻¹`, is `p ↦ A p⁻¹` on `[0, 1]`, and it is measurable when `A` is
+  monotone on `[1, ∞]`; `ProbabilityTheory.isEVar_indicator_Ici_mapNull_inv_iff`: so the former
+  is an e-variable for the laws of the inverse p-values exactly when the latter is one for the
+  super-uniform null.
+* `antitone_indicator_Iic_comp_inv_iff` and
   `ProbabilityTheory.setLIntegral_indicator_Iic_comp_inv`: through `p = x⁻¹`, a function `A` is
   monotone on `[1, ∞]` exactly when `p ↦ A p⁻¹` on `[0, 1]` is antitone, and the integral of the
   latter is `∫₁^∞ A x / x ^ 2 dx`; these relate calibrators and the adjusters of [CR26, §2.4].
@@ -168,7 +170,7 @@ theorem _root_.MonotoneOn.antitone_indicator_Iic_comp_inv {A : ℝ≥0∞ → �
 
 /-- A function `A` is monotone on `[1, ∞]` exactly when `p ↦ A p⁻¹` on `[0, 1]`, zero on
 `(1, ∞]`, is antitone. -/
-theorem antitone_indicator_Iic_comp_inv_iff {A : ℝ≥0∞ → ℝ≥0∞} :
+theorem _root_.antitone_indicator_Iic_comp_inv_iff {A : ℝ≥0∞ → ℝ≥0∞} :
     Antitone ((Iic 1).indicator fun p ↦ A p⁻¹) ↔ MonotoneOn A (Ici 1) := by
   refine ⟨fun h x hx y hy hxy ↦ ?_, MonotoneOn.antitone_indicator_Iic_comp_inv⟩
   have h := h (ENNReal.inv_le_inv.2 hxy)
@@ -177,7 +179,7 @@ theorem antitone_indicator_Iic_comp_inv_iff {A : ℝ≥0∞ → ℝ≥0∞} :
 
 /-- Through `x = p⁻¹`, the restriction of `A` to `[1, ∞]` is the function `p ↦ A p⁻¹` on
 `[0, 1]`, zero on `(1, ∞]`. -/
-theorem indicator_Ici_comp_inv (A : ℝ≥0∞ → ℝ≥0∞) :
+theorem _root_.indicator_Ici_comp_inv (A : ℝ≥0∞ → ℝ≥0∞) :
     (Ici 1).indicator A ∘ (·⁻¹) = (Iic 1).indicator fun p ↦ A p⁻¹ := by
   ext p
   simp [indicator_apply, ENNReal.one_le_inv]
@@ -189,6 +191,21 @@ theorem _root_.MonotoneOn.measurable_indicator_Ici_one {A : ℝ≥0∞ → ℝ�
   have h := hA.antitone_indicator_Iic_comp_inv.measurable.comp measurable_inv
   rwa [← indicator_Ici_comp_inv, Function.comp_assoc, inv_involutive.comp_self,
     Function.comp_id] at h
+
+/-- **The change of variables `x = p⁻¹` between bets.** The restriction of `A` to `[1, ∞]` is an
+e-variable for the laws of the inverses `p⁻¹` of the p-variables, the image of the super-uniform
+null by `x ↦ x⁻¹`, exactly when `p ↦ A p⁻¹`, on `[0, 1]` and zero on `(1, ∞]`, is an e-variable
+for the super-uniform null. -/
+theorem isEVar_indicator_Ici_mapNull_inv_iff (A : ℝ≥0∞ → ℝ≥0∞) :
+    IsEVar ((Ici 1).indicator A) (mapNull (·⁻¹) superUniformNull) ↔
+      IsEVar ((Iic 1).indicator fun p ↦ A p⁻¹) superUniformNull := by
+  rw [← indicator_Ici_comp_inv]
+  by_cases hA : Measurable ((Ici 1).indicator A)
+  · exact isEVar_mapNull_iff measurable_inv hA
+  -- neither side is measurable, since `x ↦ x⁻¹` is a measurable involution
+  refine iff_of_false (fun h ↦ hA h.measurable) fun h ↦ hA ?_
+  have h := h.measurable.comp measurable_inv
+  rwa [Function.comp_assoc, inv_involutive.comp_self, Function.comp_id] at h
 
 /-- **The change of variables `p = x⁻¹`.** For every `A : ℝ≥0∞ → ℝ≥0∞`, the integral over
 `[0, 1]` of `p ↦ A p⁻¹`, zero on `(1, ∞]`, is the integral of `x ↦ A x / x ^ 2` over `(1, ∞)`.
