@@ -11,7 +11,7 @@ import LMLExplore.MeasureTheory.Function.EssSupFamily
 /-!
 # The Halmos–Savage lemma
 
-A family of s-finite measures `ν i` dominated by a σ-finite measure `μ` has a countable
+A family of measures `ν i` dominated by a σ-finite measure `μ` has a countable
 subfamily with the same null measurable sets: a measurable set that is null for every member of
 the subfamily is null for every member of the family [HS49, Lemma 7]. The members of the
 subfamily, summed or mixed, give one measure whose null sets are those of the whole family, which
@@ -40,13 +40,14 @@ namespace MeasureTheory.Measure
 
 variable {α ι : Type*} {mα : MeasurableSpace α} {μ : Measure α} {ν : ι → Measure α}
 
-/-- **The Halmos–Savage lemma** [HS49, Lemma 7]. A family of s-finite measures absolutely
-continuous with respect to a σ-finite measure has a countable subfamily with the same null
-measurable sets: a measurable set that is null for every member of the subfamily is null for
-every member of the family. -/
-theorem exists_countable_forall_measure_eq_zero [SigmaFinite μ] [∀ i, SFinite (ν i)]
-    (hν : ∀ i, ν i ≪ μ) :
+/-- **The Halmos–Savage lemma** [HS49, Lemma 7]. A family of measures absolutely continuous with
+respect to a σ-finite measure has a countable subfamily with the same null measurable sets: a
+measurable set that is null for every member of the subfamily is null for every member of the
+family. -/
+theorem exists_countable_forall_measure_eq_zero [SigmaFinite μ] (hν : ∀ i, ν i ≪ μ) :
     ∃ s : Set ι, s.Countable ∧ ∀ A, MeasurableSet A → (∀ i ∈ s, ν i A = 0) → ∀ i, ν i A = 0 := by
+  -- each member is s-finite, being absolutely continuous with respect to `μ`
+  have (i : ι) : SFinite (ν i) := sfinite_of_absolutelyContinuous (hν i)
   rcases isEmpty_or_nonempty ι with hι | hι
   · exact ⟨∅, countable_empty, fun _ _ _ i ↦ isEmptyElim i⟩
   -- a sequence of densities whose supremum dominates every density almost everywhere

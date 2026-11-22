@@ -291,9 +291,6 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : 
   -- Halmos–Savage lemma; the sum of the members of their union is a reference measure
   have h (n : ℕ) : ∃ T : Set S, T.Countable ∧ ∀ A, MeasurableSet[ℱ n] A →
       (∀ P ∈ T, (P : Measure Ω) A = 0) → ∀ P ∈ S, P A = 0 := by
-    -- each restriction is s-finite, being absolutely continuous with respect to that of `μ`
-    have (P : S) : SFinite ((P : Measure Ω).trim (ℱ.le n)) :=
-      sfinite_of_absolutelyContinuous (hSμ P P.2 n)
     obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
       (μ := μ.trim (ℱ.le n)) (ν := fun P : S ↦ (P : Measure Ω).trim (ℱ.le n))
       fun P ↦ hSμ P P.2 n

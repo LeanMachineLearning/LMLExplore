@@ -86,7 +86,7 @@ exact means `∫⁻ E ∂P = 1`.
 * `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`,
   `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous`: the same for a
   countable null of s-finite measures [EVR26, Note 42, Theorem 9 (3), for finite nulls] and for a
-  null of s-finite measures dominated by a σ-finite measure [EVR26, Note 46].
+  null dominated by a σ-finite measure [EVR26, Note 46].
 * `ProbabilityTheory.exists_isMinimalCompleteClass_isEVar_of_absolutelyContinuous`: hence the
   e-variables of a dominated null have a minimal complete class [LRR26, Theorem 6.3].
 * `ProbabilityTheory.IsStronglyAdmissibleEVar.prod`: the product of two strongly admissible
@@ -482,12 +482,13 @@ theorem IsEVar.exists_isAdmissibleEVar_le (hS : S.Countable) (hS_sfin : ∀ P �
   · exact Measure.absolutelyContinuous_sum_right (⟨P, hP⟩ : S) .rfl
 
 /-- **Every e-variable for a dominated null is dominated by an admissible e-variable**
-[LRR26, Theorem 6.3, in the dominated case; EVR26, Note 46]. For a null of s-finite measures
-dominated by a σ-finite measure, every e-variable is at most an admissible e-variable. -/
+[LRR26, Theorem 6.3, in the dominated case; EVR26, Note 46]. For a null dominated by a σ-finite
+measure, every e-variable is at most an admissible e-variable. -/
 theorem IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous (μ : Measure Ω) [SigmaFinite μ]
-    (hSμ : ∀ P ∈ S, P ≪ μ) (hS : ∀ P ∈ S, SFinite P) (hE : IsEVar E S) :
+    (hSμ : ∀ P ∈ S, P ≪ μ) (hE : IsEVar E S) :
     ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' := by
-  have (P : S) : SFinite (P : Measure Ω) := hS P P.2
+  -- each member is s-finite, being absolutely continuous with respect to `μ`
+  have (P : S) : SFinite (P : Measure Ω) := sfinite_of_absolutelyContinuous (hSμ P P.2)
   -- by the Halmos–Savage lemma, a countable subfamily has the null sets of the null, and the sum
   -- of its members is a reference measure
   obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
@@ -501,13 +502,13 @@ theorem IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous (μ : Measure 
     exact (Measure.sum_apply_eq_zero' hA).1 hA0 ⟨P, hPT⟩
 
 /-- **A dominated null has a minimal complete class of e-variables** [LRR26, Theorem 6.3]. For a
-null of s-finite measures dominated by a σ-finite measure, the e-variables have a minimal complete
-class for the quasi-sure order (`Filter.IsMinimalCompleteClass`). -/
+null dominated by a σ-finite measure, the e-variables have a minimal complete class for the
+quasi-sure order (`Filter.IsMinimalCompleteClass`). -/
 theorem exists_isMinimalCompleteClass_isEVar_of_absolutelyContinuous (μ : Measure Ω)
-    [SigmaFinite μ] (hSμ : ∀ P ∈ S, P ≪ μ) (hS : ∀ P ∈ S, SFinite P) :
+    [SigmaFinite μ] (hSμ : ∀ P ∈ S, P ≪ μ) :
     ∃ 𝓒, (quasiSure S).IsMinimalCompleteClass {X | IsEVar X S} 𝓒 :=
   Filter.exists_isMinimalCompleteClass_iff.2 fun _ hE ↦
-    (IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous μ hSμ hS hE).imp
+    (IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous μ hSμ hE).imp
       fun _ h ↦ ⟨h.1, .of_forall h.2⟩
 
 /-! ### Products -/
