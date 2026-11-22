@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Basic.ENNReal.BigOperators
+public import LMLExplore.EValues.MultipleTesting.EBH
 public import LMLExplore.Probability.Martingale.TestSupermartingale
 
 /-!
@@ -13,9 +14,11 @@ public import LMLExplore.Probability.Martingale.TestSupermartingale
 
 Let `M i`, for `i` in a finite type `ι` of `K` hypotheses, be test supermartingales for one
 filtration, and let every hypothesis be true under `P`. The e-BH procedure at level `α` [WR22]
-applied to the running maxima `⨆ n, M i n` makes a rejection exactly when some nonempty set `R` of
-hypotheses is self-consistent: `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`. Since every
-hypothesis is true, the false discovery rate of the procedure is the probability of this event.
+applied to the running maxima `⨆ n, M i n` makes a rejection,
+`(eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty`, exactly when some nonempty set `R` of hypotheses is
+self-consistent: `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`
+(`ProbabilityTheory.eBH_nonempty_iff`). Since every hypothesis is true, the false discovery rate
+of the procedure is the probability of this event.
 The running maxima are not e-variables, and the procedure does not control the false discovery
 rate at level `α` [TGdH25]. This file and `LMLExplore.EValues.MultipleTesting.RunningMaxima.Three`
 bound the inflation: the probability of a rejection is at most `4 * α / 3` for two hypotheses and
@@ -23,15 +26,14 @@ at most `3 * α / 2` for three [EVR26, Notes 10 and 18].
 
 ## Main statements
 
-* `ProbabilityTheory.measure_exists_selfConsistent_le_of_key`: the potential argument, which
-  bounds the probability that e-BH on the running maxima rejects by the initial value of a
-  potential built from affine forms satisfying the key inequality.
-* `ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_two`: for two hypotheses,
-  e-BH on the running maxima rejects with probability at most `4 * α / 3`
-  [EVR26, Note 10, Theorem].
+* `ProbabilityTheory.measure_eBH_nonempty_le_of_key`: the potential argument, which bounds the
+  probability that e-BH on the running maxima rejects by the initial value of a potential built
+  from affine forms satisfying the key inequality.
+* `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_two`: for two hypotheses, e-BH on
+  the running maxima rejects with probability at most `4 * α / 3` [EVR26, Note 10, Theorem].
 
 The bound `3 * α / 2` for three hypotheses,
-`ProbabilityTheory.measure_exists_selfConsistent_iSup_le_of_card_eq_three`, is in
+`ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_three`, is in
 `LMLExplore.EValues.MultipleTesting.RunningMaxima.Three`.
 
 ## Implementation notes
@@ -47,9 +49,9 @@ moving to that point. The potential is at least `1` in the winning states, which
 probability that the flags ever win by the initial expectation of the potential. No optional
 stopping is needed. The key inequality is checked at real points, cell by cell, by `linarith`.
 
-The rejection event is written out, through the self-consistency condition
-`K ≤ α * #R * E i` for every `i ∈ R` with `E i = ⨆ n, M i n ω`, rather than through a definition
-of the e-BH procedure.
+The potential argument uses the rejection event only through `ProbabilityTheory.eBH_nonempty_iff`:
+some nonempty set `R` is self-consistent, `K ≤ α * #R * E i` for every `i ∈ R` with
+`E i = ⨆ n, M i n ω`.
 
 The potential argument, the bound for two hypotheses and the bound for three in
 `LMLExplore.EValues.MultipleTesting.RunningMaxima.Three` are adapted from
@@ -167,7 +169,7 @@ private lemma key_of_real {lev : ℝ≥0∞ → ℕ}
       ← ENNReal.ofReal_sum_mul_add (fun i _ ↦ hC _ _ i) (fun i _ ↦ hr i) (hC₀ _ _)]
     exact ENNReal.ofReal_le_ofReal hj'
 
-/-- If some nonempty set `R` is self-consistent at level `α` for the running maxima of the
+/-- If a nonempty set `R` is self-consistent at level `α` for the running maxima of the
 processes `M i`, then for every `t ∈ (0, α⁻¹)` the running flags of the processes `t⁻¹ * M i`
 reach every upper set `W` that contains, for each nonempty `s`, the flag state equal to
 `K + 1 - #s` on `s` and to `0` elsewhere. Here the level function `lev` satisfies
@@ -180,7 +182,7 @@ private lemma exists_partialSups_mem_of_selfConsistent [DecidableEq ι]
     (hWs : ∀ s : Finset ι, s.Nonempty →
       (fun i ↦ if i ∈ s then Fintype.card ι + 1 - s.card else 0) ∈ W)
     {ω : Ω} {R : Finset ι} (hR : R.Nonempty)
-    (hRe : ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω) :
+    (hRe : IsSelfConsistent (fun i ↦ ⨆ n, M i n ω) α R) :
     ∃ n, partialSups (fun k i ↦ lev (t⁻¹ * M i k ω)) n ∈ W := by
   have hk1 : 1 ≤ R.card := hR.card_pos
   have hkK : R.card ≤ Fintype.card ι := R.card_le_univ
@@ -195,7 +197,7 @@ private lemma exists_partialSups_mem_of_selfConsistent [DecidableEq ι]
   have hreach : ∀ i ∈ R, ∃ n, Fintype.card ι + 1 - R.card ≤ lev (t⁻¹ * M i n ω) := by
     intro i hi
     have hle : (Fintype.card ι : ℝ≥0∞) / (R.card * α) ≤ ⨆ n, M i n ω :=
-      ENNReal.div_le_of_le_mul ((hRe i hi).trans_eq (by ring))
+      ENNReal.div_le_of_le_mul ((isSelfConsistent_iff.1 hRe i hi).trans_eq (by ring))
     have heq : (Fintype.card ι : ℝ≥0∞) / (R.card * α) = α⁻¹ * (Fintype.card ι / R.card) := by
       rw [div_eq_mul_inv, div_eq_mul_inv, ENNReal.mul_inv (Or.inl hk0)
         (Or.inl (ENNReal.natCast_ne_top _))]
@@ -227,7 +229,7 @@ on a nonempty `s` and to `0` elsewhere) and on which every form has constant ter
 If the form `j` of the initial state has no constant term and coefficients of sum at most `q`,
 for some `q > 0`, then e-BH at level `α` on the running maxima rejects with probability at most
 `ENNReal.ofReal q * α`. -/
-theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Nonempty J]
+theorem measure_eBH_nonempty_le_of_key [DecidableEq ι] [Finite J] [Nonempty J]
     {M : ι → ℕ → Ω → ℝ≥0∞} (hM : ∀ i, IsTestSupermartingale (M i) ℱ {P}) {lev : ℝ≥0∞ → ℕ}
     (hlev_meas : Measurable lev)
     (hlev : ∀ k : ℕ, 1 ≤ k → k ≤ Fintype.card ι → ∀ x, (Fintype.card ι : ℝ≥0∞) / k < x →
@@ -243,33 +245,23 @@ theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Non
       (fun i ↦ if i ∈ s then Fintype.card ι + 1 - s.card else 0) ∈ W)
     (hW1 : ∀ b ∈ W, ∀ j, 1 ≤ C₀ b j) (j : J) (hfresh : C₀ 0 j = 0) {q : ℝ} (hq0 : 0 < q)
     (hq : ∑ i, C 0 j i ≤ q) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset ι, R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤ ENNReal.ofReal q * α := by
+    P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ ENNReal.ofReal q * α := by
   -- at level `0` nothing is rejected
   rcases eq_or_ne α 0 with rfl | hα
-  · suffices h : {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ 0 * R.card * ⨆ n, M i n ω} = ∅ by
-      rw [h, measure_empty]
-      exact zero_le
-    refine Set.eq_empty_of_forall_notMem fun ω ⟨R, ⟨i, hi⟩, hR⟩ ↦ ?_
-    have h := hR i hi
-    simp only [zero_mul, nonpos_iff_eq_zero, Nat.cast_eq_zero, Fintype.card_eq_zero_iff] at h
-    exact h.false i
+  · simp
   rcases eq_or_ne α ⊤ with rfl | hαtop
   · rw [ENNReal.mul_top (ENNReal.ofReal_pos.2 hq0).ne']
     exact le_top
   -- the bound `q / t` for every `t ∈ (0, α⁻¹)`
   have ht (t : ℝ≥0∞) (ht0 : t ≠ 0) (ht : t < α⁻¹) :
-      P {ω | ∃ R : Finset ι, R.Nonempty ∧
-        ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤
-        ENNReal.ofReal q * t⁻¹ := by
+      P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ ENNReal.ofReal q * t⁻¹ := by
     have hX (i : ι) : IsENNSupermartingale (fun n ω ↦ t⁻¹ * M i n ω) ℱ {P} :=
       ⟨fun n ↦ ((hM i).adapted n).const_mul _, fun P' hP' n s hs ↦
         (hM i).toIsENNSupermartingale.setLIntegral_mul_succ_le hP' measurable_const hs⟩
-    calc P {ω | ∃ R : Finset ι, R.Nonempty ∧
-          ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω}
+    calc P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty}
       _ ≤ P {ω | ∃ n, partialSups (fun k i ↦ lev (t⁻¹ * M i k ω)) n ∈ W} :=
-          measure_mono fun ω ⟨R, hR, hRe⟩ ↦
+          measure_mono fun ω hω ↦
+            have ⟨_, hR, hRe⟩ := eBH_nonempty_iff.1 hω
             exists_partialSups_mem_of_selfConsistent ht0 ht hlev hW hWs hR hRe
       _ ≤ ∫⁻ ω, (∑ i, ENNReal.ofReal (C 0 j i) * (t⁻¹ * M i 0 ω) +
             ENNReal.ofReal (C₀ 0 j)) ∂P :=
@@ -290,9 +282,7 @@ theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Non
           rw [← Finset.sum_mul, ENNReal.ofReal_sum_of_nonneg fun i _ ↦ hC 0 j i]
       _ ≤ ENNReal.ofReal q * t⁻¹ := by gcongr
   -- let `t` increase to `α⁻¹`
-  have hprod : P {ω | ∃ R : Finset ι, R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} * α⁻¹ ≤
-      ENNReal.ofReal q := by
+  have hprod : P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} * α⁻¹ ≤ ENNReal.ofReal q := by
     rw [mul_comm]
     refine ENNReal.mul_le_of_forall_lt fun a ha b hb ↦ ?_
     rcases eq_or_ne a 0 with rfl | ha0
@@ -304,18 +294,6 @@ theorem measure_exists_selfConsistent_le_of_key [DecidableEq ι] [Finite J] [Non
         (ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.inv_ne_zero.2 hαtop))
           (Or.inl (ENNReal.inv_ne_top.2 hα))).2 hprod
     _ = ENNReal.ofReal q * α := by rw [div_eq_mul_inv, inv_inv]
-
-/-- Reindexing the hypotheses along `e : ι ≃ κ` does not decrease the probability of the
-rejection event of e-BH on running maxima. -/
-theorem measure_exists_selfConsistent_le_of_equiv {κ : Type*} [Fintype κ] (e : ι ≃ κ)
-    (M : ι → ℕ → Ω → ℝ≥0∞) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset ι, R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤
-    P {ω | ∃ R : Finset κ, R.Nonempty ∧
-      ∀ k ∈ R, (Fintype.card κ : ℝ≥0∞) ≤ α * R.card * ⨆ n, M (e.symm k) n ω} := by
-  refine measure_mono fun ω ⟨R, hR, hRe⟩ ↦ ⟨R.map e.toEmbedding, hR.map, fun k hk ↦ ?_⟩
-  obtain ⟨i, hi, rfl⟩ := Finset.mem_map.1 hk
-  simpa [Fintype.card_congr e] using hRe i hi
 
 end Potential
 
@@ -417,11 +395,10 @@ private lemma isUpperSet_wins2 : IsUpperSet {b | Wins2 b} := by
   omega
 
 /-- The bound `4 * α / 3` for two test supermartingales indexed by `Fin 2`. -/
-private lemma measure_exists_selfConsistent_iSup_fin_two_le {M : Fin 2 → ℕ → Ω → ℝ≥0∞}
+private lemma measure_eBH_iSup_nonempty_le_fin_two {M : Fin 2 → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ {P}) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset (Fin 2), R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card (Fin 2) : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤ 4 * α / 3 := by
-  have h := measure_exists_selfConsistent_le_of_key hM monotone_lev2.measurable le_lev2
+    P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ 4 * α / 3 := by
+  have h := measure_eBH_nonempty_le_of_key hM monotone_lev2.measurable le_lev2
     (C := coef2) (C₀ := const2)
     (fun b j i ↦ by unfold coef2; split_ifs <;> fin_cases i <;> norm_num)
     (fun b j ↦ by unfold const2; split_ifs <;> norm_num)
@@ -441,17 +418,20 @@ end Two
 
 /-- **E-BH on the running maxima of two test supermartingales.** Let `M i` be test
 supermartingales for one filtration and nulls `H i`, for two hypotheses, both true under `P`.
-E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection, that is, some
-nonempty set `R` of hypotheses has `2 ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`, with
-probability at most `4 * α / 3` [EVR26, Note 10, Theorem]. The measure `P` need not be a
-probability measure. -/
-theorem measure_exists_selfConsistent_iSup_le_of_card_eq_two {ι : Type*} [Fintype ι]
+E-BH at level `α` applied to the running maxima `⨆ n, M i n` makes a rejection with probability
+at most `4 * α / 3` [EVR26, Note 10, Theorem]. The measure `P` need not be a probability
+measure. -/
+theorem measure_eBH_iSup_nonempty_le_of_card_eq_two {ι : Type*} [Fintype ι]
     (hι : Fintype.card ι = 2) {H : ι → Set (Measure Ω)} {M : ι → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ i, IsTestSupermartingale (M i) ℱ (H i)) (hP : ∀ i, P ∈ H i) (α : ℝ≥0∞) :
-    P {ω | ∃ R : Finset ι, R.Nonempty ∧
-      ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) ≤ α * R.card * ⨆ n, M i n ω} ≤ 4 * α / 3 :=
-  (measure_exists_selfConsistent_le_of_equiv (Fintype.equivFinOfCardEq hι) M α).trans
-    (measure_exists_selfConsistent_iSup_fin_two_le
-      (fun _ ↦ (hM _).anti_set (Set.singleton_subset_iff.2 (hP _))) α)
+    P {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} ≤ 4 * α / 3 := by
+  -- relabel the hypotheses by `Fin 2`
+  let σ := (Fintype.equivFinOfCardEq hι).symm
+  have h := measure_eBH_iSup_nonempty_le_fin_two (M := fun k ↦ M (σ k))
+    (fun _ ↦ (hM _).anti_set (Set.singleton_subset_iff.2 (hP _))) α
+  have hset : {ω | (eBH (fun k ↦ ⨆ n, M (σ k) n ω) α).Nonempty} =
+      {ω | (eBH (fun i ↦ ⨆ n, M i n ω) α).Nonempty} :=
+    Set.ext fun ω ↦ eBH_comp_equiv_nonempty (e := fun i ↦ ⨆ n, M i n ω) σ
+  rwa [hset] at h
 
 end ProbabilityTheory
