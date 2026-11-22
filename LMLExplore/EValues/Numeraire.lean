@@ -76,6 +76,20 @@ almost surely positive.
   `maxUtility_singleton_eq_klDiv`.
 * `ProbabilityTheory.IsNumeraire.eq_of_countable`: on a countable space where `Q` charges every
   point, numeraires are unique everywhere.
+* `ProbabilityTheory.isNumeraire_withDensity_of_mem_effectiveSet`,
+  `ProbabilityTheory.IsNumeraire.lintegral_ripr_eq_one`,
+  `ProbabilityTheory.exists_isNumeraire_ae_ne_top_iff`, `ProbabilityTheory.exists_isNumeraire_iff`:
+  **which e-variables are numeraires** [EVR26, Note 42, Theorem 7]: for a null of measures of mass
+  at most one, an e-variable `X` is a numeraire against some probability measure exactly when it
+  is exact under a member `μ` of the effective null, `∫⁻ X ∂μ = 1`, or infinite at some point. It
+  is then a numeraire against `μ.withDensity X`, respectively against the Dirac mass at that point;
+  conversely a numeraire that is finite almost surely is exact under the reverse information
+  projection.
+* `ProbabilityTheory.isNumeraire_withDensity_of_mem_convexHull`: an e-variable is a numeraire
+  against its tilt of any mixture of members under which it is exact [EVR26, Note 42,
+  Theorem 9 (2)].
+* `ProbabilityTheory.IsNumeraire.ae_ne_zero_of_isEVar_const`: a numeraire is almost surely
+  positive as soon as some positive constant is an e-variable.
 
 ## References
 
@@ -84,6 +98,9 @@ almost surely positive.
   Theorem 3.13, Corollary 3.15, Theorem 4.1, Corollary 4.2 and Theorem 4.7.
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6, Theorems 3.20 and 6.15.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and Lean
+  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026, Note 42, Theorems 7
+  and 9, after its file `Results/NumeraireAdmissible.lean`.
 -/
 
 public section
@@ -440,6 +457,120 @@ theorem ripr_singleton_eq [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (hQP
     (hPQ : P ≪ Q) : ripr Q {P} = P :=
   ripr_eq_of_isEVar_rnDeriv (by simp) (subset_effectiveSet (mem_singleton P)) hQP hPQ
     (isNumeraire_rnDeriv hQP).isEVar
+
+/-! ### Which e-variables are numeraires -/
+
+/-- An e-variable `X` whose expectation under a measure `μ` is finite and at least that of every
+e-variable is a numeraire against `μ.withDensity X`. -/
+theorem isNumeraire_withDensity (hX : IsEVar X S) (hXμ : ∫⁻ ω, X ω ∂μ ≠ ∞)
+    (h : ∀ Y, IsEVar Y S → ∫⁻ ω, Y ω ∂μ ≤ ∫⁻ ω, X ω ∂μ) :
+    IsNumeraire X S (μ.withDensity X) := by
+  have hX_meas := hX.measurable
+  -- under `μ.withDensity X`, the finite support of `X` has mass `∫⁻ X ∂μ`
+  have h_fsupp : (μ.withDensity X) X.fsupport = ∫⁻ ω, X ω ∂μ := by
+    rw [withDensity_apply _ hX.measurable_fsupport, ← lintegral_indicator hX.measurable_fsupport]
+    refine lintegral_congr_ae ?_
+    filter_upwards [ae_lt_top hX_meas hXμ] with ω hω
+    by_cases hω0 : X ω = 0
+    · by_cases hωs : ω ∈ X.fsupport <;> simp [hωs, hω0]
+    · exact indicator_of_mem (a := ω) (s := X.fsupport) ⟨hω.ne, hω0⟩ X
+  refine isNumeraire_of_lintegral_div_le hX (by rw [h_fsupp]; exact hXμ) fun Y hY ↦ ?_
+  have h_eq : ∫⁻ ω, Y ω / X ω ∂μ.withDensity X = ∫⁻ ω, X ω * (Y ω / X ω) ∂μ :=
+    lintegral_withDensity_eq_lintegral_mul _ hX_meas (hY.measurable.div hX_meas)
+  rw [h_fsupp, h_eq]
+  exact (lintegral_mono fun ω ↦ ENNReal.mul_div_le).trans (h Y hY)
+
+/-- **An e-variable exact under a member of the effective null is a numeraire** [EVR26, Note 42,
+Theorem 7]. If `μ` is in the effective null of `S` and the e-variable `X` has `∫⁻ X ∂μ = 1`, then
+`X` is a numeraire of `S` against `μ.withDensity X`, a measure of mass `∫⁻ X ∂μ = 1`. -/
+theorem isNumeraire_withDensity_of_mem_effectiveSet (hX : IsEVar X S) (hμ : μ ∈ effectiveSet S)
+    (hXμ : ∫⁻ ω, X ω ∂μ = 1) : IsNumeraire X S (μ.withDensity X) :=
+  isNumeraire_withDensity hX (by simp [hXμ]) fun Y hY ↦ hXμ ▸ hμ Y hY
+
+/-- **A numeraire is exact under the reverse information projection** [EVR26, Note 42,
+Theorem 7]. If the members of `S` have mass at most one and `X` is a numeraire of `S` against a
+probability measure `Q`, with `X` finite `Q`-almost surely, then `X` has expectation `1` under the
+reverse information projection `ripr Q S`, which is in the effective null of `S`
+(`ripr_mem_effectiveSet`). -/
+theorem IsNumeraire.lintegral_ripr_eq_one [IsProbabilityMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1)
+    (hX : IsNumeraire X S Q) (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞) : ∫⁻ ω, X ω ∂ripr Q S = 1 := by
+  have hX_meas : AEMeasurable X Q := hX.measurable.aemeasurable
+  rw [hX.ripr_eq hS, lintegral_withDensity_inv_eq_lintegral_div hX_meas hX_meas,
+    lintegral_div_self_eq_measure_fsupport hX_meas,
+    measure_fsupport_eq_measure_univ hX_top (hX.ae_ne_zero hS), measure_univ]
+
+/-- **Which e-variables are numeraires against an alternative under which they are finite**
+[EVR26, Note 42, Theorem 7]. For a null of measures of mass at most one, an e-variable `X` is a
+numeraire of `S` against some probability measure under which it is almost surely finite exactly
+when some member `μ` of the effective null of `S` has `∫⁻ X ∂μ = 1`. -/
+theorem exists_isNumeraire_ae_ne_top_iff (hS : ∀ P ∈ S, P univ ≤ 1) (hX : IsEVar X S) :
+    (∃ Q : Measure Ω, IsProbabilityMeasure Q ∧ IsNumeraire X S Q ∧ ∀ᵐ ω ∂Q, X ω ≠ ∞) ↔
+      ∃ μ ∈ effectiveSet S, ∫⁻ ω, X ω ∂μ = 1 := by
+  refine ⟨fun ⟨Q, _, hXQ, hX_top⟩ ↦ ⟨ripr Q S, ripr_mem_effectiveSet Q hS,
+    hXQ.lintegral_ripr_eq_one hS hX_top⟩, fun ⟨μ, hμ, hXμ⟩ ↦ ⟨μ.withDensity X, ?_,
+    isNumeraire_withDensity_of_mem_effectiveSet hX hμ hXμ, ?_⟩⟩
+  · exact ⟨by rw [withDensity_apply _ .univ, Measure.restrict_univ, hXμ]⟩
+  · rw [ae_withDensity_iff hX.measurable]
+    filter_upwards [ae_lt_top hX.measurable (by simp [hXμ])] with ω hω _ using hω.ne
+
+/-- **Which e-variables are numeraires** [EVR26, Note 42, Theorem 7]. For a null of measures of
+mass at most one, an e-variable `X` is a numeraire of `S` against some probability measure exactly
+when it is exact under a member of the effective null, `∫⁻ X ∂μ = 1`, or infinite at some point.
+At a point `ω` where `X ω = ∞`, `X` is a numeraire against the Dirac mass at `ω`. -/
+theorem exists_isNumeraire_iff (hS : ∀ P ∈ S, P univ ≤ 1) (hX : IsEVar X S) :
+    (∃ Q : Measure Ω, IsProbabilityMeasure Q ∧ IsNumeraire X S Q) ↔
+      (∃ μ ∈ effectiveSet S, ∫⁻ ω, X ω ∂μ = 1) ∨ ∃ ω, X ω = ∞ := by
+  rw [← exists_isNumeraire_ae_ne_top_iff hS hX]
+  refine ⟨fun ⟨Q, hQ, hXQ⟩ ↦ ?_, ?_⟩
+  · by_cases h_top : ∀ᵐ ω ∂Q, X ω ≠ ∞
+    · exact .inl ⟨Q, hQ, hXQ, h_top⟩
+    · by_contra h
+      push Not at h
+      exact h_top (.of_forall h.2)
+  rintro (⟨Q, hQ, hXQ, -⟩ | ⟨ω, hω⟩)
+  · exact ⟨Q, hQ, hXQ⟩
+  · refine ⟨Measure.dirac ω, inferInstance,
+      isNumeraire_of_lintegral_div_le hX (measure_ne_top _ _) fun Y hY ↦ ?_⟩
+    have hYX : Measurable fun ω ↦ Y ω / X ω := hY.measurable.div hX.measurable
+    rw [lintegral_dirac' ω hYX, hω, ENNReal.div_top]
+    exact zero_le
+
+/-- **An e-variable is a numeraire against its tilt of a mixture of members under which it is
+exact** [EVR26, Note 42, Theorem 9 (2)]. If `μ` is a convex combination of members `P` of the null
+with `∫⁻ X ∂P = 1`, then the e-variable `X` is a numeraire of `S` against `μ.withDensity X`. The
+null is arbitrary. -/
+theorem isNumeraire_withDensity_of_mem_convexHull (hX : IsEVar X S)
+    (hμ : μ ∈ convexHull ℝ≥0∞ {P | P ∈ S ∧ ∫⁻ ω, X ω ∂P = 1}) :
+    IsNumeraire X S (μ.withDensity X) := by
+  -- the measures under which `X` has a finite integral, at least that of every e-variable
+  have h_conv : Convex ℝ≥0∞ {μ : Measure Ω | ∫⁻ ω, X ω ∂μ ≠ ∞ ∧
+      ∀ Y, IsEVar Y S → ∫⁻ ω, Y ω ∂μ ≤ ∫⁻ ω, X ω ∂μ} := by
+    intro μ hμ ν hν a b _ _ hab
+    have ha : a ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top (hab ▸ le_self_add)
+    have hb : b ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top (hab ▸ le_add_self)
+    simp only [mem_ofPred_eq, lintegral_add_measure, lintegral_smul_measure, smul_eq_mul]
+    exact ⟨ENNReal.add_ne_top.2 ⟨ENNReal.mul_ne_top ha hμ.1, ENNReal.mul_ne_top hb hν.1⟩,
+      fun Y hY ↦ add_le_add (mul_le_mul_right (hμ.2 Y hY) a) (mul_le_mul_right (hν.2 Y hY) b)⟩
+  have h_sub : {P | P ∈ S ∧ ∫⁻ ω, X ω ∂P = 1} ⊆
+      {μ : Measure Ω | ∫⁻ ω, X ω ∂μ ≠ ∞ ∧ ∀ Y, IsEVar Y S → ∫⁻ ω, Y ω ∂μ ≤ ∫⁻ ω, X ω ∂μ} :=
+    fun P ⟨hP, hPX⟩ ↦ ⟨by simp [hPX], fun Y hY ↦ (hY.lintegral_le_one hP).trans_eq hPX.symm⟩
+  have h := convexHull_min h_sub h_conv hμ
+  exact isNumeraire_withDensity hX h.1 h.2
+
+/-! ### Positivity of numeraires -/
+
+/-- **A numeraire is almost surely positive when a positive constant is an e-variable.** If `X`
+is a numeraire of `S` against `Q`, with `Q {0 < X < ∞} < ∞`, and some constant `c ≠ 0` is an
+e-variable for `S`, then `X` is `Q`-almost surely positive. Statlib's `IsNumeraire.ae_ne_zero` is
+the case `c = 1`, for a null of measures of mass at most one. -/
+theorem IsNumeraire.ae_ne_zero_of_isEVar_const (hX : IsNumeraire X S Q) (hQ : Q X.fsupport ≠ ∞)
+    {c : ℝ≥0∞} (hc : c ≠ 0) (hcS : IsEVar (fun _ ↦ c) S) : ∀ᵐ ω ∂Q, X ω ≠ 0 := by
+  have h : ∫⁻ ω, c / X ω ∂Q ≠ ∞ :=
+    ne_top_of_le_ne_top hQ (hX.lintegral_div_le_measure_fsupport hcS)
+  filter_upwards [ae_lt_top (f := fun ω ↦ c / X ω) (measurable_const.div hX.measurable) h]
+    with ω hω hω0
+  rw [hω0, ENNReal.div_zero hc] at hω
+  exact lt_irrefl _ hω
 
 /-! ### Uniqueness on a countable space -/
 
