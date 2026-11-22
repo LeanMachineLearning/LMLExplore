@@ -65,8 +65,9 @@ Proposition 8.3].
   `ProbabilityTheory.IsEVar.comp_isEVar`: an e-variable for `mergingNull 𝒞` merges e-variables
   whose joint laws lie in `𝒞`. The validity of e-merging functions, and of the merging functions
   for independent and for exchangeable e-values, are its instances.
-* `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: the quasi-sure filter of
-  `mergingNull univ` is the principal filter of the points with finite coordinates.
+* `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: for finitely many coordinates,
+  the quasi-sure filter of `mergingNull univ` is the principal filter of the points with finite
+  coordinates.
 * `ProbabilityTheory.IsEVar.mono_mergingNull`: a measurable function dominated on finite arguments
   by an e-variable for a merging null is one.
 * `ProbabilityTheory.mergingNull_univ_subset_constraintNull`,
@@ -501,9 +502,9 @@ private lemma le_and_forall_le_of_add_sum_mul_le [Fintype ι] {w₀ v₀ : ℝ�
 
 /-- An **admissible** e-merging function [VW21, §3]: an admissible e-variable for the merging
 null of all measures. Its e-variables are the e-merging functions
-(`isEMerging_iff_isEVar_mergingNull`) and its quasi-sure filter is the principal filter of the
-finite vectors (`quasiSure_mergingNull_univ_eq_principal`), so `F` is admissible when every
-e-merging function dominating it at finite arguments equals it there
+(`isEMerging_iff_isEVar_mergingNull`). For finite `ι`, its quasi-sure filter is the principal
+filter of the finite vectors (`quasiSure_mergingNull_univ_eq_principal`), so `F` is admissible
+when every e-merging function dominating it at finite arguments equals it there
 (`isAdmissibleEMerging_iff_isAdmissible`, `IsAdmissibleEMerging.eq_of_le`). Values at infinite
 arguments are not compared, since they do not affect the e-merging property
 (`ProbabilityTheory.IsEMerging.of_le`). -/
