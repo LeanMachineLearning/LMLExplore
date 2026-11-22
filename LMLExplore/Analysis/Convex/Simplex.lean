@@ -54,7 +54,7 @@ supported distributions, not a subset of `α → ℝ`.
 * `LMLExplore.sum_ofReal_mul_le_iSup`: an average `∑ a, w a * x a` of extended nonnegative reals
   with weights `w` of the simplex is at most their supremum.
 * `LMLExplore.sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one`: the real form of a mean
-  at most `1`: for finite values `e a` in `ℝ≥0∞` and weights `w` of the simplex, if
+  at most `1`: for values `e a` in `ℝ≥0∞` and weights `w` of the simplex, if
   `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`, then `∑ a, w a * ((e a).toReal - 1) ≤ 0`.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
@@ -162,14 +162,15 @@ lemma sum_ofReal_mul_le_iSup {w : α → ℝ} (hw : w ∈ simplex α) (x : α �
         rw [← Finset.sum_mul, ← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ hw.1 a, hw.2,
           ENNReal.ofReal_one, one_mul]
 
-/-- The real form of a mean at most `1`: for weights `w` in the simplex and finite values `e a`,
+/-- The real form of a mean at most `1`: for weights `w` in the simplex and values `e a`,
 if `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`, then `∑ a, w a * ((e a).toReal - 1) ≤ 0`. -/
 lemma sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one {w : α → ℝ} {e : α → ENNReal}
-    (hw : w ∈ simplex α) (hfin : ∀ a, e a ≠ ⊤) (h : ∑ a, ENNReal.ofReal (w a) * e a ≤ 1) :
+    (hw : w ∈ simplex α) (h : ∑ a, ENNReal.ofReal (w a) * e a ≤ 1) :
     ∑ a, w a * ((e a).toReal - 1) ≤ 0 := by
   obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
   have := ENNReal.toReal_mono ENNReal.one_ne_top h
-  rw [ENNReal.toReal_sum fun a _ ↦ ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hfin a)] at this
+  rw [ENNReal.toReal_sum fun a _ ↦ ne_top_of_le_ne_top ENNReal.one_ne_top
+    ((Finset.single_le_sum (fun _ _ ↦ zero_le) (Finset.mem_univ a)).trans h)] at this
   simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal (hw0 _), ENNReal.toReal_one] at this
   simp only [mul_sub, mul_one, Finset.sum_sub_distrib, hw1]
   linarith

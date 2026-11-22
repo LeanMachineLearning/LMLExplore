@@ -430,8 +430,7 @@ private lemma IsEMerging.sum_mul_toReal_sub_one_nonpos [Finite ι] (hF : IsEMerg
     ((sum_smul_dirac_mem_mergingNull_univ_iff (w := fun k ↦ ENNReal.ofReal (w k))
       (x := fun k i ↦ (x k i : ℝ≥0∞))).2 ⟨hsum, hcoord⟩)
   rw [LMLExplore.lintegral_sum_smul_dirac] at hle
-  exact LMLExplore.sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one hw
-    (fun k ↦ (hF.lt_top (x k)).ne) hle
+  exact LMLExplore.sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one hw hle
 
 /-- **Every e-merging function is dominated by a weighted mean** [Wan25, Theorem 1; Cle26; RW,
 Theorem 8.4]: for some nonnegative weights `w₀` and `w i` summing to `1`,

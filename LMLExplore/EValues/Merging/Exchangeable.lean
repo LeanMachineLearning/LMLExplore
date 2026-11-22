@@ -57,7 +57,8 @@ which dominates it and differs from it.
 The direction "merging implies the bound" of `isExchangeableEMerging_iff` applies the
 convex-like form of Lagrange duality (`LMLExplore.exists_forall_le_add_sum_mul_of_convexLike`) to
 the program of maximizing `∫⁻ F ∂μ` over the permutation-invariant probability measures `μ` under
-the constraints `∫⁻ e, e i ∂μ ≤ 1`, as for `ProbabilityTheory.IsEMerging.exists_le_add_sum_mul`,
+the constraints `∫⁻ e, e i ∂μ ≤ 1`, through
+`ProbabilityTheory.exists_forall_toReal_lintegral_le_add_sum_mul`,
 and evaluates the Lagrangian at the uniform laws on orbits, whose coordinate means are all the
 mean; the constant `l` is the sum of the multipliers.
 

@@ -643,7 +643,6 @@ theorem exists_mem_nonredundantWeights_toReal_le_of_isEVar (hg : ∀ i, Measurab
   obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_noArbitrageOn hY
     (f := fun x ↦ (E x).toReal - 1) fun _ _ _ _ hxY hw hwg ↦
       sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one hw
-        (fun k ↦ (lt_top_of_isEVar_of_noArbitrageOn hg hY hE (hxY k)).ne)
         (sum_ofReal_mul_le_one_of_isEVar (forall_mem_range.2 hg) hE hw (forall_mem_range.2 hwg))
   exact ⟨π, hπK, fun x hx ↦ by linarith [hπ x hx]⟩
 
