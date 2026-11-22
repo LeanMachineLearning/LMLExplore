@@ -64,6 +64,8 @@ from one another.
 
 ## Main statements
 
+* `ProbabilityTheory.noArbitrageOn_of_forall_neg`: a point of `Y` at which every function is
+  negative excludes arbitrage on `Y`.
 * `ProbabilityTheory.exists_mem_nonredundantWeights_sum_mul_eq`: every nonnegative combination is,
   on `Y`, a combination with nonredundant weights [LRR26, Lemma 3.2].
 * `ProbabilityTheory.exists_finset_sum_le_of_noArbitrageOn`: without arbitrage, the total mass of
@@ -124,6 +126,19 @@ def NoArbitrageOn (a : ι → 𝓧 → ℝ) (Y : Set 𝓧) : Prop :=
 theorem noArbitrageOn_iff : NoArbitrageOn a Y ↔ ∀ ρ : ι → ℝ, (∀ i, 0 ≤ ρ i) →
     (∀ x ∈ Y, 0 ≤ ∑ i, ρ i * a i x) → ∀ x ∈ Y, ∑ i, ρ i * a i x = 0 :=
   Iff.rfl
+
+/-- A point of `Y` at which every function `a i` is negative excludes arbitrage on `Y`: a
+nonnegative combination that is nonnegative at that point has all its weights zero. -/
+theorem noArbitrageOn_of_forall_neg {x₀ : 𝓧} (hx₀ : x₀ ∈ Y) (ha : ∀ i, a i x₀ < 0) :
+    NoArbitrageOn a Y := by
+  refine noArbitrageOn_iff.2 fun ρ hρ h x _ ↦ ?_
+  have hle : ∀ i ∈ Finset.univ, ρ i * a i x₀ ≤ 0 :=
+    fun i _ ↦ mul_nonpos_of_nonneg_of_nonpos (hρ i) (ha i).le
+  have h0 := (Finset.sum_eq_zero_iff_of_nonpos hle).1
+    (le_antisymm (Finset.sum_nonpos hle) (h x₀ hx₀))
+  have hρ0 (i : ι) : ρ i = 0 :=
+    (mul_eq_zero.1 (h0 i (Finset.mem_univ i))).resolve_right (ha i).ne
+  simp [hρ0]
 
 /-- The nonnegative weights whose support is not redundant on `Y` [LRR26, (3.1)]: no nonzero
 nonnegative combination of the functions `a i` with support inside that of the weights vanishes
@@ -626,16 +641,9 @@ theorem exists_mem_nonredundantWeights_toReal_le_of_isEVar (hg : ∀ i, Measurab
     (hY : NoArbitrageOn g Y) (hE : IsEVar E (constraintNull (range g))) :
     ∃ π ∈ nonredundantWeights g Y, ∀ x ∈ Y, (E x).toReal ≤ 1 + ∑ i, π i * g i x := by
   obtain ⟨π, hπK, hπ⟩ := exists_mem_nonredundantWeights_le_of_noArbitrageOn hY
-    (f := fun x ↦ (E x).toReal - 1) fun α _ x w hxY hw hwg ↦ by
-      have hfin : ∀ k, E (x k) ≠ ∞ := fun k ↦
-        (lt_top_of_isEVar_of_noArbitrageOn hg hY hE (hxY k)).ne
-      have := ENNReal.toReal_mono ENNReal.one_ne_top
+    (f := fun x ↦ (E x).toReal - 1) fun _ _ _ _ hxY hw hwg ↦
+      sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one hw
         (sum_ofReal_mul_le_one_of_isEVar (forall_mem_range.2 hg) hE hw (forall_mem_range.2 hwg))
-      rw [ENNReal.toReal_sum fun k _ ↦ ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hfin k)] at this
-      have hw0 := (mem_simplex_iff.1 hw).1
-      simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal (hw0 _), ENNReal.toReal_one] at this
-      simp only [mul_sub, mul_one, Finset.sum_sub_distrib, (mem_simplex_iff.1 hw).2]
-      linarith
   exact ⟨π, hπK, fun x hx ↦ by linarith [hπ x hx]⟩
 
 /-- **The complete class theorem for finitely many constraints** [LRR26, Theorem 3.1]: for
