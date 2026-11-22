@@ -32,7 +32,7 @@ i.i.d. null `P₁` and an alternative `Q₁ ≪ P₁`, this makes the likelihood
 every stopping time that is finite everywhere (`isNumeraireAt_prod_rnDeriv`)
 [EVR26, Note 40, Proposition 6]. When the numeraires may be infinite with positive probability,
 the product is still optimal at every fixed time (`isNumeraireAt_prod_const`), by the same bound
-for the numeraires divided by the masses of their finite supports.
+for the numeraires multiplied by the masses of their finite supports.
 
 ## Main statements
 
@@ -400,17 +400,14 @@ theorem isNumeraireAt_prod_const (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbability
   -- `q i` is the mass of the finite support of the numeraire `X i`
   set q : ℕ → ℝ≥0∞ := fun i ↦ Q₁ i (X i).fsupport with hq
   have h_ne := ae_forall_ne_zero hS₁ hX
-  have h_top {ω : ℕ → 𝓧} (hω : ∀ j, X j (ω j) ≠ 0) {i : ℕ} (hi : i ∈ range n)
-      (h : X i (ω i) = ∞) : ∏ j ∈ range n, X j (ω j) = ∞ := by
-    rw [← mul_prod_erase _ _ hi, h]
-    exact ENNReal.top_mul (prod_ne_zero_iff.2 fun j _ ↦ hω j)
   -- the product is positive and finite where each factor is
   have h_supp : Measure.infinitePi Q₁ (fun ω ↦ ∏ i ∈ range n, X i (ω i)).fsupport =
       ∏ i ∈ range n, q i := by
     rw [← Measure.infinitePi_pi Q₁ fun i _ ↦ (hX i).measurable.measurable_fsupport]
     refine measure_congr (Filter.eventuallyEqSet_iff.2 ?_)
     filter_upwards [h_ne] with ω hω
-    refine ⟨fun h i hi ↦ ⟨fun h_top' ↦ h.1 (h_top hω hi h_top'),
+    simp only [Set.mem_pi, SetLike.mem_coe, Function.mem_fsupport]
+    refine ⟨fun h i hi ↦ ⟨fun h_top ↦ h.1 (WithTop.prod_eq_top hi h_top fun j _ ↦ hω j),
       hω i⟩, fun h ↦ ⟨ENNReal.prod_ne_top fun i hi ↦ (h i hi).1,
         prod_ne_zero_iff.2 fun i _ ↦ hω i⟩⟩
   rw [h_supp]
@@ -423,8 +420,9 @@ theorem isNumeraireAt_prod_const (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbability
       (measurePreserving_eval_infinitePi Q₁ i).quasiMeasurePreserving.ae hXi
     refine le_of_eq_of_le (lintegral_eq_zero_of_ae_eq_zero ?_) zero_le
     filter_upwards [hXi', h_ne] with ω hω hne
-    rw [Pi.zero_apply, h_top hne hi hω, ENNReal.div_top]
-  -- otherwise, divide the first `n` numeraires by the masses `q i` of their finite supports
+    have h_top : ∏ j ∈ range n, X j (ω j) = ∞ := WithTop.prod_eq_top hi hω fun j _ ↦ hne j
+    rw [Pi.zero_apply, h_top, ENNReal.div_top]
+  -- otherwise, multiply the first `n` numeraires by the masses `q i` of their finite supports
   have hq_ne : ∀ i ∈ range n, q i ≠ 0 := fun i hi h ↦ hq0 ⟨i, hi, h⟩
   set c : ℕ → ℝ≥0∞ := fun i ↦ if i < n then q i else 1 with hc
   have hqc (i : ℕ) : q i ≤ c i := by
@@ -453,16 +451,10 @@ theorem isNumeraireAt_prod_const (hS₁ : ∀ i, ∀ P ∈ S₁ i, IsProbability
     _ = 1 := ENNReal.inv_mul_cancel (hc0 i) (hc_top i)
   -- the e-process `F` read at time `n` only, as a sum over the times `k ≤ n`
   set g : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun k ω ↦ if k = n then F n ω else 0 with hg
-  have hg_meas (k : ℕ) : Measurable (g k) := by
-    simp only [hg]
-    split_ifs
-    exacts [hF.measurable n, measurable_const]
-  have hg_dep (k : ℕ) : DependsOn (g k) (Set.Iio k) := by
-    intro ω ω' h
-    simp only [hg]
-    split_ifs with hk
-    · exact (hF.adapted n).dependsOn_of_piLT (hk ▸ h)
-    · rfl
+  have hg_eproc : IsEProcess g piLT 𝓝 :=
+    isEProcess_ite_eq (hF.adapted n) fun _ hP ↦ (hF.isEVar n).lintegral_le_one hP
+  have hg_meas (k : ℕ) : Measurable (g k) := hg_eproc.measurable k
+  have hg_dep (k : ℕ) : DependsOn (g k) (Set.Iio k) := (hg_eproc.adapted k).dependsOn_of_piLT
   have hg_sum (ω : ℕ → 𝓧) (f : ℕ → ℝ≥0∞) :
       ∑ k ∈ range (n + 1), g k ω * f k = F n ω * f n := by
     rw [sum_eq_single_of_mem n (self_mem_range_succ n) fun k _ hk ↦ by simp [hg, hk]]

@@ -56,6 +56,8 @@ time `n`.
 * `Measurable.dependsOn_of_piLT`, `MeasureTheory.Filtration.measurable_piLT_of_dependsOn`: a
   function measurable at time `n` of `piLT` only depends on the first `n` coordinates, and a
   measurable function of the first `n` coordinates is measurable at time `n` of `piLT`.
+* `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `n` of `piLT` only
+  depends on the first `n` coordinates.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_lt`: a stopping time of `piLT` is determined, where
   it is finite, by the coordinates before it.
 * `MeasureTheory.Filtration.adapted_piLT_comp_initSeg`,
@@ -235,6 +237,13 @@ lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [Mea
   obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
   exact Measurable.comp (mα := piLT n) hg (measurable_piLT_initSeg le_rfl)
 
+/-- Membership in a set measurable at time `n` of `Filtration.piLT` only depends on the first `n`
+coordinates: the set form of `Measurable.dependsOn_of_piLT`. -/
+lemma _root_.MeasurableSet.dependsOn_of_piLT {s : Set (Π n, X n)} {n : ℕ}
+    (hs : MeasurableSet[piLT n] s) {ω ω' : Π n, X n} (h : ∀ i < n, ω i = ω' i) :
+    ω ∈ s ↔ ω' ∈ s :=
+  Eq.to_iff (((@measurable_mem _ s (piLT n)).2 hs).dependsOn_of_piLT fun i hi ↦ h i hi)
+
 /-- A stopping time of the strict past `Filtration.piLT` of the coordinates of a sequence is
 determined by the coordinates before it: if `τ ω = n` and `ω'` agrees with `ω` before `n`, then
 `τ ω' = n`, as `IsStoppingTime.eq_of_forall_le` for Mathlib's `Filtration.piLE`. -/
@@ -243,10 +252,7 @@ lemma _root_.MeasureTheory.IsStoppingTime.eq_of_forall_lt {τ : (Π n, X n) → 
     (h : ∀ i < n, ω i = ω' i) : τ ω' = n := by
   have hm : MeasurableSet[piLT n] {ω' | τ ω' = n} := by
     simpa using hτ.measurableSet_eq n
-  have h1 := (measurable_const.indicator hm).dependsOn_of_piLT (f := {ω' | τ ω' = n}.indicator
-    fun _ ↦ (1 : ℕ)) fun i hi ↦ h i hi
-  by_contra hne
-  simp [Set.indicator, hne, hn] at h1
+  exact (hm.dependsOn_of_piLT h).1 hn
 
 end piLTNat
 

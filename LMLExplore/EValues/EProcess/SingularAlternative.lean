@@ -25,12 +25,13 @@ the mass of the part of the alternative that the null does not exclude, which no
 numeraire, depends on the stopping time.
 
 Both hypotheses are needed. For the null of one Dirac mass `δ_z`, the process equal to `1` while
-the observations agree with `z` and to `∞` afterwards is optimal at every stopping time against
-every finite alternative (`ProbabilityTheory.isNumeraireAt_dirac`); for `z = 0` on `Bool` and
-Bernoulli observations, the alternative has a singular part but no set splits its absolutely
-continuous part, a Dirac mass. And when `Q₁` is singular to `P₁`, the process equal to `∞` from the
-first observation in a `P₁`-null set carrying `Q₁` on, and to `1` before, is optimal at every
-stopping time (`ProbabilityTheory.isNumeraireAt_ite_top_of_mutuallySingular`).
+the observations agree with `z` and to `∞` afterwards is optimal at every stopping time that is
+finite everywhere against every finite alternative (`ProbabilityTheory.isNumeraireAt_dirac`); for
+`z = 0` on `Bool` and Bernoulli observations, the alternative has a singular part but no set splits
+its absolutely continuous part, a Dirac mass. And when `Q₁` is singular to `P₁`, the process equal
+to `∞` from the first observation in a `P₁`-null set carrying `Q₁` on, and to `1` before, is
+optimal at every stopping time that is finite everywhere
+(`ProbabilityTheory.isNumeraireAt_ite_top_of_mutuallySingular`).
 
 ## Main statements
 
@@ -199,7 +200,7 @@ theorem not_isNumeraireAt_one_and_ite_of_null {P₁ Q₁ : Measure 𝓧} [IsProb
   have hE_top : ∀ᵐ ω ∂Q, (∃ i < τ ω, ω i ∈ N) → E (τ ω) ω = ∞ := by
     have hPN' : ∀ μ ∈ ({P} : Set (Measure (ℕ → 𝓧))), ∀ᵐ ω ∂μ, ∀ i, ω i ∉ N := by
       rintro _ rfl
-      exact Measure.ae_forall_apply_infinitePi _ fun _ ↦ measure_eq_zero_iff_ae_notMem.1 hPN
+      exact Measure.ae_forall_notMem_infinitePi _ fun _ ↦ hPN
     filter_upwards [h2.ae_eq_top_of_eq_top (isEProcess_ite_top (by simp) hN hPN')
       hτ.measurable'] with ω hω h
     simp only [stoppedValue_natCast] at hω
@@ -213,21 +214,9 @@ theorem not_isNumeraireAt_one_and_ite_of_null {P₁ Q₁ : Measure 𝓧} [IsProb
     rw [lintegral_mul_const _ (hX.measurable.indicator hA), lintegral_indicator hA, ← ha,
       ENNReal.mul_inv_cancel ha0 ha_top]
   set F : ℕ → (ℕ → 𝓧) → ℝ≥0∞ := fun n ω ↦ if n = 1 then W ω else 0 with hF_def
-  have hF_ad : Adapted piLT F := fun n ↦ by
-    by_cases hn : n = 1
-    · have hFn : F n = W := funext fun ω ↦ by simp [hF_def, hn]
-      rw [hFn, hn]
-      exact ((hX.measurable.indicator hA).comp h_eval0).div_const a
-    · have hFn : F n = fun _ ↦ 0 := funext fun ω ↦ by simp [hF_def, hn]
-      rw [hFn]
-      exact measurable_const
-  have hF : IsEProcess F piLT {P} := by
-    refine IsEProcess.of_lintegral_le_one hF_ad fun ρ _ _ _ μ hμ ↦ ?_
-    obtain rfl : μ = P := hμ
-    refine (lintegral_mono fun ω ↦ ?_).trans hW_int.le
-    simp only [stoppedValue, hF_def]
-    split_ifs
-    exacts [le_rfl, zero_le]
+  have hF : IsEProcess F piLT {P} :=
+    isEProcess_ite_eq (((hX.measurable.indicator hA).comp h_eval0).div_const a) fun μ hμ ↦
+      (mem_singleton_iff.1 hμ) ▸ hW_int.le
   have h_ineq := ((isNumeraireAt_iff hτ.measurable').1 h2).2 F hF
   simp only [stoppedValue_natCast] at h_ineq
   -- the left-hand side of the inequality at `τ` is at least `c`
@@ -242,13 +231,13 @@ theorem not_isNumeraireAt_one_and_ite_of_null {P₁ Q₁ : Measure 𝓧} [IsProb
       refine lintegral_mono_ae ?_
       filter_upwards [hE1] with ω hω
       by_cases hmem : ω 0 ∈ A ∩ X.fsupport
-      · rw [indicator_of_mem (show ω ∈ (fun ω : ℕ → 𝓧 ↦ ω 0) ⁻¹' (A ∩ X.fsupport) from hmem),
+      · have hX_supp := Function.mem_fsupport.1 hmem.2
+        rw [indicator_of_mem (Set.mem_preimage (f := fun ω : ℕ → 𝓧 ↦ ω 0) |>.2 hmem),
           hτ_mem ω hmem.1, hω]
         simp only [hF_def, ite_true, hW, indicator_of_mem hmem.1]
         rw [div_eq_mul_inv, div_eq_mul_inv, mul_right_comm,
-          ENNReal.mul_inv_cancel hmem.2.2 hmem.2.1, one_mul]
-      · rw [indicator_of_notMem (show ω ∉ (fun ω : ℕ → 𝓧 ↦ ω 0) ⁻¹' (A ∩ X.fsupport)
-          from hmem)]
+          ENNReal.mul_inv_cancel hX_supp.2 hX_supp.1, one_mul]
+      · rw [indicator_of_notMem (mt (Set.mem_preimage (f := fun ω : ℕ → 𝓧 ↦ ω 0)).1 hmem)]
         exact zero_le
   -- the right-hand side is at most `α + β * c`
   have h_upper : Q (fun ω ↦ E (τ ω) ω).fsupport ≤ α + β * c := by
@@ -259,11 +248,11 @@ theorem not_isNumeraireAt_one_and_ite_of_null {P₁ Q₁ : Measure 𝓧} [IsProb
       filter_upwards [hE1, hE_top] with ω hω1 hω_top hω
       by_cases hA0 : ω 0 ∈ A
       · left
-        have hω' : E (τ ω) ω ≠ ∞ ∧ E (τ ω) ω ≠ 0 := hω
+        have hω' := Function.mem_fsupport.1 hω
         rw [hτ_mem ω hA0, hω1] at hω'
-        exact ⟨hA0, hω'⟩
+        exact ⟨hA0, Function.mem_fsupport.2 hω'⟩
       · right
-        have h_no : ¬ ∃ i < τ ω, ω i ∈ N := fun h ↦ hω.1 (hω_top h)
+        have h_no : ¬ ∃ i < τ ω, ω i ∈ N := fun h ↦ (Function.mem_fsupport.1 hω).1 (hω_top h)
         rw [hτ_notMem ω hA0] at h_no
         exact ⟨⟨hA0, fun h ↦ h_no ⟨0, by norm_num, h⟩⟩, fun h ↦ h_no ⟨1, by norm_num, h⟩⟩
     _ ≤ Q ((fun ω : ℕ → 𝓧 ↦ ω 0) ⁻¹' (A ∩ X.fsupport)) +
@@ -352,7 +341,8 @@ theorem not_exists_forall_isNumeraireAt {P₁ Q₁ : Measure 𝓧} [IsProbabilit
 
 /-! ### The hypotheses cannot be dropped -/
 
-/-- **A simple null of one Dirac mass has an e-process that is optimal at every stopping time**
+/-- **A simple null of one Dirac mass has an e-process that is optimal at every stopping time that
+is finite everywhere**
 (example of the referee of [EVR26, Note 40], after Proposition 6). For the null of the Dirac mass
 at a sequence `z`, the process equal to `1` while the observations agree with `z` and to `∞`
 afterwards is optimal at every stopping time that is finite everywhere, against every finite
@@ -397,14 +387,16 @@ theorem isNumeraireAt_dirac [MeasurableSingletonClass 𝓧] [DecidableEq 𝓧] (
     have hτz : τ z = τ ω := Nat.cast_inj.1 (hτ.eq_of_forall_lt rfl hω)
     have hFz : F (τ ω) ω = F (τ ω) z := (hF.adapted (τ ω)).dependsOn_of_piLT hω
     have h_supp : ω ∈ (fun ω ↦ E (τ ω) ω).fsupport := by
-      simp [Function.fsupport, hEω]
+      rw [Function.mem_fsupport, hEω]
+      exact ⟨ENNReal.one_ne_top, one_ne_zero⟩
     rw [indicator_of_mem h_supp, hEω, div_one, hFz, ← hτz]
     exact hF_le
   · have hEω : E (τ ω) ω = ∞ := ite_eq_right hω
     rw [hEω, ENNReal.div_top]
     exact zero_le
 
-/-- **For a singular alternative, an e-process is optimal at every stopping time** (example of
+/-- **For a singular alternative, an e-process is optimal at every stopping time that is finite
+everywhere** (example of
 the referee of [EVR26, Note 40], after Proposition 6). Let `P₁` and `Q₁` be probability measures
 and `N` a measurable `P₁`-null set that carries `Q₁`. For the simple null of the i.i.d. law of
 `P₁` and the i.i.d. law of `Q₁`, the process equal to `∞` from the first observation in `N` on,
@@ -424,7 +416,7 @@ theorem isNumeraireAt_ite_top_of_mutuallySingular {P₁ Q₁ : Measure 𝓧} [Is
   have hPN' : ∀ μ ∈ ({Measure.infinitePi fun _ ↦ P₁} : Set (Measure (ℕ → 𝓧))),
       ∀ᵐ ω ∂μ, ∀ i, ω i ∉ N := by
     rintro _ rfl
-    exact Measure.ae_forall_apply_infinitePi _ fun _ ↦ measure_eq_zero_iff_ae_notMem.1 hPN
+    exact Measure.ae_forall_notMem_infinitePi _ fun _ ↦ hPN
   obtain ⟨τ, rfl⟩ := WithTop.exists_eq_natCast_of_forall_ne_top hτ_top
   rw [isNumeraireAt_iff hτ.measurable']
   refine ⟨isEProcess_ite_top (by simp) hN hPN', fun F hF ↦ ?_⟩
@@ -442,7 +434,7 @@ theorem isNumeraireAt_ite_top_of_mutuallySingular {P₁ Q₁ : Measure 𝓧} [Is
       simpa using h
     have h_supp : (fun ω ↦ E (τ ω) ω).fsupport = Set.univ := by
       ext ω
-      simp [Function.fsupport, hτ0, hE_def]
+      simp [hτ0, hE_def]
     rw [h_supp, measure_univ]
     calc ∫⁻ ω, F (τ ω) ω / E (τ ω) ω ∂Measure.infinitePi fun _ ↦ Q₁
     _ = ∫⁻ _, F 0 ω₀ ∂Measure.infinitePi fun _ ↦ Q₁ :=

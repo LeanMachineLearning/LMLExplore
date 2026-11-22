@@ -50,6 +50,8 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
 * `MeasureTheory.Measure.ae_forall_apply_infinitePi`: if, for each `i` of a countable index type,
   `p i` holds almost everywhere under `μ i`, then almost surely under `Measure.infinitePi μ` every
   coordinate `x i` satisfies `p i`.
+* `MeasureTheory.Measure.ae_forall_notMem_infinitePi`: if each `N i` is `μ i`-null, then almost
+  surely under `Measure.infinitePi μ` no coordinate `x i` is in `N i`.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
@@ -264,6 +266,14 @@ theorem ae_forall_apply_infinitePi {ι : Type*} [Countable ι] {X : ι → Type*
     {p : ∀ i, X i → Prop} (h : ∀ i, ∀ᵐ x ∂μ i, p i x) :
     ∀ᵐ x ∂Measure.infinitePi μ, ∀ i, p i (x i) :=
   ae_all_iff.2 fun i ↦ (measurePreserving_eval_infinitePi μ i).quasiMeasurePreserving.ae (h i)
+
+/-- Under a countable product of probability measures, if each `N i` is null for `μ i`, then
+almost surely no coordinate `x i` is in `N i`. -/
+theorem ae_forall_notMem_infinitePi {ι : Type*} [Countable ι] {X : ι → Type*}
+    [∀ i, MeasurableSpace (X i)] (μ : ∀ i, Measure (X i)) [∀ i, IsProbabilityMeasure (μ i)]
+    {N : ∀ i, Set (X i)} (h : ∀ i, μ i (N i) = 0) :
+    ∀ᵐ x ∂Measure.infinitePi μ, ∀ i, x i ∉ N i :=
+  ae_forall_apply_infinitePi μ fun i ↦ measure_eq_zero_iff_ae_notMem.1 (h i)
 
 open ProbabilityTheory Finset in
 /-- **The first terms of an i.i.d. sequence and the next terms are independent.** For an i.i.d.

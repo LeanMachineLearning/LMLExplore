@@ -70,7 +70,8 @@ almost surely positive.
   with respect to `P`, and the likelihood ratio of `Q[|Nᶜ]` to `P` on `Nᶜ` [LRR25,
   Corollary 3.15]. Its integrals over sets under `P` are
   `ProbabilityTheory.setLIntegral_piecewise_rnDeriv_cond`, and a numeraire of `{P}` that is
-  infinite on `N` is positive and finite exactly off `N`
+  infinite on a measurable set `N` off which `Q` is absolutely continuous with respect to `P` is
+  `Q`-almost surely positive and finite exactly off `N`
   (`ProbabilityTheory.IsNumeraire.ae_mem_fsupport_iff_notMem`).
 * `ProbabilityTheory.IsNumeraire.nonempty_of_ae_ne_top`: a null with a numeraire that is almost
   surely finite under a nonzero alternative is not empty.
@@ -468,6 +469,7 @@ theorem IsNumeraire.ae_mem_fsupport_iff_notMem (hX : IsNumeraire X {P} Q) (hP : 
     (ae_restrict_iff' hN.compl).1 (hQN.ae_le (hX.isEVar.ae_ne_top (mem_singleton P)))
   filter_upwards [h_top, hX.ae_ne_zero fun μ hμ ↦ (mem_singleton_iff.1 hμ) ▸ hP]
     with ω hω_top hω_zero
+  rw [Function.mem_fsupport]
   exact ⟨fun h hωN ↦ h.1 (hXN ω hωN), fun hωN ↦ ⟨hω_top hωN, hω_zero⟩⟩
 
 /-- **Likelihood ratios are numeraires** [RW, Theorem 3.20]. For probability measures `Q ≪ P`,
