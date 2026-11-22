@@ -44,9 +44,7 @@ almost surely under every member of the null.
   for measurable constraints.
 * `ProbabilityTheory.sum_mul_nonpos_of_forall_integral_nonpos`,
   `ProbabilityTheory.sum_ofReal_mul_le_one_of_isEVar`: the means of a function with nonpositive
-  integrals, and of an e-variable, under the finitely supported members of the null;
-  `ProbabilityTheory.sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one` restates the latter
-  bound in real numbers for finite values.
+  integrals, and of an e-variable, under the finitely supported members of the null.
 * `ProbabilityTheory.integrable_sum_mul_of_mem_constraintNull`,
   `ProbabilityTheory.integral_sum_mul_nonpos_of_mem_constraintNull`: under a member of the null,
   every combination of finitely many constraints is integrable, with a nonpositive integral when
@@ -183,18 +181,6 @@ theorem sum_ofReal_mul_le_one_of_isEVar (hΦ : ∀ f ∈ Φ, Measurable f)
   have h1 := hE.lintegral_le_one hμ
   rw [lintegral_finsetSum_measure] at h1
   simpa [lintegral_smul_measure, lintegral_dirac' _ hE.measurable] using h1
-
-/-- The real form of a mean at most `1`: for weights `w` in the simplex and finite values `e k`,
-if `∑ k, ENNReal.ofReal (w k) * e k ≤ 1`, then `∑ k, w k * ((e k).toReal - 1) ≤ 0`. -/
-theorem sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one {α : Type*} [Fintype α]
-    {w : α → ℝ} {e : α → ℝ≥0∞} (hw : w ∈ simplex α) (hfin : ∀ k, e k ≠ ∞)
-    (h : ∑ k, ENNReal.ofReal (w k) * e k ≤ 1) : ∑ k, w k * ((e k).toReal - 1) ≤ 0 := by
-  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
-  have := ENNReal.toReal_mono ENNReal.one_ne_top h
-  rw [ENNReal.toReal_sum fun k _ ↦ ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hfin k)] at this
-  simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal (hw0 _), ENNReal.toReal_one] at this
-  simp only [mul_sub, mul_one, Finset.sum_sub_distrib, hw1]
-  linarith
 
 /-! ### Nonnegative combinations of finitely many constraints -/
 
