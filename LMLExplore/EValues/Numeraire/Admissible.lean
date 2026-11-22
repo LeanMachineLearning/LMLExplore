@@ -28,7 +28,8 @@ that the null can see. This file compares the two notions.
   masses against the Dirac mass at `true`, and is not admissible.
 * **Finite nulls.** For a finite null of finite measures, an e-variable is admissible exactly when
   it is strongly admissible [RW, Proposition 2.16], and every e-variable is at most an admissible
-  one; both are in `LMLExplore.EValues.Admissible`
+  one (for every countable null of s-finite measures); both are in
+  `LMLExplore.EValues.Admissible`
   (`ProbabilityTheory.isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite`,
   `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`). Then every admissible e-variable is a
   numeraire against some alternative, every numeraire is almost surely equal to an admissible
@@ -175,7 +176,9 @@ e-variable `E' ≥ E` that is equal to `E` `Q`-almost surely and is again a nume
 theorem IsNumeraire.exists_isAdmissibleEVar_ae_eq (hS : S.Finite)
     (hSfin : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsNumeraire E S Q) (hQ : Q E.fsupport ≠ ∞) :
     ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' ∧ E' =ᵐ[Q] E ∧ IsNumeraire E' S Q := by
-  obtain ⟨E', hE', hEE'⟩ := hE.isEVar.exists_isAdmissibleEVar_le hS hSfin
+  obtain ⟨E', hE', hEE'⟩ := hE.isEVar.exists_isAdmissibleEVar_le hS.countable fun P hP ↦
+    have := hSfin P hP
+    inferInstance
   have h_eq : E' =ᵐ[Q] E :=
     (hE.ae_le_of_eventuallyLE hQ hE'.mem (.of_forall hEE')).antisymm (.of_forall hEE')
   exact ⟨E', hE', hEE', h_eq, hE.congr hE'.mem h_eq⟩

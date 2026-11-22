@@ -85,7 +85,8 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   supermartingale, or by a test martingale, under each member of the null.
 * `ProbabilityTheory.IsEProcess.exists_isTestSupermartingale_ae_le`,
   `ProbabilityTheory.IsEProcess.exists_isTestMartingale_ae_le`: an e-process is dominated by a
-  test supermartingale and by a test martingale under each member of the null.
+  test supermartingale and by a test martingale with initial expectation `1` under each member of
+  the null.
 * `ProbabilityTheory.IsEProcess.isEVar_stoppedValueLimsup`: the value of an e-process at every
   stopping time with values in `WithTop ℕ` is an e-variable.
 * `ProbabilityTheory.IsEProcess.measure_exists_le_le`,
@@ -326,12 +327,24 @@ theorem IsEProcess.exists_isTestSupermartingale_ae_le (hE : IsEProcess E ℱ S) 
 
 /-- **E-processes are dominated by test martingales** [RRLK, Lemma 6]. Under every probability
 measure `P` of the null, an e-process is `P`-almost surely dominated by a test martingale for
-`P`: the martingale part of its Snell envelope. -/
+`P` with initial expectation `1`: the martingale part of its Snell envelope, raised by a
+constant. -/
 theorem IsEProcess.exists_isTestMartingale_ae_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
     [IsProbabilityMeasure P] :
-    ∃ M, IsTestMartingale M ℱ {P} ∧ ∀ n, E n ≤ᵐ[P] M n :=
-  exists_isTestMartingale_ae_le_of_isTestSupermartingale
+    ∃ M, IsTestMartingale M ℱ {P} ∧ ∫⁻ ω, M 0 ω ∂P = 1 ∧ ∀ n, E n ≤ᵐ[P] M n := by
+  obtain ⟨M, hM, hEM⟩ := exists_isTestMartingale_ae_le_of_isTestSupermartingale
     (hE.exists_isTestSupermartingale_ae_le hP)
+  -- add the missing initial expectation as a constant
+  set c := 1 - ∫⁻ ω, M 0 ω ∂P with hc
+  have hc_ne : c ≠ ∞ := ENNReal.sub_ne_top ENNReal.one_ne_top
+  refine ⟨fun n ω ↦ M n ω + c, ⟨fun n ↦ (hM.adapted n).add_const c, fun Q hQ ↦ ?_,
+    fun Q hQ n s hs ↦ ?_⟩, ?_, fun n ↦ (hEM n).mono fun ω h ↦ h.trans le_self_add⟩
+  · rw [mem_singleton_iff.1 hQ, lintegral_add_right _ measurable_const, lintegral_const,
+      measure_univ, mul_one, hc, add_tsub_cancel_of_le (hM.lintegral_zero_le P rfl)]
+  · rw [mem_singleton_iff.1 hQ, lintegral_add_right _ measurable_const,
+      lintegral_add_right _ measurable_const, hM.setLIntegral_succ_eq P rfl n s hs]
+  · rw [lintegral_add_right _ measurable_const, lintegral_const, measure_univ, mul_one, hc,
+      add_tsub_cancel_of_le (hM.lintegral_zero_le P rfl)]
 
 /-- Under a probability measure `P`, the value at every stopping time with values in `WithTop ℕ`
 of a process almost surely dominated by a test supermartingale for `P` has expectation at most
