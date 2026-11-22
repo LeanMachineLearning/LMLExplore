@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.Null.Basic
 public import LMLExplore.Probability.ProductMeasure.Blocks
 public import LMLExplore.Probability.ProductMeasure.Restart
+import LMLExplore.Algebra.BigOperators.Group.Finset.Indicator
 
 /-!
 # Bets on the first observations of an i.i.d. sequence
@@ -53,10 +54,19 @@ is adapted to that filtration.
 * `ProbabilityTheory.isEVar_indicator_restartPayoff`: the payoff of the first `j` restarted rounds,
   on the event that they end within the first `N` observations, is a bet.
 
+## Implementation notes
+
+The restart theorem `ProbabilityTheory.isEVar_indicator_restartPayoff` is adapted from
+`EValuesResearch/Results/BipolarRateAux.lean` (commit `dd4072f`) in the paper project
+`RemyDegenne/evalues_research`, where it is used to prove the Wald inequality at the bipolar rate
+of [EVR26, Note 01].
+
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1,
   Definitions 2.3–2.5.
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 01,
+  `results/01-bipolar-rate.md`.
 -/
 
 public section
@@ -105,10 +115,11 @@ theorem isEVar_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) → ℝ≥0∞}
 
 /-- The payoff of `j + 1` rounds within `N` observations: that of the first `j` rounds, within
 `N` observations, times that of the next round within the observations left. -/
-private lemma indicator_restartTime_succ_le {σ : (ℕ → 𝓧) → ℕ} (j N : ℕ) (ω : ℕ → 𝓧) :
-    {ω | restartTime σ (j + 1) ω ≤ N}.indicator (restartPayoff σ f (j + 1)) ω =
-      {ω | restartTime σ j ω ≤ N}.indicator (fun ω ↦ restartPayoff σ f j ω *
-        {x | σ x ≤ N - restartTime σ j ω}.indicator f ((shift 𝓧)^[restartTime σ j ω] ω)) ω := by
+private lemma indicator_restartTime_succ_le {σ : (ℕ → 𝓧) → ℕ} {V : (ℕ → 𝓧) → ℝ≥0∞} (j N : ℕ)
+    (ω : ℕ → 𝓧) :
+    {ω | restartTime σ (j + 1) ω ≤ N}.indicator (restartPayoff σ V (j + 1)) ω =
+      {ω | restartTime σ j ω ≤ N}.indicator (fun ω ↦ restartPayoff σ V j ω *
+        {x | σ x ≤ N - restartTime σ j ω}.indicator V ((shift 𝓧)^[restartTime σ j ω] ω)) ω := by
   simp only [Set.indicator, Set.mem_ofPred_eq, restartTime_succ, restartPayoff_succ]
   by_cases h1 : restartTime σ j ω ≤ N
   · by_cases h2 : σ ((shift 𝓧)^[restartTime σ j ω] ω) ≤ N - restartTime σ j ω
@@ -158,10 +169,10 @@ theorem isEVar_indicator_restartPayoff {σ : (ℕ → 𝓧) → ℕ} {V : (ℕ �
           ∫⁻ ω, {ω | restartTime σ j ω = t}.indicator (restartPayoff σ V j) ω ∂μ :=
       Finset.sum_le_sum fun t _ ↦ mul_le_of_le_one_right'
         ((hVσ (N - t)).lintegral_le_one (infinitePi_mem_iidNull hP))
-    _ = ∫⁻ ω, {ω | restartTime σ j ω ≤ N}.indicator (fun ω ↦ restartPayoff σ V j ω * 1) ω ∂μ := by
-      rw [hT.lintegral_indicator_mul_comp_shift_iterate hTm hf hfm (g := fun _ _ ↦ 1)
-        (fun _ ↦ measurable_const) P N]
-      simp [μ]
-    _ ≤ 1 := by simpa using ih N
+    _ = ∫⁻ ω, {ω | restartTime σ j ω ≤ N}.indicator (restartPayoff σ V j) ω ∂μ := by
+      rw [← lintegral_finsetSum (f := fun t ↦ {ω | restartTime σ j ω = t}.indicator
+        (restartPayoff σ V j)) _ fun t _ ↦ hfm.indicator (hTm (measurableSet_singleton t))]
+      exact lintegral_congr fun ω ↦ Finset.sum_range_indicator_setOf_eq _ _ N ω
+    _ ≤ 1 := ih N
 
 end ProbabilityTheory

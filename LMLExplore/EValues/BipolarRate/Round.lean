@@ -39,8 +39,10 @@ bipolar rate.
 The proof restarts the round on the fresh observations each time it ends
 (`ProbabilityTheory.restartTime`, `ProbabilityTheory.restartPayoff`), and bets on the number of
 completed rounds with a geometric mixture. Within the first `N` observations, the mixture over the
-rounds completed so far of the products of their payoffs is an e-variable for the i.i.d. null and
-a function of the first `N` observations (`ProbabilityTheory.isEVar_indicator_restartPayoff`).
+rounds completed so far of the products of their payoffs is an e-variable for the i.i.d. null, as
+a finite mixture (`ProbabilityTheory.isEVar_finsetSum_mul`) of the bets
+`ProbabilityTheory.isEVar_indicator_restartPayoff`, and a function of the first `N` observations
+(`ProbabilityTheory.DependsOnBefore.dependsOn_indicator_le`).
 Its expected logarithm under `Q` is at most `maxLogGrowth Q₁ S₁ N ≤ N * d`. A Wald argument shows
 that the rounds that start within the first `N` observations use at least `N + 1` observations,
 hence that `(N + 1) / 𝔼_Q[σ]` of them start in expectation; letting `N → ∞` bounds the expected

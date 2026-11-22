@@ -6,6 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Probability.ProductMeasure
+import LMLExplore.Algebra.BigOperators.Group.Finset.Indicator
+import LMLExplore.Algebra.GroupWithZero.Indicator
 import LMLExplore.Logic.Function.DependsOn
 import LMLExplore.Probability.Process.StoppedValue
 
@@ -134,25 +136,6 @@ theorem isStoppingTime_piLT_iff_dependsOnBefore {σ : (ℕ → 𝓧) → ℕ} :
 
 /-! ### The strong Markov property at a stopping time -/
 
-/-- Summing the indicators of the events `{T = t}`, `t ≤ N`, gives the indicator of `{T ≤ N}`. -/
-private lemma sum_indicator_eq_indicator_le {Ω M : Type*} [AddCommMonoid M] (T : Ω → ℕ)
-    (f : Ω → M) (N : ℕ) (ω : Ω) :
-    ∑ t ∈ Finset.range (N + 1), {ω | T ω = t}.indicator f ω = {ω | T ω ≤ N}.indicator f ω := by
-  simp only [Set.indicator_apply, Set.mem_ofPred_eq, Finset.sum_ite_eq, Finset.mem_range,
-    Nat.lt_succ_iff]
-
-/-- On the event `{T = t}`, a function `G t` of the time `t` is the function `G (T ·)` of the
-random time: `𝟙{T = t} f * G t = 𝟙{T = t} (f * G T)`. -/
-private lemma indicator_eq_mul_apply {Ω M : Type*} [MulZeroClass M] (T : Ω → ℕ) (t : ℕ)
-    (f : Ω → M) (G : ℕ → Ω → M) (ω : Ω) :
-    {ω | T ω = t}.indicator f ω * G t ω =
-      {ω | T ω = t}.indicator (fun ω' ↦ f ω' * G (T ω') ω') ω := by
-  by_cases h : T ω = t
-  · rw [Set.indicator_of_mem (s := {x | T x = t}) h, Set.indicator_of_mem (s := {x | T x = t}) h,
-      h]
-  · rw [Set.indicator_of_notMem (s := {x | T x = t}) h,
-      Set.indicator_of_notMem (s := {x | T x = t}) h, zero_mul]
-
 namespace DependsOnBefore
 
 variable {σ : (ℕ → 𝓧) → ℕ}
@@ -177,9 +160,9 @@ theorem lintegral_indicator_mul_comp_shift_iterate (hσ : DependsOnBefore σ σ)
   have hsum (ω : ℕ → 𝓧) :
       {ω | σ ω ≤ N}.indicator (fun ω ↦ f ω * g (σ ω) ((shift 𝓧)^[σ ω] ω)) ω =
         ∑ t ∈ Finset.range (N + 1), {ω | σ ω = t}.indicator f ω * g t ((shift 𝓧)^[t] ω) := by
-    rw [← sum_indicator_eq_indicator_le]
+    rw [← Finset.sum_range_indicator_setOf_eq]
     exact Finset.sum_congr rfl fun t _ ↦
-      (indicator_eq_mul_apply σ t f (fun s ω ↦ g s ((shift 𝓧)^[s] ω)) ω).symm
+      (Set.indicator_setOf_eq_mul_apply σ t f (fun s ω ↦ g s ((shift 𝓧)^[s] ω)) ω).symm
   simp_rw [hsum]
   refine (lintegral_finsetSum _ fun t _ ↦
     (hft t).mul ((hg t).comp (measurable_shift_iterate t))).trans ?_
@@ -210,9 +193,9 @@ theorem integral_indicator_comp_shift_iterate (hσ : DependsOnBefore σ σ) (hσ
   have hsum (ω : ℕ → 𝓧) : {ω | σ ω ≤ N}.indicator (fun ω ↦ g ((shift 𝓧)^[σ ω] ω)) ω =
       ∑ t ∈ Finset.range (N + 1),
         {ω | σ ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω * g ((shift 𝓧)^[t] ω) := by
-    rw [← sum_indicator_eq_indicator_le]
+    rw [← Finset.sum_range_indicator_setOf_eq]
     refine Finset.sum_congr rfl fun t _ ↦ ?_
-    rw [indicator_eq_mul_apply σ t 1 (fun s ω ↦ g ((shift 𝓧)^[s] ω))]
+    rw [Set.indicator_setOf_eq_mul_apply σ t 1 (fun s ω ↦ g ((shift 𝓧)^[s] ω))]
     simp only [Pi.one_apply, one_mul]
   simp_rw [hsum]
   rw [integral_finsetSum _ fun t _ ↦ hfg t]
@@ -226,7 +209,7 @@ theorem integral_indicator_comp_shift_iterate (hσ : DependsOnBefore σ σ) (hσ
     rw [← Finset.sum_mul, ← integral_finsetSum (f := fun t ω ↦
       {ω | σ ω = t}.indicator (1 : (ℕ → 𝓧) → ℝ) ω) _ fun t _ ↦
         (integrable_const (1 : ℝ)).indicator (hs t)]
-    simp_rw [sum_indicator_eq_indicator_le]
+    simp_rw [Finset.sum_range_indicator_setOf_eq]
     rw [integral_indicator_one (s := {ω | σ ω ≤ N}) (hσm measurableSet_Iic)]
 
 end DependsOnBefore
@@ -253,7 +236,7 @@ noncomputable def restartPayoff : ℕ → (ℕ → 𝓧) → ℝ≥0∞
   | 0 => fun _ ↦ 1
   | j + 1 => fun ω ↦ restartPayoff j ω * V ((shift 𝓧)^[restartTime σ j ω] ω)
 
-/-- No round uses no observation. -/
+/-- The first `0` rounds use no observation. -/
 @[simp]
 lemma restartTime_zero (ω : ℕ → 𝓧) : restartTime σ 0 ω = 0 :=
   (rfl)
