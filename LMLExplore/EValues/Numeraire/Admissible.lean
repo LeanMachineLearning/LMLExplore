@@ -28,12 +28,14 @@ that the null can see. This file compares the two notions.
   masses against the Dirac mass at `true`, and is not admissible.
 * **Finite nulls.** For a finite null of finite measures, an e-variable is admissible exactly when
   it is strongly admissible [RW, Proposition 2.16], and every e-variable is at most an admissible
-  one; both are in `LMLExplore.EValues.Admissible`
+  one (for every countable null of s-finite measures); both are in
+  `LMLExplore.EValues.Admissible`
   (`ProbabilityTheory.isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite`,
   `ProbabilityTheory.IsEVar.exists_isAdmissibleEVar_le`). Then every admissible e-variable is a
-  numeraire against some alternative, every numeraire is almost surely equal to an admissible
-  numeraire, and the numeraires against the finite alternatives that dominate the null are the
-  admissible e-variables that are almost surely positive under the null.
+  numeraire against some alternative, and the numeraires against the finite alternatives that
+  dominate the null are the admissible e-variables that are almost surely positive under the null.
+  Every numeraire is almost surely equal to an admissible numeraire, already for a countable null
+  of s-finite measures.
 * **The Poisson family.** For the null of the Poisson laws, `2 · 𝟙{k odd}` is an admissible
   e-variable, and it is a numeraire against no nonzero finite measure. So for an infinite null an
   admissible e-variable need not be a numeraire against any nonzero finite alternative.
@@ -52,8 +54,8 @@ mass of the member, and exact means `∫⁻ E ∂P = 1`.
 * `ProbabilityTheory.IsAdmissibleEVar.exists_isNumeraire_withDensity`: admissible e-variables of a
   finite null are numeraires [EVR26, Note 42, Theorem 9 (2)], through
   `ProbabilityTheory.isNumeraire_withDensity_of_mem_convexHull`.
-* `ProbabilityTheory.IsNumeraire.exists_isAdmissibleEVar_ae_eq`: numeraires of a finite null are
-  almost surely equal to admissible ones [EVR26, Note 42, Theorem 9 (3)].
+* `ProbabilityTheory.IsNumeraire.exists_isAdmissibleEVar_ae_eq`: numeraires of a countable null of
+  s-finite measures are almost surely equal to admissible ones [EVR26, Note 42, Theorem 9 (3)].
 * `ProbabilityTheory.exists_isNumeraire_absolutelyContinuous_iff`: the numeraires against
   dominating alternatives [EVR26, Note 42, Theorem 9 (4)].
 * `ProbabilityTheory.isAdmissibleEVar_indicator_odd_poissonMeasure`,
@@ -151,6 +153,19 @@ theorem exists_isNumeraire_not_isAdmissibleEVar :
       (h.eventuallyLE (isEVar_one hS) (.of_forall h_le)) (P := Measure.dirac false) (by simp [S])
     simpa [E] using (ae_dirac_iff .of_discrete).1 h1
 
+/-- **Every numeraire of a countable null is almost surely equal to an admissible numeraire**
+[EVR26, Note 42, Theorem 9 (3)]. If `E` is a numeraire of a countable null `S` of s-finite
+measures against `Q`, with `Q {0 < E < ∞} < ∞` (for instance `Q` finite), then there is an
+admissible e-variable `E' ≥ E` that is equal to `E` `Q`-almost surely and is again a numeraire of
+`S` against `Q`. -/
+theorem IsNumeraire.exists_isAdmissibleEVar_ae_eq (hS : S.Countable)
+    (hSfin : ∀ P ∈ S, SFinite P) (hE : IsNumeraire E S Q) (hQ : Q E.fsupport ≠ ∞) :
+    ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' ∧ E' =ᵐ[Q] E ∧ IsNumeraire E' S Q := by
+  obtain ⟨E', hE', hEE'⟩ := hE.isEVar.exists_isAdmissibleEVar_le hS hSfin
+  have h_eq : E' =ᵐ[Q] E :=
+    (hE.ae_le_of_eventuallyLE hQ hE'.mem (.of_forall hEE')).antisymm (.of_forall hEE')
+  exact ⟨E', hE', hEE', h_eq, hE.congr hE'.mem h_eq⟩
+
 /-! ### Finite nulls -/
 
 /-- **For a finite null, every admissible e-variable is a numeraire against some alternative**
@@ -166,19 +181,6 @@ theorem IsAdmissibleEVar.exists_isNumeraire_withDensity (hS : S.Finite)
       univ .univ ⟨P₀, hP₀, by simpa using hP₀0⟩
   exact ⟨P, hP, hPE, isNumeraire_withDensity_of_mem_convexHull hE.mem
     (subset_convexHull _ _ ⟨hP, hPE⟩)⟩
-
-/-- **Every numeraire of a finite null is almost surely equal to an admissible numeraire**
-[EVR26, Note 42, Theorem 9 (3)]. If `E` is a numeraire of a finite null `S` of finite measures
-against `Q`, with `Q {0 < E < ∞} < ∞` (for instance `Q` finite), then there is an admissible
-e-variable `E' ≥ E` that is equal to `E` `Q`-almost surely and is again a numeraire of `S` against
-`Q`. -/
-theorem IsNumeraire.exists_isAdmissibleEVar_ae_eq (hS : S.Finite)
-    (hSfin : ∀ P ∈ S, IsFiniteMeasure P) (hE : IsNumeraire E S Q) (hQ : Q E.fsupport ≠ ∞) :
-    ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' ∧ E' =ᵐ[Q] E ∧ IsNumeraire E' S Q := by
-  obtain ⟨E', hE', hEE'⟩ := hE.isEVar.exists_isAdmissibleEVar_le hS hSfin
-  have h_eq : E' =ᵐ[Q] E :=
-    (hE.ae_le_of_eventuallyLE hQ hE'.mem (.of_forall hEE')).antisymm (.of_forall hEE')
-  exact ⟨E', hE', hEE', h_eq, hE.congr hE'.mem h_eq⟩
 
 /-- A finite null of finite measures has a positive constant e-variable: the inverse of the sum
 of the masses of its members. -/
