@@ -29,7 +29,7 @@ at every bounded stopping time the same as validity uniformly in time,
 `P {ω | ∃ n, p n ω ≤ α} ≤ α`, and a sequential test likewise rejects at every bounded stopping
 time with probability at most `α` [RRLK, §4.1 and Lemma 2]. The running infimum of a p-process
 is a p-process. The inverse `E⁻¹` of an e-process is a p-process, by Markov's inequality at each
-stopping time, so its running infimum `(⨆ k ≤ n, E k)⁻¹` is one as well; thresholding a p-process
+stopping time, so its running infimum `(partialSups E n)⁻¹` is one as well; thresholding a p-process
 at `α`, or an e-process at `α⁻¹`, is a level-`α` sequential test, which is Ville's inequality for
 e-processes; every level-`α` sequential test `φ` is the e-process `α⁻¹ * φ` thresholded at `α⁻¹`;
 and a p-to-e calibrator applied to a p-process gives an e-process.
@@ -69,8 +69,9 @@ arbitrary, and p-processes are validated at the bounded stopping times, as e-pro
 * `ProbabilityTheory.isPProcess_iInf_iff`: an adapted process is a p-process exactly when its
   running infimum is one [RRLK, §4.1].
 * `ProbabilityTheory.IsEProcess.isPProcess_inv`,
-  `ProbabilityTheory.IsEProcess.isPProcess_inv_iSup`: for every null, the inverse of an e-process
-  and the inverse of its running maximum are p-processes [RRLK, Proposition 12 (1); RW, §7.4].
+  `ProbabilityTheory.IsEProcess.isPProcess_inv_partialSups`: for every null, the inverse of an
+  e-process and the inverse of its running maximum are p-processes [RRLK, Proposition 12 (1);
+  RW, §7.4].
 * `ProbabilityTheory.isSequentialTest_iff_forall_isStoppingTime`: a `{0, 1}`-valued adapted
   process is a level-`α` sequential test exactly when it rejects with probability at most `α` at
   every bounded stopping time [RRLK, §4.1].
@@ -249,11 +250,11 @@ theorem IsEProcess.isPProcess_inv (hE : IsEProcess E ℱ S) :
   ⟨fun n ↦ (hE.adapted n).inv, fun _ hτ _ hτN ↦ (hE.isEVar_stoppedValue_of_le hτ hτN).isPVar_inv⟩
 
 /-- **The p-process of the running maximum of an e-process** [RRLK, Proposition 12 (1); RW, §7.4].
-The inverse `(⨆ k ≤ n, E k)⁻¹` of the running maximum of an e-process is a p-process: the running
-infimum of the p-process `E⁻¹`. -/
-theorem IsEProcess.isPProcess_inv_iSup (hE : IsEProcess E ℱ S) :
-    IsPProcess (fun n ω ↦ (⨆ k ≤ n, E k ω)⁻¹) ℱ S := by
-  simpa only [ENNReal.inv_iSup] using hE.isPProcess_inv.iInf
+The inverse `(partialSups E n)⁻¹` of the running maximum of an e-process is a p-process: the
+running infimum of the p-process `E⁻¹`. -/
+theorem IsEProcess.isPProcess_inv_partialSups (hE : IsEProcess E ℱ S) :
+    IsPProcess (fun n ω ↦ (partialSups E n ω)⁻¹) ℱ S := by
+  simpa only [partialSups_eq_biSup, iSup_apply, ENNReal.inv_iSup] using hE.isPProcess_inv.iInf
 
 /-- **A p-to-e calibrator turns p-processes into e-processes** [RRLK, Proposition 14]. For a null
 of measures of mass at most one, a p-to-e calibrator `f` applied to a p-process gives the

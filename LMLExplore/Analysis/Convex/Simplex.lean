@@ -55,7 +55,9 @@ supported distributions, not a subset of `α → ℝ`.
   with weights `w` of the simplex is at most their supremum.
 * `LMLExplore.sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one`: the real form of a mean
   at most `1`: for values `e a` in `ℝ≥0∞` and weights `w` of the simplex, if
-  `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`, then `∑ a, w a * ((e a).toReal - 1) ≤ 0`.
+  `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`, then `∑ a, w a * ((e a).toReal - 1) ≤ 0`, and
+  `LMLExplore.sum_ofReal_mul_le_one_of_sum_mul_toReal_sub_one_nonpos`: the converse for finite
+  values.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
 * `LMLExplore.sub_single_add_indicator_mem_simplex`: moving a mass `s ≤ w b` from an entry of a
@@ -173,6 +175,21 @@ lemma sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one {w : α → ℝ} {e
     ((Finset.single_le_sum (fun _ _ ↦ zero_le) (Finset.mem_univ a)).trans h)] at this
   simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal (hw0 _), ENNReal.toReal_one] at this
   simp only [mul_sub, mul_one, Finset.sum_sub_distrib, hw1]
+  linarith
+
+/-- The converse of `sum_mul_toReal_sub_one_nonpos_of_sum_ofReal_mul_le_one` for finite values:
+for weights `w` in the simplex and finite values `e a`, if `∑ a, w a * ((e a).toReal - 1) ≤ 0`,
+then `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`. -/
+lemma sum_ofReal_mul_le_one_of_sum_mul_toReal_sub_one_nonpos {w : α → ℝ} {e : α → ENNReal}
+    (hw : w ∈ simplex α) (he : ∀ a, e a ≠ ⊤) (h : ∑ a, w a * ((e a).toReal - 1) ≤ 0) :
+    ∑ a, ENNReal.ofReal (w a) * e a ≤ 1 := by
+  obtain ⟨hw0, hw1⟩ := mem_simplex_iff.1 hw
+  have hmul (a : α) : ENNReal.ofReal (w a) * e a = ENNReal.ofReal (w a * (e a).toReal) := by
+    rw [ENNReal.ofReal_mul (hw0 a), ENNReal.ofReal_toReal (he a)]
+  simp_rw [hmul]
+  rw [← ENNReal.ofReal_sum_of_nonneg fun a _ ↦ mul_nonneg (hw0 a) ENNReal.toReal_nonneg]
+  refine ENNReal.ofReal_le_one.2 ?_
+  simp only [mul_sub, mul_one, Finset.sum_sub_distrib, hw1] at h
   linarith
 
 /-- A vector of the simplex with an entry equal to `1` is the vertex `Pi.single a 1`. -/

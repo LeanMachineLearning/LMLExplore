@@ -16,7 +16,8 @@ public import Mathlib.MeasureTheory.Integral.IntegrableOn
 as a real number: `(min (log x) c).toReal`. It is `c` at `∞` and `0` at `0` (the real part of
 `log 0 = ⊥`), and `min (Real.log x.toReal) c` otherwise. Unlike `ENNReal.log`, it is a real
 function, bounded on `{x | δ ≤ x}` for `δ > 0`, hence integrable under a finite measure when
-composed with a measurable function bounded below by `δ`.
+composed with a measurable function bounded below by `δ`, and more generally when composed with
+a measurable function the negative part of whose logarithm has a finite mean.
 
 ## Main definitions
 
@@ -25,8 +26,12 @@ composed with a measurable function bounded below by `δ`.
 ## Main statements
 
 * `ENNReal.truncLog_of_ne`: `truncLog c x = min (Real.log x.toReal) c` for `x ≠ 0, ∞`.
+* `ENNReal.coe_truncLog`: `(truncLog c x : EReal) = min (log x) c` for `x ≠ 0`.
 * `ENNReal.abs_truncLog_le`, `ENNReal.integrable_truncLog_comp`: on `{x | δ ≤ x}`, the truncated
   logarithm is bounded, hence integrable under a finite measure.
+* `ENNReal.integrable_truncLog_comp_of_lintegral_ne_top`: the truncated logarithm of a measurable
+  function is integrable under a finite measure as soon as the negative part of its logarithm has a
+  finite mean.
 * `ENNReal.ofReal_exp_truncLog_le`: `exp (truncLog c x) ≤ x` for `x ≠ 0`.
 * `ENNReal.min_log_le_truncLog_sub`: mixing `x` with a constant `ε` costs at most `- log (1 - ε)`
   in truncated logarithm.
@@ -72,6 +77,36 @@ lemma truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) : truncLog c x ≤ c
   · rw [truncLog_of_ne h0 htop]
     exact min_le_right _ _
 
+/-- The truncated logarithm of a nonzero `x`, as an extended real, is `min (log x) c`. -/
+lemma coe_truncLog {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
+    (truncLog c x : EReal) = min (ENNReal.log x) c := by
+  refine EReal.coe_toReal (ne_top_of_le_ne_top (EReal.coe_ne_top c) (min_le_right _ _)) ?_
+  simp [h0, EReal.coe_ne_bot]
+
+/-- The truncated logarithm of `x` is at most `|c|` plus the negative part of `log x` in absolute
+value. -/
+lemma abs_truncLog_le_abs_add (c : ℝ) (x : ℝ≥0∞) :
+    |truncLog c x| ≤ |c| + (-ENNReal.log x).toENNReal.toReal := by
+  have h0 : 0 ≤ (-ENNReal.log x).toENNReal.toReal := ENNReal.toReal_nonneg
+  rcases eq_or_ne x 0 with rfl | hx0
+  · rw [truncLog_zero, abs_zero]
+    positivity
+  rcases eq_or_ne x ∞ with rfl | hxtop
+  · rw [truncLog_top]
+    linarith [abs_nonneg c]
+  rw [truncLog_of_ne hx0 hxtop, ENNReal.log_pos_real hx0 hxtop, ← EReal.coe_neg,
+    EReal.toENNReal_of_ne_top (EReal.coe_ne_top _), EReal.toReal_coe, ENNReal.toReal_ofReal']
+  have h1 : -Real.log x.toReal ≤ max (-Real.log x.toReal) 0 := le_max_left _ _
+  have h2 : 0 ≤ max (-Real.log x.toReal) 0 := le_max_right _ _
+  rw [abs_le]
+  constructor
+  · rcases le_total (Real.log x.toReal) c with h | h
+    · rw [min_eq_left h]
+      linarith [abs_nonneg c]
+    · rw [min_eq_right h]
+      linarith [neg_abs_le c]
+  · linarith [min_le_right (Real.log x.toReal) c, le_abs_self c]
+
 /-- The truncated logarithm of `x ≥ δ` is at least `min (log δ) c`. -/
 lemma min_log_le_truncLog {c δ : ℝ} (hδ : 0 < δ) {x : ℝ≥0∞} (hx : ENNReal.ofReal δ ≤ x) :
     min (Real.log δ) c ≤ truncLog c x := by
@@ -104,6 +139,20 @@ lemma integrable_truncLog_comp {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Mea
   Integrable.of_bound ((measurable_truncLog c).comp hVm).aestronglyMeasurable
     (max |Real.log δ| |c|) (ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
       (abs_truncLog_le hδ (hVδ ω)))
+
+/-- The truncated logarithm of a measurable function whose logarithm has a negative part of finite
+mean is integrable under a finite measure. -/
+lemma integrable_truncLog_comp_of_lintegral_ne_top {Ω : Type*} {mΩ : MeasurableSpace Ω}
+    {μ : Measure Ω} [IsFiniteMeasure μ] {f : Ω → ℝ≥0∞} (hf : Measurable f)
+    (hneg : ∫⁻ x, (-ENNReal.log (f x)).toENNReal ∂μ ≠ ∞) (c : ℝ) :
+    Integrable (fun x ↦ truncLog c (f x)) μ := by
+  have hm : Measurable fun x ↦ (-ENNReal.log (f x)).toENNReal :=
+    measurable_ereal_toENNReal.comp (ENNReal.measurable_log.comp hf).neg
+  refine Integrable.mono' ((integrable_const |c|).add (integrable_toReal_of_lintegral_ne_top
+    hm.aemeasurable hneg)) ((measurable_truncLog c).comp hf).aestronglyMeasurable
+    (ae_of_all _ fun x ↦ ?_)
+  rw [Real.norm_eq_abs]
+  exact abs_truncLog_le_abs_add c (f x)
 
 /-- The exponential of the truncated logarithm of a nonzero `x` is at most `x`. -/
 lemma ofReal_exp_truncLog_le {c : ℝ} {x : ℝ≥0∞} (h0 : x ≠ 0) :
