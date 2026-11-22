@@ -15,9 +15,12 @@ import LMLExplore.Probability.Process.StoppedValue
 # Restarting at a stopping time of an i.i.d. sequence
 
 The observations are the coordinates of `ℕ → 𝓧`. A random time `σ : (ℕ → 𝓧) → ℕ`, counted in
-observations, is a stopping time when it is determined by the observations before it,
-`DependsOnBefore σ σ`, and a function `f` is known at time `σ` when it is determined by the
-observations before `σ`, `DependsOnBefore σ f`.
+observations, is a stopping time of the filtration `Filtration.piLT` of the observations exactly
+when it is measurable and determined by the observations before it, `DependsOnBefore σ σ`
+(`ProbabilityTheory.isStoppingTime_piLT_iff_dependsOnBefore`). Below, a stopping time `σ` means
+such a random time; the lemmas assume `DependsOnBefore σ σ`, and `Measurable σ` where it is
+needed. A function `f` is known at time `σ` when it is determined by the observations before
+`σ`, `DependsOnBefore σ f`.
 
 Under an i.i.d. law the observations after a stopping time `σ` are independent of what is known at
 time `σ`, and they are again i.i.d. with the same law: on the event `{σ ≤ N}`, the expectation of
@@ -29,7 +32,8 @@ strong Markov property of an i.i.d. sequence at a stopping time, on the event th
 Restarting a round of duration `σ` and payoff `V` on the fresh observations each time it ends gives
 the restart times `restartTime σ j`, the number of observations used by the first `j` rounds, and
 the products `restartPayoff σ V j` of the payoffs of the first `j` rounds. The restart times are
-stopping times, and the payoffs of the first `j` rounds are known at time `restartTime σ j`.
+determined by the observations before them, and measurable when `σ` is, so they are stopping
+times; the payoffs of the first `j` rounds are known at time `restartTime σ j`.
 
 ## Main definitions
 
@@ -48,8 +52,9 @@ stopping times, and the payoffs of the first `j` rounds are known at time `resta
   `ProbabilityTheory.DependsOnBefore.integral_indicator_comp_shift_iterate`: the strong Markov
   property of an i.i.d. sequence at a stopping time `σ`, on the event `{σ ≤ N}`.
 * `ProbabilityTheory.dependsOnBefore_restartTime`,
-  `ProbabilityTheory.dependsOnBefore_restartPayoff`: the restart times are stopping times, and
-  the payoffs of the first `j` rounds are known at the end of these rounds.
+  `ProbabilityTheory.dependsOnBefore_restartPayoff`: the restart times are determined by the
+  observations before them (with `ProbabilityTheory.measurable_restartTime`, they are stopping
+  times), and the payoffs of the first `j` rounds are known at the end of these rounds.
 
 ## Implementation notes
 
@@ -77,8 +82,10 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 /-! ### Functions determined by the observations before a random time -/
 
 /-- `f` is determined by the first `σ` observations: if `σ ω ≤ u` and `ω'` agrees with `ω` on the
-first `u` observations, then `f ω' = f ω`. For `f = σ`, this says that `σ` is a stopping time
-counted in observations. -/
+first `u` observations, then `f ω' = f ω`. For `f = σ`, this says that `σ` is determined by the
+observations before it; together with `Measurable σ`, this is the same as `σ` being a stopping
+time of `Filtration.piLT` counted in observations
+(`ProbabilityTheory.isStoppingTime_piLT_iff_dependsOnBefore`). -/
 def DependsOnBefore {β : Type*} (σ : (ℕ → 𝓧) → ℕ) (f : (ℕ → 𝓧) → β) : Prop :=
   ∀ ⦃u : ℕ⦄ ⦃ω ω' : ℕ → 𝓧⦄, (∀ i < u, ω i = ω' i) → σ ω ≤ u → f ω' = f ω
 
@@ -298,8 +305,10 @@ lemma measurable_restartPayoff (hσm : Measurable σ) (hVm : Measurable V) (j : 
   | succ j ih => exact ih.mul (measurable_apply_of_countable
       (fun t ↦ hVm.comp (measurable_shift_iterate t)) (measurable_restartTime hσm j))
 
-/-- **The restart times are stopping times.** If the duration `σ` of a round is a stopping time,
-the number of observations used by the first `j` restarted rounds is a stopping time. -/
+/-- **The restart times are determined by the observations before them.** If the duration `σ` of
+a round is determined by the observations before it, so is the number of observations used by the
+first `j` restarted rounds. Together with `measurable_restartTime`, the restart times are stopping
+times of `Filtration.piLT` (`isStoppingTime_piLT_iff_dependsOnBefore`). -/
 lemma dependsOnBefore_restartTime (hσ : DependsOnBefore σ σ) (j : ℕ) :
     DependsOnBefore (restartTime σ j) (restartTime σ j) := by
   intro t ω ω' h hj
@@ -311,8 +320,8 @@ lemma dependsOnBefore_restartTime (hσ : DependsOnBefore σ σ) (j : ℕ) :
       hσ (shift_iterate_eqOn h (restartTime σ j ω)) (by omega)]
 
 /-- **The payoffs of the restarted rounds are known at their end.** If the duration `σ` of a round
-is a stopping time and its payoff `V` is known at time `σ`, the payoff of the first `j` restarted
-rounds is known at the time `restartTime σ j` that they end. -/
+is determined by the observations before it and its payoff `V` is known at time `σ`, the payoff
+of the first `j` restarted rounds is known at the time `restartTime σ j` that they end. -/
 lemma dependsOnBefore_restartPayoff (hσ : DependsOnBefore σ σ) (hV : DependsOnBefore σ V)
     (j : ℕ) : DependsOnBefore (restartTime σ j) (restartPayoff σ V j) := by
   intro t ω ω' h hj
