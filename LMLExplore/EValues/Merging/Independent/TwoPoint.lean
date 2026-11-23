@@ -173,8 +173,8 @@ theorem exists_le_add_mul_of_forall_lintegral_bernoulliMeasure_le_one
   · rw [← Real.toNNReal_add (by linarith) hw0, sub_add_cancel, Real.toNNReal_one]
   · calc g e = ENNReal.ofReal (G e) := by
           simp only [G, ENNReal.ofReal_coe_nnreal]
-          exact (ENNReal.ofReal_toReal (by simpa using hg_top _ e.2)).symm
-      _ ≤ ENNReal.ofReal ((1 - w) + w * e) := ENNReal.ofReal_le_ofReal (hG_lin e e.2)
+          exact (ENNReal.ofReal_toReal (by simpa using hg_top _ e.property)).symm
+      _ ≤ ENNReal.ofReal ((1 - w) + w * e) := ENNReal.ofReal_le_ofReal (hG_lin e e.property)
       _ = _ := by
         rw [ENNReal.ofReal_add (by linarith) (by positivity), ENNReal.ofReal_mul hw0]
         simp [ENNReal.ofReal]

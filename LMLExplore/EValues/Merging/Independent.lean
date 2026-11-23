@@ -503,7 +503,7 @@ theorem isAdmissibleIEMerging_sum_mul_uStatistic {w : Fin (Fintype.card ι + 1) 
     IsAdmissibleIEMerging fun e : ι → ℝ≥0∞ ↦ ∑ n, w n * uStatistic n e := by
   have h := isPreciseIEMerging_tsum_mul
     (F := fun (n : Fin (Fintype.card ι + 1)) ↦ uStatistic (ι := ι) n)
-    (by rwa [tsum_fintype]) fun n ↦ isPreciseIEMerging_uStatistic (Nat.lt_succ_iff.1 n.2)
+    (by rwa [tsum_fintype]) fun n ↦ isPreciseIEMerging_uStatistic (Nat.lt_succ_iff.1 n.isLt)
   simp only [tsum_fintype] at h
   exact h.isAdmissibleIEMerging
 
