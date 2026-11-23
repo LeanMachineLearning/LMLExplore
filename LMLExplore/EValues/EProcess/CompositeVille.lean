@@ -164,18 +164,25 @@ theorem inverseCapital_apply (ℱ : Filtration ℕ mΩ) (S : Set (Measure Ω)) (
     inverseCapital ℱ S A = ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ)
       (_ : A ⊆ {ω | τ ω < ⊤}), ⨆ P ∈ S, P {ω | τ ω < ⊤} := (rfl)
 
+/-- The inverse capital outer measure evaluates to its unbundled value `inverseCapitalFun`, so
+that the private lemmas about `inverseCapitalFun` apply to it after a rewrite. -/
+private theorem inverseCapital_eq_inverseCapitalFun (A : Set Ω) :
+    inverseCapital ℱ S A = inverseCapitalFun ℱ S A := (rfl)
+
 /-! ### Sequential tests that are finite on a set -/
 
 /-- A level-`α` sequential test that is finite on `A` bounds the inverse capital outer measure
 of `A` by `α`. -/
 theorem inverseCapital_le_of_isLevelStoppingTime (hτ : IsLevelStoppingTime τ ℱ S α)
     (hA : A ⊆ {ω | τ ω < ⊤}) : inverseCapital ℱ S A ≤ α :=
-  (inverseCapitalFun_le hτ.isStoppingTime hA).trans (iSup₂_le hτ.measure_lt_top_le)
+  (inverseCapital_eq_inverseCapitalFun A).trans_le <|
+    (inverseCapitalFun_le hτ.isStoppingTime hA).trans (iSup₂_le hτ.measure_lt_top_le)
 
 /-- Above the inverse capital outer measure of `A`, at every level `α`, some level-`α` sequential
 test is finite on `A`. -/
 theorem exists_isLevelStoppingTime_of_inverseCapital_lt (h : inverseCapital ℱ S A < α) :
     ∃ τ, IsLevelStoppingTime τ ℱ S α ∧ A ⊆ {ω | τ ω < ⊤} := by
+  rw [inverseCapital_eq_inverseCapitalFun] at h
   obtain ⟨τ, hτ, hA, hlt⟩ := exists_of_inverseCapitalFun_lt h
   exact ⟨τ, ⟨hτ, fun P hP ↦ (le_iSup₂_of_le P hP le_rfl).trans hlt.le⟩, hA⟩
 
@@ -193,12 +200,15 @@ theorem inverseCapital_eq_zero_iff_forall_exists_isLevelStoppingTime :
 /-! ### The inverse capital outer measure and the members of the null -/
 
 /-- The inverse capital outer measure dominates every member of the null. -/
-theorem measure_le_inverseCapital (hP : P ∈ S) (A : Set Ω) : P A ≤ inverseCapital ℱ S A :=
-  le_iInf₂ fun _ _ ↦ le_iInf fun hA ↦ (measure_mono hA).trans (le_iSup₂_of_le P hP le_rfl)
+theorem measure_le_inverseCapital (hP : P ∈ S) (A : Set Ω) : P A ≤ inverseCapital ℱ S A := by
+  rw [inverseCapital_apply]
+  exact le_iInf₂ fun _ _ ↦ le_iInf fun hA ↦ (measure_mono hA).trans (le_iSup₂_of_le P hP le_rfl)
 
 /-- The inverse capital outer measure is monotone in the null. -/
 theorem inverseCapital_mono (hST : S ⊆ T) : inverseCapital ℱ S ≤ inverseCapital ℱ T :=
-  fun _ ↦ iInf₂_mono fun _ _ ↦ iInf_mono fun _ ↦ biSup_mono fun _ hP ↦ hST hP
+  fun A ↦ by
+    rw [inverseCapital_apply, inverseCapital_apply]
+    exact iInf₂_mono fun _ _ ↦ iInf_mono fun _ ↦ biSup_mono fun _ hP ↦ hST hP
 
 /-- On an event of the filtration, the inverse capital outer measure is the largest probability
 of the event under a member of the null: the stopping time equal to `n` on the event and to `⊤`
@@ -212,6 +222,7 @@ theorem inverseCapital_eq_iSup_of_measurableSet {n : ℕ} (hA : MeasurableSet[�
   have h_eq : {ω | A.piecewise (fun _ ↦ WithTop.some n) (fun _ ↦ ⊤) ω < ⊤} = A := by
     ext ω
     by_cases hω : ω ∈ A <;> simp [hω]
+  rw [inverseCapital_eq_inverseCapitalFun]
   exact (inverseCapitalFun_le hτ h_eq.ge).trans_eq (by rw [h_eq])
 
 /-- **The inverse capital outer measure of a simple null** [RLKR23, Lemma 2.1 (3)]. For a finite
