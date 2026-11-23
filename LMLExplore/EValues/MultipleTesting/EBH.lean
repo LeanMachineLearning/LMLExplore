@@ -64,6 +64,8 @@ Theorems 9.18–9.19].
 * `ProbabilityTheory.card_eBH`, `ProbabilityTheory.mem_eBH_iff_le_mul_card`: the number of
   rejections of e-BH, and its threshold form [WR22, Proposition 1].
 * `ProbabilityTheory.mem_eBH_iff_one_le_mul`: for one hypothesis, e-BH is the e-test.
+* `ProbabilityTheory.isSelfConsistent_div_iff`, `ProbabilityTheory.eBH_div`: dividing the level
+  by `c` is dividing the e-values by `c`.
 * `ProbabilityTheory.eBH_zero`, `ProbabilityTheory.eBH_mono`,
   `ProbabilityTheory.mem_eBH_comp_equiv`, `ProbabilityTheory.card_eBH_comp_equiv`,
   `ProbabilityTheory.eBH_comp_equiv_nonempty`: e-BH rejects nothing at level `0`, is monotone in
@@ -138,6 +140,13 @@ theorem isSelfConsistent_empty : IsSelfConsistent e α ∅ := by
 theorem IsSelfConsistent.mono (h : IsSelfConsistent e α R) (hα : α ≤ α') (he : e ≤ e') :
     IsSelfConsistent e' α' R :=
   fun i hi ↦ (h i hi).trans (by gcongr; exact he i)
+
+/-- **Dividing the level is dividing the e-values**: a set is self-consistent at level `α / c`
+for the e-values `e` exactly when it is self-consistent at level `α` for the e-values `e i / c`.
+-/
+theorem isSelfConsistent_div_iff {c : ℝ≥0∞} :
+    IsSelfConsistent e (α / c) R ↔ IsSelfConsistent (fun i ↦ e i / c) α R := by
+  simp only [isSelfConsistent_iff, div_eq_mul_inv, mul_right_comm α c⁻¹, mul_assoc, mul_comm c⁻¹]
 
 /-- The union of two self-consistent sets is self-consistent. -/
 theorem IsSelfConsistent.union [DecidableEq ι] (h : IsSelfConsistent e α R)
@@ -287,6 +296,12 @@ theorem eBH_zero (e : ι → ℝ≥0∞) : eBH e 0 = ∅ :=
 theorem eBH_mono {e' : ι → ℝ≥0∞} {α' : ℝ≥0∞} (hα : α ≤ α') (he : e ≤ e') :
     eBH e α ⊆ eBH e' α' :=
   (isSelfConsistent_eBH.mono hα he).subset_eBH
+
+/-- **e-BH at a divided level** is e-BH applied to the divided e-values. -/
+theorem eBH_div (e : ι → ℝ≥0∞) (α c : ℝ≥0∞) : eBH e (α / c) = eBH (fun i ↦ e i / c) α := by
+  have h := isGreatest_eBH (e := e) (α := α / c)
+  simp_rw [isSelfConsistent_div_iff] at h
+  exact h.unique isGreatest_eBH
 
 /-- **e-BH commutes with relabelling the hypotheses**: for a bijection `σ : κ ≃ ι`, e-BH applied
 to `e ∘ σ` rejects `i` exactly when e-BH applied to `e` rejects `σ i`. -/
