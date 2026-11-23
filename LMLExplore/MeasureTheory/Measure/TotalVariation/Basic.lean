@@ -56,6 +56,8 @@ contraction of the oscillation of functions by a Markov kernel (Dobrushin's coef
   and nonnegative `f`, `g` with `c ≤ f + g`, `c * (μ univ - tvDist μ ν / 2) ≤ ∫ f dμ + ∫ g dν`.
 * `MeasureTheory.measure_le_add_etvDist`: `μ s ≤ ν s + etvDist μ ν` for every measurable `s`, and
   `MeasureTheory.measure_le_add_of_etvDist_le` its form `μ s ≤ ν s + ε` when `etvDist ν μ ≤ ε`.
+* `MeasureTheory.limsup_measure_le_of_tendsto_etvDist`: if `μs i` tends to `ν` in total
+  variation, then `limsup μs i s ≤ ν s` for every measurable `s`.
 * `MeasureTheory.isProbabilityMeasure_of_forall_exists_etvDist_lt`: a limit in total variation of
   probability measures is a probability measure.
 * `MeasureTheory.exists_le_le_add_etvDist`: two finite measures have a common minorant `ρ` with
@@ -258,6 +260,20 @@ event `s` satisfies `μ s ≤ ν s + ε`. -/
 theorem measure_le_add_of_etvDist_le {μ ν : Measure 𝓧} {s : Set 𝓧} {ε : ℝ≥0∞}
     (hs : MeasurableSet s) (h : etvDist ν μ ≤ ε) : μ s ≤ ν s + ε :=
   (measure_le_add_etvDist μ ν hs).trans (add_le_add le_rfl ((etvDist_comm μ ν).trans_le h))
+
+/-- **Events of measures converging in total variation**: if `μs i` tends to `ν` in total
+variation, then `limsup μs i s ≤ ν s` for every measurable event `s`. No finiteness is assumed. -/
+theorem limsup_measure_le_of_tendsto_etvDist {ι : Type*} {l : Filter ι} {μs : ι → Measure 𝓧}
+    (h : Filter.Tendsto (fun i ↦ etvDist (μs i) ν) l (nhds 0)) {s : Set 𝓧} (hs : MeasurableSet s) :
+    Filter.limsup (fun i ↦ μs i s) l ≤ ν s := by
+  rcases l.eq_or_neBot with rfl | _
+  · simp
+  have htend : Filter.Tendsto (fun i ↦ ν s + etvDist (μs i) ν) l (nhds (ν s)) := by
+    simpa using tendsto_const_nhds.add h
+  calc Filter.limsup (fun i ↦ μs i s) l
+      ≤ Filter.limsup (fun i ↦ ν s + etvDist (μs i) ν) l :=
+        Filter.limsup_le_limsup (Filter.Eventually.of_forall fun i ↦ measure_le_add_etvDist _ _ hs)
+    _ = ν s := htend.limsup_eq
 
 /-- A limit in total variation of probability measures is a probability measure. -/
 theorem isProbabilityMeasure_of_forall_exists_etvDist_lt {S : Set (Measure 𝓧)} {Q : Measure 𝓧}

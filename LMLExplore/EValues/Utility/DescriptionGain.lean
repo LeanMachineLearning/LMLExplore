@@ -177,8 +177,9 @@ private lemma toENNReal_neg_log_div_le {q r f₀ : ℝ≥0∞} {F : ℕ → ℝ�
     calc (f₀ / q)⁻¹ ≤ (t * (r / q))⁻¹ := ENNReal.inv_le_inv.2 h2
       _ = t⁻¹ * (r / q)⁻¹ := ENNReal.mul_inv (Or.inl ht0) (Or.inl htt)
       _ = 2 ^ (k₀ + 2) * (r / q)⁻¹ := by rw [ENNReal.inv_pow, inv_inv]
-  have hlog2 : ENNReal.log 2 = ((Real.log 2 : ℝ) : EReal) := by
+  have hlog2 : (ENNReal.log 2).toENNReal = ENNReal.ofReal (Real.log 2) := by
     rw [← ENNReal.ofReal_ofNat 2, ENNReal.log_ofReal_of_pos two_pos]
+    simp
   calc (-ENNReal.log (f₀ / q)).toENNReal = (ENNReal.log (f₀ / q)⁻¹).toENNReal := by
         rw [ENNReal.log_inv]
     _ ≤ (ENNReal.log (2 ^ (k₀ + 2) * (r / q)⁻¹)).toENNReal :=
@@ -188,12 +189,8 @@ private lemma toENNReal_neg_log_div_le {q r f₀ : ℝ≥0∞} {F : ℕ → ℝ�
     _ ≤ (ENNReal.log (2 ^ (k₀ + 2))).toENNReal + (ENNReal.log (r / q)⁻¹).toENNReal :=
         EReal.toENNReal_add_le
     _ = ENNReal.ofReal (Real.log 2) * ((k₀ : ℝ≥0∞) + 2) + (-ENNReal.log (r / q)).toENNReal := by
-        rw [ENNReal.log_pow, hlog2, ENNReal.log_inv, ← EReal.coe_natCast, ← EReal.coe_mul,
-          EReal.toENNReal_of_ne_top (EReal.coe_ne_top _), EReal.toReal_coe,
-          ENNReal.ofReal_mul (by positivity), mul_comm]
-        push_cast
-        rw [ENNReal.ofReal_add (by positivity) (by norm_num), ENNReal.ofReal_natCast,
-          ENNReal.ofReal_ofNat]
+        rw [ENNReal.toENNReal_log_pow, hlog2, ENNReal.log_inv, mul_comm]
+        norm_num
     _ ≤ _ := by
         rw [add_comm]
         gcongr
@@ -310,13 +307,12 @@ private lemma eventually_lt_eintegral_log_mix [IsFiniteMeasure P] {q f₀ f : Ω
     simp only [U, A, L₀]
     rw [mul_div_assoc, ENNReal.log_mul_add, ← ENNReal.log_ofReal_of_pos (NNReal.coe_pos.2 hs0),
       ENNReal.ofReal_coe_nnreal]
-  set k : ℝ := Real.log s * P.real univ + g₀
+  set k : ℝ := Real.log s * P.real univ + g₀ with hk
   have hUk : ∫ᵉ ω, U ω ∂P = k := by
     simp_rw [hU]
     rw [eintegral_add' measurable_const.aemeasurable hL₀m.aemeasurable hL₀_top hL₀_bot,
       eintegral_const, h₀, ← EReal.coe_ennreal_toReal (measure_ne_top P univ), ← EReal.coe_mul,
-      ← EReal.coe_add]
-    rfl
+      ← EReal.coe_add, hk, measureReal_def]
   have hUm : Measurable U := ((measurable_const.mul hf₀).div hq).ennreal_log
   -- the decomposition `ln ((A + b G) / q) = ln (1 + b G / A) + ln (A / q)`
   set H : (Ω → ℝ≥0∞) → Ω → ℝ≥0∞ :=
@@ -465,22 +461,17 @@ private lemma descriptionGain_le_of_forall_mix_le [SigmaFinite μ] [IsFiniteMeas
     rw [hRn_univ]
     exact ENNReal.add_ne_top.2 ⟨ENNReal.mul_ne_top ENNReal.coe_ne_top hQ₀_fin,
       ENNReal.mul_ne_top ENNReal.coe_ne_top hn_fin⟩
-  have h1s : (((1 - s : ℝ≥0) : ℝ)) = 1 - (s : ℝ) := NNReal.coe_sub hs1.le
+  have hsmul : Rn = s • Q₀ + (1 - s) • Qs n := by rw [ENNReal.smul_def, ENNReal.smul_def]
   have hRn_real : Rn.real univ = s * Q₀.real univ + (1 - s) * (Qs n).real univ := by
-    rw [measureReal_def, hRn_univ, ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.coe_ne_top
-      hQ₀_fin) (ENNReal.mul_ne_top ENNReal.coe_ne_top hn_fin), ENNReal.toReal_mul,
-      ENNReal.toReal_mul, ENNReal.coe_toReal, ENNReal.coe_toReal, h1s, measureReal_def,
-      measureReal_def]
+    rw [hsmul, measureReal_def, add_apply, ENNReal.toReal_add (by finiteness) (by finiteness)]
+    simp [measureReal_def, ENNReal.toReal_sub_of_le (by exact_mod_cast hs1.le : (s : ℝ≥0∞) ≤ 1)]
   have hRn_dens : ∫ᵉ ω, ENNReal.log (Rn.rnDeriv μ ω / q ω) ∂P
       = ∫ᵉ ω, ENNReal.log ((s * q₀ ω + ((1 - s : ℝ≥0) : ℝ≥0∞) * (Qs n).rnDeriv μ ω) / q ω) ∂P := by
     refine eintegral_congr_ae ?_
-    -- the density of the mixture is the mixture of the densities
-    have hsmul : Rn = s • Q₀ + (1 - s) • Qs n := by rw [ENNReal.smul_def, ENNReal.smul_def]
-    filter_upwards [hPμ.ae_le (Measure.rnDeriv_add (s • Q₀) ((1 - s) • Qs n) μ),
-      hPμ.ae_le (Measure.rnDeriv_smul_left Q₀ μ s),
-      hPμ.ae_le (Measure.rnDeriv_smul_left (Qs n) μ (1 - s))] with ω h1 h2 h3
-    rw [hsmul, h1, Pi.add_apply, h2, h3]
-    simp only [Pi.smul_apply, ENNReal.smul_def, smul_eq_mul, q₀]
+    filter_upwards [hPμ.ae_le
+      (Measure.rnDeriv_smul_add_smul (μ := Q₀) (ν := Qs n) (ξ := μ) s (1 - s))] with ω h
+    rw [hsmul, h]
+    simp only [Pi.add_apply, Pi.smul_apply, ENNReal.smul_def, smul_eq_mul, q₀]
   have hgain : (S' : EReal) < descriptionGain μ P Q Rn := by
     rw [descriptionGain_eq_sub hRn_fin, hRn_dens]
     calc (S' : EReal) < ((s * g₀ + (1 - s) * (a + mR) - η : ℝ) : EReal)
@@ -512,13 +503,14 @@ private lemma exists_mem_bot_lt_descriptionGain [SigmaFinite μ] [IsFiniteMeasur
   have hR_fin : R univ ≠ ∞ := measure_univ_ne_top_of_descriptionGain_ne_bot hR_ne
   have : IsFiniteMeasure R := ⟨hR_fin.lt_top⟩
   set q := Q.rnDeriv μ
-  set r := R.rnDeriv μ
+  set r := R.rnDeriv μ with hr_def
   have hr_bot := eintegral_ne_bot_of_descriptionGain_ne_bot hR_ne
   have hr_pos : ∀ᵐ ω ∂P, r ω ≠ 0 := by
     filter_upwards [ae_ne_bot_of_eintegral_ne_bot ((Measure.measurable_rnDeriv _ _).div
       (Measure.measurable_rnDeriv _ _)).ennreal_log.aemeasurable hr_bot] with ω hω h0
     simp only [ne_eq, ENNReal.log_eq_bot_iff] at hω
-    exact hω (by rw [Pi.div_apply, show R.rnDeriv μ ω = 0 from h0, ENNReal.zero_div])
+    rw [hr_def] at h0
+    exact hω (by rw [Pi.div_apply, h0, ENNReal.zero_div])
   have hr_top : ∀ᵐ ω ∂P, r ω ≠ ∞ := hPμ.ae_le (Measure.rnDeriv_ne_top R μ)
   have hmeas : ∀ n, MeasurableSet {ω | (Qs n).rnDeriv μ ω < r ω / 2} := fun n ↦
     measurableSet_lt (Measure.measurable_rnDeriv _ _) ((Measure.measurable_rnDeriv _ _).div_const 2)
@@ -619,25 +611,12 @@ theorem descriptionGain_le_iSup_of_isSigmaConvex [SigmaFinite μ] [IsFiniteMeasu
   exact descriptionGain_le_iSup_of_convex hPμ h𝒞.convex
     (hQ₀.trans_le (le_iSup₂ (f := fun R' _ ↦ descriptionGain μ P Q R') Q₀ hQ₀𝒞)) hQs h_ae h_mass
 
+/-! #### Limits in total variation
 
-/-! #### Limits in total variation -/
-
-/-- A limit `R` in total variation of measures `Qs n` is their limit in the sense of
-`descriptionGain_le_iSup_of_isSigmaConvex` along a subsequence: densities with respect to `μ`
-converging `P`-almost everywhere, and `limsup Qs n (Ω) ≤ R(Ω)`. -/
-private lemma exists_seq_of_tendsto_etvDist [SigmaFinite μ] (hPμ : P ≪ μ) {Qs : ℕ → Measure Ω}
-    (hR : Tendsto (fun n ↦ etvDist (Qs n) R) atTop (𝓝 0)) :
-    ∃ ns : ℕ → ℕ,
-      (∀ᵐ ω ∂P, Tendsto (fun i ↦ (Qs (ns i)).rnDeriv μ ω) atTop (𝓝 (R.rnDeriv μ ω))) ∧
-      limsup (fun i ↦ Qs (ns i) univ) atTop ≤ R univ := by
-  obtain ⟨ns, hns, h_ae⟩ := exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist (ξ := μ) hR
-  refine ⟨ns, hPμ.ae_le h_ae, ?_⟩
-  have htend : Tendsto (fun i ↦ R univ + etvDist (Qs (ns i)) R) atTop (𝓝 (R univ)) := by
-    simpa using tendsto_const_nhds.add (hR.comp hns.tendsto_atTop)
-  calc limsup (fun i ↦ Qs (ns i) univ) atTop
-      ≤ limsup (fun i ↦ R univ + etvDist (Qs (ns i)) R) atTop :=
-        limsup_le_limsup (Eventually.of_forall fun i ↦ measure_le_add_etvDist _ _ .univ)
-    _ = R univ := htend.limsup_eq
+A limit `R` in total variation of measures `Qs n` is their limit in the sense of
+`descriptionGain_le_iSup_of_isSigmaConvex` along a subsequence: the densities converge almost
+everywhere along a subsequence (`MeasureTheory.exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist`),
+and `limsup Qs n (Ω) ≤ R(Ω)` (`MeasureTheory.limsup_measure_le_of_tendsto_etvDist`). -/
 
 /-- **Theorem 2 (3) of Note 27**: for a convex set `𝒞` with description gain
 `D(P‖Q ⇝ 𝒞) > -∞`, every limit `R` in total variation of members of `𝒞` has
@@ -650,8 +629,9 @@ theorem descriptionGain_le_iSup_of_convex_of_tendsto_etvDist [SigmaFinite μ]
     {Qs : ℕ → Measure Ω} (hQs : ∀ n, Qs n ∈ 𝒞)
     (hR : Tendsto (fun n ↦ etvDist (Qs n) R) atTop (𝓝 0)) :
     descriptionGain μ P Q R ≤ ⨆ R' ∈ 𝒞, descriptionGain μ P Q R' := by
-  obtain ⟨ns, h_ae, h_mass⟩ := exists_seq_of_tendsto_etvDist hPμ hR
-  exact descriptionGain_le_iSup_of_convex hPμ h𝒞 h_bot (fun i ↦ hQs (ns i)) h_ae h_mass
+  obtain ⟨ns, hns, h_ae⟩ := exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist (ξ := μ) hR
+  exact descriptionGain_le_iSup_of_convex hPμ h𝒞 h_bot (fun i ↦ hQs (ns i)) (hPμ.ae_le h_ae)
+    (limsup_measure_le_of_tendsto_etvDist (hR.comp hns.tendsto_atTop) .univ)
 
 /-- **Theorem 2 (2) of Note 27**: for a σ-convex set `𝒞`, every limit `R` in total variation of
 members of `𝒞` has `D(P‖Q ⇝ R) ≤ D(P‖Q ⇝ 𝒞)`.
@@ -662,8 +642,9 @@ theorem descriptionGain_le_iSup_of_isSigmaConvex_of_tendsto_etvDist [SigmaFinite
     (h𝒞 : IsSigmaConvex 𝒞) {Qs : ℕ → Measure Ω} (hQs : ∀ n, Qs n ∈ 𝒞)
     (hR : Tendsto (fun n ↦ etvDist (Qs n) R) atTop (𝓝 0)) :
     descriptionGain μ P Q R ≤ ⨆ R' ∈ 𝒞, descriptionGain μ P Q R' := by
-  obtain ⟨ns, h_ae, h_mass⟩ := exists_seq_of_tendsto_etvDist hPμ hR
-  exact descriptionGain_le_iSup_of_isSigmaConvex hPμ h𝒞 (fun i ↦ hQs (ns i)) h_ae h_mass
+  obtain ⟨ns, hns, h_ae⟩ := exists_seq_tendsto_ae_rnDeriv_of_tendsto_etvDist (ξ := μ) hR
+  exact descriptionGain_le_iSup_of_isSigmaConvex hPμ h𝒞 (fun i ↦ hQs (ns i)) (hPμ.ae_le h_ae)
+    (limsup_measure_le_of_tendsto_etvDist (hR.comp hns.tendsto_atTop) .univ)
 
 /-- **Theorem 2 (3) of Note 27**, the equality: for a convex set `𝒞` with description gain
 `D(P‖Q ⇝ 𝒞) > -∞`, every set `𝒞'` between `𝒞` and its closure in total variation has the

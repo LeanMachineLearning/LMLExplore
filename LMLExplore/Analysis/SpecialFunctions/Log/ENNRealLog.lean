@@ -22,6 +22,7 @@ import LMLExplore.Data.EReal.Inv
   `-(log x) / n ≤ r`.
 * `ENNReal.toENNReal_log_le_div_add`: for `0 < r < ∞`, `(log a)⁺ ≤ a / r + (log r)⁺`.
 * `ENNReal.log_le_sub_one`: `log x ≤ x - 1` in `EReal`, for every `x : ℝ≥0∞`.
+* `ENNReal.toENNReal_log_pow`: the positive part of `log (x ^ n)` is `n` times that of `log x`.
 * `ENNReal.mul_log_add_mul_log_le_log`: the concavity of the logarithm on `ℝ≥0∞`,
   `s log x + t log y ≤ log (s x + t y)` for weights `s, t : ℝ≥0` of sum `1`.
 
@@ -103,6 +104,10 @@ lemma log_le_sub_one (x : ℝ≥0∞) : log x ≤ (x : EReal) - 1 := by
   rw [log_pos_real h0 htop, ← EReal.coe_ennreal_toReal htop, ← EReal.coe_one, ← EReal.coe_sub,
     EReal.coe_le_coe_iff]
   exact Real.log_le_sub_one_of_pos (ENNReal.toReal_pos h0 htop)
+
+/-- The positive part of `log (x ^ n)` is `n` times the positive part of `log x`. -/
+lemma toENNReal_log_pow (x : ℝ≥0∞) (n : ℕ) : (log (x ^ n)).toENNReal = n * (log x).toENNReal := by
+  rw [log_pow, EReal.toENNReal_mul (by positivity), ← ENNReal.toEReal_natCast, EReal.toENNReal_coe]
 
 /-- **The concavity of the logarithm** on `ℝ≥0∞`: for weights `s, t : ℝ≥0` of sum `1`,
 `s log x + t log y ≤ log (s x + t y)` in `EReal`, for all `x, y : ℝ≥0∞`. A zero weight cancels

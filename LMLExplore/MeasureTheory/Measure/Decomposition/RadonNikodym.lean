@@ -35,6 +35,8 @@ members.
   `μ.rnDeriv ν` is `ν`-a.e. at most `f`.
 * `MeasureTheory.Measure.rnDeriv_le_rnDeriv_of_le`: the density with respect to `ξ` is monotone
   in the measure, below a finite measure.
+* `MeasureTheory.Measure.rnDeriv_smul_add_smul`: the density of a mixture `a • μ + b • ν` of
+  finite measures is the mixture of the densities.
 * `MeasureTheory.Measure.lintegral_rpow_rnDeriv_withDensity`: for an almost everywhere finite
   density `f` and `a < 1`, `∫⁻ (dμ/dν) ^ a dν = ∫⁻ f ^ (1 - a) dμ` with `ν = μ.withDensity f`,
   the affinity of order `a` between `μ` and a measure with a density with respect to it.
@@ -48,7 +50,7 @@ members.
 
 public section
 
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace MeasureTheory.Measure
 
@@ -92,6 +94,16 @@ theorem rnDeriv_le_rnDeriv_of_le [SigmaFinite ξ] [IsFiniteMeasure ν] (h : μ �
   rw [sub_add_cancel_of_le h] at hx
   rw [hx, Pi.add_apply]
   exact le_add_self
+
+/-- The density of a mixture is the mixture of the densities: for finite measures `μ` and `ν` and
+weights `a b : ℝ≥0`, the density of `a • μ + b • ν` with respect to `ξ` is `ξ`-almost everywhere
+`a • μ.rnDeriv ξ + b • ν.rnDeriv ξ`. -/
+theorem rnDeriv_smul_add_smul [IsFiniteMeasure μ] [IsFiniteMeasure ν]
+    [μ.HaveLebesgueDecomposition ξ] [ν.HaveLebesgueDecomposition ξ] (a b : ℝ≥0) :
+    (a • μ + b • ν).rnDeriv ξ =ᵐ[ξ] a • μ.rnDeriv ξ + b • ν.rnDeriv ξ := by
+  filter_upwards [rnDeriv_add (a • μ) (b • ν) ξ, rnDeriv_smul_left μ ξ a,
+    rnDeriv_smul_left ν ξ b] with x h1 h2 h3
+  rw [h1, Pi.add_apply, h2, h3, Pi.add_apply]
 
 /-- For a measure `ν = μ.withDensity f` with an almost everywhere finite density and `a < 1`, the
 integral `∫⁻ (dμ/dν) ^ a dν`, the affinity of order `a` between `μ` and `ν`, is
