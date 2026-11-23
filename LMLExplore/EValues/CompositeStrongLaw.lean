@@ -34,7 +34,8 @@ outer measure zero for a null of i.i.d. laws.
 This file proves it for the i.i.d. laws on `ℕ → ℝ` whose marginal ranges over a set of integrable
 laws `P` with centred first absolute moments `∫ |x - m_P| dP ≤ c` for one constant `c`, where
 `m_P` is the mean of `P`, in the stopping-time form, for the canonical filtration
-`Filtration.piLE`, following [EVR26, Note 16, Theorem 1]. The centred uniform integrability under
+`Filtration.piLT`, in which `n` observations have been made at time `n`, following
+[EVR26, Note 16, Theorem 1]. The centred uniform integrability under
 which [RLKR23, §4.2] proves a composite strong law implies this hypothesis.
 
 ## Main statements
@@ -51,9 +52,9 @@ which [RLKR23, §4.2] proves a composite strong law implies this hypothesis.
 ## Implementation notes
 
 Write `Aₖ` for the mean of the first `k` observations. The stopping time stops at the first time
-`n` at which, for some interval `[a, b]` with rational endpoints, the sample means
-`A₁, …, Aₙ₊₁` have completed `K (a, b)` upcrossings of `[a, b]`, or
-at which `Aₙ₊₁` is at distance at least `2 L` from the first observation. A sequence on which it
+`n ≥ 1` at which, for some interval `[a, b]` with rational endpoints, the sample means
+`A₁, …, Aₙ` have completed `K (a, b)` upcrossings of `[a, b]`, or
+at which `Aₙ` is at distance at least `2 L` from the first observation. A sequence on which it
 never stops has bounded sample means that cross each such interval finitely often, so its sample
 means converge (Mathlib's `MeasureTheory.tendsto_of_upcrossings_lt_top`). The probability of
 stopping under each member of the null is bounded by the upcrossing and maximal inequalities
@@ -61,6 +62,11 @@ stopping under each member of the null is bounded by the upcrossing and maximal 
 `ProbabilityTheory.mul_measure_exists_le_abs_sampleMean_sub_le`, which involve the law only through
 its centred first absolute moment. The thresholds `K (a, b)` come from summable positive weights
 on the rational pairs (`ENNReal.exists_pos_sum_of_countable`).
+
+The test is first built for the filtration `Filtration.piLE`, where `n + 1` observations have been
+made at time `n`, and shifted by one: `τ + 1` is a level-`α` sequential test for
+`Filtration.piLT` exactly when `τ` is one for `Filtration.piLE`
+(`ProbabilityTheory.isLevelStoppingTime_add_one_iff`).
 
 The proof is adapted from `EValuesResearch/Results/CompositeSLLN.lean` (commit `7695891`) in the
 paper project `RemyDegenne/evalues_research`, which proves [EVR26, Note 16, Theorem 1]; its
@@ -110,8 +116,8 @@ private def stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n : ℕ) : Set (�
   {ω | (∃ q : ℚ × ℚ, (q.1 : ℝ) < q.2 ∧ K q ≤ upcrossingsBefore q.1 q.2 sampleMean n ω) ∨
     2 * (L : ℝ) ≤ |sampleMean n ω - ω 0|}
 
-/-- The stopping time of the composite strong law: the first time at which `stopEvent L K`
-occurs. -/
+/-- The stopping time of the composite strong law for `Filtration.piLE`: the first time at which
+`stopEvent L K` occurs. -/
 private noncomputable def stopTime (L : ℝ≥0) (K : ℚ × ℚ → ℕ) : (ℕ → ℝ) → WithTop ℕ :=
   hittingAfter (fun n ↦ (stopEvent L K n).indicator fun _ ↦ (1 : ℝ)) {1} 0
 
@@ -139,7 +145,7 @@ private lemma measurableSet_stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n 
   · refine (continuous_abs.measurable.comp ?_) (measurableSet_Ici (a := 2 * (L : ℝ)))
     exact (measurable_piLE_sampleMean n).sub (Filtration.measurable_piLE_apply (Nat.zero_le n))
 
-/-- The time `stopTime L K` is a stopping time of the canonical filtration. -/
+/-- The time `stopTime L K` is a stopping time of the filtration `Filtration.piLE`. -/
 private lemma isStoppingTime_stopTime (L : ℝ≥0) (K : ℚ × ℚ → ℕ) :
     IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (stopTime L K) :=
   Adapted.isStoppingTime_hittingAfter
@@ -210,15 +216,9 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
           (add_le_add_left (measure_iUnion_le _) _))
     _ ≤ ∑' q, (ε q : ℝ≥0∞) + η := add_le_add (tsum_le_tsum hq) hfar
 
-/-- **A composite strong law of large numbers.** Let `S` be a set of integrable laws on `ℝ` whose
-centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P` is the mean of `P`.
-For every `α > 0`, some level-`α` sequential test for the i.i.d. laws of the members of `S`, a
-stopping time of the canonical filtration of `ℕ → ℝ` finite with probability at most `α` under
-i.i.d. sampling from each member of `S`, is finite on every sequence whose sample means do not
-converge in `ℝ` [EVR26, Note 16, Theorem 1]. The set of these sequences
-has thus inverse capital outer measure zero [RLKR23]. (For a member that is not a probability
-measure, `Measure.infinitePi` is zero.) -/
-theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
+/-- The composite strong law of large numbers for the filtration `Filtration.piLE`, in which `n + 1`
+observations have been made at time `n`. -/
+private theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE {S : Set (Measure ℝ)}
     (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
     ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
@@ -277,14 +277,33 @@ theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure 
     _ = δ := by rw [← ENNReal.coe_add, add_halves]
     _ ≤ α := hδα.le
 
+/-- **A composite strong law of large numbers.** Let `S` be a set of integrable laws on `ℝ` whose
+centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P` is the mean of `P`.
+For every `α > 0`, some level-`α` sequential test for the i.i.d. laws of the members of `S`, a
+stopping time of the canonical filtration `Filtration.piLT` of `ℕ → ℝ` (where `n` observations
+have been made at time `n`) finite with probability at most `α` under i.i.d. sampling from each
+member of `S`, is finite on every sequence whose sample means do not converge in `ℝ`
+[EVR26, Note 16, Theorem 1]. The set of these sequences has thus inverse capital outer measure
+zero [RLKR23]. (For a member that is not a probability measure, `Measure.infinitePi` is zero.) -/
+theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
+    (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
+    {α : ℝ≥0∞} (hα : 0 < α) :
+    ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ Filtration.piLT (iidNull S) α ∧
+      ∀ ω : ℕ → ℝ, (¬ ∃ l : ℝ,
+        Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)) → τ ω < ⊤ := by
+  -- the test `σ` for `Filtration.piLE`, shifted by one
+  obtain ⟨σ, hσ, hσ_top⟩ := exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE hS hc hα
+  exact ⟨fun ω ↦ σ ω + 1, (isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).2 hσ,
+    fun ω hω ↦ WithTop.add_lt_top.2 ⟨hσ_top ω hω, WithTop.one_lt_top⟩⟩
+
 /-- **The composite strong law of large numbers** [EVR26, Note 16, Theorem 1; RLKR23, §4.2], with
 the inverse capital outer measure. For the i.i.d. laws on `ℕ → ℝ` whose marginal ranges over a set
 of integrable laws `P` with `∫ |x - m_P| dP ≤ c` for one constant `c`, the set of the sequences
 whose sample means do not converge in `ℝ` has inverse capital outer measure zero, for the
-filtration `Filtration.piLE`. -/
+filtration `Filtration.piLT`. -/
 theorem inverseCapital_not_tendsto_mean_eq_zero {S : Set (Measure ℝ)}
     (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c) :
-    inverseCapital (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (iidNull S)
+    inverseCapital Filtration.piLT (iidNull S)
       {ω | ¬ ∃ l : ℝ, Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)} = 0 :=
   inverseCapital_eq_zero_iff_forall_exists_isLevelStoppingTime.2 fun _ hα ↦
     exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean hS hc (pos_iff_ne_zero.2 hα)
