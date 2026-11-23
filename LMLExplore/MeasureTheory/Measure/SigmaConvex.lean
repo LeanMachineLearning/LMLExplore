@@ -20,12 +20,16 @@ hypothesis is σ-convex.
 ## Main definitions
 
 * `MeasureTheory.IsSigmaConvex 𝒞`: `𝒞` contains the countable mixtures of its members.
+* `MeasureTheory.sigmaConvexHull 𝒞`: the set of countable mixtures of members of `𝒞`.
 
 ## Main statements
 
 * `MeasureTheory.isSigmaConvex_iff`, `MeasureTheory.IsSigmaConvex.sum_smul_mem`: the definition,
   and the mixtures it contains.
 * `MeasureTheory.IsSigmaConvex.convex`: a σ-convex set is convex.
+* `MeasureTheory.isSigmaConvex_sigmaConvexHull`,
+  `MeasureTheory.IsSigmaConvex.sigmaConvexHull_subset`: the countable mixtures of members of `𝒞`
+  form the smallest σ-convex set that contains `𝒞`.
 
 ## References
 
@@ -79,5 +83,51 @@ theorem IsSigmaConvex.convex {𝒞 : Set (Measure Ω)} (h𝒞 : IsSigmaConvex �
   simp only [smul_apply, smul_eq_mul]
   rw [hsum (fun n ↦ (if n = 0 then ν₁ else ν₂) t)]
   simp
+
+/-! ### The σ-convex hull -/
+
+/-- The **σ-convex hull** of a set `𝒞` of measures: the countable mixtures `∑ n, w n • Qs n` of
+members `Qs n` of `𝒞`, for weights `w n` of sum `1`. It is the smallest σ-convex set that contains
+`𝒞` (`MeasureTheory.isSigmaConvex_sigmaConvexHull`,
+`MeasureTheory.IsSigmaConvex.sigmaConvexHull_subset`). -/
+def sigmaConvexHull (𝒞 : Set (Measure Ω)) : Set (Measure Ω) :=
+  {ν | ∃ w : ℕ → ℝ≥0∞, ∃ Qs : ℕ → Measure Ω, ∑' n, w n = 1 ∧ (∀ n, Qs n ∈ 𝒞) ∧
+    ν = Measure.sum fun n ↦ w n • Qs n}
+
+theorem mem_sigmaConvexHull_iff {𝒞 : Set (Measure Ω)} {ν : Measure Ω} :
+    ν ∈ sigmaConvexHull 𝒞 ↔ ∃ w : ℕ → ℝ≥0∞, ∃ Qs : ℕ → Measure Ω, ∑' n, w n = 1 ∧
+      (∀ n, Qs n ∈ 𝒞) ∧ ν = Measure.sum fun n ↦ w n • Qs n :=
+  Iff.rfl
+
+/-- A set of measures is contained in its σ-convex hull. -/
+theorem subset_sigmaConvexHull {𝒞 : Set (Measure Ω)} : 𝒞 ⊆ sigmaConvexHull 𝒞 := by
+  intro ν hν
+  refine ⟨fun n ↦ if n = 0 then 1 else 0, fun _ ↦ ν, by simp, fun _ ↦ hν, ?_⟩
+  ext t ht
+  rw [Measure.sum_apply _ ht, tsum_eq_single 0 fun n hn ↦ by simp [hn]]
+  simp
+
+/-- The σ-convex hull is σ-convex: a countable mixture of countable mixtures is a countable
+mixture, indexed by the pairs of indices. -/
+theorem isSigmaConvex_sigmaConvexHull {𝒞 : Set (Measure Ω)} :
+    IsSigmaConvex (sigmaConvexHull 𝒞) := by
+  intro v νs hv hνs
+  choose w Qs hw hQs hνs_eq using hνs
+  set e : ℕ ≃ ℕ × ℕ := Nat.pairEquiv.symm
+  refine ⟨fun k ↦ v (e k).1 * w (e k).1 (e k).2, fun k ↦ Qs (e k).1 (e k).2, ?_,
+    fun k ↦ hQs _ _, ?_⟩
+  · rw [e.tsum_eq (fun p ↦ v p.1 * w p.1 p.2), tsum_prod (f := fun i j ↦ v i * w i j)]
+    simp [ENNReal.tsum_mul_left, hw, hv]
+  ext t ht
+  simp only [Measure.sum_apply _ ht, hνs_eq, smul_apply, smul_eq_mul]
+  rw [e.tsum_eq (fun p ↦ v p.1 * w p.1 p.2 * Qs p.1 p.2 t),
+    tsum_prod (f := fun i j ↦ v i * w i j * Qs i j t)]
+  simp [mul_assoc, ENNReal.tsum_mul_left]
+
+/-- The σ-convex hull of `𝒞` is contained in every σ-convex set that contains `𝒞`. -/
+theorem IsSigmaConvex.sigmaConvexHull_subset {𝒞 𝒟 : Set (Measure Ω)} (h𝒟 : IsSigmaConvex 𝒟)
+    (h : 𝒞 ⊆ 𝒟) : sigmaConvexHull 𝒞 ⊆ 𝒟 := by
+  rintro _ ⟨w, Qs, hw, hQs, rfl⟩
+  exact h𝒟.sum_smul_mem hw fun n ↦ h (hQs n)
 
 end MeasureTheory
