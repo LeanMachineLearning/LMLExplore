@@ -9,6 +9,8 @@ public import LMLExplore.MarkovDecisionProcess.Comparison
 public import LMLExplore.MarkovDecisionProcess.Occupancy
 public import LMLExplore.Probability.Kernel.Composition.IntegralCompProd
 
+import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+
 /-!
 # The performance difference lemma and the discounted value-difference identity
 
@@ -44,6 +46,10 @@ reinforcement learning.
 * `Learning.MDP.runValue_sub_integral_value`: the performance difference lemma [AJKS, Lemma 1.16];
   `Learning.MDP.integral_value_sub_integral_value`: its form for two stationary policies, with the
   advantage averaged over the actions of the first one.
+* `Learning.MDP.integral_value_sub_integral_value_le_mul_integral_iSup_advantage`: on countable
+  action sets, the suboptimality of `π` against a stationary policy `σ` is at most the mismatch
+  coefficient of `σ` times `(1 - γ) ^ {-2}` times the mean greedy advantage
+  `⨆ a, A^π (s, a)` along `d^π_μ` [KL02, §6].
 * `Learning.MDP.integral_integral_sub_integral_value`: the discounted extended value-difference
   identity [JYW21, Lemma A.1].
 
@@ -52,7 +58,7 @@ reinforcement learning.
 * [A. Agarwal, N. Jiang, S. M. Kakade and W. Sun, *Reinforcement Learning: Theory and
   Algorithms*, 2022][AJKS], Lemma 1.16
 * [S. Kakade and J. Langford, *Approximately optimal approximate reinforcement learning*,
-  ICML 2002][KL02], Lemma 6.1
+  ICML 2002][KL02], §6, Lemma 6.1
 * [Y. Jin, Z. Yang and Z. Wang, *Is pessimism provably efficient for offline RL?*, ICML 2021,
   arXiv:2012.15085][JYW21], Lemma A.1
 -/
@@ -111,6 +117,43 @@ theorem integral_value_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     (ρ := M.occupancy γ (Algorithm.markov fun _ ↦ π') μ) (ρCond := π')]
   rw [Measure.integral_compProd
     (integrable_of_abs_le (measurable_advantage hγ hR) (abs_advantage_le hγ hR) _)]
+
+/-- **Suboptimality from the greedy advantage** [KL02, §6]: on a countable action set,
+with bounded rewards and `γ < 1`, let `π` and `σ` be stationary policies and `D` bound the
+mismatch coefficient of `σ`, in the form `d^σ_μ ≤ D • μ` for the state occupancy measure of
+`σ` from the probability measure `μ`. Then
+`∫ v^σ dμ - ∫ v^π dμ ≤ D / (1 - γ) ^ 2 * ∫ (⨆ a, A^π (s, a)) dd^π_μ (s)`. -/
+theorem integral_value_sub_integral_value_le_mul_integral_iSup_advantage [Countable 𝓐]
+    [Nonempty 𝓐] (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {π : Kernel 𝓢 𝓐}
+    [IsMarkovKernel π] (σ : Kernel 𝓢 𝓐) [IsMarkovKernel σ] {D : ℝ≥0}
+    (hD : (M.occupancy γ (Algorithm.markov fun _ ↦ σ) μ).fst ≤ D • μ) :
+    ∫ s, M.value γ σ s ∂μ - ∫ s, M.value γ π s ∂μ ≤
+      D / (1 - γ) ^ 2 * ∫ s, ⨆ a, M.advantage γ π (s, a)
+        ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  set dσ := (M.occupancy γ (Algorithm.markov fun _ ↦ σ) μ).fst
+  set d := (M.occupancy γ (Algorithm.markov fun _ ↦ π) μ).fst
+  set g : 𝓢 → ℝ := fun s ↦ ⨆ a, M.advantage γ π (s, a)
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ σ) (μ := μ)
+    hγ
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := μ) hγ
+  have hgint (ν : Measure 𝓢) [IsFiniteMeasure ν] : Integrable g ν :=
+    integrable_of_abs_le (measurable_iSup_advantage hγ hR) (abs_iSup_advantage_le hγ hR) ν
+  have hg0 (s : 𝓢) : 0 ≤ g s := iSup_advantage_nonneg hγ hR s
+  -- the performance difference lemma, then three comparisons of integrals of `g`
+  rw [integral_value_sub_integral_value hγ hR π σ]
+  have h_star : ∫ s, ∫ a, M.advantage γ π (s, a) ∂(σ s) ∂dσ ≤ ∫ s, g s ∂dσ :=
+    integral_mono (integrable_of_abs_le (measurable_integral_advantage hγ hR σ)
+      (fun s ↦ abs_integral_le_of_abs_le fun a ↦ abs_advantage_le hγ hR (s, a)) _) (hgint _)
+      fun s ↦ integral_advantage_le_iSup hγ hR s (σ s)
+  have h_D : ∫ s, g s ∂dσ ≤ D * ∫ s, g s ∂μ :=
+    integral_le_mul_integral_of_le_smul hD (ae_of_all _ hg0) (hgint _)
+  have h_μ : (1 - γ) * ∫ s, g s ∂μ ≤ ∫ s, g s ∂d :=
+    mul_integral_le_integral_occupancy_fst hγ.le (ae_of_all _ hg0) (hgint d)
+  calc (1 - γ : ℝ)⁻¹ * ∫ s, ∫ a, M.advantage γ π (s, a) ∂(σ s) ∂dσ
+      ≤ (1 - γ : ℝ)⁻¹ * (D * ∫ s, g s ∂μ) := by gcongr; exact h_star.trans h_D
+    _ = D / (1 - γ) ^ 2 * ((1 - γ) * ∫ s, g s ∂μ) := by field_simp
+    _ ≤ D / (1 - γ) ^ 2 * ∫ s, g s ∂d := by gcongr
 
 /-- **Extended value-difference identity**, discounted form [JYW21, Lemma A.1]: let `Q̂` be bounded
 and measurable, `π'` a stationary policy and `V̂ s = ∫ Q̂ (s, a) ∂π' s`. With bounded rewards and
