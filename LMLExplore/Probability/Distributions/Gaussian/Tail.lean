@@ -130,7 +130,7 @@ private lemma tendsto_neg_gaussianPDFReal_div_atTop :
   rw [Real.norm_eq_abs, abs_div, abs_neg, abs_of_pos hx,
     abs_of_nonneg (gaussianPDFReal_nonneg 0 1 x)]
   gcongr
-  simpa using gaussianPDFReal_le 0 1 x
+  simpa using TauCeti.Probability.gaussianPDFReal_le 0 1 x
 
 /-- `φ x (1 + 1 / x²) ≤ (1 + 1 / t²) φ x` for `0 < t < x`. -/
 private lemma gaussianPDFReal_mul_le_of_lt {t x : ℝ} (ht : 0 < t) (hx : t < x) :
