@@ -176,8 +176,8 @@ theorem exists_le_add_mul_of_forall_lintegral_bernoulliMeasure_le_one
           exact (ENNReal.ofReal_toReal (by simpa using hg_top _ e.property)).symm
       _ ≤ ENNReal.ofReal ((1 - w) + w * e) := ENNReal.ofReal_le_ofReal (hG_lin e e.property)
       _ = _ := by
-        rw [ENNReal.ofReal_add (by linarith) (by positivity), ENNReal.ofReal_mul hw0]
-        simp [ENNReal.ofReal]
+        rw [ENNReal.ofReal_add (by linarith) (by positivity), ENNReal.ofReal_mul hw0,
+          ENNReal.ofReal_coe_nnreal, ENNReal.ofNNReal_toNNReal, ENNReal.ofNNReal_toNNReal]
 
 /-- **Two-point laws suffice for one e-value.** A function `g` of one e-value with `∫⁻ g ∂ν ≤ 1`
 for every law `ν` on at most two points with mean at most `1` has `∫⁻ g ∂μ ≤ 1` for every

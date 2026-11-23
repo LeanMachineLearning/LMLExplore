@@ -347,25 +347,19 @@ theorem IsAdmissibleIEMerging.eq_of_le (hF : IsAdmissibleIEMerging F) (hG : IsIE
 Proposition 4.1]. -/
 theorem IsPreciseIEMerging.isAdmissibleIEMerging (hF : IsPreciseIEMerging F) :
     IsAdmissibleIEMerging F := by
-  -- If `G ≥ F` at finite arguments, then `G - F` has integral `0` against every product of laws
-  -- with mean `1`, and such a product charges any given point with finite coordinates.
+  -- If `G ≥ F` at finite arguments, then `G = F` almost surely under every product of laws with
+  -- mean `1`, since `F` is exact there, and such a product charges any given finite point.
   refine isAdmissibleIEMerging_iff_isAdmissible.2 ⟨hF.toIsIEMerging, fun G hG hle ↦
     Filter.eventuallyLE_principal_range_iff.2 fun e ↦ ?_⟩
   have hG : IsIEMerging G := by simpa using hG
   replace hle := Filter.eventuallyLE_principal_range_iff.1 hle
   obtain ⟨μ, hμ, hmean, hne⟩ := exists_pi_lintegral_id_eq_one e
+  have hμS := (pi_mem_mergingNull_productLaws_iff μ).2 fun i ↦ (hmean i).le
   have hfin : ∀ᵐ x ∂Measure.pi μ, ∀ i, x i ≠ ∞ := ae_all_iff.2 fun i ↦
-    (isEVar_eval_mergingNull productLaws i).ae_ne_top
-      ((pi_mem_mergingNull_productLaws_iff μ).2 fun i ↦ (hmean i).le)
-  have hF1 := hF.lintegral_eq_one μ hmean
-  have hint : ∫⁻ x, (G x - F x) ∂Measure.pi μ = 0 := by
-    rw [lintegral_sub hF.measurable (hF1 ▸ ENNReal.one_ne_top) (ae_le_of_forall_nnreal_le hfin hle),
-      hF1]
-    exact tsub_eq_zero_of_le (hG.lintegral_le_one μ fun i ↦ (hmean i).le)
-  have h0 : (G (fun i ↦ e i) - F (fun i ↦ e i)) * Measure.pi μ {fun i ↦ (e i : ℝ≥0∞)} = 0 :=
-    le_antisymm (((lintegral_singleton' (hG.measurable.sub hF.measurable) _).symm.trans_le
-      (setLIntegral_le_lintegral _ _)).trans hint.le) zero_le
-  exact tsub_eq_zero_iff_le.1 ((mul_eq_zero.1 h0).resolve_right hne)
+    (isEVar_eval_mergingNull productLaws i).ae_ne_top hμS
+  have h0 := (isIEMerging_iff_isEVar_mergingNull.1 hG).measure_lt_eq_zero_of_ae_le hμS
+    (ae_le_of_forall_nnreal_le hfin hle) (hF.lintegral_eq_one μ hmean)
+  exact not_lt.1 fun hlt ↦ hne (measure_mono_null (Set.singleton_subset_iff.2 hlt) h0)
 
 /-- **The product is an admissible merging function for independent e-values** [VW21,
 Section 4]. -/
