@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.EValues.EProcess.CompositeVille
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import LMLExplore.EValues.Null.Basic
 public import Mathlib.Probability.ProductMeasure
@@ -41,6 +42,11 @@ which [RLKR23, §4.2] proves a composite strong law implies this hypothesis.
 * `ProbabilityTheory.exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean`: the composite strong
   law: for every `α > 0`, a level-`α` sequential test for the i.i.d. null that rejects on every
   sequence whose sample means do not converge.
+* `ProbabilityTheory.inverseCapital_not_tendsto_mean_eq_zero`: the composite strong law with the
+  inverse capital outer measure (`ProbabilityTheory.inverseCapital`): the set of the sequences
+  whose sample means do not converge has inverse capital outer measure zero. By the composite
+  Ville theorem `ProbabilityTheory.inverseCapital_eq_zero_iff`, some e-process for the i.i.d. null
+  tends to infinity on that set.
 
 ## Implementation notes
 
@@ -270,5 +276,17 @@ theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure 
     _ ≤ ((δ / 2 : ℝ≥0) : ℝ≥0∞) + ((δ / 2 : ℝ≥0) : ℝ≥0∞) := by gcongr
     _ = δ := by rw [← ENNReal.coe_add, add_halves]
     _ ≤ α := hδα.le
+
+/-- **The composite strong law of large numbers** [EVR26, Note 16, Theorem 1; RLKR23, §4.2], with
+the inverse capital outer measure. For the i.i.d. laws on `ℕ → ℝ` whose marginal ranges over a set
+of integrable laws `P` with `∫ |x - m_P| dP ≤ c` for one constant `c`, the set of the sequences
+whose sample means do not converge in `ℝ` has inverse capital outer measure zero, for the
+filtration `Filtration.piLE`. -/
+theorem inverseCapital_not_tendsto_mean_eq_zero {S : Set (Measure ℝ)}
+    (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c) :
+    inverseCapital (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (iidNull S)
+      {ω | ¬ ∃ l : ℝ, Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)} = 0 :=
+  inverseCapital_eq_zero_iff_forall_exists_isLevelStoppingTime.2 fun _ hα ↦
+    exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean hS hc (pos_iff_ne_zero.2 hα)
 
 end ProbabilityTheory

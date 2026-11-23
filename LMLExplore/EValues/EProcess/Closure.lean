@@ -27,6 +27,8 @@ file proves the operations under which e-processes are closed, beyond those of
   a statistician who does not know which of two nulls to test can take the smaller evidence.
 * **Mixtures.** A mixture `∫⁻ θ, E θ n ω ∂π`, over a probability measure `π`, of a jointly
   measurable family of e-processes is an e-process, with no integrability condition.
+* **Countable mixtures.** A combination `∑' i, w i * E i n ω` of countably many e-processes with
+  weights of sum at most `1` is an e-process, for every null.
 * **Mixtures of held bets.** For a countable family of e-variables `E i`, each measurable at a
   time `t i`, and weights `w i` of sum at most `1`, the process that holds each bet `w i * E i`
   from its time `t i` on is an e-process. The case `t = id` is the **time mixture**
@@ -57,6 +59,7 @@ stopping time equal to `σ` on an event of that σ-algebra and to `ρ` off it
 * `ProbabilityTheory.IsEProcess.inf`: the minimum of an e-process for `S` and one for `T` is an
   e-process for `S ∪ T`.
 * `ProbabilityTheory.isEProcess_lintegral`: mixtures of e-processes over a probability measure.
+* `ProbabilityTheory.isEProcess_tsum_mul`: countable mixtures of e-processes.
 * `ProbabilityTheory.isEProcess_tsum_ite_le_mul`: countable mixtures of held bets.
 * `ProbabilityTheory.isEProcess_sum_mul`: time mixtures of e-variables [RW, Proposition 7.23].
 * `ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`: the value of an e-process at a stopping
@@ -150,6 +153,16 @@ theorem isEProcess_lintegral {Θ : Type*} {mΘ : MeasurableSpace Θ} {π : Measu
   _ ≤ ∫⁻ _, 1 ∂π := lintegral_mono fun θ ↦
     ((hE θ).isEVar_stoppedValue_of_le hτ hτN).lintegral_le_one hP
   _ = 1 := by simp
+
+/-- **Countable mixtures of e-processes.** For e-processes `E i` indexed by a countable type and
+weights `w i` of sum at most `1`, the process `∑' i, w i * E i n ω` is an e-process. Unlike
+`ProbabilityTheory.isEProcess_lintegral`, this needs no finiteness of the members of the null. -/
+theorem isEProcess_tsum_mul {ι : Type*} [Countable ι] {E : ι → ℕ → Ω → ℝ≥0∞}
+    (hE : ∀ i, IsEProcess (E i) ℱ S) {w : ι → ℝ≥0∞} (hw : ∑' i, w i ≤ 1) :
+    IsEProcess (fun n ω ↦ ∑' i, w i * E i n ω) ℱ S :=
+  -- `Measurable.tsum` takes the σ-algebra as an anonymous instance, so `ℱ n` is installed as one
+  ⟨fun n ↦ letI := ℱ n; Measurable.tsum fun i ↦ ((hE i).adapted n).const_mul (w i),
+    fun _ hτ _ hτN ↦ isEVar_tsum_mul (fun i ↦ (hE i).isEVar_stoppedValue_of_le hτ hτN) hw⟩
 
 /-- **Mixtures of held bets.** For a countable family of e-variables `E i`, each measurable at a
 time `t i` of the filtration, and weights `w i` with `∑' i, w i ≤ 1`, the process that holds each
