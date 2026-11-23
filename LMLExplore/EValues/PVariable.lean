@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EVariable
 public import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
 import TauCeti.Analysis.SpecialFunctions.Pow.Integral
 
 /-!
@@ -61,11 +62,15 @@ larger than the uniform law on `[0, 1]`.
 * `ProbabilityTheory.IsPVar.lintegral_comp_le`: under a measure of mass at most `1`, the integral
   of an antitone function of a p-variable is at most its integral against the uniform law on
   `[0, 1]`: a p-variable is stochastically larger than the uniform law.
+* `ProbabilityTheory.IsPVar.lintegral_min_one_div_le`: for `a ≤ 1`, the expectation of
+  `min 1 (a / p)` is at most `a * (1 - log a)`, its value for a uniform p-variable, which is the
+  calibration behind the FDR-linking theorem of [Su18].
 
 ## References
 
 * A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
   Statistics 1 (2025), arXiv:2410.23614v6: Definition 1.2, Proposition 2.1 and Fact 3.6.
+* [Su18] W. J. Su, *The FDR-linking theorem*, arXiv:1812.08965.
 
 The definition of `IsTest` and the statement of `isTest_iff_isEVar_div` follow the prototype in
 `notes/book/Suggested.lean` (commit `1411a5b`) of the project `RemyDegenne/evalues_research`.
@@ -442,5 +447,46 @@ theorem IsPVar.lintegral_comp_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : P univ 
   rw [h_cake_P, h_cake_U]
   exact lintegral_mono fun t ↦ hp.measure_preimage_le hP hP1
     (L := {y | ENNReal.ofReal t < f y}) fun _ _ hxy hy ↦ hy.trans_le (hf hxy)
+
+/-- **The calibration of the FDR-linking theorem** [Su18]: under a measure of total mass at most
+`1`, for `a ≤ 1`, the expectation of `min 1 (a / p)` for a p-variable `p` is at most
+`a * (1 - log a) = a * (1 + log (1 / a))`, its value for a uniform p-variable on `[0, 1]`. -/
+theorem IsPVar.lintegral_min_one_div_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : P univ ≤ 1)
+    {a : ℝ≥0∞} (ha : a ≤ 1) :
+    ∫⁻ ω, min 1 (a / p ω) ∂P ≤ ENNReal.ofReal (a.toReal * (1 - Real.log a.toReal)) := by
+  refine (hp.lintegral_comp_le hP hP1 fun x y hxy ↦
+    min_le_min le_rfl (ENNReal.div_le_div_left hxy a)).trans_eq ?_
+  obtain ⟨b, hb0, rfl⟩ : ∃ b : ℝ, 0 ≤ b ∧ a = ENNReal.ofReal b :=
+    ⟨a.toReal, ENNReal.toReal_nonneg,
+      (ENNReal.ofReal_toReal (ne_top_of_le_ne_top ENNReal.one_ne_top ha)).symm⟩
+  rw [ENNReal.toReal_ofReal hb0]
+  have hb1 : b ≤ 1 := ENNReal.ofReal_le_one.1 ha
+  rcases hb0.eq_or_lt with rfl | hb0
+  · simp
+  -- the integrand is `1` on `[0, b]` and `b / x` on `(b, 1]`
+  have h₁ : ∫⁻ x in Icc 0 b, min 1 (ENNReal.ofReal b / ENNReal.ofReal x) = ENNReal.ofReal b := by
+    rw [setLIntegral_congr_fun measurableSet_Icc fun x hx ↦ min_eq_left
+      ((ENNReal.le_div_iff_mul_le (Or.inr (ENNReal.ofReal_pos.2 hb0).ne')
+        (Or.inr ENNReal.ofReal_ne_top)).2 (by rw [one_mul]; exact ENNReal.ofReal_le_ofReal hx.2)),
+      setLIntegral_const, one_mul, Real.volume_Icc, sub_zero]
+  have h₂ : ∫⁻ x in Ioc b 1, min 1 (ENNReal.ofReal b / ENNReal.ofReal x) =
+      ENNReal.ofReal (b * -Real.log b) := by
+    have hcont : ContinuousOn (fun x : ℝ ↦ b / x) (Icc b 1) :=
+      continuousOn_const.div continuousOn_id fun x hx ↦ (hb0.trans_le hx.1).ne'
+    rw [setLIntegral_congr_fun (g := fun x ↦ ENNReal.ofReal (b / x)) measurableSet_Ioc
+      fun x (hx : x ∈ Ioc b 1) ↦ by
+        rw [← ENNReal.ofReal_div_of_pos (hb0.trans hx.1)]
+        exact min_eq_right (ENNReal.ofReal_le_one.2 ((div_le_one (hb0.trans hx.1)).2 hx.1.le)),
+      ← ofReal_integral_eq_lintegral_ofReal (hcont.integrableOn_Icc.mono_set Ioc_subset_Icc_self)
+        ((ae_restrict_iff' measurableSet_Ioc).2 (Filter.Eventually.of_forall fun x hx ↦
+          div_nonneg hb0.le (hb0.trans hx.1).le)),
+      ← intervalIntegral.integral_of_le hb1]
+    simp only [div_eq_mul_inv, intervalIntegral.integral_const_mul, integral_inv_of_pos hb0 one_pos,
+      one_mul, Real.log_inv]
+  rw [← Icc_union_Ioc_eq_Icc hb0.le hb1, lintegral_union measurableSet_Ioc
+    (disjoint_left.2 fun x hx hx' ↦ (hx.2.trans_lt hx'.1).false), h₁, h₂,
+    ← ENNReal.ofReal_add hb0.le (mul_nonneg hb0.le (neg_nonneg.2 (Real.log_nonpos hb0.le hb1)))]
+  congr 1
+  ring
 
 end ProbabilityTheory
