@@ -8,7 +8,6 @@ module
 public import Mathlib.MeasureTheory.MeasurableSpace.Instances
 public import Mathlib.Probability.Process.Stopping
 public import LMLExplore.Data.ENat.Basic
-public import TauCeti.Probability.Process.Filtration.Comp
 import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
@@ -41,8 +40,6 @@ time, which is how a statistician switches between two stopping rules after seei
 * `MeasureTheory.Adapted.shift`, `MeasureTheory.adapted_shift_iff`: for filtrations with
   `𝒢 (n + 1) = ℱ n`, a process `M` with `M 0` measurable at time `0` is adapted to `𝒢` exactly
   when its shift `fun n ↦ M (n + 1)` is adapted to `ℱ`.
-* `MeasureTheory.IsStoppingTime.map_of_comp`: a stopping time of the filtration `ℱ.comp ht`
-  sampled along a monotone time map `t`, read on the clock of `ℱ`, is a stopping time of `ℱ`.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
   `Filtration.piLE` is determined, where it is finite, by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
@@ -201,22 +198,6 @@ theorem adapted_shift_iff {β : Type*} [MeasurableSpace β] {𝒢 : Filtration �
   rintro (_ | n)
   · exact hM₀
   · exact (h n).symm ▸ hM n
-
-/-- **Sampled stopping times.** For a monotone time map `t`, a stopping time `κ` of the sampled
-filtration `ℱ.comp ht`, whose time `k` is `ℱ (t k)`, read on the clock of `ℱ` as
-`(κ ω).map t`, is a stopping time of `ℱ`. -/
-theorem IsStoppingTime.map_of_comp {t : ℕ → ℕ} (ht : Monotone t) {κ : Ω → WithTop ℕ}
-    (hκ : IsStoppingTime (ℱ.comp ht) κ) : IsStoppingTime ℱ fun ω ↦ (κ ω).map t := by
-  refine isStoppingTime_of_measurableSet_eq fun j ↦ ?_
-  have h_eq : {ω | (κ ω).map t = WithTop.some j} =
-      ⋃ k, ⋃ (_ : t k = j), {ω | κ ω = WithTop.some k} := by
-    ext ω
-    simp only [Set.mem_ofPred_eq, Set.mem_iUnion, exists_prop]
-    cases κ ω <;> simp
-  rw [h_eq]
-  refine .iUnion fun k ↦ .iUnion fun hk ↦ ?_
-  subst hk
-  exact (Filtration.measurableSet_comp_iff ℱ ht k).1 (hκ.measurableSet_eq k)
 
 end Nat
 

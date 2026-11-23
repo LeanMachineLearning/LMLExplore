@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.Stopping
+public import TauCeti.Probability.Process.Filtration.Comp
 
 /-!
 # Blockwise e-processes
@@ -28,7 +29,7 @@ on that block look unfavourable.
 
 Conversely, an e-process `E` for `ℱ` **sampled** along a monotone time map `t`, `k ↦ E (t k)`, is an
 e-process for the sampled filtration: a stopping time of the sampled filtration is read on the
-clock of `ℱ` (`MeasureTheory.IsStoppingTime.map_of_comp`). Sampling undoes lifting: the lift of
+clock of `ℱ` (`MeasureTheory.IsStoppingTime.map`). Sampling undoes lifting: the lift of
 `E`, sampled at the block ends, is `E` again. So a process is a blockwise e-process exactly when
 its lift is an e-process.
 
@@ -66,12 +67,10 @@ theorem IsEProcess.comp (hE : IsEProcess E ℱ S) (ht : Monotone t) :
   isEVar_stoppedValue_of_le κ hκ N hκN := by
     have hκ_top (ω : Ω) : κ ω ≠ ⊤ := WithTop.ne_top_of_le_natCast (hκN ω)
     -- the value at `κ` is the value of `E` at the time `κ` read on the clock of `ℱ`
-    have h_eq : stoppedValue (fun k ↦ E (t k)) κ = stoppedValue E fun ω ↦ (κ ω).map t := by
-      ext ω
-      obtain ⟨k, hk⟩ := WithTop.ne_top_iff_exists.1 (hκ_top ω)
-      simp [stoppedValue, ← hk]
+    have h_eq : stoppedValue (fun k ↦ E (t k)) κ = stoppedValue E fun ω ↦ (κ ω).map t :=
+      funext fun ω ↦ stoppedValue_comp_of_ne_top (hκ_top ω)
     rw [h_eq]
-    refine hE.isEVar_stoppedValue_of_le (hκ.map_of_comp ht) (N := t N) fun ω ↦ ?_
+    refine hE.isEVar_stoppedValue_of_le (hκ.map ht) (N := t N) fun ω ↦ ?_
     obtain ⟨k, hk⟩ := WithTop.ne_top_iff_exists.1 (hκ_top ω)
     have hkN : k ≤ N := by
       have := hκN ω
