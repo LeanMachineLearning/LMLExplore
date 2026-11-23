@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.MultipleTesting.EBH
 public import Mathlib.Probability.Independence.Basic
+import LMLExplore.Probability.Distributions.Bernoulli
 import LMLExplore.Probability.Independence.InverseSum
 
 /-!
@@ -19,21 +20,22 @@ and `q > 0`, the **null-proportion estimate** is
 [EVR26, Note 33]; every `h` with `1 - e / t ≤ h e` may be used, as `h e = 𝟙{e < t}`.
 
 If the e-values of the true hypotheses are mutually independent, nothing being assumed on the
-others, the e-values divided by `π̂₀` are compound e-variables
-(`ProbabilityTheory.isCompoundEVar_div_nullProportionEstimate`). So every rejection set that is
-self-consistent at the level `α / π̂₀`, in particular e-BH at that level, has false discovery
-rate at most `α`: this is a null-proportion adaptive e-BH procedure, the analogue for e-values of
-Storey's procedure, whose estimate is built from the e-values themselves. The proof bounds the
-expectation of `(1 + ∑ j, h (e j))⁻¹` over the other true nulls by the inverse moment of a
-binomial variable (`ProbabilityTheory.lintegral_inv_one_add_sum_le`), as [MD26] does for p-values
-and [IWR26] for compound e-values.
+others, and `q ≤ E[h (E)]` for every null e-value `E`, the e-values divided by `π̂₀` are compound
+e-variables (`ProbabilityTheory.isCompoundEVar_div_nullProportionEstimate`; at a level `t`,
+`ProbabilityTheory.isCompoundEVar_div_nullProportionEstimate_one_sub_inv`). So every rejection set
+that is self-consistent at the level `α / π̂₀`, in particular e-BH at that level, has false
+discovery rate at most `α`: this is a null-proportion adaptive e-BH procedure, the analogue for
+e-values of Storey's procedure, whose estimate is built from the e-values themselves. The proof
+bounds the expectation of `(1 + ∑ j, h (e j))⁻¹` over the other true nulls by the inverse moment
+of a binomial variable (`ProbabilityTheory.lintegral_inv_one_add_sum_le`), as [MD26] does for
+p-values and [IWR26] for compound e-values.
 
 The **leave-one-out e-values** `F i = K * q * e i / (1 + ∑ j ≠ i, h (e j))`
 (`ProbabilityTheory.leaveOneOutEValue`) improve the procedure: under the same hypothesis the
-`F i / (1 - t⁻¹ ^ K)` are compound e-variables
-(`ProbabilityTheory.isCompoundEVar_leaveOneOutEValue_div`), they are at least the `e i / π̂₀`, so
-e-BH applied to them rejects at least what e-BH at the level `α / π̂₀` rejects
-(`ProbabilityTheory.eBH_div_nullProportionEstimate_subset`).
+`F i / (1 - (1 - q) ^ K)` are compound e-variables
+(`ProbabilityTheory.isCompoundEVar_leaveOneOutEValue_div`; the divisor is `1 - t⁻¹ ^ K` at a level
+`t`), they are at least the `e i / π̂₀`, so e-BH applied to them rejects at least what e-BH at
+the level `α / π̂₀` rejects (`ProbabilityTheory.eBH_div_nullProportionEstimate_subset`).
 
 The proof of validity uses only that `q ≤ E[h (E)]` for every null e-value `E`. Among the
 functions with that property the truncated linear ones are the only ones worth using
@@ -49,13 +51,12 @@ conservative than e-BH at level `α`, or it is at least an estimate of [EVR26, N
 
 ## Main statements
 
-* `ProbabilityTheory.sum_lintegral_leaveOneOutEValue_le`: for independent null e-values with
-  `q ≤ E[h (E i)]`, the expectations of the leave-one-out e-values of the true nulls sum to at
-  most `K * (1 - (1 - q) ^ K₀)`, with `K₀` the number of true nulls.
+* `ProbabilityTheory.sum_lintegral_leaveOneOutEValue_le`: for a set `N` of hypotheses whose
+  e-values `E i` are independent, with `E[E i] ≤ 1` and `q ≤ E[h (E i)]` for `i ∈ N`, the
+  expectations of the leave-one-out e-values of the hypotheses of `N` sum to at most
+  `K * (1 - (1 - q) ^ #N)`.
 * `ProbabilityTheory.sum_lintegral_div_nullProportionEstimate_le`: the same with the e-values
   divided by the estimate, at most `K`.
-* `ProbabilityTheory.one_sub_inv_le_lintegral_comp`: `1 - t⁻¹ ≤ E[h (E)]` for an e-value `E` and
-  `h ≥ 1 - · / t`.
 * `ProbabilityTheory.isCompoundEVar_div_nullProportionEstimate`,
   `ProbabilityTheory.lintegral_fdp_le_of_isSelfConsistent_div_nullProportionEstimate`,
   `ProbabilityTheory.lintegral_fdp_eBH_div_nullProportionEstimate_le`: the adaptive e-BH
@@ -63,6 +64,10 @@ conservative than e-BH at level `α`, or it is at least an estimate of [EVR26, N
 * `ProbabilityTheory.isCompoundEVar_leaveOneOutEValue_div`,
   `ProbabilityTheory.eBH_div_nullProportionEstimate_subset`: the leave-one-out improvement
   [EVR26, Note 33, statement 4].
+* `ProbabilityTheory.one_sub_inv_le_lintegral_comp`: `1 - t⁻¹ ≤ E[h (E)]` for an e-value `E` and
+  `h ≥ 1 - · / t`, so that the estimate of a level `t` is valid:
+  `ProbabilityTheory.isCompoundEVar_div_nullProportionEstimate_one_sub_inv`,
+  `ProbabilityTheory.isCompoundEVar_leaveOneOutEValue_one_sub_inv_div`.
 * `ProbabilityTheory.forall_le_or_exists_mul_one_sub_div_le`,
   `ProbabilityTheory.one_add_inv_le_nullProportionEstimate`,
   `ProbabilityTheory.nullProportionEstimate_le_of_mul_one_sub_div_le`,
@@ -145,6 +150,12 @@ section Validity
 
 variable {h : ℝ≥0∞ → ℝ≥0∞} {q : ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} [DecidableEq ι]
 
+/-- A lower bound `q` on the expectation of `h (X)` under a probability measure, for `h ≤ 1`, is
+at most `1`. -/
+private lemma le_one_of_le_lintegral_comp {P : Measure Ω} [IsProbabilityMeasure P]
+    {X : Ω → ℝ≥0∞} (hh1 : ∀ x, h x ≤ 1) (hq : q ≤ ∫⁻ ω, h (X ω) ∂P) : q ≤ 1 :=
+  hq.trans ((lintegral_mono fun ω ↦ hh1 _).trans_eq (by simp))
+
 omit [Fintype ι] in
 /-- **The leave-one-out bound for one true null.** If the e-values `E j`, `j ∈ N`, are independent,
 `E i` has expectation at most `1` for `i ∈ N`, and `q ≤ E[h (E j)]` for `j ∈ N`, then
@@ -189,9 +200,7 @@ private lemma lintegral_mul_inv_one_add_sum_erase_le {P : Measure Ω}
   simp only [Function.comp_apply, h_sum, ← Nat.cast_add_one, h_card] at h_inv
   rw [lintegral_mul_eq_lintegral_mul_lintegral_of_indepFun'' (hE i hi).aemeasurable
     hg_meas.aemeasurable h_indep]
-  calc (∫⁻ ω, E i ω ∂P) * ∫⁻ ω, (1 + ∑ j ∈ N.erase i, h (E j ω))⁻¹ ∂P
-      ≤ 1 * ((1 - (1 - q) ^ #N) / (#N * q)) := mul_le_mul' (hE1 i hi) h_inv
-    _ = (1 - (1 - q) ^ #N) / (#N * q) := one_mul _
+  exact (mul_le_mul' (hE1 i hi) h_inv).trans_eq (one_mul _)
 
 /-- **The leave-one-out e-values of independent null e-values** [EVR26, Note 33, statements 1
 and 4]. Let the e-values `E i`, `i ∈ N`, be independent under the probability measure `P`, with
@@ -208,7 +217,7 @@ theorem sum_lintegral_leaveOneOutEValue_le {P : Measure Ω} [IsProbabilityMeasur
   · simp
   rcases eq_or_ne q 0 with rfl | hq0
   · simp [leaveOneOutEValue_def]
-  have hq1 : q ≤ 1 := (hq i₀ hi₀).trans ((lintegral_mono fun ω ↦ hh1 _).trans_eq (by simp))
+  have hq1 : q ≤ 1 := le_one_of_le_lintegral_comp hh1 (hq i₀ hi₀)
   have hq_top : q ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top hq1
   have hN0 : (#N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_pos.2 ⟨i₀, hi₀⟩).ne'
   calc ∑ i ∈ N, ∫⁻ ω, leaveOneOutEValue h q (E · ω) i ∂P
@@ -223,12 +232,12 @@ theorem sum_lintegral_leaveOneOutEValue_le {P : Measure Ω} [IsProbabilityMeasur
         rw [lintegral_const_mul' _ _ (ENNReal.mul_ne_top (ENNReal.natCast_ne_top _) hq_top)]
         gcongr
         exact lintegral_mul_inv_one_add_sum_erase_le hE hE1 hind hh hh1 hq0 hq1 hq hi
-    _ = Fintype.card ι * (1 - (1 - q) ^ #N) * ((#N * q) * (#N * q)⁻¹) := by
-        rw [sum_const, nsmul_eq_mul, div_eq_mul_inv]
+    _ = Fintype.card ι * (#N * q * ((1 - (1 - q) ^ #N) / (#N * q))) := by
+        rw [sum_const, nsmul_eq_mul]
         ring
     _ = Fintype.card ι * (1 - (1 - q) ^ #N) := by
-        rw [ENNReal.mul_inv_cancel (mul_ne_zero hN0 hq0)
-          (ENNReal.mul_ne_top (ENNReal.natCast_ne_top _) hq_top), mul_one]
+        rw [ENNReal.mul_div_cancel (mul_ne_zero hN0 hq0)
+          (ENNReal.mul_ne_top (ENNReal.natCast_ne_top _) hq_top)]
 
 omit [DecidableEq ι] in
 /-- **The adaptive e-values of independent null e-values have total expectation at most `K`**
@@ -240,16 +249,131 @@ theorem sum_lintegral_div_nullProportionEstimate_le {P : Measure Ω} [IsProbabil
     (hq : ∀ i ∈ N, q ≤ ∫⁻ ω, h (E i ω) ∂P) :
     ∑ i ∈ N, ∫⁻ ω, E i ω / nullProportionEstimate h q (E · ω) ∂P ≤ Fintype.card ι := by
   classical
-  rcases N.eq_empty_or_nonempty with rfl | ⟨i₀, hi₀⟩
-  · simp
-  have hq_top : q ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top
-    ((hq i₀ hi₀).trans ((lintegral_mono fun ω ↦ hh1 _).trans_eq (by simp)))
-  exact (sum_le_sum fun i _ ↦ lintegral_mono fun ω ↦
-    div_nullProportionEstimate_le_leaveOneOutEValue h (E · ω) hq_top i).trans
+  exact (sum_le_sum fun i hi ↦ lintegral_mono fun ω ↦
+    div_nullProportionEstimate_le_leaveOneOutEValue h (E · ω)
+      (ne_top_of_le_ne_top ENNReal.one_ne_top (le_one_of_le_lintegral_comp hh1 (hq i hi))) i).trans
     ((sum_lintegral_leaveOneOutEValue_le hE hE1 hind hh hh1 hq).trans
       (mul_le_of_le_one_right' tsub_le_self))
 
 end Validity
+
+/-! ### Adaptive e-BH -/
+
+section Adaptive
+
+variable {H : ι → Set (Measure Ω)} {E : ι → Ω → ℝ≥0∞} {h : ℝ≥0∞ → ℝ≥0∞} {q : ℝ≥0∞}
+
+/-- Under every probability measure, the leave-one-out e-values of the true nulls have
+expectations summing to at most `K * (1 - (1 - q) ^ K₀)`, with `K₀` the number of true nulls. -/
+private lemma sum_lintegral_leaveOneOutEValue_trueNulls_le [DecidableEq ι]
+    (hE : ∀ i, IsEVar (E i) (H i))
+    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
+    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1)
+    (hq : ∀ i (P : Measure Ω) [IsProbabilityMeasure P], P ∈ H i → q ≤ ∫⁻ ω, h (E i ω) ∂P)
+    (P : Measure Ω) [IsProbabilityMeasure P] :
+    ∑ i ∈ trueNulls H P, ∫⁻ ω, leaveOneOutEValue h q (E · ω) i ∂P ≤
+      Fintype.card ι * (1 - (1 - q) ^ #(trueNulls H P)) :=
+  sum_lintegral_leaveOneOutEValue_le (fun i _ ↦ (hE i).measurable)
+    (fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi)) (hind P) hh hh1
+    fun i hi ↦ hq i P (mem_trueNulls.1 hi)
+
+/-- **Adaptive e-values are compound e-variables** [EVR26, Note 33, statement 1]. Let `E i` be
+e-variables for the hypotheses `H i` such that, under every probability measure, the e-values of
+the true nulls are independent. For a measurable `h ≤ 1` with `q ≤ E_P[h (E i)]` whenever `P` is a
+probability measure of `H i`, the e-values divided by the null-proportion estimate
+`(1 + ∑ k, h (E k)) / (K * q)` are compound e-variables. The estimate of [EVR26, Note 33] at a
+level `t` is `isCompoundEVar_div_nullProportionEstimate_one_sub_inv`. -/
+theorem isCompoundEVar_div_nullProportionEstimate (hE : ∀ i, IsEVar (E i) (H i))
+    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
+    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1)
+    (hq : ∀ i (P : Measure Ω) [IsProbabilityMeasure P], P ∈ H i → q ≤ ∫⁻ ω, h (E i ω) ∂P) :
+    IsCompoundEVar (fun i ω ↦ E i ω / nullProportionEstimate h q (E · ω)) H where
+  measurable i := (hE i).measurable.div
+    (measurable_nullProportionEstimate _ hh fun j ↦ (hE j).measurable)
+  sum_lintegral_le P _ := by
+    classical
+    refine (sum_le_sum fun i hi ↦ lintegral_mono fun ω ↦ ?_).trans
+      ((sum_lintegral_leaveOneOutEValue_trueNulls_le hE hind hh hh1 hq P).trans
+        (mul_le_of_le_one_right' tsub_le_self))
+    exact div_nullProportionEstimate_le_leaveOneOutEValue h (E · ω) (ne_top_of_le_ne_top
+      ENNReal.one_ne_top (le_one_of_le_lintegral_comp hh1 (hq i P (mem_trueNulls.1 hi)))) i
+
+/-- **Adaptive e-BH controls the false discovery rate** [EVR26, Note 33, statement 1]: under the
+hypotheses of `isCompoundEVar_div_nullProportionEstimate`, every rejection procedure
+self-consistent for the e-values `E` at the level `α / π̂₀`, with `π̂₀` the null-proportion
+estimate, has false discovery rate at most `α`. -/
+theorem lintegral_fdp_le_of_isSelfConsistent_div_nullProportionEstimate [DecidableEq ι]
+    (hE : ∀ i, IsEVar (E i) (H i))
+    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
+    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1)
+    (hq : ∀ i (P : Measure Ω) [IsProbabilityMeasure P], P ∈ H i → q ≤ ∫⁻ ω, h (E i ω) ∂P)
+    {α : ℝ≥0∞} {D : Ω → Finset ι}
+    (hD : ∀ ω, IsSelfConsistent (E · ω) (α / nullProportionEstimate h q (E · ω)) (D ω))
+    (P : Measure Ω) [IsProbabilityMeasure P] :
+    ∫⁻ ω, fdp (trueNulls H P) (D ω) ∂P ≤ α :=
+  (isCompoundEVar_div_nullProportionEstimate hE hind hh hh1 hq).lintegral_fdp_le
+    (fun ω ↦ isSelfConsistent_div_iff.1 (hD ω)) P
+
+/-- **False discovery rate control by adaptive e-BH** [EVR26, Note 33, statement 1]: under the
+hypotheses of `isCompoundEVar_div_nullProportionEstimate`, e-BH applied at the level `α / π̂₀`,
+with `π̂₀` the null-proportion estimate, has false discovery rate at most `α`. -/
+theorem lintegral_fdp_eBH_div_nullProportionEstimate_le [DecidableEq ι]
+    (hE : ∀ i, IsEVar (E i) (H i))
+    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
+    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1)
+    (hq : ∀ i (P : Measure Ω) [IsProbabilityMeasure P], P ∈ H i → q ≤ ∫⁻ ω, h (E i ω) ∂P)
+    (α : ℝ≥0∞) (P : Measure Ω) [IsProbabilityMeasure P] :
+    ∫⁻ ω, fdp (trueNulls H P)
+      (eBH (E · ω) (α / nullProportionEstimate h q (E · ω))) ∂P ≤ α :=
+  lintegral_fdp_le_of_isSelfConsistent_div_nullProportionEstimate hE hind hh hh1 hq
+    (fun _ ↦ isSelfConsistent_eBH) P
+
+/-- **The leave-one-out e-values are compound e-variables** [EVR26, Note 33, statement 4]: under
+the hypotheses of `isCompoundEVar_div_nullProportionEstimate`, the leave-one-out e-values divided
+by `1 - (1 - q) ^ K` are compound e-variables. So e-BH applied to them at level `α` has false
+discovery rate at most `α` (`IsCompoundEVar.lintegral_fdp_eBH_le`), and it rejects at least what
+adaptive e-BH rejects (`eBH_div_nullProportionEstimate_subset`). -/
+theorem isCompoundEVar_leaveOneOutEValue_div [DecidableEq ι] (hE : ∀ i, IsEVar (E i) (H i))
+    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
+    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1)
+    (hq : ∀ i (P : Measure Ω) [IsProbabilityMeasure P], P ∈ H i → q ≤ ∫⁻ ω, h (E i ω) ∂P) :
+    IsCompoundEVar
+      (fun i ω ↦ leaveOneOutEValue h q (E · ω) i / (1 - (1 - q) ^ Fintype.card ι)) H where
+  measurable i := (measurable_leaveOneOutEValue _ hh (fun j ↦ (hE j).measurable) i).div_const _
+  sum_lintegral_le P _ := by
+    rcases isEmpty_or_nonempty ι with hι | hι
+    · simp [Finset.eq_empty_of_isEmpty (trueNulls H P)]
+    rcases eq_or_ne q 0 with rfl | hq0
+    · simp [leaveOneOutEValue_def]
+    have hc0 : 1 - (1 - q) ^ Fintype.card ι ≠ 0 :=
+      (tsub_pos_of_lt (pow_lt_one₀ zero_le
+        (ENNReal.sub_lt_self ENNReal.one_ne_top one_ne_zero hq0) Fintype.card_ne_zero)).ne'
+    simp_rw [div_eq_mul_inv]
+    rw [sum_congr rfl fun i _ ↦ lintegral_mul_const' _ _ (ENNReal.inv_ne_top.2 hc0), ← sum_mul]
+    calc (∑ i ∈ trueNulls H P, ∫⁻ ω, leaveOneOutEValue h q (E · ω) i ∂P) *
+          (1 - (1 - q) ^ Fintype.card ι)⁻¹
+        ≤ Fintype.card ι * (1 - (1 - q) ^ Fintype.card ι) * (1 - (1 - q) ^ Fintype.card ι)⁻¹ := by
+          gcongr
+          refine (sum_lintegral_leaveOneOutEValue_trueNulls_le hE hind hh hh1 hq P).trans ?_
+          gcongr _ * (1 - ?_)
+          exact pow_le_pow_right_of_le_one' tsub_le_self (card_le_univ _)
+      _ = Fintype.card ι := by
+          rw [mul_assoc, ENNReal.mul_inv_cancel hc0 (ENNReal.sub_ne_top ENNReal.one_ne_top),
+            mul_one]
+
+/-- **The leave-one-out procedure rejects at least what adaptive e-BH rejects** [EVR26, Note 33,
+statement 4]. -/
+theorem eBH_div_nullProportionEstimate_subset [DecidableEq ι] (hq : q ≠ ∞) (e : ι → ℝ≥0∞)
+    (α : ℝ≥0∞) :
+    eBH e (α / nullProportionEstimate h q e) ⊆
+      eBH (fun i ↦ leaveOneOutEValue h q e i / (1 - (1 - q) ^ Fintype.card ι)) α := by
+  rw [eBH_div]
+  refine eBH_mono le_rfl fun i ↦ ?_
+  rw [div_eq_mul_inv]
+  exact (div_nullProportionEstimate_le_leaveOneOutEValue h e hq i).trans
+    (le_mul_of_one_le_right' (ENNReal.one_le_inv.2 tsub_le_self))
+
+end Adaptive
 
 /-! ### Adaptive e-BH with the estimate of a level `t` -/
 
@@ -274,102 +398,34 @@ theorem one_sub_inv_le_lintegral_comp {P : Measure Ω} [IsProbabilityMeasure P] 
           _ ≤ ∫⁻ ω, (1 - X ω / t + X ω / t) ∂P := lintegral_mono fun ω ↦ le_tsub_add
     _ ≤ ∫⁻ ω, h (X ω) ∂P := lintegral_mono fun ω ↦ hht _
 
-/-- **Adaptive e-values are compound e-variables** [EVR26, Note 33, statement 1]. Let `E i` be
-e-variables for the hypotheses `H i` such that, under every probability measure, the e-values of
-the true nulls are independent. For a level `t` and a measurable `h ≤ 1` with `1 - x / t ≤ h x`
-(as `h x = 1 - x / t`), the e-values divided by the null-proportion estimate
-`(1 + ∑ k, h (E k)) / (K * (1 - t⁻¹))` are compound e-variables. For `t ≤ 1` the estimate is `∞`,
-and only `t > 1` gives a useful procedure. -/
-theorem isCompoundEVar_div_nullProportionEstimate (hE : ∀ i, IsEVar (E i) (H i))
+/-- **Adaptive e-values at a level `t` are compound e-variables** [EVR26, Note 33, statement 1]:
+`isCompoundEVar_div_nullProportionEstimate` for `q = 1 - t⁻¹` and a measurable `h ≤ 1` with
+`1 - x / t ≤ h x` (as `h x = 1 - x / t`), the estimate being
+`(1 + ∑ k, h (E k)) / (K * (1 - t⁻¹))`. For `t ≤ 1` the estimate is `∞`, and only `t > 1` gives a
+useful procedure. -/
+theorem isCompoundEVar_div_nullProportionEstimate_one_sub_inv (hE : ∀ i, IsEVar (E i) (H i))
     (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
     (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1) (hht : ∀ x, 1 - x / t ≤ h x) :
-    IsCompoundEVar (fun i ω ↦ E i ω / nullProportionEstimate h (1 - t⁻¹) (E · ω)) H where
-  measurable i := (hE i).measurable.div
-    (measurable_nullProportionEstimate _ hh fun j ↦ (hE j).measurable)
-  sum_lintegral_le P _ := by
-    classical
-    exact sum_lintegral_div_nullProportionEstimate_le (fun i _ ↦ (hE i).measurable)
-      (fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi)) (hind P) hh hh1
-      fun i hi ↦ one_sub_inv_le_lintegral_comp (hE i).measurable
-        ((hE i).lintegral_le_one (mem_trueNulls.1 hi)) hht
+    IsCompoundEVar (fun i ω ↦ E i ω / nullProportionEstimate h (1 - t⁻¹) (E · ω)) H :=
+  isCompoundEVar_div_nullProportionEstimate hE hind hh hh1 fun i _ _ hP ↦
+    one_sub_inv_le_lintegral_comp (hE i).measurable ((hE i).lintegral_le_one hP) hht
 
-/-- **Adaptive e-BH controls the false discovery rate** [EVR26, Note 33, statement 1]: under the
-hypotheses of `isCompoundEVar_div_nullProportionEstimate`, every rejection procedure
-self-consistent for the e-values `E` at the level `α / π̂₀`, with `π̂₀` the null-proportion
-estimate, has false discovery rate at most `α`. -/
-theorem lintegral_fdp_le_of_isSelfConsistent_div_nullProportionEstimate [DecidableEq ι]
+/-- **The leave-one-out e-values at a level `t` are compound e-variables** [EVR26, Note 33,
+statement 4]: `isCompoundEVar_leaveOneOutEValue_div` for `q = 1 - t⁻¹` and `1 - x / t ≤ h x`,
+where the divisor `1 - (1 - q) ^ K` is `1 - t⁻¹ ^ K`. -/
+theorem isCompoundEVar_leaveOneOutEValue_one_sub_inv_div [DecidableEq ι]
     (hE : ∀ i, IsEVar (E i) (H i))
-    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
-    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1) (hht : ∀ x, 1 - x / t ≤ h x)
-    {α : ℝ≥0∞} {D : Ω → Finset ι}
-    (hD : ∀ ω, IsSelfConsistent (E · ω) (α / nullProportionEstimate h (1 - t⁻¹) (E · ω)) (D ω))
-    (P : Measure Ω) [IsProbabilityMeasure P] :
-    ∫⁻ ω, fdp (trueNulls H P) (D ω) ∂P ≤ α :=
-  (isCompoundEVar_div_nullProportionEstimate hE hind hh hh1 hht).lintegral_fdp_le
-    (fun ω ↦ isSelfConsistent_div_iff.1 (hD ω)) P
-
-/-- **False discovery rate control by adaptive e-BH** [EVR26, Note 33, statement 1]: e-BH applied
-at the level `α / π̂₀`, with `π̂₀` the null-proportion estimate, has false discovery rate at most
-`α`. -/
-theorem lintegral_fdp_eBH_div_nullProportionEstimate_le [DecidableEq ι]
-    (hE : ∀ i, IsEVar (E i) (H i))
-    (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
-    (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1) (hht : ∀ x, 1 - x / t ≤ h x)
-    (α : ℝ≥0∞) (P : Measure Ω) [IsProbabilityMeasure P] :
-    ∫⁻ ω, fdp (trueNulls H P)
-      (eBH (E · ω) (α / nullProportionEstimate h (1 - t⁻¹) (E · ω))) ∂P ≤ α :=
-  lintegral_fdp_le_of_isSelfConsistent_div_nullProportionEstimate hE hind hh hh1 hht
-    (fun _ ↦ isSelfConsistent_eBH) P
-
-/-- **The leave-one-out e-values are compound e-variables** [EVR26, Note 33, statement 4]: under
-the hypotheses of `isCompoundEVar_div_nullProportionEstimate`, the leave-one-out e-values divided
-by `1 - t⁻¹ ^ K` are compound e-variables. So e-BH applied to them at level `α` has false
-discovery rate at most `α` (`IsCompoundEVar.lintegral_fdp_eBH_le`), and it rejects at least what
-adaptive e-BH rejects (`eBH_div_nullProportionEstimate_subset`). -/
-theorem isCompoundEVar_leaveOneOutEValue_div [DecidableEq ι] (hE : ∀ i, IsEVar (E i) (H i))
     (hind : ∀ (P : Measure Ω) [IsProbabilityMeasure P], iIndepFun (fun i : trueNulls H P ↦ E i) P)
     (hh : Measurable h) (hh1 : ∀ x, h x ≤ 1) (hht : ∀ x, 1 - x / t ≤ h x) :
     IsCompoundEVar
-      (fun i ω ↦ leaveOneOutEValue h (1 - t⁻¹) (E · ω) i / (1 - t⁻¹ ^ Fintype.card ι)) H where
-  measurable i := (measurable_leaveOneOutEValue _ hh (fun j ↦ (hE j).measurable) i).div_const _
-  sum_lintegral_le P _ := by
-    rcases isEmpty_or_nonempty ι with hι | hι
-    · simp [Finset.eq_empty_of_isEmpty (trueNulls H P)]
-    rcases le_or_gt t 1 with ht | ht
-    · simp [leaveOneOutEValue_def, tsub_eq_zero_of_le (ENNReal.one_le_inv.2 ht)]
-    have ht1 : t⁻¹ ≤ 1 := (ENNReal.inv_lt_one.2 ht).le
-    have hc0 : 1 - t⁻¹ ^ Fintype.card ι ≠ 0 :=
-      (tsub_pos_of_lt (pow_lt_one₀ zero_le (ENNReal.inv_lt_one.2 ht)
-        Fintype.card_ne_zero)).ne'
-    have hc : t⁻¹ ^ Fintype.card ι ≤ t⁻¹ ^ #(trueNulls H P) :=
-      pow_le_pow_right_of_le_one' ht1 (card_le_univ _)
-    have h_sum := sum_lintegral_leaveOneOutEValue_le (fun i _ ↦ (hE i).measurable)
-      (fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi)) (hind P) hh hh1
-      fun i hi ↦ one_sub_inv_le_lintegral_comp (hE i).measurable
-        ((hE i).lintegral_le_one (mem_trueNulls.1 hi)) hht
-    rw [ENNReal.sub_sub_cancel ENNReal.one_ne_top ht1] at h_sum
-    simp_rw [div_eq_mul_inv]
-    rw [sum_congr rfl fun i _ ↦ lintegral_mul_const' _ _ (ENNReal.inv_ne_top.2 hc0), ← sum_mul]
-    calc (∑ i ∈ trueNulls H P, ∫⁻ ω, leaveOneOutEValue h (1 - t⁻¹) (E · ω) i ∂P) *
-          (1 - t⁻¹ ^ Fintype.card ι)⁻¹
-        ≤ Fintype.card ι * (1 - t⁻¹ ^ Fintype.card ι) * (1 - t⁻¹ ^ Fintype.card ι)⁻¹ := by
-          gcongr
-          exact h_sum.trans (by gcongr)
-      _ = Fintype.card ι := by
-          rw [mul_assoc, ENNReal.mul_inv_cancel hc0 (ENNReal.sub_ne_top ENNReal.one_ne_top),
-            mul_one]
-
-/-- **The leave-one-out procedure rejects at least what adaptive e-BH rejects** [EVR26, Note 33,
-statement 4]. -/
-theorem eBH_div_nullProportionEstimate_subset [DecidableEq ι] (e : ι → ℝ≥0∞) (α : ℝ≥0∞) :
-    eBH e (α / nullProportionEstimate h (1 - t⁻¹) e) ⊆
-      eBH (fun i ↦ leaveOneOutEValue h (1 - t⁻¹) e i / (1 - t⁻¹ ^ Fintype.card ι)) α := by
-  rw [eBH_div]
-  refine eBH_mono le_rfl fun i ↦ ?_
-  rw [div_eq_mul_inv]
-  exact (div_nullProportionEstimate_le_leaveOneOutEValue h e
-    (ENNReal.sub_ne_top ENNReal.one_ne_top) i).trans
-    (le_mul_of_one_le_right' (ENNReal.one_le_inv.2 tsub_le_self))
+      (fun i ω ↦ leaveOneOutEValue h (1 - t⁻¹) (E · ω) i / (1 - t⁻¹ ^ Fintype.card ι)) H := by
+  have hc : 1 - (1 - (1 - t⁻¹)) ^ Fintype.card ι = 1 - t⁻¹ ^ Fintype.card ι := by
+    rcases le_total t⁻¹ 1 with ht | ht
+    · rw [ENNReal.sub_sub_cancel ENNReal.one_ne_top ht]
+    · rw [tsub_eq_zero_of_le ht, tsub_zero, one_pow, tsub_self,
+        tsub_eq_zero_of_le (one_le_pow₀ ht)]
+  simpa only [hc] using isCompoundEVar_leaveOneOutEValue_div hE hind hh hh1 fun i _ _ hP ↦
+    one_sub_inv_le_lintegral_comp (hE i).measurable ((hE i).lintegral_le_one hP) hht
 
 end Level
 
@@ -379,43 +435,51 @@ section Functions
 
 variable {g : ℝ≥0∞ → ℝ≥0∞} {q : ℝ≥0∞}
 
+/-- **Point masses**: if `q ≤ ∫⁻ x, g x ∂μ` for every probability measure `μ` on `ℝ≥0∞` with
+mean at most `1`, then `q ≤ g x` for `x ≤ 1`. -/
+private lemma le_of_forall_le_lintegral
+    (hg : ∀ μ : Measure ℝ≥0∞, IsProbabilityMeasure μ → ∫⁻ x, x ∂μ ≤ 1 → q ≤ ∫⁻ x, g x ∂μ)
+    {x : ℝ≥0∞} (hx : x ≤ 1) : q ≤ g x := by
+  simpa [lintegral_dirac] using hg (Measure.dirac x) inferInstance (by simpa using hx)
+
+/-- If `g ≤ 1` and `q ≤ ∫⁻ x, g x ∂μ` for every probability measure `μ` on `ℝ≥0∞` with mean at
+most `1`, then `q` is finite. -/
+private lemma ne_top_of_forall_le_lintegral (hg1 : ∀ x, g x ≤ 1)
+    (hg : ∀ μ : Measure ℝ≥0∞, IsProbabilityMeasure μ → ∫⁻ x, x ∂μ ≤ 1 → q ≤ ∫⁻ x, g x ∂μ) :
+    q ≠ ∞ :=
+  ne_top_of_le_ne_top ENNReal.one_ne_top ((le_of_forall_le_lintegral hg zero_le).trans (hg1 0))
+
 /-- **Two-point laws**: if `q ≤ ∫⁻ x, g x ∂μ` for every probability measure `μ` on `ℝ≥0∞` with
-mean at most `1`, then the law on `{a, b}` with mean `1`, for `0 ≤ a < 1 < b`, gives
+mean at most `1`, then the Bernoulli law on `{a, b}` with mean `1`, for `0 ≤ a < 1 < b`, gives
 `(b - a) * q ≤ (b - 1) * g a + (1 - a) * g b`, in real numbers. -/
-private lemma sub_mul_toReal_le_of_forall_le_lintegral (hg1 : ∀ x, g x ≤ 1)
+private lemma sub_mul_toReal_le_of_forall_le_lintegral (hg_top : ∀ x, g x ≠ ∞)
     (hg : ∀ μ : Measure ℝ≥0∞, IsProbabilityMeasure μ → ∫⁻ x, x ∂μ ≤ 1 → q ≤ ∫⁻ x, g x ∂μ)
     {a b : ℝ} (ha0 : 0 ≤ a) (ha1 : a < 1) (hb1 : 1 < b) :
     (b - a) * q.toReal ≤
       (b - 1) * (g (ENNReal.ofReal a)).toReal + (1 - a) * (g (ENNReal.ofReal b)).toReal := by
-  have hg_top (x : ℝ≥0∞) : g x ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top (hg1 x)
   have hba : 0 < b - a := by linarith
-  have hw₁ : 0 ≤ (b - 1) / (b - a) := div_nonneg (by linarith) hba.le
-  have hw₂ : 0 ≤ (1 - a) / (b - a) := div_nonneg (by linarith) hba.le
-  let μ : Measure ℝ≥0∞ := ENNReal.ofReal ((b - 1) / (b - a)) • Measure.dirac (ENNReal.ofReal a) +
-    ENNReal.ofReal ((1 - a) / (b - a)) • Measure.dirac (ENNReal.ofReal b)
-  have h_int (f : ℝ≥0∞ → ℝ≥0∞) : ∫⁻ x, f x ∂μ = ENNReal.ofReal ((b - 1) / (b - a)) *
-      f (ENNReal.ofReal a) + ENNReal.ofReal ((1 - a) / (b - a)) * f (ENNReal.ofReal b) := by
-    simp [μ, lintegral_add_measure, lintegral_smul_measure, lintegral_dirac]
-  have hμ : IsProbabilityMeasure μ := ⟨by
-    rw [← lintegral_one, h_int, mul_one, mul_one, ← ENNReal.ofReal_add hw₁ hw₂,
-      ← add_div, show b - 1 + (1 - a) = b - a by ring, div_self hba.ne', ENNReal.ofReal_one]⟩
-  have h_mean : ∫⁻ x, x ∂μ ≤ 1 := by
-    rw [h_int (fun x ↦ x), ← ENNReal.ofReal_mul hw₁, ← ENNReal.ofReal_mul hw₂,
-      ← ENNReal.ofReal_add (by positivity) (by positivity)]
-    exact ENNReal.ofReal_le_one.2 (le_of_eq (by field_simp; ring))
-  have h := hg μ hμ h_mean
-  rw [h_int, ← ENNReal.ofReal_toReal (hg_top (ENNReal.ofReal a)),
-    ← ENNReal.ofReal_toReal (hg_top (ENNReal.ofReal b)),
-    ← ENNReal.ofReal_toReal (ne_top_of_le_ne_top (ENNReal.add_ne_top.2
-      ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top ENNReal.ofReal_ne_top,
-        ENNReal.mul_ne_top ENNReal.ofReal_ne_top ENNReal.ofReal_ne_top⟩) h),
-    ← ENNReal.ofReal_mul hw₁, ← ENNReal.ofReal_mul hw₂,
-    ← ENNReal.ofReal_add (mul_nonneg hw₁ ENNReal.toReal_nonneg)
-      (mul_nonneg hw₂ ENNReal.toReal_nonneg),
-    ENNReal.ofReal_le_ofReal_iff (by positivity)] at h
+  -- The Bernoulli law with weight `w = (b - 1) / (b - a)` on `a` has mean `1`.
+  set w : unitInterval := ⟨(b - 1) / (b - a), div_nonneg (by linarith) hba.le,
+    (div_le_one hba).2 (by linarith)⟩
+  have hw : (1 : ℝ) - w = (1 - a) / (b - a) := by
+    simp only [w]
+    field_simp
+    ring
+  have h_mean : ∫⁻ x, x ∂Ber(ENNReal.ofReal a, ENNReal.ofReal b, w) ≤ 1 := by
+    rw [lintegral_id_bernoulliMeasure_ofReal ha0 (by linarith), hw]
+    exact ENNReal.ofReal_le_one.2 (le_of_eq (by simp only [w]; field_simp; ring))
+  have h := hg _ inferInstance h_mean
+  rw [lintegral_bernoulliMeasure] at h
+  have h_real := ENNReal.toReal_mono (ENNReal.add_ne_top.2
+    ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _),
+      ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _)⟩) h
+  rw [ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _))
+      (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _)), ENNReal.toReal_mul,
+    ENNReal.toReal_mul, ENNReal.toReal_ofReal w.2.1, ENNReal.toReal_ofReal (sub_nonneg.2 w.2.2),
+    hw] at h_real
   calc (b - a) * q.toReal ≤ (b - a) * ((b - 1) / (b - a) * (g (ENNReal.ofReal a)).toReal +
         (1 - a) / (b - a) * (g (ENNReal.ofReal b)).toReal) :=
-        mul_le_mul_of_nonneg_left h hba.le
+        mul_le_mul_of_nonneg_left h_real hba.le
     _ = (b - 1) * (g (ENNReal.ofReal a)).toReal + (1 - a) * (g (ENNReal.ofReal b)).toReal := by
         field_simp
 
@@ -428,9 +492,7 @@ theorem forall_le_or_exists_mul_one_sub_div_le (hg1 : ∀ x, g x ≤ 1)
     (hg : ∀ μ : Measure ℝ≥0∞, IsProbabilityMeasure μ → ∫⁻ x, x ∂μ ≤ 1 → q ≤ ∫⁻ x, g x ∂μ) :
     (∀ x ≠ ∞, q ≤ g x) ∨
       ∃ r t : ℝ≥0∞, r ≤ 1 ∧ 1 < t ∧ t ≠ ∞ ∧ q = r * (1 - t⁻¹) ∧ ∀ x, r * (1 - x / t) ≤ g x := by
-  have h_dirac (x : ℝ≥0∞) (hx : x ≤ 1) : q ≤ g x := by
-    simpa [lintegral_dirac] using hg (Measure.dirac x) inferInstance (by simpa using hx)
-  have hq_top : q ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top ((h_dirac 0 zero_le).trans (hg1 0))
+  have hq_top : q ≠ ∞ := ne_top_of_forall_le_lintegral hg1 hg
   rcases eq_or_ne q 0 with hq0 | hq0
   · exact .inl fun x _ ↦ hq0 ▸ zero_le
   -- The real counterparts `Q` of `q` and `G` of `g`.
@@ -446,14 +508,15 @@ theorem forall_le_or_exists_mul_one_sub_div_le (hg1 : ∀ x, g x ≤ 1)
   -- Point masses at `x ≤ 1` give `Q ≤ G x`; laws on two points `a < 1 < b` with mean `1` bound
   -- the slopes of `G` on both sides of `1` (`sub_mul_toReal_le_of_forall_le_lintegral`).
   have h_small (x : ℝ) (hx1 : x ≤ 1) : Q ≤ G x :=
-    (ENNReal.toReal_le_toReal hq_top (hg_top _)).2 (h_dirac _ (ENNReal.ofReal_le_one.2 hx1))
+    (ENNReal.toReal_le_toReal hq_top (hg_top _)).2
+      (le_of_forall_le_lintegral hg (ENNReal.ofReal_le_one.2 hx1))
   -- The supremum `β` of the slopes `(Q - G b) / (b - 1)` over `b > 1`.
   set A : Set ℝ := (fun b ↦ (Q - G b) / (b - 1)) '' Set.Ioi 1
   have hA_le (a : ℝ) (ha0 : 0 ≤ a) (ha1 : a < 1) : ∀ y ∈ A, y ≤ (G a - Q) / (1 - a) := by
     rintro _ ⟨b, hb, rfl⟩
     have hb : 1 < b := hb
     rw [div_le_div_iff₀ (by linarith) (by linarith)]
-    nlinarith [sub_mul_toReal_le_of_forall_le_lintegral hg1 hg ha0 ha1 hb]
+    nlinarith [sub_mul_toReal_le_of_forall_le_lintegral hg_top hg ha0 ha1 hb]
   have hA_ne : A.Nonempty := ⟨_, Set.mem_image_of_mem _ (show (2 : ℝ) ∈ Set.Ioi 1 by norm_num)⟩
   have hA_bdd : BddAbove A := ⟨_, hA_le 0 le_rfl zero_lt_one⟩
   set β := sSup A
@@ -544,9 +607,7 @@ theorem forall_one_add_inv_le_or_exists_nullProportionEstimate_le (hg1 : ∀ x, 
         1 + (Fintype.card ι * q)⁻¹ ≤ nullProportionEstimate g q e) ∨
       ∃ t, 1 < t ∧ t ≠ ∞ ∧ ∀ e : ι → ℝ≥0∞,
         nullProportionEstimate (fun x ↦ 1 - x / t) (1 - t⁻¹) e ≤ nullProportionEstimate g q e := by
-  have hq0 : q ≤ g 0 := by
-    simpa [lintegral_dirac] using hg (Measure.dirac 0) inferInstance (by simp)
-  have hq_top : q ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top (hq0.trans (hg1 0))
+  have hq_top : q ≠ ∞ := ne_top_of_forall_le_lintegral hg1 hg
   rcases forall_le_or_exists_mul_one_sub_div_le hg1 hg with h | ⟨r, t, hr, ht, ht_top, rfl, h⟩
   · exact .inl fun e he ↦ one_add_inv_le_nullProportionEstimate hq_top e fun k ↦ h _ (he k)
   · exact .inr ⟨t, ht, ht_top, nullProportionEstimate_le_of_mul_one_sub_div_le hr h⟩
