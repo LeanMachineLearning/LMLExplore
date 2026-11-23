@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Basic.ENNReal.Action
 public import Mathlib.Basic.ENNReal.Inv
+import Mathlib.Basic.ENNReal.BigOperators
 import LMLExplore.Algebra.BigOperators.Field
 
 /-!
@@ -22,6 +23,7 @@ in `ℝ≥0`, acting through the coercion `ℝ≥0 → ℝ≥0∞` (Mathlib's `E
 
 * `Convex.sum_nnreal_smul_mem`: a set convex over `ℝ≥0∞` contains the finite combinations of its
   members with weights in `ℝ≥0` of sum `1`.
+* `Convex.sum_ennreal_smul_mem`: the same with weights in `ℝ≥0∞` of sum `1`.
 -/
 
 public section
@@ -50,3 +52,18 @@ lemma Convex.sum_nnreal_smul_mem {E ι : Type*} [AddCommMonoid E] [Module ℝ≥
         (show (w a : ℝ≥0∞) + ((∑ i ∈ T, w i : ℝ≥0) : ℝ≥0∞) = 1 by exact_mod_cast hw)
       · rwa [← ENNReal.smul_def, ← ENNReal.smul_def] at h
       · rw [← Finset.sum_div, div_self h0]
+
+/-- A set convex over `ℝ≥0∞` contains the finite combinations of its members with weights in
+`ℝ≥0∞` of sum `1`. -/
+lemma Convex.sum_ennreal_smul_mem {E ι : Type*} [AddCommMonoid E] [Module ℝ≥0∞ E] {S : Set E}
+    (hS : Convex ℝ≥0∞ S) {T : Finset ι} {w : ι → ℝ≥0∞} (hw : ∑ i ∈ T, w i = 1) {x : ι → E}
+    (hx : ∀ i ∈ T, x i ∈ S) : ∑ i ∈ T, w i • x i ∈ S := by
+  -- the weights are finite, so they are the coercions of weights in `ℝ≥0`
+  have hw_eq : ∀ i ∈ T, ((w i).toNNReal : ℝ≥0∞) = w i := fun i hi ↦ ENNReal.coe_toNNReal <|
+    ne_top_of_le_ne_top ENNReal.one_ne_top (hw ▸ Finset.single_le_sum (fun _ _ ↦ zero_le) hi)
+  have h_eq : ∑ i ∈ T, w i • x i = ∑ i ∈ T, (w i).toNNReal • x i :=
+    Finset.sum_congr rfl fun i hi ↦ by rw [ENNReal.smul_def, hw_eq i hi]
+  rw [h_eq]
+  refine hS.sum_nnreal_smul_mem ?_ hx
+  rw [← ENNReal.coe_inj, ENNReal.ofNNReal_finsetSum, ENNReal.coe_one, ← hw]
+  exact Finset.sum_congr rfl hw_eq

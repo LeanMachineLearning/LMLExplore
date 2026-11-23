@@ -10,6 +10,7 @@ public import Mathlib.Analysis.LocallyConvex.Separation
 public import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 public import Mathlib.MeasureTheory.Function.L2Space
 public import TauCeti.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.Analysis.Convex.ENNReal
 
 /-!
 # Closed solid convex sets of nonnegative functions
@@ -46,6 +47,9 @@ through `Measure.toFinite`.
   closed set that contains `𝓔`.
 * `MeasureTheory.IsAESeqClosed.mem_of_tendstoInMeasure`: a closed set contains the limits in
   `μ`-probability of its almost everywhere finite members.
+* `MeasureTheory.closedSolidConvexHull_range`: the closed solid convex hull of finitely many
+  almost everywhere finite functions is the set of measurable functions below one of their convex
+  combinations.
 * `MeasureTheory.exists_lintegral_mul_le_one_lt`: **the separation theorem**. For a finite
   `μ`, a nonempty convex, solid and closed `D` and a measurable, almost everywhere finite
   `X ∉ D`, some measurable `g : Ω → ℝ≥0` of finite integral has `∫⁻ f * g ∂μ ≤ 1` for every
@@ -212,6 +216,46 @@ lemma closedSolidConvexHull_congr_ae (h : ae μ = ae ν) :
       (isAESeqClosed_closedSolidConvexHull.mono_ac
         (Measure.ae_le_iff_absolutelyContinuous.1 h.ge))
   exact (key h).antisymm (key h.symm)
+
+/-- **The closed solid convex hull of finitely many functions.** For finitely many measurable,
+almost everywhere finite functions `p i`, the closed solid convex hull of their range consists of
+the measurable functions almost everywhere below a convex combination `∑ i, w i • p i`: the solid
+convex hull of finitely many functions is already closed. -/
+theorem closedSolidConvexHull_range {ι : Type*} [Fintype ι] {p : ι → Ω → ℝ≥0∞}
+    (hp : ∀ i, Measurable (p i)) (hp_top : ∀ i, ∀ᵐ ω ∂μ, p i ω ≠ ∞) :
+    closedSolidConvexHull μ (range p) =
+      {f | Measurable f ∧ ∃ w : ι → ℝ≥0∞, ∑ i, w i = 1 ∧ f ≤ᵐ[μ] ∑ i, w i • p i} := by
+  classical
+  refine (closedSolidConvexHull_subset ?_ ?_ ?_ ?_).antisymm ?_
+  · rintro _ ⟨i, rfl⟩
+    refine ⟨hp i, Pi.single i 1, by simp, ae_of_all _ fun ω ↦ ?_⟩
+    simp [Finset.sum_apply, Pi.single_apply, ite_apply]
+  · rintro f ⟨hf, w, hw, hfw⟩ g ⟨hg, v, hv, hgv⟩ a b - - hab
+    refine ⟨(hf.const_smul a).add (hg.const_smul b), a • w + b • v, ?_, ?_⟩
+    · simp [Finset.sum_add_distrib, ← Finset.mul_sum, hw, hv, hab]
+    · filter_upwards [hfw, hgv] with ω hfω hgω
+      simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, Finset.sum_apply] at hfω hgω ⊢
+      calc a * f ω + b * g ω ≤ a * ∑ i, w i * p i ω + b * ∑ i, v i * p i ω := by gcongr
+      _ = ∑ i, (a * w i + b * v i) * p i ω := by
+        simp only [Finset.mul_sum, add_mul, Finset.sum_add_distrib, mul_assoc]
+  · rintro f g ⟨-, w, hw, hfw⟩ hg hgf
+    exact ⟨hg, w, hw, hgf.trans hfw⟩
+  · intro f g hf hg _ hfg
+    choose _ w hw hfw using hf
+    -- the weights lie in a compact set, so a subsequence of them converges
+    have hW : IsCompact {w : ι → ℝ≥0∞ | ∑ i, w i = 1} :=
+      (isClosed_eq (continuous_finsetSum _ fun i _ ↦ continuous_apply i)
+        continuous_const).isCompact
+    obtain ⟨w₀, hw₀, φ, hφ, hlim⟩ := hW.tendsto_subseq hw
+    refine ⟨hg, w₀, hw₀, ?_⟩
+    filter_upwards [hfg, ae_all_iff.2 hfw, ae_all_iff.2 hp_top] with ω hω hle htop
+    simp only [Finset.sum_apply, Pi.smul_apply, smul_eq_mul] at hle ⊢
+    refine le_of_tendsto_of_tendsto' (hω.comp hφ.tendsto_atTop)
+      (tendsto_finsetSum _ fun i _ ↦ ENNReal.Tendsto.mul_const
+        (((continuous_apply i).tendsto _).comp hlim) (Or.inr (htop i))) fun n ↦ hle (φ n)
+  · rintro f ⟨hf, w, hw, hfw⟩
+    exact isAESolid_closedSolidConvexHull.mem (convex_closedSolidConvexHull.sum_ennreal_smul_mem
+      hw fun i _ ↦ subset_closedSolidConvexHull ⟨i, rfl⟩) hf hfw
 
 /-! ### The separation theorem -/
 
