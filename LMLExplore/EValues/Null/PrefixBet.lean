@@ -36,7 +36,7 @@ which this file shows produce bets again:
 
 Two more operations produce e-processes, for any filtration and any null. **Holding** a bet from
 the time it is known on, alone or in a countable mixture, turns bets into e-processes
-(`ProbabilityTheory.isEProcess_ite_le`, `ProbabilityTheory.isEProcess_tsum_ite_le_mul`).
+(`ProbabilityTheory.isEProcess_indicator_le`, `ProbabilityTheory.isEProcess_tsum_ite_le_mul`).
 **Lifting** turns the wealth of a gambler who bets on blocks, an e-process for the filtration at
 the ends of the blocks, into an e-process for the filtration of the observations
 (`ProbabilityTheory.IsEProcess.extend`).

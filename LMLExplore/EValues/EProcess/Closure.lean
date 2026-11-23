@@ -57,8 +57,7 @@ stopping time equal to `σ` on an event of that σ-algebra and to `ρ` off it
 * `ProbabilityTheory.IsEProcess.inf`: the minimum of an e-process for `S` and one for `T` is an
   e-process for `S ∪ T`.
 * `ProbabilityTheory.isEProcess_lintegral`: mixtures of e-processes over a probability measure.
-* `ProbabilityTheory.isEProcess_tsum_ite_le_mul`, `ProbabilityTheory.isEProcess_ite_le`: countable
-  mixtures of held bets, and a single held bet.
+* `ProbabilityTheory.isEProcess_tsum_ite_le_mul`: countable mixtures of held bets.
 * `ProbabilityTheory.isEProcess_sum_mul`: time mixtures of e-variables [RW, Proposition 7.23].
 * `ProbabilityTheory.IsEProcess.isCondEVar_of_one_le`: the value of an e-process at a stopping
   time `σ` that is finite everywhere is a conditional e-variable given the σ-algebra at a stopping
@@ -173,17 +172,6 @@ theorem isEProcess_tsum_ite_le_mul {ι : Type*} [Countable ι] {t : ι → ℕ}
     fun ω ↦ tsum_le_tsum fun i ↦ ?_⟩
   split_ifs
   exacts [le_rfl, zero_le]
-
-/-- **Holding a bet.** For a function `f` measurable at time `n` of the filtration `ℱ` with
-expectation at most `1` under every member of the null, the process equal to `0` before time `n`
-and to `f` from time `n` on is an e-process: the one-term case of
-`ProbabilityTheory.isEProcess_tsum_ite_le_mul`. -/
-theorem isEProcess_ite_le {n : ℕ} {f : Ω → ℝ≥0∞} (hf : Measurable[ℱ n] f)
-    (hfS : ∀ P ∈ S, ∫⁻ ω, f ω ∂P ≤ 1) :
-    IsEProcess (fun k ω ↦ if n ≤ k then f ω else 0) ℱ S := by
-  convert isEProcess_tsum_ite_le_mul (ι := Unit) (t := fun _ ↦ n) (w := fun _ ↦ 1)
-    (fun _ ↦ hf) (fun _ ↦ ⟨hf.mono (ℱ.le n) le_rfl, hfS⟩) (by simp)
-  simp
 
 /-- **Time mixtures of e-variables** [RW, (7.12), Proposition 7.23]. For e-variables `E j` that
 are `ℱ j`-measurable, and weights `w j` with `∑' j, w j ≤ 1`, the nondecreasing process
