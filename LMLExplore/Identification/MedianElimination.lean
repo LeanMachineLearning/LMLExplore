@@ -575,6 +575,27 @@ lemma survivors_runStats_eq_streamStats
 
 /-! ### One phase -/
 
+/-- **Markov's inequality for a number of events**, from Tau Ceti's `measure_lt_card_filter_le`.
+If each of the events `E b`, `b ∈ S`, has probability at most `η` and `#S ≤ m c` with `m ≠ 0`, then
+at least `m` of these events occur with probability at most `c η`. -/
+private lemma measure_le_card_filter_le {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+    {E : ι → Set Ω} [∀ b, DecidablePred (· ∈ E b)] {S : Finset ι} {η : ℝ≥0∞}
+    (h : ∀ b ∈ S, P (E b) ≤ η) {m c : ℕ} (hm : m ≠ 0) (hc : #S ≤ m * c) :
+    P {ω | m ≤ #{b ∈ S | ω ∈ E b}} ≤ c * η := by
+  have h_sub : {ω | m ≤ #{b ∈ S | ω ∈ E b}} ⊆ {ω | m - 1 < #{b ∈ S | ω ∈ E b}} := by
+    intro ω hω
+    simp only [Set.mem_ofPred_eq] at hω ⊢
+    omega
+  refine (measure_mono h_sub).trans
+    ((measure_lt_card_filter_le S E _).trans (ENNReal.div_le_of_le_mul' ?_))
+  calc ∑ b ∈ S, P (E b) ≤ #S • η := sum_le_card_nsmul _ _ _ h
+  _ = #S * η := nsmul_eq_mul _ _
+  _ ≤ (↑(m - 1) + 1) * c * η := by
+    gcongr
+    rw [← Nat.cast_add_one, Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.2 hm)]
+    exact_mod_cast hc
+  _ = _ := mul_assoc _ _ _
+
 /-- **One phase of median elimination** [EMM02, proof of Theorem 4]. Let `S` be a set of arms with
 means `μ`, and let `Y a` be the sum of `n ≥ 0` observations of the arm `a`, which deviates from
 `n μ a` by `n ε / 2` or more, upwards or downwards, with probability at most `η`. Then the
@@ -612,17 +633,7 @@ lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSp
   -- Markov's inequality for the number of arms whose sum is too high.
   have h_markov : P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ≤ 2 * η := by
     have hS_pos := hS.card_pos
-    have h_sub' : {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ⊆
-        {ω | #S - #S / 2 - 1 < #{b ∈ S | ω ∈ E b}} := by
-      intro ω hω
-      simp only [Set.mem_ofPred_eq] at hω ⊢
-      omega
-    refine (measure_mono h_sub').trans
-      ((measure_lt_card_filter_le S E _).trans (ENNReal.div_le_of_le_mul' ?_))
-    calc ∑ b ∈ S, P (E b) ≤ #S • η := sum_le_card_nsmul _ _ _ h_up
-    _ = #S * η := nsmul_eq_mul _ _
-    _ ≤ (↑(#S - #S / 2 - 1) + 1) * 2 * η := by gcongr; exact_mod_cast (by omega : #S ≤ _)
-    _ = _ := mul_assoc _ _ _
+    exact_mod_cast measure_le_card_filter_le (c := 2) h_up (by omega) (by omega)
   calc P {ω | ∃ a ∈ S, ∀ b ∈ halve S (Y ω), μ b + ε < μ a}
   _ ≤ P {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} + P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} :=
     (measure_mono h_sub).trans (measure_union_le _ _)
@@ -655,17 +666,8 @@ lemma measure_notMem_halve_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measu
     omega
   -- Markov's inequality for the number of arms of `S'` whose value is at least that of `a`.
   have hS_pos := card_pos.2 ⟨a, ha⟩
-  have h_sub' : {ω | #S - #S / 2 - #S / 4 ≤ #{b ∈ S' | ω ∈ E b}} ⊆
-      {ω | #S - #S / 2 - #S / 4 - 1 < #{b ∈ S' | ω ∈ E b}} := by
-    intro ω hω
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    omega
-  refine (measure_mono (h_sub.trans h_sub')).trans
-    ((measure_lt_card_filter_le S' E _).trans (ENNReal.div_le_of_le_mul' ?_))
-  calc ∑ b ∈ S', P (E b) ≤ #S' • η := sum_le_card_nsmul _ _ _ h
-  _ = #S' * η := nsmul_eq_mul _ _
-  _ ≤ (↑(#S - #S / 2 - #S / 4 - 1) + 1) * 3 * η := by gcongr; exact_mod_cast (by omega : #S' ≤ _)
-  _ = _ := mul_assoc _ _ _
+  exact (measure_mono h_sub).trans
+    (mod_cast measure_le_card_filter_le (c := 3) h (by omega) (by omega))
 
 /-! ### Independence of the phases of the reward stream -/
 
