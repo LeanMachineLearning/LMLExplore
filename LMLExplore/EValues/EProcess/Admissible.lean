@@ -293,18 +293,22 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : 
   · exact hE.exists_isAdmissibleEProcess_le 0 fun _ _ _ ↦ by simp
   have : Nonempty S := hS_ne.to_subtype
   have (P : S) : SFinite (P : Measure Ω) := hS P P.property
-  -- at every time `n`, by the Halmos–Savage lemma, the restrictions of the members to `ℱ n` are
-  -- dominated by a countable mixture of those of members `Ps n k`; the sum of all these members
-  -- is a reference measure
-  choose Ps hPs using fun n ↦ @TauCeti.exists_absolutelyContinuous_countableMixture _ _ (ℱ n) _
-    (fun P : S ↦ (P : Measure Ω).trim (ℱ.le n)) (μ.trim (ℱ.le n)) (hμ n) fun P ↦
-      hSμ P P.property n
+  -- the Halmos–Savage lemma, stated over an arbitrary σ-algebra `m` so that elaboration infers it:
+  -- a dominated family has the null sets of a countable mixture of its members `Q (θs k)`
+  have halmosSavage (m : MeasurableSpace Ω) (Q : S → Measure[m] Ω) (ν : Measure[m] Ω)
+      (_ : SFinite ν) (hQ : ∀ P, Q P ≪ ν) :
+      ∃ θs : ℕ → S, ∀ P s, (∀ k, Q (θs k) s = 0) → Q P s = 0 :=
+    (TauCeti.exists_absolutelyContinuous_countableMixture Q ν hQ).imp fun _ h P _ hs ↦
+      h P (TauCeti.countableMixture_apply_eq_zero_iff.2 hs)
+  -- at every time `n`, the restrictions of the members to `ℱ n` have the null sets of those of
+  -- countably many members `Ps n k`; the sum of all these members is a reference measure
+  choose Ps hPs using fun n ↦ halmosSavage (ℱ n) (fun P ↦ (P : Measure Ω).trim (ℱ.le n))
+    (μ.trim (ℱ.le n)) (hμ n) fun P ↦ hSμ P P.property n
   refine hE.exists_isAdmissibleEProcess_le (Measure.sum fun k : ℕ × ℕ ↦ (Ps k.1 k.2 : Measure Ω))
     fun n A hA ↦ ?_
   rw [Measure.sum_apply_eq_zero' (ℱ.le n A hA)]
   refine ⟨fun h P hP ↦ ?_, fun h k ↦ h _ (Ps k.1 k.2).property⟩
   rw [← trim_measurableSet_eq (ℱ.le n) hA]
-  exact hPs n ⟨P, hP⟩ ((@TauCeti.countableMixture_apply_eq_zero_iff _ _ (ℱ n) _ _ _).2 fun k ↦
-    (trim_measurableSet_eq (ℱ.le n) hA).trans (h (n, k)))
+  exact hPs n ⟨P, hP⟩ A fun k ↦ (trim_measurableSet_eq (ℱ.le n) hA).trans (h (n, k))
 
 end ProbabilityTheory
