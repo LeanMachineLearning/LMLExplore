@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Probability.Process.Progressive
+public import LMLExplore.Probability.Process.StoppedValue
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Map
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
@@ -35,6 +36,9 @@ one measurable space: e-processes are the e-variables of the stopped laws of a n
   progressive set, the integrals of a progressive function with values in `ℝ≥0∞` and in `EReal`,
   and the almost-sure properties under a stopped law, at a measurable random time.
 * `MeasureTheory.stoppedLaw_univ`: a stopped law has the mass of the measure.
+* `MeasureTheory.stoppedLaw_setOf_mem`: under the stopped law at a random time `τ` that is finite
+  everywhere, the stopped paths `(n, ω)` with `ω ∈ B n` have the mass of the event `B τ` read at
+  `τ` (`MeasureTheory.stoppedEvent`).
 * `MeasureTheory.lintegral_sum_smul_stoppedLaw_const`: under the mixture over a measure `ρ` on the
   times of the stopped laws at the constant times, the integral of a progressive function `f` is
   `∑' i, ρ {i} * ∫⁻ ω, f (i, ω) ∂P`; it is a probability measure when `ρ` and `P` are.
@@ -148,5 +152,17 @@ instance isProbabilityMeasure_sum_smul_stoppedLaw_const {ρ : Measure ι} [IsPro
   have hρ := lintegral_countable' (μ := ρ) fun _ ↦ 1
   simp only [lintegral_const, measure_univ, mul_one, one_mul] at h hρ
   rw [h, ← hρ]
+
+/-- Under the stopped law at a measurable random time `τ` that is finite everywhere, the set of
+stopped paths `(n, ω)` with `ω ∈ B n`, for events `B n` of the filtration, has the mass of the
+event `B τ` read at `τ`. -/
+theorem stoppedLaw_setOf_mem {ℱ : Filtration ℕ mΩ} {P : Measure Ω} {B : ℕ → Set Ω}
+    (hB : ∀ n, MeasurableSet[ℱ n] (B n)) {τ : Ω → WithTop ℕ} (hτ : Measurable τ)
+    (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) {x | x.2 ∈ B x.1} = P (stoppedEvent B τ) := by
+  rw [stoppedLaw_apply hτ.untopA
+    (Filtration.measurableSet_progressive_iff_of_countable.2 hB),
+    stoppedEvent_of_forall_ne_top B hτ_top]
+  simp
 
 end MeasureTheory
