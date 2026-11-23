@@ -160,7 +160,7 @@ measurable `f : 𝓧 → [0, 1]`, the event `{(x, u) | u ≤ f x}` has probabili
 theorem measureReal_prod_randomizedEvent (P : Measure 𝓧) {f : 𝓧 → I} (hf : Measurable f) :
     (P.prod volume).real (randomizedEvent f) = ∫ x, (f x : ℝ) ∂P := by
   rw [measureReal_def, prod_randomizedEvent P hf, integral_eq_lintegral_of_nonneg_ae
-    (ae_of_all _ fun x ↦ (f x).2.1) (measurable_subtype_coe.comp hf).aestronglyMeasurable]
+    (ae_of_all _ fun x ↦ (f x).property.1) (measurable_subtypeVal.comp hf).aestronglyMeasurable]
 
 /-! ### An event of probability one half under the null -/
 

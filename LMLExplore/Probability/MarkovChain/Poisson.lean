@@ -266,7 +266,7 @@ private lemma summable_two_mul_exp {b ε : ℝ} (hb : 0 < b) (hε : 0 < ε) :
   refine .of_nonneg_of_le (fun _ ↦ by positivity) (fun n ↦ ?_)
     (((summable_geometric_of_lt_one (Real.exp_pos _).le hr).mul_left
       (2 * Real.exp (4 * ε / b))))
-  rw [mul_assoc, ← Real.exp_nat_mul, ← Real.exp_add]
+  rw [mul_assoc, ← Real.exp_natCast_mul, ← Real.exp_add]
   gcongr
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · simp only [CharP.cast_eq_zero, zero_mul, div_zero, add_zero]

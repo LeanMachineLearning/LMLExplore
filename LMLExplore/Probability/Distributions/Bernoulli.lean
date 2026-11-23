@@ -120,9 +120,9 @@ lemma bernoulliMeasure_true_false_real_singleton (p : I) (b : Bool) :
 lemma lintegral_id_bernoulliMeasure_ofReal {a b : ℝ} (ha : 0 ≤ a) (hb : 0 ≤ b) (p : I) :
     ∫⁻ z, z ∂Ber(ENNReal.ofReal a, ENNReal.ofReal b, p) =
       ENNReal.ofReal (p * a + (1 - p) * b) := by
-  have hp : 0 ≤ (1 : ℝ) - p := sub_nonneg.2 p.2.2
-  rw [lintegral_bernoulliMeasure, ← ENNReal.ofReal_mul p.2.1, ← ENNReal.ofReal_mul hp,
-    ← ENNReal.ofReal_add (mul_nonneg p.2.1 ha) (mul_nonneg hp hb)]
+  have hp : 0 ≤ (1 : ℝ) - p := sub_nonneg.2 p.property.2
+  rw [lintegral_bernoulliMeasure, ← ENNReal.ofReal_mul p.property.1, ← ENNReal.ofReal_mul hp,
+    ← ENNReal.ofReal_add (mul_nonneg p.property.1 ha) (mul_nonneg hp hb)]
 
 /-- Every finite `e` is charged by a probability measure on `ℝ≥0∞` of mean `1`: a Bernoulli law
 on `e` and a second point. -/
@@ -159,8 +159,8 @@ points with parameter `p exp (f x) / (p exp (f x) + (1 - p) exp (f y))`. -/
 theorem tilted_bernoulliMeasure [MeasurableSingletonClass X] (x y : X) (p : I) (f : X → ℝ) :
     Ber(x, y, p).tilted f =
       Ber(x, y, ⟨p * Real.exp (f x) / (p * Real.exp (f x) + (1 - p) * Real.exp (f y)),
-        unitInterval.div_mem (by have := p.2.1; positivity)
-          (by have := p.2.1; have := unitInterval.one_sub_nonneg p; positivity)
+        unitInterval.div_mem (by have := p.property.1; positivity)
+          (by have := p.property.1; have := unitInterval.one_sub_nonneg p; positivity)
           (le_add_of_nonneg_right (by have := unitInterval.one_sub_nonneg p; positivity))⟩) := by
   -- the normalizing constant `∫ exp ∘ f` is positive, since `p` and `1 - p` are not both zero
   have hZ : 0 < p * Real.exp (f x) + (1 - p) * Real.exp (f y) := by

@@ -44,7 +44,7 @@ lemma HasLaw.identDistrib_comp (hT : AEMeasurable T ν) (hY : HasLaw Y ν P) :
 lemma iIndepFun.comp_subtype_of_hasLaw (h_indep : iIndepFun X P) (hT : AEMeasurable T ν)
     (hX : ∀ i ∈ s, HasLaw (X i) ν P) :
     iIndepFun (fun i : s ↦ fun ω ↦ T (X i ω)) P :=
-  (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.2).aemeasurable)
-    fun i ↦ (hX i i.2).map_eq ▸ hT
+  (h_indep.precomp Subtype.val_injective).comp₀ (fun _ ↦ T) (fun i ↦ (hX i i.property).aemeasurable)
+    fun i ↦ (hX i i.property).map_eq ▸ hT
 
 end ProbabilityTheory

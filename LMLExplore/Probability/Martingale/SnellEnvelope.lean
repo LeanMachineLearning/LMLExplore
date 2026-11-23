@@ -129,12 +129,12 @@ theorem piecewise_mem_boundedStoppingTimesFrom {A : Set Ω} [DecidablePred (· �
 `P⁻[E τ|ℱ n]` of the value of the process at `τ`. -/
 noncomputable def snellEnvelope (E : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) (P : Measure Ω)
     (n : ℕ) : Ω → ℝ≥0∞ :=
-  essSupFamily (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.1|ℱ n]) P
+  essSupFamily (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.val|ℱ n]) P
 
 /-- The defining equation of `snellEnvelope`. -/
 theorem snellEnvelope_def (E : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration ℕ mΩ) (P : Measure Ω) (n : ℕ) :
     snellEnvelope E ℱ P n =
-      essSupFamily (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.1|ℱ n]) P :=
+      essSupFamily (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.val|ℱ n]) P :=
   (rfl)
 
 /-- The Snell envelope is adapted, for every process. -/
@@ -151,7 +151,7 @@ theorem condLExp_ae_le_snellEnvelope [SigmaFiniteFiltration P ℱ]
   rw [snellEnvelope_def]
   exact ae_le_essSupFamily (μ := P)
     (fun τ : boundedStoppingTimesFrom ℱ n ↦
-      (measurable_condLExp' (ℱ n) P (stoppedValue E τ.1)).aemeasurable) ⟨τ, hτ⟩
+      (measurable_condLExp' (ℱ n) P (stoppedValue E τ.val)).aemeasurable) ⟨τ, hτ⟩
 
 /-- The Snell envelope at time `n` is almost everywhere below every function that dominates
 almost everywhere the conditional expectations given `ℱ n` of the values of the process at the
@@ -159,7 +159,7 @@ bounded stopping times `τ` after `n`. -/
 theorem snellEnvelope_ae_le
     (hh : ∀ τ ∈ boundedStoppingTimesFrom ℱ n, P⁻[stoppedValue E τ | ℱ n] ≤ᵐ[P] h) :
     snellEnvelope E ℱ P n ≤ᵐ[P] h :=
-  essSupFamily_ae_le fun τ ↦ hh τ.1 τ.2
+  essSupFamily_ae_le fun τ ↦ hh τ.val τ.property
 
 /-- A function dominates the Snell envelope at time `n` almost everywhere exactly when it
 dominates almost everywhere the conditional expectations given `ℱ n` of the values of the process
@@ -182,7 +182,7 @@ along the `ℱ n`-measurable set where the first conditional expectation is the 
 bounded stopping time after `n` whose conditional expectation is the maximum of the two. -/
 private theorem directed_condLExp [SigmaFiniteFiltration P ℱ] (E : ℕ → Ω → ℝ≥0∞) (n : ℕ) :
     Directed (· ≤ᵐ[P] ·)
-      (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.1|ℱ n]) := by
+      (fun τ : boundedStoppingTimesFrom ℱ n ↦ P⁻[stoppedValue E τ.val|ℱ n]) := by
   classical
   rintro ⟨τ₁, hτ₁⟩ ⟨τ₂, hτ₂⟩
   set A := {ω | P⁻[stoppedValue E τ₂|ℱ n] ω ≤ P⁻[stoppedValue E τ₁|ℱ n] ω}
@@ -267,11 +267,11 @@ theorem snellEnvelope_ae_eq_essSupFamily_condExp [SigmaFiniteFiltration P ℱ]
     (hE : ∀ n, Measurable (E n)) (hE_int : ∀ n, ∫⁻ ω, E n ω ∂P ≠ ∞) (n : ℕ) :
     snellEnvelope E ℱ P n =ᵐ[P]
       essSupFamily (fun τ : boundedStoppingTimesFrom ℱ n ↦
-        fun ω ↦ ENNReal.ofReal (P[fun ω ↦ (stoppedValue E τ.1 ω).toReal|ℱ n] ω)) P := by
+        fun ω ↦ ENNReal.ofReal (P[fun ω ↦ (stoppedValue E τ.val ω).toReal|ℱ n] ω)) P := by
   have := SigmaFinite.of_trim (μ := P) (ℱ.le n)
   have h (τ : boundedStoppingTimesFrom ℱ n) :
-      P⁻[stoppedValue E τ.1|ℱ n] =ᵐ[P]
-        fun ω ↦ ENNReal.ofReal (P[fun ω ↦ (stoppedValue E τ.1 ω).toReal|ℱ n] ω) := by
+      P⁻[stoppedValue E τ.val|ℱ n] =ᵐ[P]
+        fun ω ↦ ENNReal.ofReal (P[fun ω ↦ (stoppedValue E τ.val ω).toReal|ℱ n] ω) := by
     obtain ⟨τ, hτ, -, N, hτN⟩ := τ
     have hmeas : Measurable (stoppedValue E τ) := measurable_stoppedValue_of_countable hE
       hτ.measurable'

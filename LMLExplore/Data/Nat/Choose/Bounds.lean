@@ -45,7 +45,7 @@ theorem choose_le_exp_one_mul_div_pow (n k : ℕ) :
   have hkR : (0 : ℝ) < k := by exact_mod_cast hk
   -- `k ^ k / k! ≤ e ^ k`
   have hfact : (k : ℝ) ^ k / k ! ≤ exp 1 ^ k := by
-    rw [← exp_nat_mul, mul_one]
+    rw [← exp_natCast_mul, mul_one]
     exact pow_div_factorial_le_exp _ hkR.le k
   calc (n.choose k : ℝ) ≤ (n : ℝ) ^ k / k ! := choose_le_pow_div k n
     _ = ((n : ℝ) / k) ^ k * ((k : ℝ) ^ k / k !) := by

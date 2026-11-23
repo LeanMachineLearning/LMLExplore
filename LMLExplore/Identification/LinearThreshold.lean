@@ -156,7 +156,7 @@ lemma selfNormalizedThreshold_le_of_norm_le [FiniteDimensional ℝ E] (hlam : 0 
     (add_nonneg (mul_nonneg (sqrt_nonneg _) hS) (sqrt_nonneg _)) ?_ 2) (by positivity))
   gcongr _ + √(_ + ?_)
   rw [mul_assoc]
-  exact mul_le_mul_of_nonneg_left (log_det_designOp_div_pow_le hlam _ hL') σ2.2
+  exact mul_le_mul_of_nonneg_left (log_det_designOp_div_pow_le hlam _ hL') σ2.property
 
 end Defs
 

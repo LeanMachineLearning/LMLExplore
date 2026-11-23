@@ -262,7 +262,7 @@ private lemma div_mul_nine_add_le (σ2 : ℝ≥0) {k N Δ : ℝ} (hk : 0 < k) (h
   set L := log⁺ (N * Δ ^ 2 / (k * σ2)) with hL_def
   rcases eq_or_ne (σ2 : ℝ) 0 with h0 | h0
   · simp [h0]
-  have hσ : (0 : ℝ) < σ2 := lt_of_le_of_ne σ2.2 (Ne.symm h0)
+  have hσ : (0 : ℝ) < σ2 := lt_of_le_of_ne σ2.property (Ne.symm h0)
   set r := √(σ2 * k / N) with hr_def
   have hr : 0 < r := sqrt_pos.mpr (by positivity)
   have hr2 : r ^ 2 = σ2 * k / N := sq_sqrt (by positivity)
@@ -340,7 +340,7 @@ theorem MOSS.mul_sum_measureReal_streamMeasure_le
     have h_level : 4 * σ2 * log⁺ (N / (k * s)) * s ≤ 2 * σ2 * (2 * L) * s := by
       rcases eq_or_ne (σ2 : ℝ) 0 with h0 | h0
       · simp [h0]
-      have hσ : (0 : ℝ) < σ2 := lt_of_le_of_ne σ2.2 (Ne.symm h0)
+      have hσ : (0 : ℝ) < σ2 := lt_of_le_of_ne σ2.property (Ne.symm h0)
       have h_le : N / (k * s) ≤ N * Δ ^ 2 / (k * σ2) := by
         rw [div_le_div_iff₀ (by positivity) (by positivity)]
         have := mul_le_mul_of_nonneg_left hσΔ (by positivity : (0 : ℝ) ≤ N * k)

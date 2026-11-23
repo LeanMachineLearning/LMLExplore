@@ -413,7 +413,7 @@ theorem integral_norm_sub_sq_le_exp_mul_add [CompleteSpace E] (hP : P.Invariant 
   have hqT : q ^ T ≤ Real.exp (-(a * (1 - γ) * ω * T)) := by
     calc q ^ T ≤ Real.exp (-(a * (1 - γ) * ω)) ^ T :=
           pow_le_pow_left₀ hq0 (by linarith [Real.add_one_le_exp (-(a * (1 - γ) * ω))]) T
-      _ = Real.exp (-(a * (1 - γ) * ω * T)) := by rw [← Real.exp_nat_mul]; ring_nf
+      _ = Real.exp (-(a * (1 - γ) * ω * T)) := by rw [← Real.exp_natCast_mul]; ring_nf
   exact (key T le_rfl).trans (by gcongr)
 
 /-- **The `1 / T` rate of TD(0) with decaying steps** [BRS18, Theorem 2 (c)]: let `ν` be invariant,

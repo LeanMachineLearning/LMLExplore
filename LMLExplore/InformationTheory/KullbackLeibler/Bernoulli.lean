@@ -474,7 +474,7 @@ theorem klBer_ne_zero_of_klBer_eq {z a b : ℝ} (ha : a ∈ Set.Icc 0 1) (hb : b
   have key {c : ℝ} (hc : c ∈ Set.Icc 0 1) (h0 : klBer z c = 0) :
       (Set.projIcc 0 1 zero_le_one z : ℝ) = c := by
     rw [← klBer_projIcc, Set.projIcc_of_mem zero_le_one hc] at h0
-    exact (klBer_eq_zero_iff (Set.projIcc 0 1 zero_le_one z).2 hc).1 h0
+    exact (klBer_eq_zero_iff (Set.projIcc 0 1 zero_le_one z).property hc).1 h0
   exact fun h0 ↦ hab ((key ha h0).symm.trans (key hb (h ▸ h0)))
 
 /-- The binary relative entropy is invariant under exchanging the roles of the two outcomes:
@@ -616,8 +616,8 @@ theorem continuous_klBer_left (hq : q ∈ Set.Ioo 0 1) : Continuous fun p ↦ kl
       Set.projIcc_of_mem _ (Set.Ioo_subset_Icc_self hq)]
   rw [h]
   exact continuousOn_klBer.comp_continuous
-    ((continuous_subtype_val.comp continuous_projIcc).prodMk continuous_const)
-    fun p ↦ ⟨(Set.projIcc 0 1 zero_le_one p).2, hq⟩
+    ((continuous_subtypeVal.comp continuous_projIcc).prodMk continuous_const)
+    fun p ↦ ⟨(Set.projIcc 0 1 zero_le_one p).property, hq⟩
 
 /-- For `p ∈ [0, 1]`, the binary relative entropy `d(p, ·)` is right-continuous at every
 `q ∈ [p, 1)`, including at `q = 0` when `p = 0`, outside the domain of `continuousOn_klBer`. -/
@@ -724,18 +724,18 @@ theorem klBer_le_max {q₁ q₂ : ℝ} (h₁ : q₁ ≤ q) (h₂ : q ≤ q₂) :
   set r₁ := Set.projIcc 0 1 zero_le_one q₁
   set r₂ := Set.projIcc 0 1 zero_le_one q₂
   rcases le_total (r : ℝ) p' with hqp | hpq
-  · exact le_max_of_le_left ((strictAntiOn_klBer p'.2).antitoneOn ⟨r₁.2.1, h₁'.trans hqp⟩
-      ⟨r.2.1, hqp⟩ h₁')
-  · exact le_max_of_le_right ((strictMonoOn_klBer p'.2).monotoneOn ⟨hpq, r.2.2⟩
-      ⟨hpq.trans h₂', r₂.2.2⟩ h₂')
+  · exact le_max_of_le_left ((strictAntiOn_klBer p'.property).antitoneOn
+      ⟨r₁.property.1, h₁'.trans hqp⟩ ⟨r.property.1, hqp⟩ h₁')
+  · exact le_max_of_le_right ((strictMonoOn_klBer p'.property).monotoneOn ⟨hpq, r.property.2⟩
+      ⟨hpq.trans h₂', r₂.property.2⟩ h₂')
 
 /-- For every real `p`, `q ↦ klBer p q` is monotone on `[p, ∞)`. -/
 theorem monotoneOn_klBer (p : ℝ) : MonotoneOn (klBer p) (Set.Ici p) := by
   intro q₁ hq₁ q₂ hq₂ h
   rw [← klBer_projIcc p q₁, ← klBer_projIcc p q₂]
-  exact (strictMonoOn_klBer (Set.projIcc 0 1 zero_le_one p).2).monotoneOn
-    ⟨Set.monotone_projIcc zero_le_one hq₁, (Set.projIcc 0 1 zero_le_one q₁).2.2⟩
-    ⟨Set.monotone_projIcc zero_le_one hq₂, (Set.projIcc 0 1 zero_le_one q₂).2.2⟩
+  exact (strictMonoOn_klBer (Set.projIcc 0 1 zero_le_one p).property).monotoneOn
+    ⟨Set.monotone_projIcc zero_le_one hq₁, (Set.projIcc 0 1 zero_le_one q₁).property.2⟩
+    ⟨Set.monotone_projIcc zero_le_one hq₂, (Set.projIcc 0 1 zero_le_one q₂).property.2⟩
     (Set.monotone_projIcc zero_le_one h)
 
 /-! ### Monotonicity in the first argument -/
@@ -790,8 +790,8 @@ theorem antitoneOn_klBer_left (q : ℝ) : AntitoneOn (fun p ↦ klBer p q) (Set.
   intro p₁ hp₁ p₂ hp₂ h
   simp only
   rw [← klBer_projIcc p₁ q, ← klBer_projIcc p₂ q]
-  exact key (Set.projIcc 0 1 zero_le_one p₁).2.1 (Set.monotone_projIcc zero_le_one h)
-    (Set.monotone_projIcc zero_le_one hp₂) (Set.projIcc 0 1 zero_le_one q).2.2
+  exact key (Set.projIcc 0 1 zero_le_one p₁).property.1 (Set.monotone_projIcc zero_le_one h)
+    (Set.monotone_projIcc zero_le_one hp₂) (Set.projIcc 0 1 zero_le_one q).property.2
 
 /-- The binary relative entropy increases as its arguments move apart: if `q ≤ q' ≤ p' ≤ p`, then
 `d(p', q') ≤ d(p, q)`. -/
@@ -849,8 +849,8 @@ theorem klBer_add_klBer_le {r : ℝ} (hpq : p ≤ q) (hqr : q ≤ r) :
     rw [klBerReal_apply p r, h₁, h₂, h₃, klBerReal_apply p q]
     nlinarith [mul_nonneg (sub_nonneg.2 hpq.le) (sub_nonneg.2 (hA.trans hB))]
   rw [← klBer_projIcc p q, ← klBer_projIcc q r, ← klBer_projIcc p r]
-  exact key (Set.projIcc 0 1 zero_le_one p).2.1 (Set.monotone_projIcc zero_le_one hpq)
-    (Set.monotone_projIcc zero_le_one hqr) (Set.projIcc 0 1 zero_le_one r).2.2
+  exact key (Set.projIcc 0 1 zero_le_one p).property.1 (Set.monotone_projIcc zero_le_one hpq)
+    (Set.monotone_projIcc zero_le_one hqr) (Set.projIcc 0 1 zero_le_one r).property.2
 
 /-! ### Convexity -/
 
@@ -867,7 +867,7 @@ theorem klBer_mul_add_mul_le {p' q' : ℝ} (hp : p ∈ Set.Icc 0 1) (hq : q ∈ 
   have hb : (b : ℝ) = 1 - a := by linarith
   have hmem {u v : ℝ} (hu : u ∈ Set.Icc (0 : ℝ) 1) (hv : v ∈ Set.Icc (0 : ℝ) 1) :
       (a : ℝ) * u + b * v ∈ Set.Icc (0 : ℝ) 1 := by
-    simpa using convex_Icc (0 : ℝ) 1 hu hv a.2 b.2 hab'
+    simpa using convex_Icc (0 : ℝ) 1 hu hv a.property b.property hab'
   rw [klBer_of_mem_Icc hp hq, klBer_of_mem_Icc hp' hq',
     klBer_of_mem_Icc (hmem hp hp') (hmem hq hq'),
     bernoulliMeasure_eq_smul_add_smul (c := ⟨_, hmem hp hp'⟩) (a := ⟨p, hp⟩) (b := ⟨p', hp'⟩)
@@ -883,7 +883,7 @@ theorem convexOn_klBer :
   refine ⟨fun z hz w hw a b _ _ hab ↦ ?_, fun z hz w hw a b _ _ hab ↦ ?_⟩
   · have hab' : (a : ℝ) + b = 1 := by exact_mod_cast hab
     simpa [NNReal.smul_def] using
-      (convex_Icc (0 : ℝ) 1).prod (convex_Icc (0 : ℝ) 1) hz hw a.2 b.2 hab'
+      (convex_Icc (0 : ℝ) 1).prod (convex_Icc (0 : ℝ) 1) hz hw a.property b.property hab'
   · simpa [Function.uncurry, NNReal.smul_def, ENNReal.smul_def] using
       klBer_mul_add_mul_le hz.1 hz.2 hw.1 hw.2 hab
 
@@ -955,7 +955,7 @@ theorem lowerSemicontinuous_klBer : LowerSemicontinuous (Function.uncurry klBer)
     refine ProbabilityMeasure.continuous_iff_forall_continuous_integral.2 fun f ↦ ?_
     simp only [B, ProbabilityMeasure.coe_mk, integral_bernoulliMeasure, smul_eq_mul]
     have : Continuous fun p : ℝ ↦ (Set.projIcc 0 1 zero_le_one p : ℝ) :=
-      continuous_subtype_val.comp continuous_projIcc
+      continuous_subtypeVal.comp continuous_projIcc
     fun_prop
   convert TauCeti.lowerSemicontinuous_klDiv_probabilityMeasure.comp
     ((hB.comp continuous_fst).prodMk (hB.comp continuous_snd)) using 1
@@ -1263,7 +1263,7 @@ theorem klUpper_one_left (c : ℝ≥0∞) : klUpper 1 c = 1 :=
 @[simp]
 theorem klUpper_zero_left (c : ℝ≥0) : klUpper 0 c = 1 - exp (-(c : ℝ)) := by
   have hu : 1 - exp (-(c : ℝ)) ∈ Set.Icc 0 1 :=
-    ⟨sub_nonneg.2 (exp_le_one_iff.2 (neg_nonpos.2 c.2)), sub_le_self _ (exp_pos _).le⟩
+    ⟨sub_nonneg.2 (exp_le_one_iff.2 (neg_nonpos.2 c.property)), sub_le_self _ (exp_pos _).le⟩
   have hklu : klBer 0 (1 - exp (-(c : ℝ))) = c := by
     rw [klBer_zero_left (sub_lt_self _ (exp_pos _)), sub_sub_cancel, log_exp, neg_neg,
       ENNReal.ofReal_coe_nnreal]

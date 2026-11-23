@@ -410,7 +410,7 @@ infimum of the relative entropies from `Ber(p)` to the laws with a mean above `m
 binary relative entropy `d(p, m)`. -/
 lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     dInf (Set.range fun q : I ↦ Ber((1 : ℝ), 0, q)) Ber((1 : ℝ), 0, p) m = klBer p m := by
-  rcases p.2.1.eq_or_lt with hp0 | hp0
+  rcases p.property.1.eq_or_lt with hp0 | hp0
   · -- `p = 0` is not a mean of the Bernoulli family: `d(0, q) → d(0, m)` as `q → m` from above,
     -- `d_inf ≤ d(0, q)` for `q ∈ (m, 1)`, and `d(0, ·)` is monotone on `[0, 1]`.
     obtain rfl : p = 0 := Subtype.ext hp0.symm
@@ -437,9 +437,9 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     rintro _ ⟨⟨q, rfl⟩, hqM⟩ hq
     have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
     have hq1 : (q : ℝ) = 1 :=
-      q.2.2.lt_or_eq.resolve_left fun hq1 ↦ hqM ⟨q, ⟨hmI.1.trans hq', hq1⟩, rfl⟩
+      q.property.2.lt_or_eq.resolve_left fun hq1 ↦ hqM ⟨q, ⟨hmI.1.trans hq', hq1⟩, rfl⟩
     rw [klDiv_bernoulliMeasure one_ne_zero,
-      (klBer_eq_top_iff p.2 q.2).mpr (Or.inr ⟨hq1, hpI.2.ne⟩)]
+      (klBer_eq_top_iff p.property q.property).mpr (Or.inr ⟨hq1, hpI.2.ne⟩)]
   -- These are the members of the exponential family of `Ber(1 / 2)`, `Ber(p)` is its member of
   -- mean `p`, and its divergence is `d`.
   rw [h_eq, ← image_expFamily_bernoulliMeasure_sigmoid 0,
@@ -447,7 +447,7 @@ lemma dInf_range_bernoulliMeasure (hpm : (p : ℝ) ≤ m) (hm : m < 1) :
     dInf_image_expFamily (not_ae_eq_const_bernoulliMeasure_sigmoid 0) (by simpa using hpI)
       (by simpa using hmI) hpm,
     expFamilyDiv_bernoulliMeasure_sigmoid 0 hpI hmI,
-    ← klBer_eq_ofReal_klBerReal p.2 (Set.Ioo_subset_Icc_self hmI) (klBer_ne_top hmI)]
+    ← klBer_eq_ofReal_klBerReal p.property (Set.Ioo_subset_Icc_self hmI) (klBer_ne_top hmI)]
 
 /-- **`d_inf` for Bernoulli laws** [LS, Table 16.1]: no Bernoulli law on `{0, 1}` has a mean above
 `m ≥ 1`, so that `d_inf(P, m)` is `∞` for every law `P`. -/
@@ -456,7 +456,7 @@ lemma dInf_range_bernoulliMeasure_of_one_le (P : Measure ℝ) (hm : 1 ≤ m) :
   refine top_le_iff.mp (le_dInf_iff.mpr ?_)
   rintro _ ⟨q, rfl⟩ hq
   have hq' : m < q := by simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using hq
-  exact absurd (hm.trans_lt hq') (not_lt.mpr q.2.2)
+  exact absurd (hm.trans_lt hq') (not_lt.mpr q.property.2)
 
 variable {p : α → I}
 
@@ -492,20 +492,20 @@ theorem eventually_mul_log_le_integral_regret_bernoulliBandit [Fintype α]
     have hμs : (⨆ b, (ν b)[id]) = μs := by simp_rw [ν, integral_id_bernoulliBandit, μs]
     have hgap_eq : gap ν a = μs - p a := by rw [gap, hμs, integral_id_bernoulliBandit]
     have hpa : (p a : ℝ) < μs := by linarith
-    have hμs1 : μs ≤ 1 := ciSup_le fun b ↦ (p b).2.2
+    have hμs1 : μs ≤ 1 := ciSup_le fun b ↦ (p b).property.2
     rw [bernoulliBandit_apply, hμs]
     rcases hμs1.lt_or_eq with hlt | heq
     · -- If `μ* < 1`, then `d(p_a, μ*)` is finite and positive.
-      have hμsI : μs ∈ Set.Ioo 0 1 := ⟨(p a).2.1.trans_lt hpa, hlt⟩
+      have hμsI : μs ∈ Set.Ioo 0 1 := ⟨(p a).property.1.trans_lt hpa, hlt⟩
       have hne_top := klBer_ne_top (p := p a) hμsI
       have hpos : 0 < (klBer (p a) μs).toReal := ENNReal.toReal_pos
-        (fun h ↦ hpa.ne ((klBer_eq_zero_iff (p a).2 (Set.Ioo_subset_Icc_self hμsI)).mp h))
+        (fun h ↦ hpa.ne ((klBer_eq_zero_iff (p a).property (Set.Ioo_subset_Icc_self hμsI)).mp h))
         hne_top
       rw [dInf_range_bernoulliMeasure hpa.le hlt, ENNReal.ofReal_div_of_pos hpos,
         ENNReal.ofReal_toReal hne_top]
     · -- If `μ* = 1`, then `d_inf = d(p_a, 1) = ∞` and both sides vanish.
       have htop : klBer (p a) μs = ∞ :=
-        (klBer_eq_top_iff (p a).2 (by simp [heq])).mpr (Or.inr ⟨heq, (heq ▸ hpa).ne⟩)
+        (klBer_eq_top_iff (p a).property (by simp [heq])).mpr (Or.inr ⟨heq, (heq ▸ hpa).ne⟩)
       rw [dInf_range_bernoulliMeasure_of_one_le _ heq.ge, htop, ENNReal.div_top,
         ENNReal.toReal_top, div_zero, ENNReal.ofReal_zero]
   rw [sum_congr rfl hterm,

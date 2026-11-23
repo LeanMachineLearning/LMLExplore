@@ -735,7 +735,7 @@ private lemma le_three_mul_sqrt_of_le_mul_add (hγ₀ : 0 < γ) (hγ : γ < 1) {
         rw [Real.exp_neg, one_div]
         exact inv_strictAnti₀ (Real.exp_pos 1) Real.exp_one_lt_three))
     calc q ^ m ≤ Real.exp (-1) ^ m := pow_le_pow_left₀ hq₀ hqe m
-      _ = Real.exp (-m) := by rw [← Real.exp_nat_mul]; ring_nf
+      _ = Real.exp (-m) := by rw [← Real.exp_natCast_mul]; ring_nf
       _ ≤ Real.exp (Real.log (1 - γ)) := Real.exp_le_exp.2 (by rw [Real.log_inv] at hm; linarith)
       _ = 1 - γ := Real.exp_log hu
   have h₀ := hind m le_rfl

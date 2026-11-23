@@ -310,7 +310,7 @@ private theorem le_streamMeasure_forall_abs_integral_sub_le_of_absorbing {M : MD
   set net : 𝓢 → Fin (K + 1) → ℝ :=
     fun s k ↦ Set.projIcc (-B) B hBB (G M s - Δ + 2 * Δ * (k : ℕ) / K)
   have hnet (s : 𝓢) (k : Fin (K + 1)) : |θ * net s k| ≤ C := by
-    have h : |net s k| ≤ B := abs_le.2 (Set.projIcc (-B) B hBB _).2
+    have h : |net s k| ≤ B := abs_le.2 (Set.projIcc (-B) B hBB _).property
     rw [abs_mul, abs_of_pos hθ₀]
     calc θ * |net s k| ≤ θ * B := by gcongr
       _ = C := mul_div_cancel₀ C hθ₀.ne'

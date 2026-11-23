@@ -104,11 +104,11 @@ theorem map_log_norm_prod_normalize_stdGaussian [Nontrivial E] :
       Function.comp_def]
   have hπ : (stdGaussian E).map NormedSpace.normalize = (uniformSphereMeasure E).map (↑) := by
     rw [← stdGaussian_map_sphereDirection e,
-      Measure.map_map measurable_subtype_coe (measurable_sphereDirection e)]
+      Measure.map_map measurable_subtypeVal (measurable_sphereDirection e)]
     refine Measure.map_congr ?_
     filter_upwards [h0] with x hx
     simp [coe_sphereDirection_of_ne_zero e hx]
-  rw [h1, hν, hπ, Measure.map_prod_map _ _ Real.measurable_log measurable_subtype_coe,
+  rw [h1, hν, hπ, Measure.map_prod_map _ _ Real.measurable_log measurable_subtypeVal,
     ← Measure.prod_swap, Measure.map_map (by fun_prop) measurable_swap]
   have h_comp : (fun p : Metric.sphere (0 : E) 1 × ℝ ↦ (Real.log p.2, (p.1 : E))) ∘ Prod.swap =
       Prod.map Real.log Subtype.val := by
@@ -311,7 +311,7 @@ private lemma map_normalize_stdGaussian_apply [Nontrivial E] {s : Set E} (hs : M
   have h := map_normalize_add_stdGaussian_apply (0 : E) hs
   simp only [zero_add, sub_zero] at h
   rw [h, ← lintegral_const_mul (f := fun u : Metric.sphere (0 : E) 1 ↦ s.indicator 1 (u : E)) _
-    ((measurable_one.indicator hs).comp measurable_subtype_coe)]
+    ((measurable_one.indicator hs).comp measurable_subtypeVal)]
   refine lintegral_congr fun u ↦ ?_
   rw [mul_comm, gaussianRadialMass]
   congr 1
@@ -353,7 +353,7 @@ theorem exists_map_normalize_add_le : ∃ K : ℝ, 0 < K ∧ ∀ c : E,
       (n.factorial * Real.exp 2 * C)).lintegral_lt_top.ne
   have h_ind (s : Set E) (hs : MeasurableSet s) :
       Measurable fun u : Metric.sphere (0 : E) 1 ↦ s.indicator (1 : E → ℝ≥0∞) (u : E) :=
-    (measurable_one.indicator hs).comp measurable_subtype_coe
+    (measurable_one.indicator hs).comp measurable_subtypeVal
   have hK : M0 / N0 ≤ ENNReal.ofReal ((M0 / N0).toReal + 1) := by
     rw [← ENNReal.ofReal_toReal (ENNReal.div_ne_top hM0 hN0)]
     exact ENNReal.ofReal_le_ofReal (by rw [ENNReal.toReal_ofReal ENNReal.toReal_nonneg]; linarith)

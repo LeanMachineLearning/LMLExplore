@@ -528,7 +528,7 @@ private lemma prod_ite_lt_eq {f : α → ℝ} {y₂ : α} (hf : f y₂ ≠ 0) (y
     (j : Fin (k + 2)) :
     ∏ i : Fin (k + 1), f (if (i : ℕ) < j then y₁ else y₂) =
       f y₂ ^ (k + 1) * (f y₁ / f y₂) ^ (j : ℕ) := by
-  have hj := j.2
+  have hj := j.isLt
   rw [Fin.prod_univ_eq_prod_range (fun i ↦ f (if i < (j : ℕ) then y₁ else y₂))]
   simp only [apply_ite f]
   rw [Finset.prod_ite, Finset.prod_const, Finset.prod_const]

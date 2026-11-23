@@ -477,7 +477,7 @@ private lemma descriptionGain_le_of_forall_mix_le [SigmaFinite μ] [IsFiniteMeas
     calc (S' : EReal) < ((s * g₀ + (1 - s) * (a + mR) - η : ℝ) : EReal)
           - ((Rn.real univ - Q.real univ : ℝ) : EReal) := by
           rw [← EReal.coe_sub, EReal.coe_lt_coe_iff, hRn_real]
-          have hs' : (0 : ℝ) ≤ s := s.2
+          have hs' : (0 : ℝ) ≤ s := s.property
           have h1 : (s : ℝ) * (a - (g₀ - m₀)) ≤ (s : ℝ) * |a - (g₀ - m₀)| :=
             mul_le_mul_of_nonneg_left (le_abs_self _) hs'
           have h2 : (1 - (s : ℝ)) * ((Qs n).real univ - R.real univ) ≤ (1 - (s : ℝ)) * η :=

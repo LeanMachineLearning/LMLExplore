@@ -176,7 +176,7 @@ theorem measure_fsupport_eq_measure_univ (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞)
 e-variable, so a numeraire is almost surely infinite under a nonzero alternative `Q`. -/
 theorem IsNumeraire.nonempty_of_ae_ne_top [NeZero Q] (hX : IsNumeraire X S Q)
     (hX_top : ∀ᵐ ω ∂Q, X ω ≠ ∞) : S.Nonempty := by
-  refine nonempty_iff_ne_empty.2 fun h_empty ↦ ?_
+  refine ne_empty_iff_nonempty.1 fun h_empty ↦ ?_
   have hY : IsEVar (fun _ : Ω ↦ ∞) S := ⟨measurable_const, by simp [h_empty]⟩
   have h_false : ∀ᵐ ω ∂Q, False := by
     filter_upwards [hX.ae_eq_top_of_eq_top hY, hX_top] with ω h1 h2 using h2 (h1 rfl)

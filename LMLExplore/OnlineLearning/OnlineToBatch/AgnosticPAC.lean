@@ -299,7 +299,7 @@ theorem measureReal_lt_integral_validationPlay_le
   have hx (t : ℕ) : Measurable[ℱ t] fun ω ↦ A.run (fun _ ↦ ()) ω t := by
     simp only [run_def]
     exact (hA t).comp (@Measurable.of_eval _ _ _ (ℱ t) _ _ fun r ↦ measurable_const.prodMk
-      (Filtration.measurable_naturalLT measurable_pi_apply r.2))
+      (Filtration.measurable_naturalLT measurable_pi_apply r.isLt))
   have hξ (t : ℕ) : Measurable[ℱ (t + 1)] fun ω : ℕ → Z ↦ ω t :=
     Filtration.measurable_naturalLT measurable_pi_apply t.lt_succ_self
   have hindep := Filtration.indep_naturalLT_infinitePi fun _ : ℕ ↦ ρ
@@ -401,8 +401,8 @@ theorem Set.Finite.agnosticPACLearnable {α Z : Type*} [MeasurableSpace α] [Mea
     Measurable.of_eval fun _ ↦ Finset.measurable_sum _ fun j _ ↦
       hf.comp (measurable_const.prodMk (measurable_pi_apply j))
   refine ⟨fun n s ↦ (argmin fun v : V ↦ ∑ j, f v (s j) : V),
-    fun n ↦ measurable_subtype_coe.comp (measurable_argmin.comp (hL n)),
-    fun n s ↦ (argmin fun v : V ↦ ∑ j, f v (s j)).2, fun ε hε δ hδ ↦ ?_⟩
+    fun n ↦ measurable_subtypeVal.comp (measurable_argmin.comp (hL n)),
+    fun n s ↦ (argmin fun v : V ↦ ∑ j, f v (s j)).property, fun ε hε δ hδ ↦ ?_⟩
   obtain ⟨N, hN⟩ := eventually_atTop.1
     (((eventually_sqrt_lt (2 * log (2 * Fintype.card V / δ)) 1 one_pos hε)).and
       (eventually_ge_atTop 1))
@@ -416,7 +416,7 @@ theorem Set.Finite.agnosticPACLearnable {α Z : Type*} [MeasurableSpace α] [Mea
   have hmeas : MeasurableSet E := by
     simp only [hE, Set.ofPred_exists]
     exact MeasurableSet.iUnion fun _ ↦ measurableSet_lt measurable_const
-      (measurable_integral_comp hf ρ (measurable_subtype_coe.comp (measurable_argmin.comp (hL n))))
+      (measurable_integral_comp hf ρ (measurable_subtypeVal.comp (measurable_argmin.comp (hL n))))
   refine (measureReal_mono (s₂ := E) fun s hs ↦ ?_).trans ?_
   · obtain ⟨u, hu, hus⟩ := hs
     exact ⟨⟨u, hu⟩, by linarith⟩

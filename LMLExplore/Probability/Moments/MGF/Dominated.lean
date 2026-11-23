@@ -233,7 +233,7 @@ private lemma exp_mul_mgf_pow_le_exp_cgf (s : Finset ι) (x t : ℝ) :
         · exact mgf_nonneg
         · exact le_exp_log _
     _ = exp (-(#s * (t * x - cgf Y Q t))) := by
-        rw [← exp_nat_mul, ← exp_add]
+        rw [← exp_natCast_mul, ← exp_add]
         ring_nf
 
 /-- **Chernoff bound under domination in cgf form, upper tail.** For independent random variables

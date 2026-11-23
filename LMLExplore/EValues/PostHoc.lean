@@ -194,10 +194,10 @@ theorem isPostHocValid_iff_forall_lintegral_div_le_one
   rw [lintegral_iSup_directed]
   · refine iSup_le fun t ↦ ?_
     obtain ⟨ℓ, hℓ, hℓ_mem, -, hℓ_le⟩ :=
-      exists_measurable_iSup_div_le hφ (a := fun α : D ↦ (α : ℝ≥0∞)) (fun α ↦ hD_sub α.2) t
+      exists_measurable_iSup_div_le hφ (a := fun α : D ↦ (α : ℝ≥0∞)) (fun α ↦ hD_sub α.property) t
     exact (lintegral_mono hℓ_le).trans (h P hP ℓ hℓ hℓ_mem)
   · refine fun t ↦ (Measurable.biSup (t : Set D) t.countable_toSet fun α _ ↦ ?_).aemeasurable
-    exact (hφ α (hD_sub α.2)).div_const _
+    exact (hφ α (hD_sub α.property)).div_const _
   · exact Monotone.directed_le fun t₁ t₂ h ω ↦ biSup_mono fun _ hα ↦ Finset.mem_of_subset h hα
 
 /-! ### Post-hoc validity and e-variables -/

@@ -205,7 +205,7 @@ theorem mul_altCost_le_betaAnswerValue (hab : b ≠ a) {c : ℝ≥0} (hw : w ∈
     c * task.altCost θ w i ≤ task.betaAnswerValue θ i a β := by
   rcases eq_or_ne c 0 with rfl | hc
   · simp
-  obtain ⟨v, hv, hva, hle⟩ := exists_mem_simplex_apply_eq_and_smul_le hw hab c.2 hca hcb
+  obtain ⟨v, hv, hva, hle⟩ := exists_mem_simplex_apply_eq_and_smul_le hw hab c.property hca hcb
   calc (c : ℝ≥0∞) * task.altCost θ w i = task.altCost θ (c • w) i := by
         rw [task.altCost_smul hc, ENNReal.smul_def, smul_eq_mul]
     _ ≤ task.altCost θ v i := task.monotone_altCost θ i (by simpa [NNReal.smul_def] using hle)

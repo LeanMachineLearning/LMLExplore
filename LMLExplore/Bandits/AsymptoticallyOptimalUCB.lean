@@ -263,7 +263,7 @@ theorem ucbF_regret_le
   refine sum_le_sum fun a ha ↦ ?_
   have : Nonempty (Set.Ioo 0 (gap ν a)) := (Set.nonempty_Ioo.mpr (mem_filter.mp ha).2).to_subtype
   exact le_ciInf fun ε ↦ mul_le_mul_of_nonneg_left
-    (UCBF.integral_pullCount_le h hν hσ2 a ε.2.1 ε.2.2 n) gap_nonneg
+    (UCBF.integral_pullCount_le h hν hσ2 a ε.property.1 ε.property.2 n) gap_nonneg
 
 /-- **[LS, Theorem 8.1] for two arms.** In a bandit with two σ²-sub-Gaussian arms `a` and `b` of
 means `μ_a < μ_b`, with `σ² ≠ 0`, the expected regret of the asymptotically optimal UCB algorithm

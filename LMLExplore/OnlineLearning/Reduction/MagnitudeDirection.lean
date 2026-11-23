@@ -154,7 +154,7 @@ two learners share the contexts. -/
 def magnitudeDirection (A : OnlineLearner C ℝ ℝ) (B : OnlineLearner C F E) :
     OnlineLearner C F E where
   play t h c := A.play t (fun s ↦ ((h s).1,
-      (h s).2 (B.play s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1))) c • B.play t h c
+      (h s).2 (B.play s (fun r ↦ h (Fin.castLE s.isLt.le r)) (h s).1))) c • B.play t h c
 
 variable (A : OnlineLearner C ℝ ℝ) (B : OnlineLearner C F E)
 
@@ -163,7 +163,7 @@ the play of `A`, fed the losses `(h s).2` of the plays of `B` from the truncated
 the play of `B`. -/
 lemma play_magnitudeDirection (t : ℕ) (h : Fin t → C × F) (c : C) :
     (A.magnitudeDirection B).play t h c = A.play t (fun s ↦ ((h s).1,
-      (h s).2 (B.play s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1))) c • B.play t h c := (rfl)
+      (h s).2 (B.play s (fun r ↦ h (Fin.castLE s.isLt.le r)) (h s).1))) c • B.play t h c := (rfl)
 
 /-- The plays of `A.magnitudeDirection B` are the plays of `A`, fed the losses `y s (B.run c y s)`
 of the plays of `B`, times the plays of `B`, fed the losses `y s`. -/

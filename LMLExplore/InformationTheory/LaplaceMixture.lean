@@ -159,7 +159,7 @@ theorem exp_mul_toReal_klDiv_le_mul_predictorLikelihoodRatio_laplacePredictor
   have h_max : exp (n * (klDiv (empiricalFiniteMeasure fun k : Fin n ↦ ξ k ω : Measure α)
       ν).toReal) = (∏ a, ((N a : ℝ) / n) ^ N a) / P := by
     set x : Fin n → α := fun k ↦ ξ k ω
-    have hx : ∀ k, ν {x k} ≠ 0 := fun k ↦ hξ k k.2
+    have hx : ∀ k, ν {x k} ≠ 0 := fun k ↦ hξ k k.isLt
     have hN_type : typeCount x = N := funext fun a ↦ typeCount_eq_pullCount n ω a
     -- `P = ∏ₐ ν{a} ^ N a = (∏ₐ (N a / n) ^ N a) exp (-n KL(p̂_n ‖ ν))`
     have hP_eq : P = (∏ a, ((N a : ℝ) / n) ^ N a) *
@@ -211,7 +211,8 @@ private lemma one_div_le_predictorLikelihoodRatio [IsProbabilityMeasure ν] {n :
   have hC_pos : 0 < C := by positivity
   -- the divergence is finite, since `p̂_n` is absolutely continuous with respect to `ν`
   have hKL : klDiv p ν ≠ ∞ :=
-    klDiv_ne_top (empiricalFiniteMeasure_absolutelyContinuous fun i ↦ hξ i i.2) Integrable.of_finite
+    klDiv_ne_top (empiricalFiniteMeasure_absolutelyContinuous fun i ↦ hξ i i.isLt)
+      Integrable.of_finite
   have h_le : log (1 / δ) + log C ≤ n * (klDiv p ν).toReal := by
     rw [← ENNReal.ofReal_toReal hKL, ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (by simp),
       ENNReal.ofReal_le_ofReal_iff'] at h

@@ -144,7 +144,7 @@ theorem charTime_transductiveTask_gaussianReal [Finite ι] (hz : Function.Inject
   simp_rw [ENNReal.inv_iSup, ENNReal.inv_iInf]
   refine iInf_congr fun w ↦ iInf_congr fun _ ↦ iSup_congr fun j ↦
     ENNReal.inv_div (.inr ENNReal.ofReal_ne_top) (.inr ?_)
-  have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.2
+  have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.property
   positivity
 
 /-- **The characteristic time of transductive identification with a common variance**
@@ -166,7 +166,7 @@ theorem charTime_transductiveTask_gaussianReal_const [Finite ι] (hz : Function.
   refine iInf_congr fun _ ↦ ?_
   rw [ENNReal.mul_iSup]
   refine iSup_congr fun j ↦ ?_
-  have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.2
+  have hj : 0 < ⟪z i - z j, θ⟫_ℝ := by rw [inner_sub_left, sub_pos]; exact hi j j.property
   -- `σ² / (Δ² / 2) = 2 σ² / Δ²`
   have hc : ENNReal.ofReal σ2 / ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2 / 2) =
       ENNReal.ofReal (2 * σ2) / ENNReal.ofReal (⟪z i - z j, θ⟫_ℝ ^ 2) := by
@@ -197,7 +197,7 @@ theorem charTime_transductiveTask_gaussianReal_le_iSup_div [Finite ι] (hz : Fun
   rw [charTime_transductiveTask_gaussianReal hz hv hν hi', ENNReal.iSup_div]
   refine (iInf₂_le w hw).trans (iSup_mono fun j ↦ ENNReal.div_le_div_left ?_ _)
   gcongr
-  exact hi j j.2
+  exact hi j j.property
 
 /-- **The characteristic time is at most the value of the XY-allocation** [SLM14, (14)]. For
 finitely many distinct answers, Gaussian observations `𝒩(⟪φ a, θ⟫, v a)` with `v a ≠ 0` and a lower

@@ -93,7 +93,7 @@ theorem exists_map_eq_of_support_subset_image {f : X → Y} {S : Set X} {π : St
   · obtain ⟨y, hy, rfl⟩ := support_weights_map_subset g π hx
     exact hgS y (hπ hy)
   · rw [← weights_inj, map_map, weights_map,
-      Finsupp.mapDomain_congr fun y hy ↦ hgf y (hπ hy)]
+      Finsupp.mapDomain_congr rfl fun y hy ↦ hgf y (hπ hy)]
     exact Finsupp.mapDomain_id
   · exact (Finset.card_le_card Finsupp.mapDomain_support).trans Finset.card_image_le
 

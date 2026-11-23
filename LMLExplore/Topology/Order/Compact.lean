@@ -56,10 +56,10 @@ theorem isClosed_setOf_exists_le {ι T : Type*} [Finite ι] [TopologicalSpace T]
       · rintro ⟨t, htK, hv⟩
         exact ⟨(v, ⟨t, htK⟩), hv, rfl⟩
       · rintro ⟨⟨v', t⟩, hv, rfl⟩
-        exact ⟨t, t.2, hv⟩
+        exact ⟨t, t.property, hv⟩
     rw [heq]
     exact isClosedMap_fst_of_compactSpace _
-      (isClosed_le continuous_fst (hΦ.comp (continuous_subtype_val.comp continuous_snd)))
+      (isClosed_le continuous_fst (hΦ.comp (continuous_subtypeVal.comp continuous_snd)))
   -- near `w`, every dominated vector is dominated through a parameter of `K`
   have hsub : Metric.ball w 1 ∩ {v | ∃ t, v ≤ Φ t} ⊆ {v | ∃ t ∈ K, v ≤ Φ t} := by
     rintro v ⟨hv, t, ht⟩

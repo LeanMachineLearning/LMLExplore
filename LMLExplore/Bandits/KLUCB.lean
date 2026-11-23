@@ -493,9 +493,10 @@ theorem klucb_regret_le
   have : Nonempty (Set.Ioo 0 (gap ν a)) := (Set.nonempty_Ioo.mpr (mem_filter.mp ha).2).to_subtype
   refine le_ciInf fun ε₁ ↦ ?_
   have : Nonempty (Set.Ioo 0 (gap ν a - ε₁)) :=
-    (Set.nonempty_Ioo.mpr (sub_pos.mpr ε₁.2.2)).to_subtype
+    (Set.nonempty_Ioo.mpr (sub_pos.mpr ε₁.property.2)).to_subtype
   exact le_ciInf fun ε₂ ↦ mul_le_mul_of_nonneg_left
-    (KLUCB.integral_pullCount_le h hν a ε₁.2.1 ε₂.2.1 (by linarith [ε₂.2.2]) n) gap_nonneg
+    (KLUCB.integral_pullCount_le h hν a ε₁.property.1 ε₂.property.1 (by linarith [ε₂.property.2]) n)
+    gap_nonneg
 
 /-- **Asymptotic number of pulls of KL-UCB.** For rewards in `[0, 1]`, an arm `a` with positive gap
 and every `c > 1 / d(μ_a, μ*)`, where `μ_a` is the mean of `a` and `μ*` the largest mean, the

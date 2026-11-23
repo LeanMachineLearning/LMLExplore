@@ -645,7 +645,7 @@ theorem div_pow_mul_exp_sub_unionBoundLevel_le (hδ : 0 < δ) (hδ1 : δ ≤ 1) 
   _ ≤ (exp 1 * (1 + L) ^ 2) ^ K * exp (K - unionBoundLevel K δ) := by
     gcongr
   _ = exp (-L) := by
-    rw [← hexp, ← exp_nat_mul, ← exp_add, unionBoundLevel_def, ← hL_def]
+    rw [← hexp, ← exp_natCast_mul, ← exp_add, unionBoundLevel_def, ← hL_def]
     ring_nf
   _ = δ := by rw [hL_def, one_div, log_inv, neg_neg, exp_log hδ]
 

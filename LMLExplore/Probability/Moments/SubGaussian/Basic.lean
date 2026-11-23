@@ -262,7 +262,7 @@ theorem exists_hasSubgaussianMGF_measure_singleton_pos (hc : 0 < c) (y : ℝ) :
     calc Real.cosh (t * a) ^ n ≤ Real.exp ((t * a) ^ 2 / 2) ^ n := by
           gcongr
           exact Real.cosh_le_exp_half_sq _
-      _ = Real.exp (n * ((t * a) ^ 2 / 2)) := (Real.exp_nat_mul _ _).symm
+      _ = Real.exp (n * ((t * a) ^ 2 / 2)) := (Real.exp_natCast_mul _ _).symm
       _ ≤ Real.exp (c * t ^ 2 / 2) := by
           gcongr
           have h1 : (n : ℝ) * ((t * a) ^ 2 / 2) = t ^ 2 / 2 * (y ^ 2 / n) := by

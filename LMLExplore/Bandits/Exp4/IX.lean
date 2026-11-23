@@ -186,12 +186,12 @@ lemma exp4IXWeights_nonneg (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) (a : α
     0 ≤ exp4IXWeights adv η γ n h o a := by
   rw [exp4IXWeights_apply]
   exact Finset.sum_nonneg fun m _ ↦
-    mul_nonneg (softmax_nonneg _ m) ((mem_simplex_iff.1 (adv o m).2).1 a)
+    mul_nonneg (softmax_nonneg _ m) ((mem_simplex_iff.1 (adv o m).property).1 a)
 
 lemma exp4IXWeights_mem_simplex [Nonempty β] (n : ℕ) (h : Hist 𝓞 α ℝ n) (o : 𝓞) :
     exp4IXWeights adv η γ n h o ∈ simplex α :=
   (convex_simplex α).sum_mem (fun m _ ↦ (exp4IXExpertWeights_pos n h m).le)
-    (mem_simplex_iff.1 (exp4IXExpertWeights_mem_simplex n h)).2 fun m _ ↦ (adv o m).2
+    (mem_simplex_iff.1 (exp4IXExpertWeights_mem_simplex n h)).2 fun m _ ↦ (adv o m).property
 
 /-- The weights `exp4IXWeights adv η γ n h o` of Exp4-IX on the arms dominate the contribution
 `Q m • adv o m` of every expert `m`, with `Q = exp4IXExpertWeights adv η γ n h`. As `Q m > 0`, the
@@ -202,7 +202,7 @@ lemma exp4IXExpertWeights_mul_le_exp4IXWeights (n : ℕ) (h : Hist 𝓞 α ℝ n
   rw [exp4IXWeights_apply]
   exact Finset.single_le_sum
     (f := fun m' ↦ exp4IXExpertWeights adv η γ n h m' * (adv o m' : α → ℝ) a)
-    (fun m' _ ↦ mul_nonneg (softmax_nonneg _ m') ((mem_simplex_iff.1 (adv o m').2).1 a))
+    (fun m' _ ↦ mul_nonneg (softmax_nonneg _ m') ((mem_simplex_iff.1 (adv o m').property).1 a))
     (mem_univ m)
 
 /-- The advice of every expert vanishes on the arms of weight zero in Exp4-IX, as every expert has
@@ -212,7 +212,7 @@ lemma adv_apply_eq_zero_of_exp4IXWeights_eq_zero [Nonempty β] {n : ℕ} {h : Hi
   have hle := exp4IXExpertWeights_mul_le_exp4IXWeights (adv := adv) (η := η) (γ := γ) n h o m a
   rw [ha] at hle
   exact le_antisymm (nonpos_of_mul_nonpos_right hle (exp4IXExpertWeights_pos n h m))
-    ((mem_simplex_iff.1 (adv o m).2).1 a)
+    ((mem_simplex_iff.1 (adv o m).property).1 a)
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
 
@@ -230,7 +230,7 @@ lemma measurable_exp4IXSum (hadv : Measurable adv) (η γ : ℕ → ℝ) (n : �
     have hE := hadv.comp (Round.measurable_obs.comp hlast)
     have hadvm : ∀ m, Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦
         (adv (h (Fin.last n)).obs m : α → ℝ) := fun m ↦
-      measurable_subtype_coe.comp ((measurable_pi_apply m).comp hE)
+      measurable_subtypeVal.comp ((measurable_pi_apply m).comp hE)
     -- the weights on the arms, shifted by `γ n`, and the estimates of round `n`
     have hP : Measurable fun h : Hist 𝓞 α ℝ (n + 1) ↦
         fun a ↦ exp4IXWeights adv η γ n (Fin.init h) (h (Fin.last n)).obs a + γ n := by
@@ -260,7 +260,7 @@ lemma measurable_exp4IXWeights (hadv : Measurable adv) (η γ : ℕ → ℝ) (n 
   simp_rw [exp4IXWeights_apply]
   refine Finset.measurable_sum _ fun m _ ↦ ?_
   exact ((measurable_pi_apply m).comp ((measurable_exp4IXExpertWeights hadv η γ n).comp
-    measurable_fst)).mul ((measurable_pi_apply a).comp (measurable_subtype_coe.comp
+    measurable_fst)).mul ((measurable_pi_apply a).comp (measurable_subtypeVal.comp
       ((measurable_pi_apply m).comp (hadv.comp measurable_snd))))
 
 end Weights
@@ -340,7 +340,7 @@ loss-based importance-weighted estimates `X̂` of the rewards of the arms. -/
 lemma dotProduct_lossIwEstimator_advice (e : β → simplex α) (m : β) (p : α → ℝ) (b : α)
     (y : ℝ) :
     (e m : α → ℝ) ⬝ᵥ lossIwEstimator p b y = 1 - (e m : α → ℝ) b * (1 - y) / p b :=
-  dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).2).2
+  dotProduct_lossIwEstimator (mem_simplex_iff.1 (e m).property).2
 
 namespace Exp4IX
 
@@ -377,7 +377,7 @@ lemma sum_exp4IXExpertWeights_mul_dotProduct_sq_le (n : ℕ) (h : Hist 𝓞 α �
   calc ∑ m, exp4IXExpertWeights adv η γ n h m * ((adv o m : α → ℝ) ⬝ᵥ v) ^ 2
   _ ≤ ∑ m, exp4IXExpertWeights adv η γ n h m * (adv o m : α → ℝ) ⬝ᵥ (v ^ 2) :=
       Finset.sum_le_sum fun m _ ↦ mul_le_mul_of_nonneg_left
-        (sq_dotProduct_le_dotProduct_sq_of_mem_simplex (adv o m).2 v) (softmax_nonneg _ m)
+        (sq_dotProduct_le_dotProduct_sq_of_mem_simplex (adv o m).property v) (softmax_nonneg _ m)
   _ = ∑ a, exp4IXWeights adv η γ n h o a * v a ^ 2 := by
       simp only [sum_exp4IXExpertWeights_mul_dotProduct, Pi.pow_apply]
 
@@ -443,9 +443,9 @@ theorem sum_sum_mul_sub_le (hη : ∀ t, 0 < η t) (hη_anti : Antitone η) (hγ
     (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω) (1 - Y t ω)
     with hy
   have hy0 : ∀ t < n, ∀ m', 0 ≤ y t m' := fun t ht m' ↦ Finset.sum_nonneg fun a _ ↦
-    mul_nonneg ((mem_simplex_iff.1 (adv (O t ω) m').2).1 a) (iwEstimator_nonneg
+    mul_nonneg ((mem_simplex_iff.1 (adv (O t ω) m').property).1 a) (iwEstimator_nonneg
       (add_nonneg (exp4IXWeights_nonneg _ _ _ _) (hγ t)) (sub_nonneg.2 (hY t ht)))
-  have := nonempty_of_mem_simplex (adv (O 0 ω) m).2
+  have := nonempty_of_mem_simplex (adv (O 0 ω) m).property
   -- the weights on the experts are the exponential weights of these losses
   have hqw : ∀ t, softmax (-(η t • ∑ s ∈ range t, y s)) =
       exp4IXExpertWeights adv η γ t (history O A Y t ω) := fun t ↦

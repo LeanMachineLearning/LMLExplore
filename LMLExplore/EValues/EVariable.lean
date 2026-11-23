@@ -268,7 +268,7 @@ theorem isEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ≥0�
 theorem isEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i ≤ 1) :
     IsEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
-  convert isEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
+  convert isEVar_tsum_mul (fun i : s ↦ hE i i.property) (w := fun i ↦ w i)
     (by rwa [Finset.tsum_subtype s w]) using 2 with ω
   exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 
@@ -289,7 +289,7 @@ theorem isExactEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ�
 theorem isExactEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsExactEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i = 1) :
     IsExactEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
-  convert isExactEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
+  convert isExactEVar_tsum_mul (fun i : s ↦ hE i i.property) (w := fun i ↦ w i)
     (by rwa [Finset.tsum_subtype s w]) using 2 with ω
   exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 

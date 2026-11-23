@@ -125,7 +125,7 @@ function of the run. -/
 private lemma measurable_adv_action (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) env P)
     (m : β) : Measurable fun ω ↦ (adv (O t ω) m : α → ℝ) (A t ω) :=
   (measurable_from_prod_countable_left (f := fun z : 𝓞 × α ↦ (adv z.1 m : α → ℝ) z.2)
-    fun b ↦ (measurable_pi_apply b).comp (measurable_subtype_coe.comp
+    fun b ↦ (measurable_pi_apply b).comp (measurable_subtypeVal.comp
       ((measurable_pi_apply m).comp hadv))).comp
     ((h.measurable_obs t).prodMk (h.measurable_action t))
 
@@ -158,8 +158,8 @@ private lemma integrable_adv_action_mul_div (h : IsAlgEnvSeq O A Y (exp4IX adv h
     (measurable_const.sub (h.measurable_feedback t))).div
       ((measurable_exp4IXWeights_action h).add_const _)).aestronglyMeasurable ?_
   filter_upwards [ae_mul_one_sub_div_mem_Icc h hY] with ω ⟨_, hω⟩
-  have := hω ((adv (O t ω) m : α → ℝ) (A t ω)) ⟨(simplex_subset_Icc (adv (O t ω) m).2).1 _,
-    (simplex_subset_Icc (adv (O t ω) m).2).2 _⟩ g hg
+  have := hω ((adv (O t ω) m : α → ℝ) (A t ω)) ⟨(simplex_subset_Icc (adv (O t ω) m).property).1 _,
+    (simplex_subset_Icc (adv (O t ω) m).property).2 _⟩ g hg
   rw [abs_of_nonneg this.1]
   exact this.2
 
@@ -187,7 +187,7 @@ theorem condExp_dotProduct_iwEstimator (h : IsAlgEnvSeq O A Y (exp4IX adv hadv �
   subst halg
   have hf : ∀ b, Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦
       (adv x.2 m : α → ℝ) b / exp4IXWeights adv η γ t x.1 x.2 b := fun b ↦
-    ((measurable_pi_apply b).comp (measurable_subtype_coe.comp
+    ((measurable_pi_apply b).comp (measurable_subtypeVal.comp
       ((measurable_pi_apply m).comp (hadv.comp measurable_snd)))).div
       ((measurable_pi_apply b).comp (measurable_exp4IXWeights hadv η γ t))
   have hmean : ∀ b, Measurable fun x : Hist 𝓞 α ℝ t × 𝓞 ↦ 1 - ∫ y, y ∂env.feedback t (x, b) :=
@@ -250,7 +250,7 @@ lemma integrable_sum_mul_means (h : IsAlgEnvSeq O A Y (exp4IX adv hadv η γ) en
   refine ((integrable_const 1).sub (integrable_sum_mul_one_sub_means h hY m)).congr
     (ae_of_all _ fun ω ↦ ?_)
   simp only [Pi.sub_apply, mul_sub, mul_one, sum_sub_distrib,
-    (mem_simplex_iff.1 (adv (O t ω) m).2).2, sub_sub_cancel]
+    (mem_simplex_iff.1 (adv (O t ω) m).property).2, sub_sub_cancel]
 
 omit [Nonempty α] in
 /-- Along a run of Exp4-IX whose feedback at round `t` is almost surely in `[0, 1]`, the
@@ -302,7 +302,7 @@ theorem integral_dotProduct_iwEstimator_le (h : IsAlgEnvSeq O A Y (exp4IX adv ha
         (integrable_adv_action_mul_div (g := 0) h hY m le_rfl) ?_
       filter_upwards [ae_mul_one_sub_div_mem_Icc h hY, hY] with ω ⟨hw, _⟩ hYω
       rw [add_zero]
-      exact div_le_div_of_nonneg_left (mul_nonneg ((mem_simplex_iff.1 (adv (O t ω) m).2).1 _)
+      exact div_le_div_of_nonneg_left (mul_nonneg ((mem_simplex_iff.1 (adv (O t ω) m).property).1 _)
         (sub_nonneg.2 hYω.2)) hw (le_add_of_nonneg_right hγ)
   _ = P[fun ω ↦ ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - env.means O A Y a t ω)] := by
       rw [← integral_congr_ae (condExp_dotProduct_iwEstimator h hY m),
@@ -375,7 +375,7 @@ theorem integral_sum_sub_le_integral_sum_sub_dotProduct
       refine Finset.sum_congr rfl fun t ht ↦ ?_
       rw [← integral_sub (hYint t ht) (integrable_sum_mul_one_sub_means h (hYt t ht) m)]
       refine integral_congr_ae (ae_of_all _ fun ω ↦ ?_)
-      simp only [mul_sub, mul_one, sum_sub_distrib, (mem_simplex_iff.1 (adv (O t ω) m).2).2]
+      simp only [mul_sub, mul_one, sum_sub_distrib, (mem_simplex_iff.1 (adv (O t ω) m).property).2]
       ring
   _ ≤ ∑ t ∈ range n, (P[fun ω ↦ 1 - Y t ω] - P[fun ω ↦ (adv (O t ω) m : α → ℝ) ⬝ᵥ iwEstimator
         (fun a ↦ exp4IXWeights adv η γ t (history O A Y t ω) (O t ω) a + γ t) (A t ω)

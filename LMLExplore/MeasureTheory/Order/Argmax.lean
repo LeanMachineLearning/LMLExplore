@@ -45,8 +45,8 @@ variable {α β γ : Type*} {mα : MeasurableSpace α} [MeasurableSpace β] [Fin
 theorem exists_measurable_forall_mem_isMaxOn [LinearOrder γ] (hs : Measurable s)
     (hne : ∀ a, (s a).Nonempty) (g : β → γ) :
     ∃ σ : α → β, Measurable σ ∧ ∀ a, σ a ∈ s a ∧ IsMaxOn g (s a) (σ a) := by
-  have hmax (t : {t : Set β // t.Nonempty}) : ∃ b ∈ t.1, IsMaxOn g t.1 b := by
-    obtain ⟨b, hb, hgb⟩ := Set.exists_max_image t.1 g t.1.toFinite t.2
+  have hmax (t : {t : Set β // t.Nonempty}) : ∃ b ∈ t.val, IsMaxOn g t.val b := by
+    obtain ⟨b, hb, hgb⟩ := Set.exists_max_image t.val g t.val.toFinite t.property
     exact ⟨b, hb, isMaxOn_iff.2 hgb⟩
   -- The maximizer is chosen as a function of the value `s a`; every function on the subsets of
   -- a finite type is measurable.

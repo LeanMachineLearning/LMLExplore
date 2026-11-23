@@ -305,7 +305,7 @@ theorem kInfUpper_unitIntervalLaws_bernoulliMeasure {p : I} (hpu : (p : ℝ) ≤
   refine le_antisymm ?_ ?_
   · simpa using kInfUpper_le (κ := ProbabilityMeasure.toMeasure) (m := fun Q ↦ (Q : Measure ℝ)[id])
       (x := ⟨Ber((1 : ℝ), 0, p), inferInstance⟩)
-      (bernoulliMeasure_mem_unitIntervalLaws ⟨u, p.2.1.trans hpu, hu⟩)
+      (bernoulliMeasure_mem_unitIntervalLaws ⟨u, p.property.1.trans hpu, hu⟩)
       (by simp [TauCeti.Probability.integral_id_bernoulliMeasure])
   · simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using
       klBer_le_kInfUpper_of_subset_unitIntervalLaws subset_rfl
@@ -321,7 +321,7 @@ theorem kInfLower_unitIntervalLaws_bernoulliMeasure {p : I} (hu : 0 ≤ u) (hup 
   refine le_antisymm ?_ ?_
   · simpa using kInfLower_le (κ := ProbabilityMeasure.toMeasure) (m := fun Q ↦ (Q : Measure ℝ)[id])
       (x := ⟨Ber((1 : ℝ), 0, p), inferInstance⟩)
-      (bernoulliMeasure_mem_unitIntervalLaws ⟨u, hu, hup.trans p.2.2⟩)
+      (bernoulliMeasure_mem_unitIntervalLaws ⟨u, hu, hup.trans p.property.2⟩)
       (by simp [TauCeti.Probability.integral_id_bernoulliMeasure])
   · simpa [TauCeti.Probability.integral_id_bernoulliMeasure] using
       klBer_le_kInfLower_of_subset_unitIntervalLaws subset_rfl

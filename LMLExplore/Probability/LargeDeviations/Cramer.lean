@@ -167,7 +167,7 @@ private lemma eventually_ofReal_exp_le_of_ae_le_or_ae_ge [IsProbabilityMeasure �
   calc ENNReal.ofReal (exp (-(n * r)))
   _ ≤ ENNReal.ofReal (p ^ n) := by
     refine ENNReal.ofReal_le_ofReal ?_
-    rw [← exp_log hp, ← exp_nat_mul]
+    rw [← exp_log hp, ← exp_natCast_mul]
     exact exp_le_exp.2 (by nlinarith [(n.cast_nonneg : (0 : ℝ) ≤ n)])
   _ = ν {x} ^ n := by rw [ENNReal.ofReal_pow hp.le, ofReal_measureReal]
   _ ≤ (Measure.pi fun _ : Fin n ↦ ν) ((fun y : Fin n → ℝ ↦ (∑ i, y i) / (n : ℝ)) ⁻¹' {x}) :=
@@ -447,7 +447,7 @@ private lemma eventually_ofReal_exp_le_of_truncation [IsProbabilityMeasure ν]
       ENNReal.ofReal (exp (-(n * ((rateFunction id ν[|B] x).toReal + ε)))) := by
     rw [← ENNReal.ofReal_mul (by positivity)]
     refine ENNReal.ofReal_le_ofReal ?_
-    rw [← exp_log hp, ← exp_nat_mul, ← exp_add]
+    rw [← exp_log hp, ← exp_natCast_mul, ← exp_add]
     refine exp_le_exp.2 ?_
     have hr2 : r = I + 2 * ε := by simp only [ε]; ring
     nlinarith [(n.cast_nonneg : (0 : ℝ) ≤ n)]

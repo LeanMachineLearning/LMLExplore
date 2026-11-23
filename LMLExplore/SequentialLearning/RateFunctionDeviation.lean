@@ -236,7 +236,7 @@ private lemma streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_o
   have hS (a : S) (y : ℝ) (hy : 0 ≤ y) : streamMeasure ν
       {ω | ∃ s : ℕ, g s + y ≤ (F a (fun i ↦ ω i a) s).toReal / c} ≤
         ENNReal.ofReal (exp (-y)) := by
-    refine le_trans (measure_mono fun ω hω ↦ ?_) (h_one a a.2 y hy)
+    refine le_trans (measure_mono fun ω hω ↦ ?_) (h_one a a.property y hy)
     obtain ⟨s, hs⟩ := hω
     exact ⟨s, ENNReal.ofReal_le_of_le_toReal ((le_div_iff₀' hc).1 hs)⟩
   have h_real := measure_exists_card_mul_add_le_sum_le (P := streamMeasure ν)
@@ -248,7 +248,7 @@ private lemma streamMeasure_exists_mul_card_mul_add_le_sum_mul_rateFunction_le_o
   have h_top : streamMeasure ν {ω | ∃ a ∈ S, ∃ s : ℕ, F a (fun i ↦ ω i a) s = ∞} = 0 := by
     refine measure_mono_null (t := ⋃ a : S, {ω | ∃ s : ℕ, F a (fun i ↦ ω i a) s = ∞})
       (fun ω ⟨a, ha, hω⟩ ↦ Set.mem_iUnion.2 ⟨⟨a, ha⟩, hω⟩) ?_
-    exact measure_iUnion_null fun a ↦ streamMeasure_exists_mul_rateFunction_eq_top (hν a a.2)
+    exact measure_iUnion_null fun a ↦ streamMeasure_exists_mul_rateFunction_eq_top (hν a a.property)
   refine le_trans (measure_mono fun ω hω ↦ ?_) ((measure_union_le _ _).trans
     ((add_le_add h_real h_top.le).trans_eq (add_zero _)))
   obtain ⟨s, hs⟩ := hω

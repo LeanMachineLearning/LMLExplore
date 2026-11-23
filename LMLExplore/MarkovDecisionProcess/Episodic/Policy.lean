@@ -72,7 +72,7 @@ lemma extend_of_lt (π : Policy 𝓢 𝓐 H) {h : ℕ} (hh : h < H) (s : 𝓢) :
   simp [extend, hh]
 
 lemma extend_fin (π : Policy 𝓢 𝓐 H) (h : Fin H) (s : 𝓢) : π.extend h s = π h s :=
-  π.extend_of_lt h.2 s
+  π.extend_of_lt h.isLt s
 
 lemma extend_of_le (π : Policy 𝓢 𝓐 H) {h : ℕ} (hh : H ≤ h) (s : 𝓢) :
     π.extend h s = Classical.arbitrary 𝓐 := by
@@ -124,7 +124,7 @@ variable [MeasurableSpace 𝓢] [MeasurableSpace 𝓐] [Nonempty 𝓐] (M : Epis
 theorem value_toKernel_fin {π : Policy 𝓢 𝓐 H} (hπ : ∀ h, Measurable (π h)) (h : Fin H)
     (s : 𝓢) :
     M.value H (π.toKernel hπ) h s = M.qValue H (π.toKernel hπ) h s (π h s) := by
-  rw [Policy.toKernel_def, M.value_deterministic_of_lt (Policy.measurable_extend hπ) h.2 s,
+  rw [Policy.toKernel_def, M.value_deterministic_of_lt (Policy.measurable_extend hπ) h.isLt s,
     Policy.extend_fin]
 
 end EpisodicMDP

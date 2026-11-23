@@ -130,9 +130,9 @@ private lemma image_val_isMaxOn_altCostSimplex (θ : Θ) :
   rw [task.mem_optAlloc_iff_isMaxOn]
   constructor
   · rintro ⟨v, ⟨-, hv⟩, rfl⟩
-    exact ⟨v.2, fun w' hw' ↦ hv (mem_univ ⟨w', hw'⟩)⟩
+    exact ⟨v.property, fun w' hw' ↦ hv (mem_univ ⟨w', hw'⟩)⟩
   · rintro ⟨hw, hmax⟩
-    exact ⟨⟨w, hw⟩, ⟨mem_univ _, fun v _ ↦ hmax v.2⟩, rfl⟩
+    exact ⟨⟨w, hw⟩, ⟨mem_univ _, fun v _ ↦ hmax v.property⟩, rfl⟩
 
 variable [TopologicalSpace Θ] {s : Set Θ}
 
@@ -283,8 +283,8 @@ private lemma continuousWithinAt_altCostSimplex {w : simplex α}
     simp [altCostSimplex, Function.HasUncurry.uncurry]
   rw [h_eq]
   exact h.comp (x := (θ, w)) (t := s ×ˢ simplex α)
-    (continuous_fst.prodMk (continuous_subtype_val.comp continuous_snd)).continuousWithinAt
-    fun p hp ↦ ⟨hp.1, p.2.2⟩
+    (continuous_fst.prodMk (continuous_subtypeVal.comp continuous_snd)).continuousWithinAt
+    fun p hp ↦ ⟨hp.1, p.2.property⟩
 
 /-- **Continuity of the value of an answer** [DK19, Lemma 28]. If `(θ, w) ↦ D(θ, w, ¬i)` is
 continuous within `s ×ˢ simplex α` at every point `(θ, w)` with `w` in the simplex, then the value
@@ -297,7 +297,7 @@ theorem continuousWithinAt_answerValue
   simp_rw [← iSup_altCostSimplex task]
   exact (UpperHemicontinuousWithinAt.const (z := (univ : Set (simplex α))))
     |>.continuousWithinAt_biSup .const isCompact_univ
-    fun v _ ↦ continuousWithinAt_altCostSimplex task (h v v.2)
+    fun v _ ↦ continuousWithinAt_altCostSimplex task (h v v.property)
 
 /-- **Upper hemicontinuity of the optimal allocations** [DK19, Lemma 28]. If
 `(θ, w) ↦ D(θ, w, ¬i)` is continuous within `s ×ˢ simplex α` at every point `(θ, w)` with `w` in
@@ -314,8 +314,9 @@ theorem upperHemicontinuousWithinAt_optAlloc
     exact (task.continuousWithinAt_answerValue h).lowerSemicontinuousWithinAt
   have h_uhc := ((UpperHemicontinuousWithinAt.const
     (z := (univ : Set (simplex α)))).upperHemicontinuousWithinAt_isMaxOn isCompact_univ (fun v _ ↦
-      (continuousWithinAt_altCostSimplex task (h v v.2)).upperSemicontinuousWithinAt) hm).image
-    continuous_subtype_val
+      (continuousWithinAt_altCostSimplex task (h v v.property)).upperSemicontinuousWithinAt)
+      hm).image
+    continuous_subtypeVal
   -- The maximizers in the subtype are the optimal allocations.
   simpa only [image_val_isMaxOn_altCostSimplex] using h_uhc
 

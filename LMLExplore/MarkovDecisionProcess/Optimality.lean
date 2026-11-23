@@ -227,7 +227,7 @@ largest value of a measurable deterministic stationary policy, attained by the p
 `v*` (`Learning.MDP.value_greedy_optValue`). -/
 theorem isGreatest_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
     IsGreatest (range fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦
-      M.value γ (Kernel.deterministic d d.2)) (M.optValue γ) := by
+      M.value γ (Kernel.deterministic d d.property)) (M.optValue γ) := by
   have := Fintype.ofFinite 𝓐
   exact ⟨⟨⟨_, measurable_greedy (measurable_optValue hγ hR)⟩, value_greedy_optValue hγ hR _⟩,
     forall_mem_range.2 fun _ ↦ value_le_optValue hγ hR⟩
@@ -296,7 +296,7 @@ value is nonnegative. -/
 theorem optQValue_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C)
     (hr : ∀ p, 0 ≤ meanReward M.R p) (p : 𝓢 × 𝓐) : 0 ≤ M.optQValue γ p := by
   rw [optQValue_def]
-  exact add_nonneg (hr p) (mul_nonneg γ.2 (integral_nonneg (optValue_nonneg hγ hR hr)))
+  exact add_nonneg (hr p) (mul_nonneg γ.property (integral_nonneg (optValue_nonneg hγ hR hr)))
 
 /-- **The optimality equation for action values**: with countably many actions, bounded rewards and
 `γ < 1`, the optimal action value satisfies `Q* = r + γ P (s' ↦ ⨆ a, Q* (s', a))`. -/

@@ -184,7 +184,7 @@ private lemma iIndepFun.comp_subtype_and_identDistrib_of_hasLaw_expFamily
     (aemeasurable_of_mem_interior_integrableExpSet
       (Measure.natParam_mem_interior_integrableExpSet hμ)).mono_ac
       (Measure.expFamily_absolutelyContinuous ρ T _)
-  exact ⟨h_indep.comp_subtype_of_hasLaw hT hY, fun i ↦ (hY i i.2).identDistrib_comp hT⟩
+  exact ⟨h_indep.comp_subtype_of_hasLaw hT hY, fun i ↦ (hY i i.property).identDistrib_comp hT⟩
 
 /-- **Cramér–Chernoff bound for an exponential family, upper tail.** For independent random
 variables `Y i`, `i ∈ s`, with law the member `ρ_η(μ)` of mean `μ` of the exponential family of `ρ`

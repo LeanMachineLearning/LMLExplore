@@ -224,7 +224,7 @@ theorem measure_exists_sum_div_add_sqrt_add_le_zero_le_of_hasCondSubgaussianMGF
       2 ^ Nat.log 2 s * Δ + √(4 * c * 2 ^ Nat.log 2 s * log⁺ (1 / (2 ^ (Nat.log 2 s + 1) * δ)))
         ≤ ∑ k ∈ range s, -Y k ω := by
     rw [sum_neg_distrib]
-    exact le_neg_sum_of_sum_div_add_sqrt_add_le_zero c.2 hδ hΔ.le hs
+    exact le_neg_sum_of_sum_div_add_sqrt_add_le_zero c.property hδ hΔ.le hs
       (Nat.pow_log_le_self 2 hs.ne') (Nat.lt_pow_succ_log_self (by norm_num) s) h
   rcases eq_or_ne c 0 with hc | hc
   · -- for `c = 0`, the time-uniform bound `exp (-t Δ)` holds for every `t ≥ 0`

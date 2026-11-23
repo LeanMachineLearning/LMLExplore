@@ -120,7 +120,7 @@ private lemma radius_le_of_norm_le {x : ℕ → E} {θ : E} {t : ℕ} {L : ℝ} 
         σ2 * finrank ℝ E * log (1 + t * L ^ 2 / (lam * finrank ℝ E))) := by
   gcongr _ + √(_ + ?_)
   rw [mul_assoc]
-  exact mul_le_mul_of_nonneg_left (log_det_designOp_div_pow_le hlam x hL) σ2.2
+  exact mul_le_mul_of_nonneg_left (log_det_designOp_div_pow_le hlam x hL) σ2.property
 
 /-- **Confidence ellipsoids for ridge regression with bounded features**
 [LS, Theorem 20.5 and (20.9)]: under the assumptions of
