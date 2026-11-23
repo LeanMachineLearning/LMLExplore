@@ -8,9 +8,10 @@ module
 public import LMLExplore.Analysis.SpecificLimits.Normed
 public import LMLExplore.Identification.SuccessiveRejects
 public import LMLExplore.Identification.Task.RealLaws
-public import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic
+
+import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
 
 /-!
 # Median elimination
@@ -580,8 +581,8 @@ means `μ`, and let `Y a` be the sum of `n ≥ 0` observations of the arm `a`, w
 probability that every arm that survives the halving of `S` by the values `Y` has a mean more than
 `ε` below that of an arm of `S` is at most `3 η`. -/
 lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {P : Measure Ω} {Y : Ω → α → ℝ} (hY : ∀ a, Measurable fun ω ↦ Y ω a) (S : Finset α)
-    (μ : α → ℝ) {n ε : ℝ} (hn : 0 ≤ n) (hε : 0 ≤ ε) {η : ℝ≥0∞}
+    {P : Measure Ω} {Y : Ω → α → ℝ} (S : Finset α) (μ : α → ℝ) {n ε : ℝ} (hn : 0 ≤ n) (hε : 0 ≤ ε)
+    {η : ℝ≥0∞}
     (h_up : ∀ a ∈ S, P {ω | n * ε / 2 ≤ Y ω a - n * μ a} ≤ η)
     (h_low : ∀ a ∈ S, P {ω | Y ω a - n * μ a ≤ -(n * ε / 2)} ≤ η) :
     P {ω | ∃ a ∈ S, ∀ b ∈ halve S (Y ω), μ b + ε < μ a} ≤ 3 * η := by
@@ -610,10 +611,18 @@ lemma measure_exists_forall_mem_halve_add_lt_le {Ω : Type*} {mΩ : MeasurableSp
     exact (card_halve S (Y ω)).symm.trans_le (card_le_card h_high)
   -- Markov's inequality for the number of arms whose sum is too high.
   have h_markov : P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ≤ 2 * η := by
-    refine (measure_le_card_filter_le (c := 2)
-      (fun b _ ↦ measurableSet_le measurable_const ((hY b).sub_const _)) h_up
-      (by have := hS.card_pos; omega) (by omega)).trans_eq ?_
-    norm_num
+    have hS_pos := hS.card_pos
+    have h_sub' : {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} ⊆
+        {ω | #S - #S / 2 - 1 < #{b ∈ S | ω ∈ E b}} := by
+      intro ω hω
+      simp only [Set.mem_ofPred_eq] at hω ⊢
+      omega
+    refine (measure_mono h_sub').trans
+      ((measure_lt_card_filter_le S E _).trans (ENNReal.div_le_of_le_mul' ?_))
+    calc ∑ b ∈ S, P (E b) ≤ #S • η := sum_le_card_nsmul _ _ _ h_up
+    _ = #S * η := nsmul_eq_mul _ _
+    _ ≤ (↑(#S - #S / 2 - 1) + 1) * 2 * η := by gcongr; exact_mod_cast (by omega : #S ≤ _)
+    _ = _ := mul_assoc _ _ _
   calc P {ω | ∃ a ∈ S, ∀ b ∈ halve S (Y ω), μ b + ε < μ a}
   _ ≤ P {ω | Y ω a' - n * μ a' ≤ -(n * ε / 2)} + P {ω | #S - #S / 2 ≤ #{b ∈ S | ω ∈ E b}} :=
     (measure_mono h_sub).trans (measure_union_le _ _)
@@ -625,7 +634,7 @@ a set of `#S - 1 - ⌊#S / 4⌋` arms of `S` other than `a`, each of whose value
 `Y a` with probability at most `η`. Then `a` is removed by the halving of `S` by the values `Y` with
 probability at most `3 η`. -/
 lemma measure_notMem_halve_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    {Y : Ω → α → ℝ} (hY : ∀ a, Measurable fun ω ↦ Y ω a) {S S' : Finset α} {a : α} (ha : a ∈ S)
+    {Y : Ω → α → ℝ} {S S' : Finset α} {a : α} (ha : a ∈ S)
     (hS' : S' ⊆ S.erase a) (hcard : #S' + #S / 4 + 1 = #S) {η : ℝ≥0∞}
     (h : ∀ b ∈ S', P {ω | Y ω a ≤ Y ω b} ≤ η) :
     P {ω | a ∉ halve S (Y ω)} ≤ 3 * η := by
@@ -645,10 +654,18 @@ lemma measure_notMem_halve_le {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measu
     rw [Set.mem_ofPred_eq]
     omega
   -- Markov's inequality for the number of arms of `S'` whose value is at least that of `a`.
-  refine (measure_mono h_sub).trans ((measure_le_card_filter_le (c := 3)
-    (fun b _ ↦ measurableSet_le (hY a) (hY b)) h (by have := card_pos.2 ⟨a, ha⟩; omega)
-    (by omega)).trans_eq ?_)
-  norm_num
+  have hS_pos := card_pos.2 ⟨a, ha⟩
+  have h_sub' : {ω | #S - #S / 2 - #S / 4 ≤ #{b ∈ S' | ω ∈ E b}} ⊆
+      {ω | #S - #S / 2 - #S / 4 - 1 < #{b ∈ S' | ω ∈ E b}} := by
+    intro ω hω
+    simp only [Set.mem_ofPred_eq] at hω ⊢
+    omega
+  refine (measure_mono (h_sub.trans h_sub')).trans
+    ((measure_lt_card_filter_le S' E _).trans (ENNReal.div_le_of_le_mul' ?_))
+  calc ∑ b ∈ S', P (E b) ≤ #S' • η := sum_le_card_nsmul _ _ _ h
+  _ = #S' * η := nsmul_eq_mul _ _
+  _ ≤ (↑(#S - #S / 2 - #S / 4 - 1) + 1) * 3 * η := by gcongr; exact_mod_cast (by omega : #S' ≤ _)
+  _ = _ := mul_assoc _ _ _
 
 /-! ### Independence of the phases of the reward stream -/
 
@@ -864,8 +881,8 @@ lemma measure_exists_forall_mem_survivors_succ_add_lt_le {ν : Kernel α ℝ} [I
     field_simp
     ring
   have h_tail (S : Finset α) : P {z | streamStats t z j ∈ Bad S} ≤ 3 * η := by
-    refine measure_exists_forall_mem_halve_add_lt_le (fun a ↦ measurable_streamStats_apply t j a)
-      S μ (Nat.cast_nonneg (t j)) hε (fun a _ ↦ ?_) (fun a _ ↦ ?_)
+    refine measure_exists_forall_mem_halve_add_lt_le S μ (Nat.cast_nonneg (t j)) hε
+      (fun a _ ↦ ?_) (fun a _ ↦ ?_)
     · refine (measure_le_streamStats_sub_le hν t j a (by positivity)).trans_eq ?_
       rw [h_exp]
     · refine (measure_streamStats_sub_le_le hν t j a (by positivity)).trans_eq ?_
@@ -929,8 +946,7 @@ lemma measure_notMem_halve_streamStats_le {ν : Kernel α ℝ} [IsMarkovKernel �
     (Bandits.gap ν) (s := S.erase a') (j := #S - 1 - #S / 4)
     (by rw [card_erase_of_mem ha'S]; omega)
   have hS_pos : 0 < #S := card_pos.2 ⟨a', ha'S⟩
-  refine measure_notMem_halve_le (fun a ↦ measurable_streamStats_apply t j a) ha'S hS'_sub
-    (by omega) fun b hb ↦ ?_
+  refine measure_notMem_halve_le ha'S hS'_sub (by omega) fun b hb ↦ ?_
   have hba' : b ≠ a' := (mem_erase.1 (hS'_sub hb)).1
   have hΔ : 0 < Bandits.gap ν b := Bandits.gap_pos_of_forall_lt ha' hba'
   -- The arms of `S` outside `S'`, and `b`, have gaps at most that of `b`.
