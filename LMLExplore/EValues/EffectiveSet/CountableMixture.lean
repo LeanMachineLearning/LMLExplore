@@ -36,9 +36,6 @@ the smallest one (`ProbabilityTheory.maxEPower_eq_iInf_klIntegral_sigmaConvexHul
   with `S ⊆ 𝒞 ⊆ effectiveSet S`, `maxEPower Q S = ⨅ m ∈ 𝒞, klIntegral Q m`.
 * `ProbabilityTheory.maxEPower_eq_iInf_klIntegral_sigmaConvexHull`: **countable mixtures suffice**
   [EVR26, Note 48, Theorem 2].
-* `ProbabilityTheory.maxEPower_singleton_le_add_eintegral_log_inv`: if `ν.withDensity c ≤ m` for
-  a measurable `c ≤ 1`, positive under `Q`, then the largest e-power of `{m}` exceeds that of
-  `{ν}` by at most the expected value of `log c⁻¹`.
 
 ## Implementation notes
 
@@ -120,7 +117,7 @@ private lemma isAESolid_approxDominated : IsAESolid Q (approxDominated μ Q 𝒞
   obtain ⟨m, hm, p, hp, hle, hQ⟩ := H t ht δ hδ
   refine ⟨m, hm, p, hp, hle, (measure_mono_ae ?_).trans hQ⟩
   filter_upwards [hgh] with ω hω hlt
-  exact (show p ω < t * g ω from hlt).trans_le (by gcongr)
+  exact hlt.trans_le (by gcongr)
 
 private lemma isAESeqClosed_approxDominated [IsFiniteMeasure Q] :
     IsAESeqClosed Q (approxDominated μ Q 𝒞) := by
@@ -162,39 +159,6 @@ private lemma rnDeriv_mem_approxDominated (hS𝒞 : S ⊆ 𝒞) {P : Measure Ω}
   simp [h_empty]
 
 /-! ### The mixture -/
-
-/-- **Transfer of e-variables along a domination.** Let `c ≤ 1` be measurable, `Q`-almost
-everywhere positive, with `ν.withDensity c ≤ m`. For every e-variable `E` for `{m}`, `c * E` is an
-e-variable for `{ν}`; so the largest e-power of `{m}` under `Q` exceeds that of `{ν}` by at most
-the expected value of `log c⁻¹`. -/
-theorem maxEPower_singleton_le_add_eintegral_log_inv {m ν : Measure Ω} {c : Ω → ℝ≥0∞}
-    (hc : Measurable c) (hc_le : ∀ ω, c ω ≤ 1) (hc_ne : ∀ᵐ ω ∂Q, c ω ≠ 0)
-    (hle : ν.withDensity c ≤ m) (h_top : ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q ≠ ⊤) :
-    maxEPower Q {m} ≤ maxEPower Q {ν} + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q := by
-  have hlog_nonneg (ω : Ω) : 0 ≤ ENNReal.log (c ω)⁻¹ :=
-    ENNReal.zero_le_log_iff.2 (ENNReal.one_le_inv.2 (hc_le ω))
-  refine maxEPower_le_iff.2 fun E hE ↦ ?_
-  have hE_meas := hE.measurable
-  -- `c * E` is an e-variable for `ν`
-  have hcE : IsEVar (c * E) {ν} := by
-    refine ⟨hc.mul hE_meas, fun ν' hν' ↦ ?_⟩
-    rw [mem_singleton_iff] at hν'
-    subst hν'
-    rw [← lintegral_withDensity_eq_lintegral_mul _ hc hE_meas]
-    exact (lintegral_mono' hle le_rfl).trans (hE.lintegral_le_one (mem_singleton m))
-  -- `log E = log (c * E) + log c⁻¹` where `c` is positive
-  have h_eq : ∀ᵐ ω ∂Q, ENNReal.log (E ω) =
-      ENNReal.log ((c * E) ω) + ENNReal.log (c ω)⁻¹ := by
-    filter_upwards [hc_ne] with ω hω
-    rw [← ENNReal.log_mul_add, Pi.mul_apply, mul_comm (c ω), mul_assoc,
-      ENNReal.mul_inv_cancel hω ((hc_le ω).trans_lt ENNReal.one_lt_top).ne, mul_one]
-  calc ∫ᵉ ω, ENNReal.log (E ω) ∂Q
-      = ∫ᵉ ω, ENNReal.log ((c * E) ω) + ENNReal.log (c ω)⁻¹ ∂Q := eintegral_congr_ae h_eq
-    _ = ∫ᵉ ω, ENNReal.log ((c * E) ω) ∂Q + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q :=
-        eintegral_add (by fun_prop) (by fun_prop) (eintegrable_of_nonneg hlog_nonneg)
-          (.inr h_top) (.inr (EReal.ne_bot_of_nonneg (eintegral_nonneg hlog_nonneg)))
-    _ ≤ maxEPower Q {ν} + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q :=
-        add_le_add_left (hcE.eintegral_log_le_maxEPower Q) _
 
 /-- **The cost of the mixture weights.** For sets `G k` and `ε ∈ (0, 1)`, let
 `c = (1 - ε) * ∑' k, (1 - ε) * ε ^ k * 𝟙 (G k)`. At a point `ω` outside only finitely many of
@@ -325,7 +289,9 @@ private lemma exists_maxEPower_singleton_le [IsProbabilityMeasure Q] (h𝒞 : Is
         by_cases hω : ω ∈ G k
         · simp only [indicator_of_mem hω, Pi.one_apply, mul_one]
           calc q ω * ((1 - ε) * w k) = w k * ((1 - ε) * q ω) := by ring
-            _ ≤ w k * p k ω := by gcongr; exact hω
+            _ ≤ w k * p k ω := by
+              rw [hG_def, mem_ofPred_eq] at hω
+              gcongr
         · simp [indicator_of_notMem hω]
     _ = ∑' k, w k * ∫⁻ ω in s, p k ω ∂μ := by
         rw [lintegral_tsum fun k ↦ ((hp k).const_mul _).aemeasurable]
@@ -379,7 +345,7 @@ private lemma le_of_forall_le_add_mixtureCost {x v : EReal} (hv : 0 ≤ v) (hvx 
 σ-convex set between the null and its effective null. Let `S` be a null of measures of mass at
 most one, absolutely continuous with respect to a σ-finite measure `μ`, and `Q` a probability
 measure. For every σ-convex `𝒞` with `S ⊆ 𝒞 ⊆ effectiveSet S`, the largest e-power of `S` under
-`Q` is the smallest relative entropy `klIntegral Q m` over `m ∈ 𝒞`. -/
+`Q` is the infimum of the relative entropy `klIntegral Q m` over `m ∈ 𝒞`. -/
 theorem maxEPower_eq_iInf_klIntegral_of_isSigmaConvex [IsProbabilityMeasure Q] [SigmaFinite μ]
     (hSμ : ∀ P ∈ S, P ≪ μ) (hS : ∀ P ∈ S, P univ ≤ 1) (h𝒞 : IsSigmaConvex 𝒞) (hS𝒞 : S ⊆ 𝒞)
     (h𝒞S : 𝒞 ⊆ effectiveSet S) :
@@ -431,9 +397,9 @@ theorem maxEPower_eq_iInf_klIntegral_of_isSigmaConvex [IsProbabilityMeasure Q] [
 
 /-- **Countable mixtures suffice for the largest e-power** [EVR26, Note 48, Theorem 2]. For a null
 `S` of measures of mass at most one, absolutely continuous with respect to a σ-finite measure, and
-a probability measure `Q`, the largest e-power of `S` under `Q` is the smallest relative entropy
-`klIntegral Q m` over the countable mixtures `m = ∑ n, w n • P n` of members of `S`, with no other
-hypothesis. -/
+a probability measure `Q`, the largest e-power of `S` under `Q` is the infimum of the relative
+entropy `klIntegral Q m` over the countable mixtures `m = ∑ n, w n • P n` of members of `S`, with
+no other hypothesis. -/
 theorem maxEPower_eq_iInf_klIntegral_sigmaConvexHull [IsProbabilityMeasure Q] [SigmaFinite μ]
     (hSμ : ∀ P ∈ S, P ≪ μ) (hS : ∀ P ∈ S, P univ ≤ 1) :
     maxEPower Q S = ⨅ m ∈ sigmaConvexHull S, klIntegral Q m :=
