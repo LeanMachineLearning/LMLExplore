@@ -29,7 +29,11 @@ Example 5.7]:
 
 Through Tau Ceti's `ExchangeableAt`, such an e-variable applied to the first `n` observations of
 a process is an e-variable for every probability measure under which the process is exchangeable
-at `n` (`ProbabilityTheory.IsEVar.comp_exchangeableAt`).
+at `n` (`ProbabilityTheory.IsEVar.comp_exchangeableAt`). Through Tau Ceti's `ExchangeableFamily`,
+an e-variable (an exact e-variable) applied to a finite exchangeable family of random variables is
+an e-variable (an exact e-variable) for every probability measure under which the family is
+exchangeable (`ProbabilityTheory.IsEVar.comp_exchangeableFamily`,
+`ProbabilityTheory.IsExactEVar.comp_exchangeableFamily`).
 
 ## Main statements
 
@@ -39,6 +43,8 @@ at `n` (`ProbabilityTheory.IsEVar.comp_exchangeableAt`).
 * `ProbabilityTheory.isEVar_exchangeableLaws_iff_exists_le`: [LRR26, Example 5.7].
 * `ProbabilityTheory.isExactEVar_exchangeableLaws_ite_div`: the normalized scores `f / avg f`.
 * `ProbabilityTheory.IsEVar.comp_exchangeableAt`: the transfer to processes exchangeable at `n`.
+* `ProbabilityTheory.IsEVar.comp_exchangeableFamily`,
+  `ProbabilityTheory.IsExactEVar.comp_exchangeableFamily`: the transfer to exchangeable families.
 
 ## References
 
@@ -149,5 +155,36 @@ theorem IsEVar.comp_exchangeableAt {n : ℕ} {E : (Fin n → α) → ℝ≥0∞}
   have hmem := hP.prefixLaw_mem_exchangeableLaws fun i ↦ (hX i).aemeasurable
   rw [prefixLaw_def, blockLaw_def] at hmem
   exact ⟨hmem, inferInstance⟩
+
+/-! ### Exchangeable families -/
+
+section Family
+
+variable [Countable ι] {X : ι → Ω → α}
+
+/-- An e-variable for the exchangeable probability laws on `ι → α`, applied to a family of
+measurable random variables, is an e-variable for the probability measures under which the family
+is exchangeable. -/
+theorem IsEVar.comp_exchangeableFamily {E : (ι → α) → ℝ≥0∞}
+    (hE : IsEVar E (exchangeableLaws ∩ {μ : Measure (ι → α) | IsProbabilityMeasure μ}))
+    (hX : ∀ i, Measurable (X i)) :
+    IsEVar (fun ω ↦ E fun i ↦ X i ω) {P | IsProbabilityMeasure P ∧ ExchangeableFamily P X} := by
+  refine (hE.anti_set ?_).comp (Measurable.of_eval hX)
+  rintro _ ⟨P, ⟨_, hP⟩, rfl⟩
+  exact ⟨hP.map_mem_exchangeableLaws fun i ↦ (hX i).aemeasurable, inferInstance⟩
+
+/-- An exact e-variable for the exchangeable probability laws on `ι → α`, applied to a family of
+measurable random variables, is an exact e-variable for the probability measures under which the
+family is exchangeable. -/
+theorem IsExactEVar.comp_exchangeableFamily {E : (ι → α) → ℝ≥0∞}
+    (hE : IsExactEVar E (exchangeableLaws ∩ {μ : Measure (ι → α) | IsProbabilityMeasure μ}))
+    (hX : ∀ i, Measurable (X i)) :
+    IsExactEVar (fun ω ↦ E fun i ↦ X i ω)
+      {P | IsProbabilityMeasure P ∧ ExchangeableFamily P X} := by
+  refine (hE.anti_set ?_).comp (Measurable.of_eval hX)
+  rintro _ ⟨P, ⟨_, hP⟩, rfl⟩
+  exact ⟨hP.map_mem_exchangeableLaws fun i ↦ (hX i).aemeasurable, inferInstance⟩
+
+end Family
 
 end ProbabilityTheory
