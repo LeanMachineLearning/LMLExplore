@@ -10,7 +10,7 @@ public import LMLExplore.MarkovDecisionProcess.PerformanceDifference
 
 import Mathlib.Analysis.Calculus.FDeriv.Mul
 import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
-import LMLExplore.Analysis.Calculus.FDeriv.Mul
+import TauCeti.Analysis.Calculus.FDeriv.ContinuousLinearMap
 
 /-!
 # The policy gradient theorem
@@ -55,8 +55,9 @@ resolvent `(1 - γ P_π)⁻¹`. The lemma gives
 `V(θ') - V(θ) = (1 - γ)⁻¹ * ∑ s, d_θ' {s} * ∑ a, (π_θ' (a | s) - π_θ (a | s)) * Q^{π_θ} (s, a)`.
 In this identity the weights `d_θ' {s}` depend continuously on `θ'`, because occupancy measures
 depend continuously on the policy in total variation (`Learning.MDP.tendsto_tvDist_fst_occupancy`),
-and the inner sums vanish at `θ' = θ`. The product rule with a continuous factor
-(`HasFDerivWithinAt.smul_of_eq_zero`) then differentiates it.
+and the inner sums vanish at `θ' = θ`. The product of a continuous factor with a differentiable one
+that vanishes at `θ` is differentiable at `θ` (`HasFDerivWithinAt.clm_apply_of_eq_zero`, applied to
+the multiplication by the weights), so the identity can be differentiated term by term.
 
 ## References
 
@@ -114,8 +115,14 @@ theorem hasFDerivWithinAt_integral_value_baseline (hγ : γ < 1)
   have hg0 (s : 𝓢) : g s θ = 0 := by simp [g]
   have hd (s : 𝓢) : ContinuousWithinAt (fun θ' ↦ (d θ').real {s}) t θ :=
     tendsto_measureReal_fst_occupancy hγ (fun s a ↦ (hπ s a).continuousWithinAt.tendsto) s
-  have hsum := (HasFDerivWithinAt.fun_sum (u := Finset.univ) fun s _ ↦
-    (hg s).smul_of_eq_zero (hg0 s) (hd s)).const_mul (1 - γ : ℝ)⁻¹
+  -- the weights `d θ' {s}` are only continuous, but `g s` vanishes at `θ`
+  have hdg (s : 𝓢) : HasFDerivWithinAt (fun θ' ↦ (d θ').real {s} • g s θ')
+      ((d θ).real {s} • ∑ a, (M.qValue γ (π θ) (s, a) - b s) • π' s a) t θ :=
+    ((hg s).clm_apply_of_eq_zero
+      ((ContinuousLinearMap.lsmul ℝ ℝ).continuous.continuousAt.comp_continuousWithinAt (hd s))
+      (hg0 s)).congr_fderiv (by ext; simp [Finset.mul_sum])
+  have hsum := (HasFDerivWithinAt.fun_sum (u := Finset.univ) fun s _ ↦ hdg s).const_mul
+    (1 - γ : ℝ)⁻¹
   rw [integral_fintype .of_finite]
   exact (hsum.const_add (∫ s, M.value γ (π θ) s ∂μ)).congr_of_eventuallyEq
     (Eventually.of_forall hV) (hV θ)
