@@ -54,10 +54,11 @@ time `n`.
 * `MeasureTheory.Filtration.piLT_eq_comap_initSeg`: time `n` of `piLT` is the σ-algebra generated
   by the first `n` terms of a sequence.
 * `Measurable.dependsOn_of_piLT`, `MeasureTheory.Filtration.measurable_piLT_of_dependsOn`: a
-  function measurable at time `n` of `piLT` only depends on the first `n` coordinates, and a
-  measurable function of the first `n` coordinates is measurable at time `n` of `piLT`.
-* `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `n` of `piLT` only
-  depends on the first `n` coordinates.
+  function measurable at time `i` of `piLT` only depends on the coordinates `j < i`, and for
+  sequences a measurable function of the first `n` coordinates is measurable at time `n` of
+  `piLT`.
+* `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `i` of `piLT` only
+  depends on the coordinates `j < i`.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_lt`: a stopping time of `piLT` is determined, where
   it is finite, by the coordinates before it.
 * `MeasureTheory.Filtration.adapted_piLT_comp_initSeg`,
@@ -152,6 +153,25 @@ lemma measurable_piLT_apply {i j : ι} (hji : j < i) :
     Measurable[piLT (X := X) i] fun ω ↦ ω j :=
   measurable_naturalLT measurable_pi_apply hji
 
+/-- A function that is measurable at time `i` of the strict past `Filtration.piLT` of the
+coordinates only depends on the coordinates `j < i`, as `Measurable.dependsOn_of_piLE` for
+Mathlib's `Filtration.piLE`. -/
+lemma _root_.Measurable.dependsOn_of_piLT {Z : Type*} [MeasurableSpace Z]
+    [MeasurableSingletonClass Z] {f : (Π i, X i) → Z} {i : ι}
+    (hf : Measurable[piLT (X := X) i] f) : DependsOn f (Set.Iio i) := by
+  -- time `i` of `piLT` is coarser than the σ-algebra of the restriction to `Set.Iio i`
+  refine dependsOn_iff_factorsThrough.2 (Measurable.factorsThrough (hf.mono ?_ le_rfl))
+  refine iSup₂_le fun j hj ↦ Measurable.comap_le ?_
+  exact (measurable_pi_apply (⟨j, hj⟩ : Set.Iio i)).comp
+    (comap_measurable (Set.Iio i).domRestrict)
+
+/-- Membership in a set measurable at time `i` of `Filtration.piLT` only depends on the
+coordinates `j < i`: the set form of `Measurable.dependsOn_of_piLT`. -/
+lemma _root_.MeasurableSet.dependsOn_of_piLT {s : Set (Π i, X i)} {i : ι}
+    (hs : MeasurableSet[piLT i] s) {ω ω' : Π i, X i} (h : ∀ j < i, ω j = ω' j) :
+    ω ∈ s ↔ ω' ∈ s :=
+  Eq.to_iff (((@measurable_mem _ s (piLT i)).2 hs).dependsOn_of_piLT fun j hj ↦ h j hj)
+
 end piLT
 
 section piLTNat
@@ -209,23 +229,6 @@ lemma isStoppingTime_piLT_comp_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] {k 
     simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
     exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
 
-/-- A function that is measurable at time `n` of the strict past `Filtration.piLT` of the
-coordinates of a sequence only depends on the first `n` coordinates, as
-`Measurable.dependsOn_of_piLE` for Mathlib's `Filtration.piLE`. -/
-lemma _root_.Measurable.dependsOn_of_piLT {Z : Type*} [MeasurableSpace Z]
-    [MeasurableSingletonClass Z] {f : (Π n, X n) → Z} {n : ℕ}
-    (hf : Measurable[piLT (X := X) n] f) : DependsOn f (Set.Iio n) := by
-  intro ω ω' h
-  cases n with
-  | zero =>
-    rw [piLT_zero] at hf
-    have : Nonempty Z := ⟨f ω⟩
-    obtain ⟨c, rfl⟩ := eq_const_of_measurable_bot hf
-    rfl
-  | succ n =>
-    rw [piLT_add_one] at hf
-    exact hf.dependsOn_of_piLE fun i hi ↦ h i (Nat.lt_succ_of_le hi)
-
 /-- A measurable function of the first `n` terms of a sequence is measurable at time `n` of
 `Filtration.piLT`: the converse of `Measurable.dependsOn_of_piLT`. -/
 lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [MeasurableSpace β]
@@ -237,13 +240,6 @@ lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [Mea
     exact Subsingleton.measurable
   obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
   exact Measurable.comp (mα := piLT n) hg (measurable_piLT_initSeg le_rfl)
-
-/-- Membership in a set measurable at time `n` of `Filtration.piLT` only depends on the first `n`
-coordinates: the set form of `Measurable.dependsOn_of_piLT`. -/
-lemma _root_.MeasurableSet.dependsOn_of_piLT {s : Set (Π n, X n)} {n : ℕ}
-    (hs : MeasurableSet[piLT n] s) {ω ω' : Π n, X n} (h : ∀ i < n, ω i = ω' i) :
-    ω ∈ s ↔ ω' ∈ s :=
-  Eq.to_iff (((@measurable_mem _ s (piLT n)).2 hs).dependsOn_of_piLT fun i hi ↦ h i hi)
 
 /-- A stopping time of the strict past `Filtration.piLT` of the coordinates of a sequence is
 determined by the coordinates before it: if `τ ω = n` and `ω'` agrees with `ω` before `n`, then

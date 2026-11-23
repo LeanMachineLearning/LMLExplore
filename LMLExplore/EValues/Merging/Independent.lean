@@ -93,7 +93,9 @@ the precise merging functions do not dominate every increasing one either
   independent e-values are admissible [VW21, Proposition 4.1].
 * `ProbabilityTheory.isIEMerging_tsum_mul`, `ProbabilityTheory.isPreciseIEMerging_tsum_mul`:
   countable mixtures of (precise) merging functions for independent e-values are (precise) merging
-  functions for independent e-values.
+  functions for independent e-values; `ProbabilityTheory.isIEMerging_lintegral` and
+  `ProbabilityTheory.isPreciseIEMerging_lintegral` give the same for jointly measurable mixtures
+  against a measure.
 * `ProbabilityTheory.isIEMerging_uStatistic`, `ProbabilityTheory.isPreciseIEMerging_uStatistic`:
   the U-statistics are merging functions for independent e-values, precise up to order `card ι`.
 * `ProbabilityTheory.isAdmissibleIEMerging_uStatistic`,
@@ -390,6 +392,29 @@ theorem isPreciseIEMerging_tsum_mul (hw : ∑' j, w j = 1) (hF : ∀ j, IsPrecis
   refine ⟨isIEMerging_tsum_mul hw.le fun j ↦ (hF j).toIsIEMerging, fun μ _ hμ ↦ ?_⟩
   rw [lintegral_tsum fun j ↦ ((hF j).measurable.const_mul _).aemeasurable]
   simp_rw [lintegral_const_mul _ (hF _).measurable, (hF _).lintegral_eq_one μ hμ, mul_one, hw]
+
+/-- A mixture `∫⁻ a, G a e ∂ρ`, against an s-finite measure `ρ` of mass at most `1`, of a jointly
+measurable family of merging functions for independent e-values is one. -/
+theorem isIEMerging_lintegral {A : Type*} {mA : MeasurableSpace A} {ρ : Measure A} [SFinite ρ]
+    (hρ : ρ Set.univ ≤ 1) {G : A → (ι → ℝ≥0∞) → ℝ≥0∞} (hGm : Measurable (Function.uncurry G))
+    (hG : ∀ a, IsIEMerging (G a)) :
+    IsIEMerging fun e ↦ ∫⁻ a, G a e ∂ρ := by
+  refine ⟨hGm.lintegral_prod_left', fun μ _ hμ ↦ ?_⟩
+  rw [lintegral_lintegral_swap (f := fun e a ↦ G a e) (hGm.comp measurable_swap).aemeasurable]
+  calc ∫⁻ a, ∫⁻ e, G a e ∂Measure.pi μ ∂ρ ≤ ∫⁻ _, 1 ∂ρ :=
+        lintegral_mono fun a ↦ (hG a).lintegral_le_one μ hμ
+    _ ≤ 1 := by simpa using hρ
+
+/-- A mixture `∫⁻ a, G a e ∂ρ`, against a probability measure `ρ`, of a jointly measurable family
+of precise merging functions for independent e-values is one. -/
+theorem isPreciseIEMerging_lintegral {A : Type*} {mA : MeasurableSpace A} {ρ : Measure A}
+    [IsProbabilityMeasure ρ] {G : A → (ι → ℝ≥0∞) → ℝ≥0∞}
+    (hGm : Measurable (Function.uncurry G)) (hG : ∀ a, IsPreciseIEMerging (G a)) :
+    IsPreciseIEMerging fun e ↦ ∫⁻ a, G a e ∂ρ := by
+  refine ⟨isIEMerging_lintegral (by simp) hGm fun a ↦ (hG a).toIsIEMerging, fun μ _ hμ ↦ ?_⟩
+  rw [lintegral_lintegral_swap (f := fun e a ↦ G a e) (hGm.comp measurable_swap).aemeasurable]
+  simp_rw [(hG _).lintegral_eq_one μ hμ]
+  simp
 
 end Mixture
 
