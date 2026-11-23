@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.Null.Polar
 public import LMLExplore.MeasureTheory.Function.SolidConvexHull
+public import Mathlib.MeasureTheory.Measure.WithDensityFinite
 
 /-!
 # The bipolar theorem on the side of functions
@@ -16,7 +17,9 @@ expectation at most one. Which functions are e-variables for that null? Every be
 is every convex combination of bets, every measurable function below one, and every limit of
 such functions. The bipolar theorem of Brannath and Schachermayer [BS99, Theorem 1.3] says that
 nothing else is, provided the null is restricted to the measures absolutely continuous with
-respect to a reference measure `μ`: the e-variables of those members of `polarNull 𝓔` are exactly
+respect to a reference measure `μ`: for an s-finite `μ` and a nonempty set `𝓔` of measurable
+bets, the `μ`-almost everywhere finite e-variables of the σ-finite members of `polarNull 𝓔`
+absolutely continuous with respect to `μ` are exactly the `μ`-almost everywhere finite members of
 the closed solid convex hull of `𝓔` in `L⁰₊(μ)`.
 
 The theorem is the description of `{X | IsEVar X S}` from bets that a complete class theorem asks
@@ -70,8 +73,8 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} {S : Set (Mea
 /-- For a null of measures absolutely continuous with respect to `μ`, the set of e-variables is
 solid for `μ`. -/
 lemma isAESolid_setOf_isEVar (hS : ∀ ν ∈ S, ν ≪ μ) : IsAESolid μ {X | IsEVar X S} :=
-  isAESolid_iff.2 fun _ _ (hf : IsEVar _ S) hg hgf ↦ ⟨hg, fun _ hν ↦
-    (lintegral_mono_ae ((hS _ hν).ae_le hgf)).trans (hf.lintegral_le_one hν)⟩
+  isAESolid_iff.2 fun _ _ (hf : IsEVar _ S) hg hgf ↦
+    hf.mono_ae hg (eventuallyLE_quasiSure_iff.2 fun _ hν ↦ (hS _ hν).ae_le hgf)
 
 /-- For a null of measures absolutely continuous with respect to `μ`, the set of e-variables is
 closed under `μ`-almost everywhere limits, by Fatou's lemma. -/

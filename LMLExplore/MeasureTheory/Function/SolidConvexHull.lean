@@ -9,7 +9,6 @@ public import Mathlib.Analysis.InnerProductSpace.Dual
 public import Mathlib.Analysis.LocallyConvex.Separation
 public import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 public import Mathlib.MeasureTheory.Function.L2Space
-public import Mathlib.MeasureTheory.Measure.WithDensityFinite
 public import TauCeti.MeasureTheory.Integral.Bochner.Basic
 
 /-!
@@ -354,7 +353,8 @@ private lemma exists_lintegral_mul_le_one_lt_of_le (hconv : Convex ℝ≥0∞ D)
         (lintegral_congr fun ω ↦ ?_))
     rw [ENNReal.ofReal_mul' ENNReal.toReal_nonneg, ENNReal.ofReal_toReal (hX_top ω), mul_comm]
 
-/-- **The separation theorem** [BS99, Theorem 1.3]. For a finite measure `μ`, a measurable,
+/-- **The separation theorem**, the separation step in the proof of [BS99, Theorem 1.3], here
+through `L²(μ)` rather than `L¹`–`L∞` duality. For a finite measure `μ`, a measurable,
 almost everywhere finite function `X` outside a nonempty convex, solid and closed set `D` is
 separated from `D` by a measurable weight `g : Ω → ℝ≥0` of finite integral: `∫⁻ f * g ∂μ ≤ 1`
 for every measurable `f ∈ D`, and `1 < ∫⁻ X * g ∂μ`. -/
