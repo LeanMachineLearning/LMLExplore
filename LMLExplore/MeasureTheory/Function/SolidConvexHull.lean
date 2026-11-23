@@ -180,6 +180,22 @@ lemma closedSolidConvexHull_eq_self (hconv : Convex ℝ≥0∞ D) (hsolid : IsAE
   (closedSolidConvexHull_subset subset_rfl hconv hsolid hclosed).antisymm
     subset_closedSolidConvexHull
 
+/-- A set is its own closed solid convex hull exactly when it is convex, solid and closed. -/
+lemma closedSolidConvexHull_eq_self_iff :
+    closedSolidConvexHull μ D = D ↔ Convex ℝ≥0∞ D ∧ IsAESolid μ D ∧ IsAESeqClosed μ D := by
+  refine ⟨fun h ↦ ?_, fun ⟨hconv, hsolid, hclosed⟩ ↦ closedSolidConvexHull_eq_self hconv hsolid
+    hclosed⟩
+  rw [← h]
+  exact ⟨convex_closedSolidConvexHull, isAESolid_closedSolidConvexHull,
+    isAESeqClosed_closedSolidConvexHull⟩
+
+/-- Taking the closed solid convex hull is idempotent. -/
+@[simp]
+lemma closedSolidConvexHull_closedSolidConvexHull :
+    closedSolidConvexHull μ (closedSolidConvexHull μ 𝓔) = closedSolidConvexHull μ 𝓔 :=
+  closedSolidConvexHull_eq_self convex_closedSolidConvexHull isAESolid_closedSolidConvexHull
+    isAESeqClosed_closedSolidConvexHull
+
 lemma closedSolidConvexHull_mono (h : 𝓔 ⊆ 𝓕) :
     closedSolidConvexHull μ 𝓔 ⊆ closedSolidConvexHull μ 𝓕 :=
   closedSolidConvexHull_subset (h.trans subset_closedSolidConvexHull)
