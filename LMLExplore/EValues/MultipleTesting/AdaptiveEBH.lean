@@ -290,13 +290,9 @@ theorem isCompoundEVar_div_nullProportionEstimate (hE : ∀ i, IsEVar (E i) (H i
     IsCompoundEVar (fun i ω ↦ E i ω / nullProportionEstimate h q (E · ω)) H where
   measurable i := (hE i).measurable.div
     (measurable_nullProportionEstimate _ hh fun j ↦ (hE j).measurable)
-  sum_lintegral_le P _ := by
-    classical
-    refine (sum_le_sum fun i hi ↦ lintegral_mono fun ω ↦ ?_).trans
-      ((sum_lintegral_leaveOneOutEValue_trueNulls_le hE hind hh hh1 hq P).trans
-        (mul_le_of_le_one_right' tsub_le_self))
-    exact div_nullProportionEstimate_le_leaveOneOutEValue h (E · ω) (ne_top_of_le_ne_top
-      ENNReal.one_ne_top (le_one_of_le_lintegral_comp hh1 (hq i P (mem_trueNulls.1 hi)))) i
+  sum_lintegral_le P _ := sum_lintegral_div_nullProportionEstimate_le
+    (fun i _ ↦ (hE i).measurable) (fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi))
+    (hind P) hh hh1 fun i hi ↦ hq i P (mem_trueNulls.1 hi)
 
 /-- **Adaptive e-BH controls the false discovery rate** [EVR26, Note 33, statement 1]: under the
 hypotheses of `isCompoundEVar_div_nullProportionEstimate`, every rejection procedure
@@ -470,13 +466,12 @@ private lemma sub_mul_toReal_le_of_forall_le_lintegral (hg_top : ∀ x, g x ≠ 
     exact ENNReal.ofReal_le_one.2 (le_of_eq (by simp only [w]; field_simp; ring))
   have h := hg _ inferInstance h_mean
   rw [lintegral_bernoulliMeasure] at h
-  have h_real := ENNReal.toReal_mono (ENNReal.add_ne_top.2
-    ⟨ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _),
-      ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _)⟩) h
-  rw [ENNReal.toReal_add (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _))
-      (ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top _)), ENNReal.toReal_mul,
-    ENNReal.toReal_mul, ENNReal.toReal_ofReal w.2.1, ENNReal.toReal_ofReal (sub_nonneg.2 w.2.2),
-    hw] at h_real
+  -- Both summands are finite, so `toReal` passes through the sum.
+  have hfin : ∀ (c : ℝ) x, ENNReal.ofReal c * g x ≠ ∞ := fun _ x ↦
+    ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top x)
+  have h_real := ENNReal.toReal_mono (ENNReal.add_ne_top.2 ⟨hfin _ _, hfin _ _⟩) h
+  rw [ENNReal.toReal_add (hfin _ _) (hfin _ _), ENNReal.toReal_mul, ENNReal.toReal_mul,
+    ENNReal.toReal_ofReal w.2.1, ENNReal.toReal_ofReal (sub_nonneg.2 w.2.2), hw] at h_real
   calc (b - a) * q.toReal ≤ (b - a) * ((b - 1) / (b - a) * (g (ENNReal.ofReal a)).toReal +
         (1 - a) / (b - a) * (g (ENNReal.ofReal b)).toReal) :=
         mul_le_mul_of_nonneg_left h_real hba.le
