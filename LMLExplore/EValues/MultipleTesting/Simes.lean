@@ -11,10 +11,12 @@ public import LMLExplore.EValues.MultipleTesting.EBH
 # The Simes p-value, and the Benjamini–Hochberg procedure at random times
 
 The Benjamini–Hochberg procedure (BH) at level `α` on p-values `p : ι → ℝ≥0∞` is e-BH applied to
-the e-values `p⁻¹`: a set `R` is self-consistent for `p⁻¹` (`ProbabilityTheory.IsSelfConsistent`)
-when every `i ∈ R` has `K * p i ≤ α * #R`, i.e. `p i ≤ α * #R / K`, with `K` the number of
-hypotheses (the compliant procedures of [Su18]); `eBH (fun i ↦ (p i)⁻¹) α` is the largest such
-set, the set that BH rejects.
+the e-values `p⁻¹`. Every `i` in a set `R` self-consistent for `p⁻¹`
+(`ProbabilityTheory.IsSelfConsistent`) has `K * p i ≤ α * #R`, i.e. `p i ≤ α * #R / K`, with `K`
+the number of hypotheses (`ProbabilityTheory.IsSelfConsistent.card_mul_le`); for a level
+`0 < α < ∞` this characterises self-consistency (`ProbabilityTheory.isSelfConsistent_inv_iff`),
+and the self-consistent sets are the compliant sets of [Su18]. `eBH (fun i ↦ (p i)⁻¹) α` is the
+largest self-consistent set, the set that BH rejects.
 
 The Simes p-value of the p-values of a set `N` of hypotheses (`ProbabilityTheory.simesPValue`) is
 the smallest, over the nonempty `U ⊆ N`, of `#N * p i / #U` maximized over `i ∈ U`: with the
@@ -36,12 +38,14 @@ expected largest false discovery proportion over all compliant sets is therefore
 Simes test of level `α` is valid, in the form of [FXR26] for the supremum over self-consistent sets.
 
 This applies to BH at random times [EVR26, Note 34]. For p-processes `p i t`, indexed by any type of
-times, BH applied to the current p-values at a time `t` rejects a set that is self-consistent for
-the running infima `⨅ t, p i t` (`ProbabilityTheory.isSelfConsistent_eBH_inv_iInf`). So when the
-running infima of the true nulls satisfy the Simes inequality, as they do by [Sim86] for independent
-anytime-valid p-processes, the false discovery rate of BH at every random time, a stopping time or
-not, is at most the expected largest false discovery proportion over time, which is at most
-`a * (1 + log (1 / a))`, and at most `α` when every hypothesis is a true null. Applied to `p = E⁻¹`,
+times, a set self-consistent for the current p-values at a time `t`, such as the set that BH
+rejects, is self-consistent for the running infima `⨅ t, p i t`
+(`ProbabilityTheory.IsSelfConsistent.inv_iInf`, `ProbabilityTheory.isSelfConsistent_eBH_inv_iInf`).
+So when the running infima of the true nulls satisfy the Simes inequality, as they do by [Sim86]
+for independent anytime-valid p-processes, the false discovery rate of BH, or of any procedure
+compliant at each time, at every random time, a stopping time or not, is at most the expected
+largest false discovery proportion over time, which is at most `a * (1 + log (1 / a))`, and at
+most `α` when every hypothesis is a true null. Applied to `p = E⁻¹`,
 this is e-BH on the current values of e-processes `E`, with the running maxima of `E`.
 
 ## Main definitions
@@ -52,6 +56,8 @@ this is e-BH on the current values of e-processes `E`, with the running maxima o
 
 * `ProbabilityTheory.simesPValue_le_iff`: the Simes p-value is at most `c ≠ ∞` exactly when some
   nonempty `U ⊆ N` has `#N * p i ≤ c * #U` for every `i ∈ U`.
+* `ProbabilityTheory.isSelfConsistent_inv_iff`: for `0 < α < ∞`, a set `R` is self-consistent for
+  `p⁻¹` exactly when `K * p i ≤ α * #R` for every `i ∈ R`.
 * `ProbabilityTheory.IsSelfConsistent.fdp_le_div_simesPValue`: **Su's pointwise bound**
   `fdp N R ≤ α * #N / K / simesPValue N p` for every set `R` self-consistent for `p⁻¹`.
 * `ProbabilityTheory.lintegral_iSup_fdp_le_of_isPVar_simesPValue`: **the FDR-linking bound**
@@ -66,7 +72,9 @@ this is e-BH on the current values of e-processes `E`, with the running maxima o
   satisfy the Simes inequality [EVR26, Note 34];
   `ProbabilityTheory.lintegral_iSup_fdp_univ_eBH_le_of_measure_simesPValue_le` and
   `ProbabilityTheory.lintegral_fdp_univ_eBH_le_of_measure_simesPValue_le`: the bound `α` when
-  every hypothesis is a true null.
+  every hypothesis is a true null. The same bounds hold for any sets `D t ω` self-consistent for
+  the p-values at each time (`ProbabilityTheory.lintegral_iSup_fdp_le_of_isPVar_simesPValue_iInf`,
+  `ProbabilityTheory.lintegral_fdp_le_of_isPVar_simesPValue_iInf` and their `univ` versions).
 
 ## References
 
@@ -173,11 +181,12 @@ theorem simesPValue_mono (hpq : p ≤ q) : simesPValue N p ≤ simesPValue N q :
   inf_mono_fun fun U _ ↦ sup_mono_fun fun i _ ↦ by gcongr; exact hpq i
 
 /-- The Simes p-value of measurable p-values is measurable. -/
-theorem measurable_simesPValue {p : ι → Ω → ℝ≥0∞} (hp : ∀ i, Measurable (p i)) :
+theorem measurable_simesPValue {p : ι → Ω → ℝ≥0∞} (hp : ∀ i ∈ N, Measurable (p i)) :
     Measurable fun ω ↦ simesPValue N (p · ω) := by
   simp only [simesPValue_def, Finset.inf_eq_iInf, Finset.sup_eq_iSup]
-  exact Measurable.biInf _ (Finset.countable_toSet _) fun U _ ↦
-    Measurable.biSup _ (Finset.countable_toSet _) fun i _ ↦ ((hp i).const_mul _).div_const _
+  exact Measurable.biInf _ (Finset.countable_toSet _) fun U hU ↦
+    Measurable.biSup _ (Finset.countable_toSet _) fun i hi ↦
+      ((hp i (mem_powerset.1 (mem_filter.1 hU).1 hi)).const_mul _).div_const _
 
 end Simes
 
@@ -198,6 +207,18 @@ theorem IsSelfConsistent.card_mul_le (h : IsSelfConsistent (fun i ↦ (p i)⁻¹
         rw [mul_assoc]
         exact mul_le_of_le_one_right' (ENNReal.inv_mul_le_one _)
 
+/-- **Self-consistency for `p⁻¹` from the p-values**: for a level `0 < α < ∞`, a set `R` is
+self-consistent at level `α` for the e-values `p⁻¹` exactly when every `i ∈ R` has
+`K * p i ≤ α * #R`, i.e. `p i ≤ α * #R / K`: the self-consistent sets are the compliant sets of
+[Su18]. -/
+theorem isSelfConsistent_inv_iff (hα₀ : α ≠ 0) (hα : α ≠ ∞) :
+    IsSelfConsistent (fun i ↦ (p i)⁻¹) α R ↔ ∀ i ∈ R, (Fintype.card ι : ℝ≥0∞) * p i ≤ α * #R := by
+  refine ⟨fun h i hi ↦ h.card_mul_le hi, fun h ↦ isSelfConsistent_iff.2 fun i hi ↦ ?_⟩
+  rw [← div_eq_mul_inv, ENNReal.le_div_iff_mul_le
+    (Or.inr (mul_ne_zero hα₀ (Nat.cast_ne_zero.2 (card_ne_zero_of_mem hi))))
+    (Or.inr (ENNReal.mul_ne_top hα (ENNReal.natCast_ne_top _)))]
+  exact h i hi
+
 /-- **Su's pointwise bound** [Su18, proof of Theorem 2]: if `R` is self-consistent at level `α`
 for the e-values `p⁻¹`, its false discovery proportion for the true nulls `N` is at most
 `a / simesPValue N p`, with `a = α * #N / K`, whatever the p-values outside `N`. -/
@@ -209,7 +230,8 @@ theorem IsSelfConsistent.fdp_le_div_simesPValue [DecidableEq ι]
   obtain ⟨hjR, hjN⟩ := mem_inter.1 hj
   have : Nonempty ι := ⟨j⟩
   have hK₀ : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
-  have hR₀ : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hjR)
+  have hR₁ : (1 : ℝ≥0∞) ≤ #R := Nat.one_le_cast.2 (card_pos.2 ⟨j, hjR⟩)
+  have hR₀ : (#R : ℝ≥0∞) ≠ 0 := (zero_lt_one.trans_le hR₁).ne'
   have hV₀ : (#(R ∩ N) : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hj)
   -- a rejected true null `j` has a finite p-value, and the level is nonzero
   have hjK := isSelfConsistent_iff.1 h j hjR
@@ -235,8 +257,7 @@ theorem IsSelfConsistent.fdp_le_div_simesPValue [DecidableEq ι]
         rw [mul_assoc _ (_ / _), ENNReal.div_mul_cancel hV₀ (ENNReal.natCast_ne_top _)]
         simp only [div_eq_mul_inv]
         ring
-  rw [fdp_def, max_eq_left (Nat.one_le_cast.2 (Nat.one_le_iff_ne_zero.2
-      (Nat.cast_ne_zero.1 hR₀))), ENNReal.le_div_iff_mul_le (Or.inr ha₀) (Or.inl hS)]
+  rw [fdp_def, max_eq_left hR₁, ENNReal.le_div_iff_mul_le (Or.inr ha₀) (Or.inl hS)]
   calc (#(R ∩ N) : ℝ≥0∞) / #R * simesPValue N p
       ≤ #(R ∩ N) / #R * (α * #N / Fintype.card ι * (#R / #(R ∩ N))) := by gcongr
     _ = α * #N / Fintype.card ι * ((#(R ∩ N) * (#(R ∩ N) : ℝ≥0∞)⁻¹) * (#R * (#R : ℝ≥0∞)⁻¹)) := by
@@ -287,7 +308,7 @@ theorem lintegral_iSup_fdp_univ_le_of_measure_simesPValue_le [DecidableEq ι]
     have hSα : simesPValue univ (p · ω) ≤ α :=
       simesPValue_le (subset_univ R) hR₀ fun i hi ↦ by
         simpa only [card_univ] using hR.card_mul_le hi
-    rw [Set.indicator_of_mem (show ω ∈ {ω | simesPValue univ (p · ω) ≤ α} from hSα)]
+    rw [Set.indicator_of_mem (s := {ω | simesPValue univ (p · ω) ≤ α}) (Set.mem_ofPred.2 hSα)]
     exact fdp_le_one univ R
   calc _ ≤ ∫⁻ ω, {ω | simesPValue univ (p · ω) ≤ α}.indicator (fun _ ↦ 1) ω ∂P := lintegral_mono key
     _ ≤ 1 * P {ω | simesPValue univ (p · ω) ≤ α} := lintegral_indicator_const_le _ 1
@@ -301,20 +322,87 @@ section RandomTime
 
 variable [Fintype ι] {N : Finset ι} {α : ℝ≥0∞}
 
+/-- **Compliance at any time is compliance for the running infima** [EVR26, Note 34,
+statement 1]: for p-processes `p i t`, a set self-consistent at level `α` for the p-values at a
+time `t` (for the e-values `(p i t)⁻¹`) is self-consistent for the running infima `⨅ s, p i s`. -/
+theorem IsSelfConsistent.inv_iInf {p : ι → T → ℝ≥0∞} {R : Finset ι} {t : T}
+    (h : IsSelfConsistent (fun i ↦ (p i t)⁻¹) α R) :
+    IsSelfConsistent (fun i ↦ (⨅ s, p i s)⁻¹) α R :=
+  h.mono le_rfl fun _ ↦ ENNReal.inv_le_inv.2 (iInf_le _ t)
+
 /-- **BH at any time is compliant for the running infima** [EVR26, Note 34, statement 1]: for
 p-processes `p i t`, the set that BH rejects at level `α` on the p-values at time `t` is
 self-consistent for the running infima `⨅ s, p i s`. -/
 theorem isSelfConsistent_eBH_inv_iInf (p : ι → T → ℝ≥0∞) (α : ℝ≥0∞) (t : T) :
     IsSelfConsistent (fun i ↦ (⨅ s, p i s)⁻¹) α (eBH (fun i ↦ (p i t)⁻¹) α) :=
-  isSelfConsistent_eBH.mono le_rfl fun _ ↦ ENNReal.inv_le_inv.2 (iInf_le _ t)
+  isSelfConsistent_eBH.inv_iInf
 
-/-- The largest false discovery proportion over time of BH on p-processes is at most the largest
-false discovery proportion of the sets self-consistent for the running infima. -/
-private lemma iSup_fdp_eBH_le [DecidableEq ι] (p : ι → T → ℝ≥0∞) (N : Finset ι) (α : ℝ≥0∞) :
-    ⨆ t, fdp N (eBH (fun i ↦ (p i t)⁻¹) α) ≤
+/-- The largest false discovery proportion over time of sets `D t` self-consistent for the
+p-values at each time is at most the largest false discovery proportion of the sets
+self-consistent for the running infima. -/
+private lemma iSup_fdp_le_of_isSelfConsistent [DecidableEq ι] {p : ι → T → ℝ≥0∞}
+    {D : T → Finset ι} (hD : ∀ t, IsSelfConsistent (fun i ↦ (p i t)⁻¹) α (D t)) (N : Finset ι) :
+    ⨆ t, fdp N (D t) ≤
       ⨆ (R : Finset ι) (_ : IsSelfConsistent (fun i ↦ (⨅ s, p i s)⁻¹) α R), fdp N R :=
-  iSup_le fun t ↦ le_iSup₂_of_le (f := fun R _ ↦ fdp N R) _
-    (isSelfConsistent_eBH_inv_iInf p α t) le_rfl
+  iSup_le fun t ↦ le_iSup₂_of_le (f := fun R _ ↦ fdp N R) _ (hD t).inv_iInf le_rfl
+
+/-- **Compliant procedures over time** [EVR26, Note 34, statement 2; Su18]: let the sets
+`D t ω` be self-consistent at level `α` for the p-values `p i t ω` at each time, e.g. the sets
+that BH rejects. If the Simes p-value of the running infima of the p-processes of the true nulls
+`N` is a p-variable under a measure `P` of mass at most `1`, the expected largest false discovery
+proportion of `D` over time is at most `a * (1 - log a)`, for `a = α * #N / K ≤ 1`. -/
+theorem lintegral_iSup_fdp_le_of_isPVar_simesPValue_iInf [DecidableEq ι]
+    {p : ι → T → Ω → ℝ≥0∞} {D : T → Ω → Finset ι}
+    (hD : ∀ t ω, IsSelfConsistent (fun i ↦ (p i t ω)⁻¹) α (D t ω)) {P : Measure Ω}
+    (hS : IsPVar (fun ω ↦ simesPValue N fun i ↦ ⨅ t, p i t ω) {P})
+    (hP : P Set.univ ≤ 1) (ha : α * #N / Fintype.card ι ≤ 1) :
+    ∫⁻ ω, ⨆ t, fdp N (D t ω) ∂P ≤
+      ENNReal.ofReal ((α * #N / Fintype.card ι).toReal *
+        (1 - Real.log (α * #N / Fintype.card ι).toReal)) :=
+  (lintegral_mono fun ω ↦ iSup_fdp_le_of_isSelfConsistent (hD · ω) N).trans
+    (lintegral_iSup_fdp_le_of_isPVar_simesPValue (p := fun i ω ↦ ⨅ t, p i t ω) hS hP ha)
+
+/-- **Compliant procedures at a random time** [EVR26, Note 34, statement 2; Su18]: let the sets
+`D t ω` be self-consistent at level `α` for the p-values `p i t ω` at each time. If the Simes
+p-value of the running infima of the p-processes of the true nulls `N` is a p-variable under a
+measure `P` of mass at most `1`, then for every random time `τ`, a stopping time or not and not
+even measurable, the false discovery rate of `D` at time `τ` is at most `a * (1 - log a)`, for
+`a = α * #N / K ≤ 1`. -/
+theorem lintegral_fdp_le_of_isPVar_simesPValue_iInf [DecidableEq ι]
+    {p : ι → T → Ω → ℝ≥0∞} {D : T → Ω → Finset ι}
+    (hD : ∀ t ω, IsSelfConsistent (fun i ↦ (p i t ω)⁻¹) α (D t ω)) {P : Measure Ω}
+    (hS : IsPVar (fun ω ↦ simesPValue N fun i ↦ ⨅ t, p i t ω) {P})
+    (hP : P Set.univ ≤ 1) (ha : α * #N / Fintype.card ι ≤ 1) (τ : Ω → T) :
+    ∫⁻ ω, fdp N (D (τ ω) ω) ∂P ≤
+      ENNReal.ofReal ((α * #N / Fintype.card ι).toReal *
+        (1 - Real.log (α * #N / Fintype.card ι).toReal)) :=
+  (lintegral_mono fun ω ↦ le_iSup (fun t ↦ fdp N (D t ω)) (τ ω)).trans
+    (lintegral_iSup_fdp_le_of_isPVar_simesPValue_iInf hD hS hP ha)
+
+/-- **Compliant procedures over time when every hypothesis is a true null** [EVR26, Note 34,
+statement 3]: let the sets `D t ω` be self-consistent at level `α` for the p-values `p i t ω` at
+each time. If the Simes test of level `α` on the running infima of all the p-processes is valid
+under `P`, the probability that `D` is nonempty at some time is at most `α`. -/
+theorem lintegral_iSup_fdp_univ_le_of_measure_simesPValue_iInf_le [DecidableEq ι]
+    {p : ι → T → Ω → ℝ≥0∞} {D : T → Ω → Finset ι}
+    (hD : ∀ t ω, IsSelfConsistent (fun i ↦ (p i t ω)⁻¹) α (D t ω)) {P : Measure Ω}
+    (hS : P {ω | simesPValue univ (fun i ↦ ⨅ t, p i t ω) ≤ α} ≤ α) :
+    ∫⁻ ω, ⨆ t, fdp univ (D t ω) ∂P ≤ α :=
+  (lintegral_mono fun ω ↦ iSup_fdp_le_of_isSelfConsistent (hD · ω) univ).trans
+    (lintegral_iSup_fdp_univ_le_of_measure_simesPValue_le (p := fun i ω ↦ ⨅ t, p i t ω) hS)
+
+/-- **Compliant procedures at a random time when every hypothesis is a true null** [EVR26,
+Note 34, statement 3]: let the sets `D t ω` be self-consistent at level `α` for the p-values
+`p i t ω` at each time. If the Simes test of level `α` on the running infima of all the
+p-processes is valid under `P`, then for every random time `τ` the false discovery rate of `D` at
+time `τ` is at most `α`. -/
+theorem lintegral_fdp_univ_le_of_measure_simesPValue_iInf_le [DecidableEq ι]
+    {p : ι → T → Ω → ℝ≥0∞} {D : T → Ω → Finset ι}
+    (hD : ∀ t ω, IsSelfConsistent (fun i ↦ (p i t ω)⁻¹) α (D t ω)) {P : Measure Ω}
+    (hS : P {ω | simesPValue univ (fun i ↦ ⨅ t, p i t ω) ≤ α} ≤ α) (τ : Ω → T) :
+    ∫⁻ ω, fdp univ (D (τ ω) ω) ∂P ≤ α :=
+  (lintegral_mono fun ω ↦ le_iSup (fun t ↦ fdp univ (D t ω)) (τ ω)).trans
+    (lintegral_iSup_fdp_univ_le_of_measure_simesPValue_iInf_le hD hS)
 
 /-- **BH over time** [EVR26, Note 34, statement 2]: if the Simes p-value of the running infima of
 the p-processes of the true nulls `N` is a p-variable under a measure `P` of mass at most `1`, the
@@ -326,8 +414,7 @@ theorem lintegral_iSup_fdp_eBH_le_of_isPVar_simesPValue [DecidableEq ι] {p : ι
     ∫⁻ ω, ⨆ t, fdp N (eBH (fun i ↦ (p i t ω)⁻¹) α) ∂P ≤
       ENNReal.ofReal ((α * #N / Fintype.card ι).toReal *
         (1 - Real.log (α * #N / Fintype.card ι).toReal)) :=
-  (lintegral_mono fun ω ↦ iSup_fdp_eBH_le (p · · ω) N α).trans
-    (lintegral_iSup_fdp_le_of_isPVar_simesPValue (p := fun i ω ↦ ⨅ t, p i t ω) hS hP ha)
+  lintegral_iSup_fdp_le_of_isPVar_simesPValue_iInf (fun _ _ ↦ isSelfConsistent_eBH) hS hP ha
 
 /-- **BH at a random time** [EVR26, Note 34, statement 2]: if the Simes p-value of the running
 infima of the p-processes of the true nulls `N` is a p-variable under a measure `P` of mass at
@@ -340,8 +427,7 @@ theorem lintegral_fdp_eBH_le_of_isPVar_simesPValue [DecidableEq ι] {p : ι → 
     ∫⁻ ω, fdp N (eBH (fun i ↦ (p i (τ ω) ω)⁻¹) α) ∂P ≤
       ENNReal.ofReal ((α * #N / Fintype.card ι).toReal *
         (1 - Real.log (α * #N / Fintype.card ι).toReal)) :=
-  (lintegral_mono fun ω ↦ le_iSup (fun t ↦ fdp N (eBH (fun i ↦ (p i t ω)⁻¹) α)) (τ ω)).trans
-    (lintegral_iSup_fdp_eBH_le_of_isPVar_simesPValue hS hP ha)
+  lintegral_fdp_le_of_isPVar_simesPValue_iInf (fun _ _ ↦ isSelfConsistent_eBH) hS hP ha τ
 
 /-- **BH over time when every hypothesis is a true null** [EVR26, Note 34, statement 3]: if the
 Simes test of level `α` on the running infima of all the p-processes is valid under `P`, the
@@ -350,8 +436,7 @@ theorem lintegral_iSup_fdp_univ_eBH_le_of_measure_simesPValue_le [DecidableEq ι
     {p : ι → T → Ω → ℝ≥0∞} {P : Measure Ω}
     (hS : P {ω | simesPValue univ (fun i ↦ ⨅ t, p i t ω) ≤ α} ≤ α) :
     ∫⁻ ω, ⨆ t, fdp univ (eBH (fun i ↦ (p i t ω)⁻¹) α) ∂P ≤ α :=
-  (lintegral_mono fun ω ↦ iSup_fdp_eBH_le (p · · ω) univ α).trans
-    (lintegral_iSup_fdp_univ_le_of_measure_simesPValue_le (p := fun i ω ↦ ⨅ t, p i t ω) hS)
+  lintegral_iSup_fdp_univ_le_of_measure_simesPValue_iInf_le (fun _ _ ↦ isSelfConsistent_eBH) hS
 
 /-- **BH at a random time when every hypothesis is a true null** [EVR26, Note 34, statement 3]:
 if the Simes test of level `α` on the running infima of all the p-processes is valid under `P`,
@@ -361,8 +446,7 @@ theorem lintegral_fdp_univ_eBH_le_of_measure_simesPValue_le [DecidableEq ι]
     {p : ι → T → Ω → ℝ≥0∞} {P : Measure Ω}
     (hS : P {ω | simesPValue univ (fun i ↦ ⨅ t, p i t ω) ≤ α} ≤ α) (τ : Ω → T) :
     ∫⁻ ω, fdp univ (eBH (fun i ↦ (p i (τ ω) ω)⁻¹) α) ∂P ≤ α :=
-  (lintegral_mono fun ω ↦ le_iSup (fun t ↦ fdp univ (eBH (fun i ↦ (p i t ω)⁻¹) α)) (τ ω)).trans
-    (lintegral_iSup_fdp_univ_eBH_le_of_measure_simesPValue_le hS)
+  lintegral_fdp_univ_le_of_measure_simesPValue_iInf_le (fun _ _ ↦ isSelfConsistent_eBH) hS τ
 
 end RandomTime
 

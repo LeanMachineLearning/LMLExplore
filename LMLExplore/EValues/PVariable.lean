@@ -63,8 +63,9 @@ larger than the uniform law on `[0, 1]`.
   of an antitone function of a p-variable is at most its integral against the uniform law on
   `[0, 1]`: a p-variable is stochastically larger than the uniform law.
 * `ProbabilityTheory.IsPVar.lintegral_min_one_div_le`: for `a ≤ 1`, the expectation of
-  `min 1 (a / p)` is at most `a * (1 - log a)`, its value for a uniform p-variable, which is the
-  calibration behind the FDR-linking theorem of [Su18].
+  `min 1 (a / p)` is at most `a * (1 - log a)`, its value for a uniform p-variable
+  (`ProbabilityTheory.setLIntegral_Icc_min_one_div`), which is the calibration behind the
+  FDR-linking theorem of [Su18].
 
 ## References
 
@@ -448,19 +449,11 @@ theorem IsPVar.lintegral_comp_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : P univ 
   exact lintegral_mono fun t ↦ hp.measure_preimage_le hP hP1
     (L := {y | ENNReal.ofReal t < f y}) fun _ _ hxy hy ↦ hy.trans_le (hf hxy)
 
-/-- **The calibration of the FDR-linking theorem** [Su18]: under a measure of total mass at most
-`1`, for `a ≤ 1`, the expectation of `min 1 (a / p)` for a p-variable `p` is at most
-`a * (1 - log a) = a * (1 + log (1 / a))`, its value for a uniform p-variable on `[0, 1]`. -/
-theorem IsPVar.lintegral_min_one_div_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : P univ ≤ 1)
-    {a : ℝ≥0∞} (ha : a ≤ 1) :
-    ∫⁻ ω, min 1 (a / p ω) ∂P ≤ ENNReal.ofReal (a.toReal * (1 - Real.log a.toReal)) := by
-  refine (hp.lintegral_comp_le hP hP1 fun x y hxy ↦
-    min_le_min le_rfl (ENNReal.div_le_div_left hxy a)).trans_eq ?_
-  obtain ⟨b, hb0, rfl⟩ : ∃ b : ℝ, 0 ≤ b ∧ a = ENNReal.ofReal b :=
-    ⟨a.toReal, ENNReal.toReal_nonneg,
-      (ENNReal.ofReal_toReal (ne_top_of_le_ne_top ENNReal.one_ne_top ha)).symm⟩
-  rw [ENNReal.toReal_ofReal hb0]
-  have hb1 : b ≤ 1 := ENNReal.ofReal_le_one.1 ha
+/-- **The calibration integral of the FDR-linking theorem**: for `0 ≤ b ≤ 1`, the integral of
+`min 1 (b / x)` over `x ∈ [0, 1]` is `b * (1 - log b) = b * (1 + log (1 / b))`. -/
+theorem setLIntegral_Icc_min_one_div {b : ℝ} (hb0 : 0 ≤ b) (hb1 : b ≤ 1) :
+    ∫⁻ x in Icc (0 : ℝ) 1, min 1 (ENNReal.ofReal b / ENNReal.ofReal x) =
+      ENNReal.ofReal (b * (1 - Real.log b)) := by
   rcases hb0.eq_or_lt with rfl | hb0
   · simp
   -- the integrand is `1` on `[0, b]` and `b / x` on `(b, 1]`
@@ -488,5 +481,18 @@ theorem IsPVar.lintegral_min_one_div_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : 
     ← ENNReal.ofReal_add hb0.le (mul_nonneg hb0.le (neg_nonneg.2 (Real.log_nonpos hb0.le hb1)))]
   congr 1
   ring
+
+/-- **The calibration of the FDR-linking theorem** [Su18]: under a measure of total mass at most
+`1`, for `a ≤ 1`, the expectation of `min 1 (a / p)` for a p-variable `p` is at most
+`a * (1 - log a) = a * (1 + log (1 / a))`, its value for a uniform p-variable on `[0, 1]`. -/
+theorem IsPVar.lintegral_min_one_div_le (hp : IsPVar p S) (hP : P ∈ S) (hP1 : P univ ≤ 1)
+    {a : ℝ≥0∞} (ha : a ≤ 1) :
+    ∫⁻ ω, min 1 (a / p ω) ∂P ≤ ENNReal.ofReal (a.toReal * (1 - Real.log a.toReal)) := by
+  refine (hp.lintegral_comp_le hP hP1 fun x y hxy ↦
+    min_le_min le_rfl (ENNReal.div_le_div_left hxy a)).trans_eq ?_
+  have ha' : a ≠ ∞ := ne_top_of_le_ne_top ENNReal.one_ne_top ha
+  conv_lhs => rw [← ENNReal.ofReal_toReal ha']
+  exact setLIntegral_Icc_min_one_div ENNReal.toReal_nonneg
+    (ENNReal.toReal_le_of_le_ofReal zero_le_one (ha.trans_eq ENNReal.ofReal_one.symm))
 
 end ProbabilityTheory
