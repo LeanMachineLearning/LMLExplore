@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.EValues.Admissible
 public import LMLExplore.EValues.EProcess.StoppedNull
-import LMLExplore.MeasureTheory.Measure.HalmosSavage
+import TauCeti.Statistics.Experiments.Mixture
 
 /-!
 # Admissible e-processes
@@ -280,30 +280,35 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le (R : Measure Ω) [SFinite R]
 /-- **Every e-process for a locally dominated null is dominated by an admissible e-process**
 [RRLK, Proposition 9]. Let `S` be a null that is locally dominated by a measure `μ`: at every
 time `n`, the restrictions of the members to `ℱ n` are absolutely continuous with respect to the
-restriction of `μ`, whose restrictions are σ-finite, and the members are s-finite. Then every
-e-process for `S` is at most an admissible e-process. -/
+restriction of `μ`, whose restrictions are s-finite (as when `μ` is σ-finite on the filtration,
+`MeasureTheory.SigmaFiniteFiltration`), and the members are s-finite. Then every e-process for
+`S` is at most an admissible e-process. -/
 theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : Measure Ω)
-    [SigmaFiniteFiltration μ ℱ] (hSμ : ∀ P ∈ S, ∀ n, P.trim (ℱ.le n) ≪ μ.trim (ℱ.le n))
+    (hμ : ∀ n, SFinite (μ.trim (ℱ.le n)))
+    (hSμ : ∀ P ∈ S, ∀ n, P.trim (ℱ.le n) ≪ μ.trim (ℱ.le n))
     (hS : ∀ P ∈ S, SFinite P) (hE : IsEProcess E ℱ S) :
     ∃ E' : ℕ → Ω → ℝ≥0∞, IsAdmissibleEProcess E' ℱ S ∧ E ≤ E' := by
+  -- the zero measure is a reference measure for the empty null
+  rcases S.eq_empty_or_nonempty with rfl | hS_ne
+  · exact hE.exists_isAdmissibleEProcess_le 0 fun _ _ _ ↦ by simp
+  have : Nonempty S := hS_ne.to_subtype
   have (P : S) : SFinite (P : Measure Ω) := hS P P.property
-  -- at every time, a countable subfamily with the null `ℱ n`-measurable sets of the null, by the
-  -- Halmos–Savage lemma; the sum of the members of their union is a reference measure
-  have h (n : ℕ) : ∃ T : Set S, T.Countable ∧ ∀ A, MeasurableSet[ℱ n] A →
-      (∀ P ∈ T, (P : Measure Ω) A = 0) → ∀ P ∈ S, P A = 0 := by
-    obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
-      (μ := μ.trim (ℱ.le n)) (ν := fun P : S ↦ (P : Measure Ω).trim (ℱ.le n))
-      fun P ↦ hSμ P P.property n
-    refine ⟨T, hT, fun A hA hTA P hP ↦ ?_⟩
-    have h := hT_null A hA (fun P hPT ↦ by rw [trim_measurableSet_eq _ hA]; exact hTA P hPT)
-      ⟨P, hP⟩
-    rwa [trim_measurableSet_eq _ hA] at h
-  choose T hT hT_null using h
-  have : Countable (⋃ n, T n) := (countable_iUnion hT).to_subtype
-  refine hE.exists_isAdmissibleEProcess_le
-    (Measure.sum fun P : ⋃ n, T n ↦ ((P : S) : Measure Ω)) fun n A hA ↦ ?_
+  -- the Halmos–Savage lemma, stated over an arbitrary σ-algebra `m` so that elaboration infers it:
+  -- a dominated family has the null sets of a countable mixture of its members `Q (θs k)`
+  have halmosSavage (m : MeasurableSpace Ω) (Q : S → Measure[m] Ω) (ν : Measure[m] Ω)
+      (_ : SFinite ν) (hQ : ∀ P, Q P ≪ ν) :
+      ∃ θs : ℕ → S, ∀ P s, (∀ k, Q (θs k) s = 0) → Q P s = 0 :=
+    (TauCeti.exists_absolutelyContinuous_countableMixture Q ν hQ).imp fun _ h P _ hs ↦
+      h P (TauCeti.countableMixture_apply_eq_zero_iff.2 hs)
+  -- at every time `n`, the restrictions of the members to `ℱ n` have the null sets of those of
+  -- countably many members `Ps n k`; the sum of all these members is a reference measure
+  choose Ps hPs using fun n ↦ halmosSavage (ℱ n) (fun P ↦ (P : Measure Ω).trim (ℱ.le n))
+    (μ.trim (ℱ.le n)) (hμ n) fun P ↦ hSμ P P.property n
+  refine hE.exists_isAdmissibleEProcess_le (Measure.sum fun k : ℕ × ℕ ↦ (Ps k.1 k.2 : Measure Ω))
+    fun n A hA ↦ ?_
   rw [Measure.sum_apply_eq_zero' (ℱ.le n A hA)]
-  refine ⟨fun h ↦ hT_null n A hA fun P hP ↦ h ⟨P, mem_iUnion.2 ⟨n, hP⟩⟩,
-    fun h P ↦ h _ (P : S).property⟩
+  refine ⟨fun h P hP ↦ ?_, fun h k ↦ h _ (Ps k.1 k.2).property⟩
+  rw [← trim_measurableSet_eq (ℱ.le n) hA]
+  exact hPs n ⟨P, hP⟩ A fun k ↦ (trim_measurableSet_eq (ℱ.le n) hA).trans (h (n, k))
 
 end ProbabilityTheory
