@@ -466,8 +466,8 @@ private theorem setLIntegral_tsub_rnDeriv_le_iSup (μ ν ξ : Measure 𝓧) [IsF
 /-- **Densities of measures close in total variation**: for every σ-finite measure `ξ`, the
 `L¹(ξ)` distance of the densities of `μ` and `ν` with respect to `ξ` is at most their total
 variation distance. Neither measure need be absolutely continuous with respect to `ξ`, and no
-finiteness is assumed: the distance is `∞` unless both measures are finite. When both are
-absolutely continuous with respect to `ξ` the two sides are equal. -/
+finiteness is assumed: the total variation distance is `∞` unless both measures are finite.
+When both are finite and absolutely continuous with respect to `ξ` the two sides are equal. -/
 theorem lintegral_eNorm_toReal_rnDeriv_sub_le_etvDist (μ ν ξ : Measure 𝓧) [SigmaFinite ξ] :
     ∫⁻ x, ‖(μ.rnDeriv ξ x).toReal - (ν.rnDeriv ξ x).toReal‖ₑ ∂ξ ≤ etvDist μ ν := by
   by_cases h : IsFiniteMeasure μ ∧ IsFiniteMeasure ν
