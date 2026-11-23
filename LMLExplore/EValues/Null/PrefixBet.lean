@@ -34,6 +34,13 @@ which this file shows produce bets again:
   `restartPayoff σ V j` of the payoffs of the first `j` rounds, on the event that they end within
   the first `N` observations.
 
+Two more operations produce e-processes, for any filtration and any null. **Holding** a bet from
+the time it is known on, alone or in a countable mixture, turns bets into e-processes
+(`ProbabilityTheory.isEProcess_indicator_le`, `ProbabilityTheory.isEProcess_tsum_ite_le_mul`).
+**Lifting** turns the wealth of a gambler who bets on blocks, an e-process for the filtration at
+the ends of the blocks, into an e-process for the filtration of the observations
+(`ProbabilityTheory.IsEProcess.extend`).
+
 Each operation also keeps track of the observations the bet has seen:
 `MeasureTheory.dependsOn_comp_shift_iterate`, `MeasureTheory.dependsOn_mul_comp_shift_iterate`,
 `MeasureTheory.dependsOn_seqBlockProd` and
