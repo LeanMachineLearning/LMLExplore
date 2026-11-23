@@ -46,6 +46,8 @@ time, which is how a statistician switches between two stopping rules after seei
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
   `Filtration.piLE` is determined, where it is finite, by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
+* `MeasureTheory.IsStoppingTime.iInf_nat`: the infimum of countably many stopping times of a
+  filtration indexed by `ℕ` is a stopping time.
 * `MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`: two stopping times at least a
   stopping time `ρ`, glued along a set of the σ-algebra at `ρ`, form a stopping time.
 -/
@@ -219,6 +221,32 @@ theorem IsStoppingTime.map_of_comp {t : ℕ → ℕ} (ht : Monotone t) {κ : Ω 
   exact (Filtration.measurableSet_comp_iff ℱ ht k).1 (hκ.measurableSet_eq k)
 
 end Nat
+
+/-! ### Countable infima of stopping times -/
+
+section iInf
+
+variable {ℱ : Filtration ℕ mΩ}
+
+/-- The infimum of countably many stopping times of a filtration indexed by `ℕ` is a stopping time:
+it is at most `n` exactly when one of them is. Mathlib's `IsStoppingTime.iInf` is the version for
+right-continuous filtrations indexed by a densely ordered time. -/
+theorem IsStoppingTime.iInf_nat {ι : Type*} [Countable ι] {τ : ι → Ω → WithTop ℕ}
+    (hτ : ∀ i, IsStoppingTime ℱ (τ i)) : IsStoppingTime ℱ fun ω ↦ ⨅ i, τ i ω := by
+  intro n
+  -- the event `{⨅ i, τ i ≤ n}` is the union of the events `{τ i ≤ n}`
+  convert MeasurableSet.iUnion fun i ↦ hτ i n using 1
+  ext ω
+  simp only [Set.mem_ofPred_eq, Set.mem_iUnion]
+  refine ⟨fun h ↦ ?_, fun ⟨i, hi⟩ ↦ (iInf_le _ i).trans hi⟩
+  -- the infimum is below `n + 1`, hence so is one of the times, which is then at most `n`
+  obtain ⟨i, hi⟩ := iInf_lt_iff.1 (h.trans_lt (WithTop.coe_lt_coe.2 (Nat.lt_succ_self n)))
+  refine ⟨i, ?_⟩
+  cases h : τ i ω with
+  | top => simp [h] at hi
+  | coe k => exact WithTop.coe_le_coe.2 (Nat.lt_succ_iff.1 (WithTop.coe_lt_coe.1 (h ▸ hi)))
+
+end iInf
 
 /-! ### Piecewise stopping times -/
 
