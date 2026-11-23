@@ -96,6 +96,11 @@ A function of the images of the coordinates under measurable maps to finite type
 * `MeasureTheory.Measure.pi_le_of_forall_measure_update_preimage_le`: under a product of
   probability measures, a measurable set whose lines `{t | update x i t ∈ E}` along one coordinate
   `i` all have `μ i`-measure at most `c` has product measure at most `c`.
+* `MeasureTheory.Measure.measurePreserving_update_prod_pi_update`,
+  `MeasureTheory.Measure.lintegral_pi_update_measure`: setting the coordinate `i` of a sample of
+  `Measure.pi μ` to an independent draw from `ν` gives a sample of
+  `Measure.pi (Function.update μ i ν)`, and the integral against this product is an integral over
+  `ν` of integrals against `Measure.pi μ`.
 * `MeasureTheory.Measure.measurable_pi_comp`: `x ↦ Measure.pi fun i ↦ G i (x i)` is measurable.
 * `MeasureTheory.Measure.aemeasurable_pi`: `b ↦ Measure.pi fun i ↦ κ i b` is almost everywhere
   measurable where the `κ i b` are almost everywhere finite.
@@ -344,6 +349,56 @@ lemma pi_le_of_forall_measure_update_preimage_le [DecidableEq ι] {μ : ∀ i, M
   rw [← (TauCeti.measurePreserving_update_prod_pi μ i).measure_preimage hE.nullMeasurableSet,
     Measure.prod_apply (measurable_update' hE)]
   exact (lintegral_mono fun x ↦ h x).trans_eq (by simp)
+
+/-- **Resampling a coordinate from another law.** Setting the coordinate `i` of a sample of a
+product of sigma-finite measures, with `μ i` a probability measure, to an independent draw from
+`ν` gives a sample of the product in which `μ i` is replaced by `ν`. For `ν = μ i` this is
+`TauCeti.measurePreserving_update_prod_pi`. -/
+lemma measurePreserving_update_prod_pi_update [DecidableEq ι] (μ : ∀ i, Measure (Ω i))
+    [∀ i, SigmaFinite (μ i)] (i : ι) [IsProbabilityMeasure (μ i)] (ν : Measure (Ω i))
+    [SigmaFinite ν] :
+    MeasurePreserving (fun q : (∀ j, Ω j) × Ω i ↦ Function.update q.1 i q.2)
+      ((Measure.pi μ).prod ν) (Measure.pi (Function.update μ i ν)) := by
+  have (j : ι) : SigmaFinite (Function.update μ i ν j) := by
+    rcases eq_or_ne j i with rfl | hj
+    · rw [Function.update_self]
+      infer_instance
+    · rw [Function.update_of_ne hj]
+      infer_instance
+  refine ⟨measurable_update', (Measure.pi_eq fun s hs ↦ ?_).symm⟩
+  rw [Measure.map_apply measurable_update' (MeasurableSet.univ_pi hs)]
+  -- The preimage of a box is the box with the side `i` removed, times the side `i`.
+  have hpre : (fun q : (∀ j, Ω j) × Ω i ↦ Function.update q.1 i q.2) ⁻¹' Set.univ.pi s =
+      Set.univ.pi (Function.update s i Set.univ) ×ˢ s i := by
+    ext ⟨x, y⟩
+    simp only [Set.mem_preimage, Set.mem_pi, Set.mem_univ, true_implies, Set.mem_prod]
+    refine ⟨fun h ↦ ⟨fun j ↦ ?_, by simpa using h i⟩, fun ⟨h₁, h₂⟩ j ↦ ?_⟩ <;>
+      rcases eq_or_ne j i with rfl | hj
+    · simp
+    · simpa [Function.update_of_ne hj] using h j
+    · simpa using h₂
+    · simpa [Function.update_of_ne hj] using h₁ j
+  rw [hpre, Measure.prod_prod, Measure.pi_pi,
+    ← Finset.mul_prod_erase _ (fun j ↦ μ j (Function.update s i Set.univ j)) (Finset.mem_univ i),
+    ← Finset.mul_prod_erase _ (fun j ↦ Function.update μ i ν j (s j)) (Finset.mem_univ i)]
+  simp only [Function.update_self, measure_univ, one_mul]
+  rw [mul_comm]
+  congr 1
+  refine Finset.prod_congr rfl fun j hj ↦ ?_
+  simp [Function.update_of_ne (Finset.ne_of_mem_erase hj)]
+
+/-- **Fubini after resampling a coordinate from another law.** The integral against the product
+of sigma-finite measures in which the probability measure `μ i` is replaced by `ν` is the integral
+over `y ∼ ν` of the integral against `Measure.pi μ` of the function with the coordinate `i` set
+to `y`. -/
+lemma lintegral_pi_update_measure [DecidableEq ι] (μ : ∀ i, Measure (Ω i))
+    [∀ i, SigmaFinite (μ i)] (i : ι) [IsProbabilityMeasure (μ i)] (ν : Measure (Ω i))
+    [SigmaFinite ν] {f : (∀ j, Ω j) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ x, f x ∂Measure.pi (Function.update μ i ν) =
+      ∫⁻ y, ∫⁻ x, f (Function.update x i y) ∂Measure.pi μ ∂ν := by
+  rw [← (measurePreserving_update_prod_pi_update μ i ν).lintegral_comp hf]
+  exact lintegral_prod_symm (fun q ↦ f (Function.update q.1 i q.2))
+    (hf.comp measurable_update').aemeasurable
 
 /-! ### Binds of products -/
 

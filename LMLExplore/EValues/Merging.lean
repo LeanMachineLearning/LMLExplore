@@ -65,9 +65,10 @@ Proposition 8.3].
   `ProbabilityTheory.IsEVar.comp_isEVar`: an e-variable for `mergingNull 𝒞` merges e-variables
   whose joint laws lie in `𝒞`. The validity of e-merging functions, and of the merging functions
   for independent and for exchangeable e-values, are its instances.
-* `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: for finitely many coordinates,
-  the quasi-sure filter of `mergingNull univ` is the principal filter of the points with finite
-  coordinates.
+* `ProbabilityTheory.quasiSure_mergingNull_eq_principal`,
+  `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: for finitely many coordinates,
+  the quasi-sure filter of a merging null whose members charge every point with finite
+  coordinates, such as `mergingNull univ`, is the principal filter of these points.
 * `ProbabilityTheory.IsEVar.mono_mergingNull`: a measurable function dominated on finite arguments
   by an e-variable for a merging null is one.
 * `ProbabilityTheory.mergingNull_univ_subset_constraintNull`,
@@ -263,22 +264,30 @@ theorem exists_mem_mergingNull_univ_measure_singleton_ne_zero [Finite ι] (e : �
       _ = 1 := ENNReal.inv_mul_cancel hs0 hs
   · simp [p, hs]
 
-/-- **The quasi-sure filter of the merging null of all measures** is the principal filter of the
-points with finite coordinates: the coordinates are almost surely finite under every member, and
-every point with finite coordinates is charged by some member
-(`exists_mem_mergingNull_univ_measure_singleton_ne_zero`). -/
-theorem quasiSure_mergingNull_univ_eq_principal [Finite ι] :
-    quasiSure (mergingNull (Set.univ : Set (Measure (ι → ℝ≥0∞)))) =
+/-- **The quasi-sure filter of a merging null** is the principal filter of the points with finite
+coordinates as soon as every such point is charged by a member: the coordinates are almost surely
+finite under every member. -/
+theorem quasiSure_mergingNull_eq_principal [Finite ι] {𝒞 : Set (Measure (ι → ℝ≥0∞))}
+    (h𝒞 : ∀ e : ι → ℝ≥0, ∃ μ ∈ mergingNull 𝒞, μ {fun i ↦ (e i : ℝ≥0∞)} ≠ 0) :
+    quasiSure (mergingNull 𝒞) =
       Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞)) := by
   refine Filter.ext fun s ↦ ⟨fun h ↦ ?_, fun h ↦ mem_quasiSure_iff.2 fun μ hμ ↦ ?_⟩
   · rintro _ ⟨e, rfl⟩
     by_contra hes
-    obtain ⟨μ, hμ, hμe⟩ := exists_mem_mergingNull_univ_measure_singleton_ne_zero e
+    obtain ⟨μ, hμ, hμe⟩ := h𝒞 e
     exact hμe (measure_mono_null (Set.singleton_subset_iff.2 hes)
       (mem_ae_iff.1 (mem_quasiSure_iff.1 h μ hμ)))
-  · filter_upwards [ae_all_iff.2 fun i ↦ (isEVar_eval_mergingNull Set.univ i).ae_ne_top hμ]
+  · filter_upwards [ae_all_iff.2 fun i ↦ (isEVar_eval_mergingNull 𝒞 i).ae_ne_top hμ]
       with x hx
     exact h ⟨fun i ↦ (x i).toNNReal, funext fun i ↦ ENNReal.coe_toNNReal (hx i)⟩
+
+/-- **The quasi-sure filter of the merging null of all measures** is the principal filter of the
+points with finite coordinates, since every such point is charged by some member
+(`exists_mem_mergingNull_univ_measure_singleton_ne_zero`). -/
+theorem quasiSure_mergingNull_univ_eq_principal [Finite ι] :
+    quasiSure (mergingNull (Set.univ : Set (Measure (ι → ℝ≥0∞)))) =
+      Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞)) :=
+  quasiSure_mergingNull_eq_principal exists_mem_mergingNull_univ_measure_singleton_ne_zero
 
 /-- **E-merging functions are the e-variables of the merging null**: a merging function is a bet
 on the space of values, against the null of the joint laws of e-values. -/
