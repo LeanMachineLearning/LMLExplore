@@ -67,8 +67,8 @@ Proposition 8.3].
   for independent and for exchangeable e-values, are its instances.
 * `ProbabilityTheory.quasiSure_mergingNull_eq_principal`,
   `ProbabilityTheory.quasiSure_mergingNull_univ_eq_principal`: for finitely many coordinates,
-  the quasi-sure filter of a merging null whose members charge every point with finite
-  coordinates, such as `mergingNull univ`, is the principal filter of these points.
+  the quasi-sure filter of a merging null in which every point with finite coordinates is charged
+  by some member, such as `mergingNull univ`, is the principal filter of these points.
 * `ProbabilityTheory.IsEVar.mono_mergingNull`: a measurable function dominated on finite arguments
   by an e-variable for a merging null is one.
 * `ProbabilityTheory.mergingNull_univ_subset_constraintNull`,

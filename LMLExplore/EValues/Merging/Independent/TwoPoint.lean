@@ -7,14 +7,11 @@ module
 
 public import LMLExplore.EValues.Merging.Independent
 public import Mathlib.Probability.Distributions.Bernoulli
-public import Mathlib.RingTheory.MvPolynomial.Symmetric.Defs
-import LMLExplore.MeasureTheory.Constructions.Pi
-import LMLExplore.Order.Filter.Basic
 import LMLExplore.Probability.Distributions.Bernoulli
-import TauCeti.MeasureTheory.Integral.Pi
+import LMLExplore.Probability.ProductMeasure
 
 /-!
-# Merging functions for independent e-values: two-point laws and admissibility
+# Merging functions for independent e-values: two-point laws
 
 A function `g` of one e-value with `∫⁻ g ∂μ ≤ 1` for every law `μ` on `ℝ≥0∞` supported on at most
 two points and with mean at most `1` (a Bernoulli law `Ber(x, y, p)`) is dominated, at finite
@@ -28,27 +25,10 @@ independent e-values each taking at most two values, that is,
 `∫⁻ F ∂(Measure.pi fun i ↦ Ber(x i, y i, p i)) ≤ 1` whenever every `Ber(x i, y i, p i)` has mean
 at most `1`.
 
-Two consequences follow from laws on two points [VW21, Section 4]:
-
-* every merging function for independent e-values is at most `∏ i, max 1 (e i)` at every point
-  `e`, so the product weakly dominates it: the product is at least the merging function on
-  `[1, ∞]ᴷ` [VW21, Proposition 4.2];
-* a precise merging function for independent e-values, one with integral `1` against every
-  product of laws with mean `1`, is admissible [VW21, Proposition 4.1]: a product of laws with
-  mean `1` charges every point with finite coordinates. The product of the e-values, the
-  U-statistics `U n`, which average the products of `n` of the e-values, and their mixtures
-  are precise, hence admissible.
-
-As for e-merging functions, admissibility is admissibility among the e-variables of the merging
-null of the product laws, whose quasi-sure filter is the principal filter of the points with
-finite coordinates: values at infinite arguments are not compared.
-
-## Main definitions
-
-* `ProbabilityTheory.IsAdmissibleIEMerging F`: `F` is an admissible e-variable for the merging
-  null of the product laws.
-* `ProbabilityTheory.uStatistic n e`: the U-statistic of order `n` of the e-values `e`, the
-  elementary symmetric polynomial of degree `n` divided by the number of its terms.
+As a consequence of laws on two points, every merging function for independent e-values is at
+most `∏ i, max 1 (e i)` at every point `e`, so the product weakly dominates it: the product is at
+least the merging function on `[1, ∞]ᴷ` [VW21, Proposition 4.2]. The admissibility of the precise
+merging functions [VW21, Proposition 4.1] is in `LMLExplore.EValues.Merging.Independent`.
 
 ## Main statements
 
@@ -63,15 +43,6 @@ finite coordinates: values at infinite arguments are not compared.
 * `ProbabilityTheory.IsIEMerging.le_prod_max_one`, `ProbabilityTheory.IsIEMerging.le_prod`: a
   merging function for independent e-values is at most `∏ i, max 1 (e i)`, and at most the product
   on `[1, ∞]ᴷ` [VW21, Proposition 4.2].
-* `ProbabilityTheory.isAdmissibleIEMerging_iff_isAdmissible`,
-  `ProbabilityTheory.IsAdmissibleIEMerging.eq_of_le`: admissibility reads at finite arguments.
-* `ProbabilityTheory.IsPreciseIEMerging.isAdmissibleIEMerging`: precise merging functions for
-  independent e-values are admissible [VW21, Proposition 4.1].
-* `ProbabilityTheory.isAdmissibleIEMerging_uStatistic`,
-  `ProbabilityTheory.isAdmissibleIEMerging_prod`,
-  `ProbabilityTheory.isAdmissibleIEMerging_sum_mul_uStatistic`: the U-statistics, the product, and
-  the mixtures of the U-statistics, are admissible merging functions for independent e-values
-  [VW21, Section 4].
 
 ## Implementation notes
 
@@ -79,15 +50,15 @@ For one e-value, the laws on two points with mean `1`, together with the point m
 bound the slopes of `g` on both sides of `1`, and the supremum of the slopes on the right is the
 weight `w`. For several e-values, integrating `F` against the laws of all coordinates but one
 leaves a function of one e-value, to which this applies, by induction on the set of coordinates
-whose law is arbitrary (`MeasureTheory.Measure.lintegral_pi_update_measure`). This replaces the
+whose law is arbitrary (`MeasureTheory.Measure.lintegral_infinitePi_update`, through
+`MeasureTheory.Measure.infinitePi_eq_pi`). This replaces the
 decomposition of a law with finite mean into a mixture of laws on two points with the same mean
 used in [VW24].
 
 ## References
 
 * [VW21] V. Vovk and R. Wang, *E-values: calibration, combination and applications*, Ann. Statist.
-  49 (2021), arXiv:1912.06116v4: Section 4 (Propositions 4.1 and 4.2, the product and the
-  U-statistics).
+  49 (2021), arXiv:1912.06116v4: Section 4 (Proposition 4.2).
 * [VW24] V. Vovk and R. Wang, *Merging sequential e-values via martingales*, Electron. J.
   Statist. 18 (2024), arXiv:2007.06382v3: Section 2 (Proposition 1, two-point laws).
 -/
@@ -140,9 +111,10 @@ private lemma toReal_le_of_forall_lintegral_bernoulliMeasure_le_one
   have hb_top := hfin hw1 (le_add_self.trans h)
   refine ⟨ha_top, hb_top, ?_⟩
   have h_real := ENNReal.toReal_mono ENNReal.one_ne_top h
-  rw [ENNReal.toReal_add (by finiteness) (by finiteness), ENNReal.toReal_mul,
-    ENNReal.toReal_mul, ENNReal.toReal_ofReal hw0.le, ENNReal.toReal_ofReal hw1.le, hw,
-    ENNReal.toReal_one] at h_real
+  rw [ENNReal.toReal_add (by finiteness) (by finiteness)] at h_real
+  simp only [ENNReal.toReal_mul, ENNReal.toReal_ofReal, hw0.le, hw1.le, ENNReal.toReal_one]
+    at h_real
+  rw [hw] at h_real
   calc (b - 1) * (g (ENNReal.ofReal a)).toReal + (1 - a) * (g (ENNReal.ofReal b)).toReal
       = (b - a) * ((b - 1) / (b - a) * (g (ENNReal.ofReal a)).toReal +
         (1 - a) / (b - a) * (g (ENNReal.ofReal b)).toReal) := by
@@ -176,7 +148,7 @@ theorem exists_le_add_mul_of_forall_lintegral_bernoulliMeasure_le_one
   set A : Set ℝ := (fun b ↦ (G b - 1) / (b - 1)) '' Set.Ioi 1
   have hA_le (a : ℝ) (ha0 : 0 ≤ a) (ha1 : a < 1) : ∀ y ∈ A, y ≤ (1 - G a) / (1 - a) := by
     rintro _ ⟨b, hb, rfl⟩
-    have hb : 1 < b := hb
+    replace hb := Set.mem_Ioi.1 hb
     rw [div_le_div_iff₀ (by linarith) (by linarith)]
     nlinarith [(hstep ha0 ha1 hb).2.2]
   have hA_ne : A.Nonempty := ⟨_, Set.mem_image_of_mem _ (show (2 : ℝ) ∈ Set.Ioi 1 by norm_num)⟩
@@ -193,16 +165,19 @@ theorem exists_le_add_mul_of_forall_lintegral_bernoulliMeasure_le_one
       rw [le_div_iff₀ (by linarith)] at h
       linarith
     · simpa using hG1 1 le_rfl
-    · have h := (le_csSup hA_bdd (Set.mem_image_of_mem _ (show x ∈ Set.Ioi 1 from hx))).trans
+    · have h := (le_csSup hA_bdd (Set.mem_image_of_mem _ (Set.mem_Ioi.2 hx))).trans
         (le_max_left _ 0)
       rw [div_le_iff₀ (by linarith)] at h
       linarith
   refine ⟨Real.toNNReal (1 - w), Real.toNNReal w, ?_, fun e ↦ ?_⟩
   · rw [← Real.toNNReal_add (by linarith) hw0, sub_add_cancel, Real.toNNReal_one]
-  · rw [ENNReal.ofNNReal_toNNReal, ENNReal.ofNNReal_toNNReal, ← ENNReal.ofReal_coe_nnreal,
-      ← ENNReal.ofReal_mul hw0, ← ENNReal.ofReal_add (by linarith) (by positivity)]
-    exact (ENNReal.ofReal_toReal (hg_top _ e.2)).symm.trans_le
-      (ENNReal.ofReal_le_ofReal (hG_lin e e.2))
+  · calc g e = ENNReal.ofReal (G e) := by
+          simp only [G, ENNReal.ofReal_coe_nnreal]
+          exact (ENNReal.ofReal_toReal (by simpa using hg_top _ e.2)).symm
+      _ ≤ ENNReal.ofReal ((1 - w) + w * e) := ENNReal.ofReal_le_ofReal (hG_lin e e.2)
+      _ = _ := by
+        rw [ENNReal.ofReal_add (by linarith) (by positivity), ENNReal.ofReal_mul hw0]
+        simp [ENNReal.ofReal]
 
 /-- **Two-point laws suffice for one e-value.** A function `g` of one e-value with `∫⁻ g ∂ν ≤ 1`
 for every law `ν` on at most two points with mean at most `1` has `∫⁻ g ∂μ ≤ 1` for every
@@ -250,16 +225,16 @@ private lemma lintegral_pi_le_one_of_forall_lintegral_pi_bernoulliMeasure_le_one
     exact h x y p hmean
   | insert i s hi ih =>
     -- Replacing the law of the coordinate `i` by a probability measure `ν`.
-    have hupd (ν : Measure ℝ≥0∞) [IsProbabilityMeasure ν] (j : ι) :
-        IsProbabilityMeasure (Function.update μ i ν j) := by
-      rcases eq_or_ne j i with rfl | hj
-      · rwa [Function.update_self]
-      · rw [Function.update_of_ne hj]
-        exact hμ j
+    have hupd (ν : Measure ℝ≥0∞) [IsProbabilityMeasure ν] :
+        ∀ j, IsProbabilityMeasure (Function.update μ i ν j) :=
+      (Function.forall_update_iff μ fun _ m ↦ IsProbabilityMeasure m).2 ⟨‹_›, fun j _ ↦ hμ j⟩
     have heq (ν : Measure ℝ≥0∞) [IsProbabilityMeasure ν] :
         ∫⁻ e, F e ∂Measure.pi (Function.update μ i ν) =
-          ∫⁻ z, ∫⁻ e, F (Function.update e i z) ∂Measure.pi μ ∂ν :=
-      Measure.lintegral_pi_update_measure μ i ν hF
+          ∫⁻ z, ∫⁻ e, F (Function.update e i z) ∂Measure.pi μ ∂ν := by
+      have := hμ
+      have := hupd ν
+      rw [← Measure.infinitePi_eq_pi, ← Measure.infinitePi_eq_pi]
+      exact Measure.lintegral_infinitePi_update μ i ν hF
     rw [← Function.update_eq_self i μ, heq]
     refine lintegral_le_one_of_forall_lintegral_bernoulliMeasure_le_one (fun x y p hp ↦ ?_)
       (hmean i)
@@ -339,229 +314,5 @@ theorem IsIEMerging.le_prod (hF : IsIEMerging F) {e : ι → ℝ≥0∞} (he : �
   (hF.le_prod_max_one e).trans_eq (Finset.prod_congr rfl fun i _ ↦ max_eq_right (he i))
 
 end TwoPoint
-
-/-! ### Admissible merging functions for independent e-values -/
-
-section Admissible
-
-variable {ι : Type*} [Fintype ι] {F G : (ι → ℝ≥0∞) → ℝ≥0∞}
-
-/-- Every point with finite coordinates is charged by a product of probability measures with
-mean `1`: a product of laws on two points. -/
-private lemma exists_pi_measure_singleton_ne_zero (e : ι → ℝ≥0) :
-    ∃ μ : ι → Measure ℝ≥0∞, (∀ i, IsProbabilityMeasure (μ i)) ∧ (∀ i, ∫⁻ z, z ∂μ i = 1) ∧
-      Measure.pi μ {fun i ↦ (e i : ℝ≥0∞)} ≠ 0 := by
-  choose μ hμ hmean hμe using fun i ↦ exists_lintegral_id_eq_one (ENNReal.coe_ne_top (r := e i))
-  refine ⟨μ, hμ, hmean, ?_⟩
-  rw [Measure.pi_singleton]
-  exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hμe i
-
-/-- **The quasi-sure filter of the merging null of the product laws** is the principal filter of
-the points with finite coordinates: a product of laws with mean `1` charges each of them. -/
-theorem quasiSure_mergingNull_productLaws_eq_principal :
-    quasiSure (mergingNull (productLaws : Set (Measure (ι → ℝ≥0∞)))) =
-      Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞)) := by
-  refine quasiSure_mergingNull_eq_principal fun e ↦ ?_
-  obtain ⟨μ, hμ, hmean, hne⟩ := exists_pi_measure_singleton_ne_zero e
-  exact ⟨_, (pi_mem_mergingNull_productLaws_iff μ).2 fun i ↦ (hmean i).le, hne⟩
-
-/-- An **admissible merging function for independent e-values** [VW21, Section 4]: an admissible
-e-variable for the merging null of the product laws, whose e-variables are the merging functions
-for independent e-values (`isIEMerging_iff_isEVar_mergingNull`). Its quasi-sure filter is the
-principal filter of the points with finite coordinates
-(`quasiSure_mergingNull_productLaws_eq_principal`), so `F` is admissible when every merging
-function for independent e-values dominating it at finite arguments equals it there
-(`isAdmissibleIEMerging_iff_isAdmissible`, `IsAdmissibleIEMerging.eq_of_le`). -/
-abbrev IsAdmissibleIEMerging (F : (ι → ℝ≥0∞) → ℝ≥0∞) : Prop :=
-  IsAdmissibleEVar F (mergingNull productLaws)
-
-/-- An admissible merging function for independent e-values is a merging function for independent
-e-values. -/
-theorem IsAdmissibleIEMerging.isIEMerging (hF : IsAdmissibleIEMerging F) : IsIEMerging F :=
-  isIEMerging_iff_isEVar_mergingNull.2 hF.mem
-
-/-- An admissible merging function for independent e-values is admissible (`Filter.IsAdmissible`)
-among the merging functions for independent e-values for the order at finite arguments, the
-eventual order along the principal filter of the finite vectors, and conversely. -/
-theorem isAdmissibleIEMerging_iff_isAdmissible :
-    IsAdmissibleIEMerging F ↔
-      (Filter.principal (Set.range fun (e : ι → ℝ≥0) i ↦ (e i : ℝ≥0∞))).IsAdmissible
-        {G | IsIEMerging G} F := by
-  simp only [IsAdmissibleIEMerging, IsAdmissibleEVar,
-    quasiSure_mergingNull_productLaws_eq_principal, ← isIEMerging_iff_isEVar_mergingNull]
-
-/-- A merging function for independent e-values that dominates an admissible one at finite
-arguments is equal to it there. -/
-theorem IsAdmissibleIEMerging.eq_of_le (hF : IsAdmissibleIEMerging F) (hG : IsIEMerging G)
-    (hFG : ∀ e : ι → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) (e : ι → ℝ≥0) :
-    G (fun i ↦ e i) = F (fun i ↦ e i) :=
-  (Filter.eventuallyLE_principal_range_iff.1
-    ((isAdmissibleIEMerging_iff_isAdmissible.1 hF).eventuallyLE hG
-      (Filter.eventuallyLE_principal_range_iff.2 hFG)) e).antisymm (hFG e)
-
-/-- **Precise merging functions for independent e-values are admissible** [VW21,
-Proposition 4.1]. -/
-theorem IsPreciseIEMerging.isAdmissibleIEMerging (hF : IsPreciseIEMerging F) :
-    IsAdmissibleIEMerging F := by
-  -- If `G ≥ F` at finite arguments, then `G - F` has integral `0` against every product of laws
-  -- with mean `1`, and such a product charges any given point with finite coordinates.
-  refine isAdmissibleIEMerging_iff_isAdmissible.2 ⟨hF.toIsIEMerging, fun G hG hle ↦
-    Filter.eventuallyLE_principal_range_iff.2 fun e ↦ ?_⟩
-  have hG : IsIEMerging G := hG
-  replace hle := Filter.eventuallyLE_principal_range_iff.1 hle
-  obtain ⟨μ, hμ, hmean, hne⟩ := exists_pi_measure_singleton_ne_zero e
-  have hfin : ∀ᵐ x ∂Measure.pi μ, ∀ i, x i ≠ ∞ := ae_all_iff.2 fun i ↦
-    (isEVar_eval_mergingNull productLaws i).ae_ne_top
-      ((pi_mem_mergingNull_productLaws_iff μ).2 fun i ↦ (hmean i).le)
-  have hF1 := hF.lintegral_eq_one μ hmean
-  have hint : ∫⁻ x, (G x - F x) ∂Measure.pi μ = 0 := by
-    rw [lintegral_sub hF.measurable (hF1 ▸ ENNReal.one_ne_top) (ae_le_of_forall_nnreal_le hfin hle),
-      hF1]
-    exact tsub_eq_zero_of_le (hG.lintegral_le_one μ fun i ↦ (hmean i).le)
-  have h0 : (G (fun i ↦ e i) - F (fun i ↦ e i)) * Measure.pi μ {fun i ↦ (e i : ℝ≥0∞)} = 0 :=
-    le_antisymm (((lintegral_singleton' (hG.measurable.sub hF.measurable) _).symm.trans_le
-      (setLIntegral_le_lintegral _ _)).trans hint.le) zero_le
-  exact tsub_eq_zero_iff_le.1 ((mul_eq_zero.1 h0).resolve_right hne)
-
-end Admissible
-
-/-! ### Mixtures and U-statistics -/
-
-section Mixture
-
-variable {ι κ : Type*} [Fintype ι] [Countable κ] {w : κ → ℝ≥0∞}
-  {F : κ → (ι → ℝ≥0∞) → ℝ≥0∞}
-
-/-- A countable mixture `∑' j, w j * F j e`, with total weight at most `1`, of merging functions
-for independent e-values is one. -/
-theorem isIEMerging_tsum_mul (hw : ∑' j, w j ≤ 1) (hF : ∀ j, IsIEMerging (F j)) :
-    IsIEMerging fun e ↦ ∑' j, w j * F j e := by
-  refine ⟨Measurable.tsum fun j ↦ (hF j).measurable.const_mul _, fun μ _ hμ ↦ ?_⟩
-  rw [lintegral_tsum fun j ↦ ((hF j).measurable.const_mul _).aemeasurable]
-  simp_rw [lintegral_const_mul _ (hF _).measurable]
-  calc ∑' j, w j * ∫⁻ e, F j e ∂Measure.pi μ ≤ ∑' j, w j * 1 :=
-        tsum_le_tsum fun j ↦ by gcongr; exact (hF j).lintegral_le_one μ hμ
-    _ ≤ 1 := by simpa using hw
-
-/-- A countable mixture `∑' j, w j * F j e`, with total weight `1`, of precise merging functions
-for independent e-values is one. -/
-theorem isPreciseIEMerging_tsum_mul (hw : ∑' j, w j = 1) (hF : ∀ j, IsPreciseIEMerging (F j)) :
-    IsPreciseIEMerging fun e ↦ ∑' j, w j * F j e := by
-  refine ⟨isIEMerging_tsum_mul hw.le fun j ↦ (hF j).toIsIEMerging, fun μ _ hμ ↦ ?_⟩
-  rw [lintegral_tsum fun j ↦ ((hF j).measurable.const_mul _).aemeasurable]
-  simp_rw [lintegral_const_mul _ (hF _).measurable, (hF _).lintegral_eq_one μ hμ, mul_one, hw]
-
-end Mixture
-
-section UStatistic
-
-variable {ι : Type*} [Fintype ι]
-
-/-- The **U-statistic of order `n`** of the e-values `e` [VW21, Section 4]: the average, over the
-subsets `s` of `n` coordinates, of the products `∏ i ∈ s, e i`, that is, the elementary symmetric
-polynomial `MvPolynomial.esymm` of degree `n` evaluated at `e`, divided by the number of its
-terms. It is `1` for `n = 0` (`uStatistic_zero`), the arithmetic mean for `n = 1`
-(`uStatistic_one`) and the product of the e-values for `n = card ι` (`uStatistic_card`). -/
-noncomputable def uStatistic (n : ℕ) (e : ι → ℝ≥0∞) : ℝ≥0∞ :=
-  ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ * MvPolynomial.eval e (MvPolynomial.esymm ι ℝ≥0∞ n)
-
-theorem uStatistic_apply (n : ℕ) (e : ι → ℝ≥0∞) :
-    uStatistic n e =
-      ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ * ∑ s ∈ Finset.univ.powersetCard n, ∏ i ∈ s, e i := by
-  simp [uStatistic, MvPolynomial.esymm]
-
-@[simp]
-theorem uStatistic_zero (e : ι → ℝ≥0∞) : uStatistic 0 e = 1 := by
-  simp [uStatistic_apply]
-
-theorem uStatistic_one (e : ι → ℝ≥0∞) : uStatistic 1 e = (∑ i, e i) / Fintype.card ι := by
-  simp only [uStatistic_apply, Nat.choose_one_right, Finset.powersetCard_one, Finset.sum_map,
-    Function.Embedding.coeFn_mk, Finset.prod_singleton]
-  rw [ENNReal.div_eq_inv_mul]
-
-@[simp]
-theorem uStatistic_card (e : ι → ℝ≥0∞) : uStatistic (Fintype.card ι) e = ∏ i, e i := by
-  rw [uStatistic_apply, Nat.choose_self, ← Finset.card_univ, Finset.powersetCard_self]
-  simp
-
-@[fun_prop]
-theorem measurable_uStatistic (n : ℕ) : Measurable (uStatistic (ι := ι) n) := by
-  simp_rw [funext (uStatistic_apply n)]
-  fun_prop
-
-/-- The integral of a U-statistic against a product of probability measures is the average, over
-the subsets `s` of `n` coordinates, of the products of the means of the coordinates in `s`. -/
-theorem lintegral_uStatistic_pi (n : ℕ) (μ : ι → Measure ℝ≥0∞)
-    [∀ i, IsProbabilityMeasure (μ i)] :
-    ∫⁻ e, uStatistic n e ∂Measure.pi μ = ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ *
-      ∑ s ∈ Finset.univ.powersetCard n, ∏ i ∈ s, ∫⁻ z, z ∂μ i := by
-  classical
-  simp_rw [uStatistic_apply]
-  rw [lintegral_const_mul _ (by fun_prop), lintegral_finsetSum _ fun s _ ↦ by fun_prop]
-  congr 1
-  refine Finset.sum_congr rfl fun s _ ↦ ?_
-  -- The product over `s` is the product over all coordinates of `if i ∈ s then e i else 1`.
-  have h := TauCeti.lintegral_fintype_prod_eq_prod μ (f := fun i x ↦ if i ∈ s then x else 1)
-    fun i ↦ by fun_prop
-  simp only [Finset.prod_ite_mem, Finset.univ_inter] at h
-  rw [h]
-  calc ∏ i, ∫⁻ y, (if i ∈ s then y else 1) ∂μ i = ∏ i, if i ∈ s then ∫⁻ z, z ∂μ i else 1 :=
-        Finset.prod_congr rfl fun i _ ↦ by split_ifs <;> simp
-    _ = ∏ i ∈ s, ∫⁻ z, z ∂μ i := by rw [Finset.prod_ite_mem, Finset.univ_inter]
-
-/-- **The U-statistics are merging functions for independent e-values** [VW21, Section 4]. -/
-theorem isIEMerging_uStatistic (n : ℕ) : IsIEMerging (uStatistic (ι := ι) n) := by
-  refine ⟨measurable_uStatistic n, fun μ _ hμ ↦ ?_⟩
-  rw [lintegral_uStatistic_pi]
-  calc ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ *
-        ∑ s ∈ Finset.univ.powersetCard n, ∏ i ∈ s, ∫⁻ z, z ∂μ i ≤
-      ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ * ∑ s ∈ Finset.univ.powersetCard n, 1 := by
-        gcongr with s
-        exact Finset.prod_le_one fun i _ ↦ hμ i
-    _ ≤ 1 := by
-        rw [Finset.sum_const, Finset.card_powersetCard, Finset.card_univ, nsmul_one]
-        exact ENNReal.inv_mul_le_one _
-
-/-- **The U-statistics of order at most the number of e-values are precise merging functions for
-independent e-values**. Above that order, the U-statistic is `0`. -/
-theorem isPreciseIEMerging_uStatistic {n : ℕ} (hn : n ≤ Fintype.card ι) :
-    IsPreciseIEMerging (uStatistic (ι := ι) n) := by
-  refine ⟨isIEMerging_uStatistic n, fun μ _ hμ ↦ ?_⟩
-  rw [lintegral_uStatistic_pi]
-  simp only [hμ, Finset.prod_const_one, Finset.sum_const, Finset.card_powersetCard,
-    Finset.card_univ, nsmul_one]
-  exact ENNReal.inv_mul_cancel (by simpa using Nat.choose_pos hn |>.ne')
-    (ENNReal.natCast_ne_top _)
-
-/-- **The U-statistics of order at most the number of e-values are admissible merging functions
-for independent e-values** [VW21, Section 4]. -/
-theorem isAdmissibleIEMerging_uStatistic {n : ℕ} (hn : n ≤ Fintype.card ι) :
-    IsAdmissibleIEMerging (uStatistic (ι := ι) n) :=
-  (isPreciseIEMerging_uStatistic hn).isAdmissibleIEMerging
-
-/-- **The product is a precise merging function for independent e-values**: its integral against
-a product of laws with mean `1` is `1`. It is the U-statistic of order `card ι`. -/
-theorem isPreciseIEMerging_prod : IsPreciseIEMerging fun e : ι → ℝ≥0∞ ↦ ∏ i, e i := by
-  simpa only [← funext uStatistic_card] using isPreciseIEMerging_uStatistic (ι := ι) le_rfl
-
-/-- **The product is an admissible merging function for independent e-values** [VW21,
-Section 4]. -/
-theorem isAdmissibleIEMerging_prod : IsAdmissibleIEMerging fun e : ι → ℝ≥0∞ ↦ ∏ i, e i :=
-  isPreciseIEMerging_prod.isAdmissibleIEMerging
-
-/-- **The mixtures of the U-statistics are admissible merging functions for independent
-e-values** [VW21, Section 4]: for weights `w n`, `n ≤ card ι`, summing to `1`, the mixture
-`∑ n, w n * uStatistic n e` is admissible. It includes the product, the arithmetic mean and the
-constant `1`. -/
-theorem isAdmissibleIEMerging_sum_mul_uStatistic {w : Fin (Fintype.card ι + 1) → ℝ≥0∞}
-    (hw : ∑ n, w n = 1) :
-    IsAdmissibleIEMerging fun e : ι → ℝ≥0∞ ↦ ∑ n, w n * uStatistic n e := by
-  have h := isPreciseIEMerging_tsum_mul
-    (F := fun (n : Fin (Fintype.card ι + 1)) ↦ uStatistic (ι := ι) n)
-    (by rwa [tsum_fintype]) fun n ↦ isPreciseIEMerging_uStatistic (Nat.lt_succ_iff.1 n.2)
-  simp only [tsum_fintype] at h
-  exact h.isAdmissibleIEMerging
-
-end UStatistic
 
 end ProbabilityTheory
