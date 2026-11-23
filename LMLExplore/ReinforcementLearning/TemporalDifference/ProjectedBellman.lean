@@ -9,10 +9,10 @@ public import LMLExplore.MarkovDecisionProcess.Value
 public import Mathlib.Analysis.InnerProductSpace.LinearMap
 public import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
 public import Mathlib.Topology.Algebra.Module.ContinuousLinearMap.Invertible
-import LMLExplore.Analysis.InnerProductSpace.LaxMilgram
 import LMLExplore.Probability.Kernel.Operator
 import LMLExplore.Probability.Moments.Variance
 import Mathlib.MeasureTheory.Function.L2Space
+import TauCeti.Analysis.InnerProductSpace.Coercive
 
 /-!
 # The projected Bellman equation of linear temporal-difference learning
@@ -139,7 +139,7 @@ theorem featureGram_eq_of_forall_inner_eq {θ θ' : E} (h : ∀ s, ⟪φ s, θ�
 quantitative sense `ω ‖θ‖² ≤ ∫ ⟪φ s, θ⟫² dν` with `ω > 0`. -/
 theorem isInvertible_featureGram [CompleteSpace E] {ω : ℝ} (hω : 0 < ω)
     (h : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν) : (featureGram ν φ).IsInvertible :=
-  ContinuousLinearMap.isInvertible_of_mul_norm_sq_le_inner hω fun θ ↦ by
+  ContinuousLinearMap.isInvertible_of_coercive _ hω fun θ ↦ by
     simpa [inner_featureGram_apply, sq] using h θ
 
 /-- For an invertible Gram operator, a linear function of the features determines its
@@ -452,8 +452,8 @@ theorem isInvertible_tdOperator [CompleteSpace E] [IsMarkovKernel P]
     (h : ∀ θ, ω * ‖θ‖ ^ 2 ≤ ∫ s, ⟪φ s, θ⟫_ℝ ^ 2 ∂ν) :
     (tdOperator ν φ P γ).IsInvertible := by
   have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
-  exact ContinuousLinearMap.isInvertible_of_mul_norm_sq_le_inner (mul_pos hγ' hω) fun θ ↦ by
-    rw [mul_assoc]
+  exact ContinuousLinearMap.isInvertible_of_coercive _ (mul_pos hγ' hω) fun θ ↦ by
+    rw [RCLike.re_to_real, mul_assoc]
     exact (mul_le_mul_of_nonneg_left (h θ) hγ'.le).trans
       (one_sub_mul_integral_sq_le_inner_tdOperator hP θ)
 
