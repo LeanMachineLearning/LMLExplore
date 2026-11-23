@@ -105,9 +105,8 @@ observations, where `W n` is Statlib's `numeraire` of the `n`-sample null under 
 `∫ Q' ^ n ν(dQ')` [EVR26, Note 14]. The ratio `M n / W n` has mean at most `ν univ` under the
 mixture, so it is eventually at most `exp (n ε)`, since functions of bounded mean under the
 mixtures grow subexponentially (`ProbabilityTheory.ae_eventually_le_exp_of_lintegral_bind_le`,
-Barron's argument [Bar88], [BSW99]). The members of `S₁` need only have mass at most `1`. If `Q₁` is
-not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
-theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
+Barron's argument [Bar88], [BSW99]). The members of `S₁` need only have mass at most `1`. -/
+theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (ν : Measure (Measure 𝓧)) [IsFiniteMeasure ν]
     (hν : ∀ᵐ Q' ∂ν, IsProbabilityMeasure Q')
     (hν_supp : ∀ ε : ℝ≥0∞, 0 < ε → ν {Q' | klDiv Q₁ Q' ≤ ε} ≠ 0)
@@ -118,9 +117,6 @@ theorem ae_eventually_log_le_log_numeraire_bind_add (Q₁ : Measure 𝓧)
       ENNReal.log (M n (initSeg n ω)) ≤ ENNReal.log (numeraire
         (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
         (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   -- the ratios to the mixture numeraires have mean at most `ν univ` under the mixtures
   have hbound (n : ℕ) : ∫⁻ x, M n x / numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
       (sampleNull S₁ n) x
@@ -150,9 +146,8 @@ log-optimality of the mixture numeraires that [RW, Chapter 6] conjectures, with 
 `bipolarRate Q₁ S₁` of [RR26]. The upper bound holds for every sequence of `n`-sample
 e-variables (`ProbabilityTheory.ae_limsup_log_div_le_bipolarRate`), and the lower bound follows
 from the comparison with every sequence of `n`-sample e-variables
-(`ProbabilityTheory.ae_eventually_log_le_log_numeraire_bind_add`). No assumption is made on `𝓧`.
-If `Q₁` is not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
-theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
+(`ProbabilityTheory.ae_eventually_log_le_log_numeraire_bind_add`). No assumption is made on `𝓧`. -/
+theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ν : Measure (Measure 𝓧)) [IsFiniteMeasure ν]
     (hν : ∀ᵐ Q' ∂ν, IsProbabilityMeasure Q')
     (hν_supp : ∀ ε : ℝ≥0∞, 0 < ε → ν {Q' | klDiv Q₁ Q' ≤ ε} ≠ 0) :
@@ -160,9 +155,6 @@ theorem ae_tendsto_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (ν.bind fun Q' ↦ Measure.pi fun _ : Fin n ↦ Q')
         (sampleNull S₁ n) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
       (measure_univ_le_one_of_mem_sampleNull
         (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),

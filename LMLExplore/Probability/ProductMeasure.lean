@@ -251,14 +251,6 @@ lemma infinitePi_eq_zero_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Ty
   have h' : ¬ ∀ j, IsProbabilityMeasure (μ j) := fun h' ↦ h (h' i)
   simp [Measure.infinitePi, h']
 
-/-- If one factor is not a probability measure, every property holds almost surely under the
-infinite product, which is `0`. -/
-lemma ae_infinitePi_of_not_isProbabilityMeasure {ι : Type*} {X : ι → Type*}
-    [∀ i, MeasurableSpace (X i)] {μ : (i : ι) → Measure (X i)} {i : ι}
-    (h : ¬ IsProbabilityMeasure (μ i)) {p : ((i : ι) → X i) → Prop} :
-    ∀ᵐ x ∂Measure.infinitePi μ, p x := by
-  simp [infinitePi_eq_zero_of_not_isProbabilityMeasure h]
-
 /-- Under a countable product of probability measures, if almost every point of each factor
 satisfies a property, then almost surely every coordinate does. -/
 theorem ae_forall_apply_infinitePi {ι : Type*} [Countable ι] {X : ι → Type*}
@@ -433,16 +425,13 @@ open Filter in
 of `n` observations have mean at most `C < ∞` under the product law `P ^ n`, then for every
 `ε > 0`, almost surely under the i.i.d. law of `P`, `F n < exp (n ε)` at the first `n`
 observations for all large `n`. Markov's inequality bounds the probability that
-`exp (n ε) ≤ F n` by `C exp (- n ε)`, and the Borel–Cantelli lemma applies. If `P` is not a
-probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
-lemma ae_eventually_lt_exp_of_lintegral_le (P : Measure 𝓧) {F : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
+`exp (n ε) ≤ F n` by `C exp (- n ε)`, and the Borel–Cantelli lemma applies. -/
+lemma ae_eventually_lt_exp_of_lintegral_le (P : Measure 𝓧) [IsProbabilityMeasure P]
+    {F : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hF : ∀ n, AEMeasurable (F n) (Measure.pi fun _ : Fin n ↦ P)) {C : ℝ≥0∞} (hC : C ≠ ∞)
     (hFC : ∀ n, ∫⁻ x, F n x ∂(Measure.pi fun _ : Fin n ↦ P) ≤ C) {ε : ℝ} (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P), ∀ᶠ n : ℕ in atTop,
       F n (initSeg n ω) < ENNReal.ofReal (Real.exp (n * ε)) := by
-  by_cases hP : IsProbabilityMeasure P
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hP
   set μ := Measure.infinitePi (fun _ : ℕ ↦ P)
   set A : ℕ → Set (ℕ → 𝓧) := fun n ↦
     {ω | ENNReal.ofReal (Real.exp (n * ε)) ≤ F n (initSeg n ω)}

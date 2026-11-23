@@ -245,6 +245,7 @@ end EProcess
 /-- The Wald inequality for the filtration `Filtration.piLE`, where `τ + 1` observations have been
 made at a time `τ`: `𝔼_Q[log E_τ] ≤ 𝔼_Q[τ + 1] * d`. -/
 private theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate_piLE (Q₁ : Measure 𝓧)
+    [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
       (iidNull S₁))
@@ -259,9 +260,6 @@ private theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate_piLE (Q
       ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ ↦ Q₁) :=
     lintegral_congr fun ω ↦ congrArg (· + 1) (ENat.toENNReal_coe (τ ω))
   rw [stoppedValue_natCast, h_cast]
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
   set m := ∫⁻ ω, (τ ω : ℝ≥0∞) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   have hm0 : (0 : EReal) < m := by
     have : (1 : ℝ≥0∞) ≤ m :=
@@ -287,11 +285,11 @@ is finite everywhere, the expected logarithm of `E` at `τ` under the i.i.d. law
 the expected number `τ` of observations times the bipolar rate. The expected number of
 observations may be infinite, with `∞ * 0 = 0`: if the bipolar rate is `0`, the expected logarithm
 is nonpositive at every stopping time. The expected logarithm is Statlib's extended integral,
-which is `⊥` when the positive and negative parts of the logarithm have infinite integrals. `Q₁`
-need not be a probability measure: otherwise its i.i.d. law is `0` and both sides are `0`. The
+which is `⊥` when the positive and negative parts of the logarithm have infinite integrals. The
 null must be nonempty: for the empty null every process is an e-process, and at `τ = 0` the right
 side is `0`. [EVR26, Note 01] -/
 theorem IsEProcess.eintegral_log_stoppedValue_le_mul_bipolarRate (Q₁ : Measure 𝓧)
+    [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hS₁ne : S₁.Nonempty) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E Filtration.piLT (iidNull S₁)) {τ : (ℕ → 𝓧) → WithTop ℕ}
     (hτ : IsStoppingTime Filtration.piLT τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :

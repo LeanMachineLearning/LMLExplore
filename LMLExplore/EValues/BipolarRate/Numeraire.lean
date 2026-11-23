@@ -122,18 +122,14 @@ e-variables `M n` for the `n`-fold products of the members of `S₁` and every `
 surely under the i.i.d. law of `Q₁`, eventually `log (M n) ≤ log (X* n) + n ε` at the first `n`
 observations, where `X* n` is Statlib's `numeraire` of the `n`-sample null under `Q₁ ^ n`. The
 ratio `M n / X* n` has mean at most `1` under `Q₁ ^ n`, so this is Markov's inequality and the
-Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only have mass at most `1`. If `Q₁`
-is not a probability measure, its i.i.d. law is `0` and the statement holds trivially. -/
-theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧)
+Borel–Cantelli lemma [EVR26, Note 01]. The members of `S₁` need only have mass at most `1`. -/
+theorem ae_eventually_log_le_log_numeraire_add (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hM : ∀ n, IsEVar (M n) (sampleNull S₁ n)) {ε : ℝ}
     (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ENNReal.log (M n (initSeg n ω)) ≤ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set E : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞ := fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
     (sampleNull S₁ n)
   -- Markov's inequality and the Borel–Cantelli lemma for the ratio to the numeraire
@@ -151,16 +147,13 @@ e-variables for the i.i.d. laws of the members of `S₁` such that `F n` is a fu
 `ε > 0`, almost surely under the i.i.d. law of `Q₁`, eventually `log (F n) ≤ log (X* n) + n ε`,
 where `X* n` is the numeraire of the `n`-sample null under `Q₁ ^ n`, at the first `n`
 observations. -/
-theorem ae_eventually_log_le_log_numeraire_add_of_adapted (Q₁ : Measure 𝓧)
+theorem ae_eventually_log_le_log_numeraire_add_of_adapted (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {F : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hF : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) F)
     (hFe : ∀ n, IsEVar (F n) (iidNull S₁)) {ε : ℝ} (hε : 0 < ε) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ENNReal.log (F n ω) ≤ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         (sampleNull S₁ n) (initSeg n ω)) + ((n * ε : ℝ) : EReal) := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   choose G hG hFG using fun n ↦ exists_isEVar_eq_comp_initSeg hS₁ (hF n) (hFe n)
   filter_upwards [ae_eventually_log_le_log_numeraire_add Q₁
     (fun P hP ↦ (hS₁ P hP).measure_univ.le) hG hε] with ω hω
@@ -176,10 +169,10 @@ the i.i.d. law of `Q₁`, eventually `n L ≤ log` of the product of the numerai
 `m`-sample null under `Q₁ ^ m` over the `n / m` complete blocks among the first `n` observations
 [RR26, Theorem 3.5]. Pick `m` with `maxLogGrowth Q₁ S₁ m > m L`, truncate the logarithm of `X* m`
 from above at a level where its mean still exceeds `m L`, and apply the strong law of large
-numbers along the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the
-statement holds trivially. -/
+numbers along the blocks. -/
 theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {L : ℝ} (hL : (L : EReal) < bipolarRate Q₁ S₁) :
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {L : ℝ}
+    (hL : (L : EReal) < bipolarRate Q₁ S₁) :
     ∃ m ≠ 0, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
       ((n * L : ℝ) : EReal) ≤ ENNReal.log (seqBlockProd m
         (numeraire (Measure.pi fun _ : Fin m ↦ Q₁) (sampleNull S₁ m))
@@ -187,9 +180,6 @@ theorem exists_ae_eventually_mul_le_log_seqBlockProd_numeraire (Q₁ : Measure �
   rw [bipolarRate_def] at hL
   obtain ⟨k, hk⟩ := lt_iSup_iff.1 hL
   refine ⟨k + 1, k.succ_ne_zero, ?_⟩
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set m := k + 1
   have hm : m ≠ 0 := k.succ_ne_zero
   have hm0 : (0 : ℝ) < m := by exact_mod_cast Nat.pos_of_ne_zero hm
@@ -230,7 +220,7 @@ blocks of the numeraire grow at least at the rate `L'`
 (`exists_ae_eventually_mul_le_log_seqBlockProd_numeraire`), and `T` keeps up with them up to a
 factor `exp (n (L' - L))`. -/
 private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
     {T : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hT : ∀ F : ℕ → (ℕ → 𝓧) → ℝ≥0∞, Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) F →
       (∀ n, IsEVar (F n) (iidNull S₁)) →
@@ -264,19 +254,16 @@ under the i.i.d. law of `Q₁`, eventually `log (F n) ≤ log (T n) + n ε`. The
 `liminf (1/n) log (T n) ≥ bipolarRate Q₁ S₁` [EVR26, Note 01].
 The products over blocks of length `m` of the numeraire of the `m`-sample null attain every rate
 below the bipolar rate [RR26, Theorem 3.5], almost surely by the strong law of large numbers along
-the blocks. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the statement holds
-trivially. -/
+the blocks. -/
 theorem ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le (Q₁ : Measure 𝓧)
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {T : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    {T : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hT : ∀ F : ℕ → (ℕ → 𝓧) → ℝ≥0∞, Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) F →
       (∀ n, IsEVar (F n) (iidNull S₁)) →
       ∀ ε : ℝ, 0 < ε → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ᶠ n : ℕ in atTop,
         ENNReal.log (F n ω) ≤ ENNReal.log (T n ω) + ((n * ε : ℝ) : EReal)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       bipolarRate Q₁ S₁ ≤ liminf (fun n : ℕ ↦ ENNReal.log (T n ω) / (n : EReal)) atTop := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   -- the bound for every rational below the bipolar rate
   have h (q : ℚ) : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       ((q : ℝ) : EReal) < bipolarRate Q₁ S₁ → ∀ᶠ n : ℕ in atTop,
@@ -300,9 +287,8 @@ law of `Q₁`, the logarithm of the numeraire of the `n`-sample null under `Q₁
 infinite [EVR26, Note 01]. The upper bound holds for every sequence of `n`-sample e-variables
 (`ProbabilityTheory.ae_limsup_log_div_le_bipolarRate`), and the lower bound follows from the
 comparison with the numeraire and the products of the numeraires over blocks
-[RR26, Theorem 3.5]. If `Q₁` is not a probability measure, its i.i.d. law is `0` and the
-statement holds trivially. -/
-theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧)
+[RR26, Theorem 3.5]. -/
+theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
