@@ -17,8 +17,7 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 
 * `LMLExplore.log_gaussianPDFReal`: the logarithm of the Gaussian density is a quadratic
   polynomial.
-* `LMLExplore.gaussianPDFReal_le`, `LMLExplore.tendsto_gaussianPDFReal_atTop`: the Gaussian
-  density is bounded by its value `(√(2π v))⁻¹` at the mean and tends to `0` at `+∞`.
+* `LMLExplore.tendsto_gaussianPDFReal_atTop`: the Gaussian density tends to `0` at `+∞`.
 * `LMLExplore.integrable_sub_mul_gaussianPDFReal`: `x ↦ (x - μ) φ x` is integrable.
 * `LMLExplore.integral_sub_sq_gaussianReal`: for `X ∼ 𝒩(μ, v)` and every `c`,
   `𝔼[(X - c) ^ 2] = v + (μ - c) ^ 2`, with the integrability statement
@@ -45,7 +44,8 @@ Complements to Mathlib's `ProbabilityTheory.gaussianReal`:
 * `ProbabilityTheory.iIndepFun.hasLaw_sum_gaussianReal`: a finite sum of independent random
   variables of laws `𝒩(μ i, v i)` has law `𝒩(∑ μ i, ∑ v i)`.
 
-The boundedness, limit and integrability facts about the density, with Tau Ceti's derivative
+The limit and integrability facts about the density, with Tau Ceti's bound
+`TauCeti.Probability.gaussianPDFReal_le` and derivative
 `TauCeti.Probability.hasDerivAt_gaussianPDFReal`, are the ingredients of the Gaussian tail bounds in
 `LMLExplore.Probability.Distributions.Gaussian.Tail`.
 There, `integral_exp_neg_sq_div_two_gaussianReal` enters the bound on the expected inverse of the
@@ -64,8 +64,7 @@ with Gaussian rewards.
 
 ## Implementation notes
 
-`gaussianPDFReal_le` and `tendsto_gaussianPDFReal_atTop` are adapted from the LMLPapers project
-(Rémy Degenne),
+`tendsto_gaussianPDFReal_atTop` is adapted from the LMLPapers project (Rémy Degenne),
 `LMLPapers/LeanMachineLearning/ForMathlib/Probability/Distributions/Gaussian/Real.lean` in
 <https://github.com/LeanMachineLearning/LMLPapers>.
 -/
@@ -87,13 +86,6 @@ lemma log_gaussianPDFReal (hv : v ≠ 0) (x : ℝ) :
   rw [gaussianPDFReal_def, log_mul (by positivity) (exp_pos _).ne', log_inv,
     log_sqrt (by positivity), log_exp]
   ring
-
-/-- The Gaussian density is bounded by its value `(√(2π v))⁻¹` at the mean. -/
-lemma gaussianPDFReal_le (μ : ℝ) (v : ℝ≥0) (x : ℝ) :
-    gaussianPDFReal μ v x ≤ (√(2 * π * v))⁻¹ := by
-  rw [gaussianPDFReal_def]
-  refine mul_le_of_le_one_right (by positivity) (exp_le_one_iff.2 ?_)
-  exact div_nonpos_of_nonpos_of_nonneg (neg_nonpos.2 (sq_nonneg _)) (by positivity)
 
 /-- The Gaussian density tends to `0` at `+∞`. -/
 lemma tendsto_gaussianPDFReal_atTop (μ : ℝ) (v : ℝ≥0) :
