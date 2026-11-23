@@ -11,7 +11,7 @@ public import LMLExplore.Identification.Task.RealLaws
 public import Mathlib.Algebra.Order.Field.GeomSum
 public import Mathlib.Analysis.SpecificLimits.Basic
 
-import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
+import LMLExplore.MeasureTheory.Integral.Lebesgue.Markov
 
 /-!
 # Median elimination
@@ -574,27 +574,6 @@ lemma survivors_runStats_eq_streamStats
     streamStats, sum_range_succ, sum_Ico_eq_sub _ (Nat.le_add_right _ _)]
 
 /-! ### One phase -/
-
-/-- **Markov's inequality for a number of events**, from Tau Ceti's `measure_lt_card_filter_le`.
-If each of the events `E b`, `b ∈ S`, has probability at most `η` and `#S ≤ m c` with `m ≠ 0`, then
-at least `m` of these events occur with probability at most `c η`. -/
-private lemma measure_le_card_filter_le {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
-    {E : ι → Set Ω} [∀ b, DecidablePred (· ∈ E b)] {S : Finset ι} {η : ℝ≥0∞}
-    (h : ∀ b ∈ S, P (E b) ≤ η) {m c : ℕ} (hm : m ≠ 0) (hc : #S ≤ m * c) :
-    P {ω | m ≤ #{b ∈ S | ω ∈ E b}} ≤ c * η := by
-  have h_sub : {ω | m ≤ #{b ∈ S | ω ∈ E b}} ⊆ {ω | m - 1 < #{b ∈ S | ω ∈ E b}} := by
-    intro ω hω
-    simp only [Set.mem_ofPred_eq] at hω ⊢
-    omega
-  refine (measure_mono h_sub).trans
-    ((measure_lt_card_filter_le S E _).trans (ENNReal.div_le_of_le_mul' ?_))
-  calc ∑ b ∈ S, P (E b) ≤ #S • η := sum_le_card_nsmul _ _ _ h
-  _ = #S * η := nsmul_eq_mul _ _
-  _ ≤ (↑(m - 1) + 1) * c * η := by
-    gcongr
-    rw [← Nat.cast_add_one, Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.2 hm)]
-    exact_mod_cast hc
-  _ = _ := mul_assoc _ _ _
 
 /-- **One phase of median elimination** [EMM02, proof of Theorem 4]. Let `S` be a set of arms with
 means `μ`, and let `Y a` be the sum of `n ≥ 0` observations of the arm `a`, which deviates from
