@@ -402,7 +402,7 @@ subsets `s` of `n` coordinates, of the products `∏ i ∈ s, e i`, that is, the
 polynomial `MvPolynomial.esymm` of degree `n` evaluated at `e`, divided by the number of its
 terms. It is `1` for `n = 0` (`uStatistic_zero`), the arithmetic mean for `n = 1`
 (`uStatistic_one`), the product of the e-values for `n = card ι` (`uStatistic_card`) and `0` for
-`n > card ι` (`uStatistic_of_card_lt`). -/
+`n > card ι` (`uStatistic_eq_zero_of_card_lt`). -/
 noncomputable def uStatistic (n : ℕ) (e : ι → ℝ≥0∞) : ℝ≥0∞ :=
   ((Fintype.card ι).choose n : ℝ≥0∞)⁻¹ * MvPolynomial.eval e (MvPolynomial.esymm ι ℝ≥0∞ n)
 
@@ -428,7 +428,7 @@ theorem uStatistic_card (e : ι → ℝ≥0∞) : uStatistic (Fintype.card ι) e
 /-- Above the number of e-values, there are no subsets of `n` coordinates, and the U-statistic of
 order `n` is `0`. -/
 @[simp]
-theorem uStatistic_of_card_lt {n : ℕ} (h : Fintype.card ι < n) (e : ι → ℝ≥0∞) :
+theorem uStatistic_eq_zero_of_card_lt {n : ℕ} (h : Fintype.card ι < n) (e : ι → ℝ≥0∞) :
     uStatistic n e = 0 := by
   rw [uStatistic_apply, Finset.powersetCard_eq_empty.2 (by rwa [Finset.card_univ])]
   simp
@@ -472,7 +472,8 @@ theorem isIEMerging_uStatistic (n : ℕ) : IsIEMerging (uStatistic (ι := ι) n)
         exact ENNReal.inv_mul_le_one _
 
 /-- **The U-statistics of order at most the number of e-values are precise merging functions for
-independent e-values**. Above that order, the U-statistic is `0` (`uStatistic_of_card_lt`). -/
+independent e-values**. Above that order, the U-statistic is `0`
+(`uStatistic_eq_zero_of_card_lt`). -/
 theorem isPreciseIEMerging_uStatistic {n : ℕ} (hn : n ≤ Fintype.card ι) :
     IsPreciseIEMerging (uStatistic (ι := ι) n) := by
   refine ⟨isIEMerging_uStatistic n, fun μ _ hμ ↦ ?_⟩
