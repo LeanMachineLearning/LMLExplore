@@ -290,7 +290,7 @@ theorem isAdjuster_of_forall_lintegral_le_one (hA : MonotoneOn A (Ici 1))
     ENNReal.div_le_of_le_mul (by rw [one_mul]; exact_mod_cast Nat.sub_le _ _)
   rw [indicator_of_mem (mem_Iic.2 hj)]
   exact hA (mem_Ici.2 (ENNReal.one_le_inv.2 hj)) (mem_Ici.2 (le_max_left _ _))
-    ((hMj j).trans ((le_partialSups_of_le M (Nat.lt_succ_iff.1 j.2) j).trans (le_max_right _ _)))
+    ((hMj j).trans ((le_partialSups_of_le M (Nat.lt_succ_iff.1 j.isLt) j).trans (le_max_right _ _)))
 
 /-- **The characterization of adjusters as e-lifters** [CR26, Theorem 3]. A function `A`, monotone
 on `[1, ∞]`, is an adjuster exactly when, for every pair of filtrations `𝒢 ≤ ℱ` and every null of

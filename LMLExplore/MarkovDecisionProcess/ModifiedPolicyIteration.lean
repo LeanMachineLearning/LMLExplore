@@ -174,7 +174,8 @@ variable [Countable 𝓐] [Nonempty 𝓐]
 the evaluation operators of the measurable deterministic stationary policies. -/
 private lemma isModifiedPolicyIteration_valueBM :
     LMLExplore.IsModifiedPolicyIteration
-      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
+      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦
+        M.bellmanEvalOp γ (Kernel.deterministic d d.property) hR)
       (M.bellmanOp γ hR) m (fun k ↦ ⟨d k, h.measurable_policy k⟩) (h.valueBM hR hv hvB) where
   map_eq k := LMLExplore.boundedMeasurable.ext fun s ↦ by
     simp only [coeFn_bellmanEvalOp, coeFn_bellmanOp, coeFn_valueBM, h.bellmanEval_eq hR hv hvB k]
@@ -268,13 +269,14 @@ theorem exists_isModifiedPolicyIteration [Finite 𝓐] [Nonempty 𝓐] (m : ℕ 
   have := Fintype.ofFinite 𝓐
   -- the step `k` of modified policy iteration with the greedy policy, on measurable functions
   let step (k : ℕ) (w : {w : 𝓢 → ℝ // Measurable w}) : {w : 𝓢 → ℝ // Measurable w} :=
-    ⟨(M.bellmanEval γ (Kernel.deterministic (M.greedy γ w.1) (measurable_greedy w.2)))^[m k + 1]
-      w.1, measurable_bellmanEval_iterate w.2 _⟩
+    ⟨(M.bellmanEval γ
+        (Kernel.deterministic (M.greedy γ w.val) (measurable_greedy w.property)))^[m k + 1] w.val,
+      measurable_bellmanEval_iterate w.property _⟩
   let seq (k : ℕ) : {w : 𝓢 → ℝ // Measurable w} := Nat.rec ⟨v₀, hv₀⟩ step k
   -- `seq (k + 1) = step k (seq k)` holds by the defining equation of the recursor
   have hseq (k : ℕ) : seq (k + 1) = step k (seq k) := rfl
-  refine ⟨fun k ↦ M.greedy γ (seq k).1, fun k ↦ (seq k).1,
-    ⟨fun k ↦ measurable_greedy (seq k).2, fun k ↦ isApproxGreedy_greedy _, fun k ↦ ?_⟩, rfl⟩
+  refine ⟨fun k ↦ M.greedy γ (seq k).val, fun k ↦ (seq k).val,
+    ⟨fun k ↦ measurable_greedy (seq k).property, fun k ↦ isApproxGreedy_greedy _, fun k ↦ ?_⟩, rfl⟩
   rw [hseq]
 
 end Learning.MDP

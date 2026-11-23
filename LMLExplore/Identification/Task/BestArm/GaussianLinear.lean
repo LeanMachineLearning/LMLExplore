@@ -64,7 +64,7 @@ private lemma ofReal_div_invNormSq_sub_basisFun (hv : ∀ c, v c ≠ 0) (hw : 0 
   have hva : (0 : ℝ) < v a := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv a))
   have hvb : (0 : ℝ) < v b := NNReal.coe_pos.2 (pos_iff_ne_zero.2 (hv b))
   rw [invNormSq_sum_smul_rankOne_sub_of_orthonormal (w := fun c ↦ w c / v c) e.orthonormal
-      (fun c ↦ div_nonneg (hw' c) (v c).2) hab.symm (div_pos hwa hva) (div_pos hwb hvb),
+      (fun c ↦ div_nonneg (hw' c) (v c).property) hab.symm (div_pos hwa hva) (div_pos hwb hvb),
     ← ENNReal.ofReal_div_of_pos (by positivity)]
   congr 1
   field_simp

@@ -278,7 +278,7 @@ theorem exists_finset_sum_le_of_noArbitrageOn (h : NoArbitrageOn a Y) :
   · intro x hx
     simp only [Finset.coe_image, mem_image, Finset.mem_coe] at hx
     obtain ⟨p, -, rfl⟩ := hx
-    exact p.1.2
+    exact p.1.property
   intro π hπ c hc hπc
   have hsum0 : 0 ≤ ∑ i, π i := Finset.sum_nonneg fun i _ ↦ hπ.1 i
   rcases hsum0.eq_or_lt with hs | hs
@@ -419,7 +419,7 @@ theorem exists_mem_nonredundantWeights_le_of_noArbitrageOn (h : NoArbitrageOn a 
         mem_image] at hx
       rcases hx with hx | ⟨p, -, rfl⟩
       · exact hF₀ hx
-      · exact p.1.2
+      · exact p.1.property
     obtain ⟨π, hπ0, hπ⟩ := exists_le_add_sum_mul_of_finset hf hF
       (δ := 1 / ((N : ℝ) + 1)) (by positivity)
     obtain ⟨π', hπ'K, hπ'eq⟩ := exists_mem_nonredundantWeights_sum_mul_eq (a := a) (Y := Y) hπ0
@@ -438,7 +438,7 @@ theorem exists_mem_nonredundantWeights_le_of_noArbitrageOn (h : NoArbitrageOn a 
       have h1 := hπ p.1 (Finset.mem_union_right _ (Finset.mem_image_of_mem _ hp))
       have h2 := Nat.one_div_le_one_div (α := ℝ) (Finset.le_sup (f := Prod.snd) hp)
       simp only [t, mem_ofPred_eq]
-      rw [hπ'eq p.1 p.1.2]
+      rw [hπ'eq p.1 p.1.property]
       linarith
   refine ⟨π, hπK, fun x hx ↦ le_of_forall_nat_le_add_one_div fun n ↦ ?_⟩
   have := mem_iInter.1 hπt (⟨x, hx⟩, n)

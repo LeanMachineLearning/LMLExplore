@@ -93,8 +93,8 @@ private lemma bumpMass_le (n : ℕ) : bumpMass n ≤ ((2 : ℝ) ^ (n + 1))⁻¹ 
   _ = ((2 : ℝ) ^ (n + 1))⁻¹ := mul_one _
 
 private lemma measurableSet_bumpSet (n : ℕ) : MeasurableSet (bumpSet n) :=
-  (measurableSet_le measurable_const measurable_subtype_coe).inter
-    (measurableSet_lt measurable_subtype_coe measurable_const)
+  (measurableSet_le measurable_const measurable_subtypeVal).inter
+    (measurableSet_lt measurable_subtypeVal measurable_const)
 
 /-- The interval `A_n` has Lebesgue measure `δ_n` for `n ≥ 1`. -/
 private lemma volume_bumpSet {n : ℕ} (hn : 1 ≤ n) :

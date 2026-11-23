@@ -535,7 +535,7 @@ private lemma mass_le_and_abs_le_of_le {a R : ℝ} {ν : FiniteMeasure EReal}
   have hbm1 := abs_integral_subgaussianCompensatedExp_le ν (-1)
   have p1 := mul_le_mul_of_nonneg_right hm (norm_nonneg (compensatedExpBCF 1))
   have pm1 := mul_le_mul_of_nonneg_right hm (norm_nonneg (compensatedExpBCF (-1)))
-  have hm0 : (0 : ℝ) ≤ ν.mass := ν.mass.2
+  have hm0 : (0 : ℝ) ≤ ν.mass := ν.mass.property
   rw [abs_le] at hb1 hbm1
   refine ⟨hm, abs_le.2 ⟨?_, ?_⟩⟩ <;> nlinarith [norm_nonneg (compensatedExpBCF 1),
     norm_nonneg (compensatedExpBCF (-1))]
@@ -689,7 +689,7 @@ private lemma sum_div_mul_toReal_le_one {E : ℝ → ℝ≥0∞}
   set P : Measure ℝ := ∑ i : A, ENNReal.ofReal (q i / Q) • Measure.dirac (i : ℝ) with hP
   have hP1 : IsProbabilityMeasure P := LMLExplore.isProbabilityMeasure_sum_smul_dirac hw hsum1 _
   have hPsg : HasSubgaussianMGF id 1 P := hasSubgaussianMGF_sum_div_smul_dirac hq0 hQ0 hmean hker
-  have hEP := hE P hP1 hPsg ⟨A, LMLExplore.sum_smul_dirac_compl_eq_zero fun i ↦ i.2⟩
+  have hEP := hE P hP1 hPsg ⟨A, LMLExplore.sum_smul_dirac_compl_eq_zero fun i ↦ i.property⟩
   rw [hP, LMLExplore.lintegral_sum_smul_dirac] at hEP
   have hconv : ∑ i : A, ENNReal.ofReal (q i / Q) * E i =
       ENNReal.ofReal (∑ i : A, q i / Q * (E i).toReal) := by

@@ -188,7 +188,7 @@ theorem moorePenroseInverse_apply_coe_of_apply_coe_eq {K : Submodule 𝕜 E} {T 
     (hu : IsUnit T_K) (c : K) :
     (T : E →ₗ[𝕜] E).moorePenroseInverse c = Ring.inverse T_K c := by
   have h := hsym.moorePenroseInverse_apply_apply_of_mem_range
-    (ContinuousLinearMap.le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).2)
+    (ContinuousLinearMap.le_range_of_apply_coe_eq hT hu (Ring.inverse T_K c).property)
   rwa [ContinuousLinearMap.coe_coe,
     ContinuousLinearMap.apply_coe_ringInverse_of_apply_coe_eq hT hu] at h
 

@@ -218,7 +218,7 @@ theorem SequentialHalving.measureReal_output_ne_le {σ2 : ℝ≥0}
         (16 * σ2 * numPhases (Fintype.card α) * complexityTwo ν)) := by
   rw [sequentialHalving_def] at h
   refine (MedianElimination.measureReal_output_ne_le_sum hν ha' h).trans ?_
-  have hσH : 0 ≤ (σ2 : ℝ) * complexityTwo ν := mul_nonneg σ2.2 (complexityTwo_nonneg ν)
+  have hσH : 0 ≤ (σ2 : ℝ) * complexityTwo ν := mul_nonneg σ2.property (complexityTwo_nonneg ν)
   calc ∑ j ∈ range (numPhases (Fintype.card α)), 3 * exp (-(pullSchedule (Fintype.card α) T j *
         (armsCount (Fintype.card α) j / 4 + 2 : ℕ)) / (4 * σ2 * complexityTwo ν))
   _ ≤ ∑ _j ∈ range (numPhases (Fintype.card α)), 3 * exp (-((T : ℝ) -

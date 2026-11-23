@@ -238,8 +238,8 @@ theorem exists_le_integral_linearRegret_gaussianLinearEnv_cube
             ∂(trajMeasure alg
               (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ Subtype.val) θ σ2 hθ)) := by
   obtain ⟨θ, hθ, hR⟩ := exists_le_integral_linearRegret_gaussianLinearEnv alg
-    (EuclideanSpace.basisFun ι ℝ) measurable_subtype_coe
-    (fun x i ↦ by rw [EuclideanSpace.basisFun_inner]; exact x.2 i)
+    (EuclideanSpace.basisFun ι ℝ) measurable_subtypeVal
+    (fun x i ↦ by rw [EuclideanSpace.basisFun_inner]; exact x.property i)
     (fun s hs ↦ ⟨⟨WithLp.toLp 2 s, fun i ↦ (hs i).le⟩, fun i ↦ by
       rw [EuclideanSpace.basisFun_inner]⟩) σ2 n
   exact ⟨θ, fun i ↦ by rw [← hθ i, EuclideanSpace.basisFun_inner], hR⟩

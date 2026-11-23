@@ -73,7 +73,7 @@ theorem liminf_iInf_div_eq_zero_iff {ι : Type*} {s : Set ι} {a f : ι → ℝ�
       ⨅ i ∈ s, ⨅ (_ : a i ≠ 0), f i / a i = 0 := by
   constructor
   · -- dividing by a threshold below the mass gives a larger ratio
-    refine fun h ↦ le_zero_iff.1 ((le_liminf_of_le (h := eventually_nhdsWithin_of_forall
+    refine fun h ↦ nonpos_iff_eq_zero.1 ((le_liminf_of_le (h := eventually_nhdsWithin_of_forall
       fun (δ : ℝ≥0∞) (hδ : δ ∈ Ioi 0) ↦ le_iInf₂ fun i hi ↦ le_iInf fun hδi ↦ ?_)).trans h.le)
     exact iInf₂_le_of_le i hi (iInf_le_of_le (hδ.out.trans hδi).ne'
       (ENNReal.div_le_div_left hδi.le _))
@@ -88,8 +88,8 @@ theorem liminf_iInf_div_eq_zero_iff {ι : Type*} {s : Set ι} {a f : ι → ℝ�
   have hv0 : v ≠ 0 := (lt_min hu0 zero_lt_one).ne'
   have hv1 : v ≠ ∞ := ne_top_of_le_ne_top one_ne_top (min_le_right _ _)
   -- so every ratio is at least `c * v / 2`, by the threshold `v * a i / 2`
-  refine (ENNReal.div_pos (mul_ne_zero hc0.ne' hv0) (ofNat_ne_top (n := 2))).ne' (le_zero_iff.1
-    ((le_iInf₂ fun i hi ↦ le_iInf fun hai ↦ ?_).trans h.le))
+  refine (ENNReal.div_pos (mul_ne_zero hc0.ne' hv0) (ofNat_ne_top (n := 2))).ne'
+    (nonpos_iff_eq_zero.1 ((le_iInf₂ fun i hi ↦ le_iInf fun hai ↦ ?_).trans h.le))
   have hai1 : a i ≠ ∞ := ne_top_of_le_ne_top one_ne_top (ha i hi)
   set δ := v * a i / 2 with hδ
   have hδ0 : δ ≠ 0 := (ENNReal.div_pos (mul_ne_zero hv0 hai) (ofNat_ne_top (n := 2))).ne'

@@ -290,7 +290,7 @@ theorem moreauYosidaResolvent_mul_sum_abs {η : ℝ≥0} (hη : 0 < η) {lam : �
       {WithLp.toLp 2 (fun a ↦ softThreshold (η * lam) (z a))} := by
   ext y
   rw [mem_moreauYosidaResolvent_coe_iff hη, mem_singleton_iff]
-  refine Iff.trans ?_ (isMinOn_mul_sum_abs_add_norm_sub_sq_iff (mul_nonneg η.2 hlam) z y)
+  refine Iff.trans ?_ (isMinOn_mul_sum_abs_add_norm_sub_sq_iff (mul_nonneg η.property hlam) z y)
   simp only [mul_assoc]
   -- the two objectives differ only in the instance path to the norm of `EuclideanSpace ℝ α`
   exact Iff.rfl

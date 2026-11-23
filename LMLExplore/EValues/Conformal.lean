@@ -501,10 +501,10 @@ variable {𝓧 𝓨 F : Type*}
 proper of the fold `f` followed by the calibration and test indices of that fold. -/
 private def foldEmbedding (fold : κ → F) (f : F) :
     {i // fold i ≠ f} ⊕ Option {i // fold i = f} → Option κ :=
-  Sum.elim (fun i ↦ some i.1) (Option.map Subtype.val)
+  Sum.elim (fun i ↦ some i.val) (Option.map Subtype.val)
 
 private lemma foldEmbedding_inl (fold : κ → F) (f : F) (i : {i // fold i ≠ f}) :
-    foldEmbedding fold f (.inl i) = some i.1 :=
+    foldEmbedding fold f (.inl i) = some i.val :=
   rfl
 
 private lemma foldEmbedding_inr (fold : κ → F) (f : F) (j : Option {i // fold i = f}) :
@@ -519,7 +519,7 @@ private lemma injective_foldEmbedding (fold : κ → F) (f : F) :
   | none => simp at h
   | some j =>
     simp only [Function.comp_apply, Option.map_some, Option.some_inj] at h
-    exact i.2 (h ▸ j.2)
+    exact i.property (h ▸ j.property)
 
 variable [Fintype F]
 
@@ -557,7 +557,7 @@ private lemma setOf_exchangeableFamily_subset_fold [Countable κ] (hW : ∀ j, M
     (f : F) :
     {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} ⊆
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P fun (j : Option {i // fold i = f}) ω ↦
-        ((fun i : {i // fold i ≠ f} ↦ W (some i.1) ω), W (j.map Subtype.val) ω)} := by
+        ((fun i : {i // fold i ≠ f} ↦ W (some i.val) ω), W (j.map Subtype.val) ω)} := by
   intro P hP
   -- `ExchangeableFamily.prodMk_inl_inr` needs the instance `IsFiniteMeasure P`.
   have := hP.1
@@ -570,8 +570,8 @@ omit [Fintype F] in
 e-variable for the probability measures under which the sample is exchangeable. -/
 private lemma isEVar_splitConformalEPredictor_fold (f : F) (hN : IsNonconformityEMeasure (N f))
     (hs : Measurable (Function.uncurry (s f))) (hW : ∀ j, Measurable (W j)) :
-    IsEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.1) ω)
-        (fun i ↦ W (some i.1) ω) (W none ω).1 (W none ω).2)
+    IsEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.val) ω)
+        (fun i ↦ W (some i.val) ω) (W none ω).1 (W none ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} := by
   simpa only [Option.map_some, Option.map_none] using
     (hN.isEVar_splitConformalEPredictor (W := fun j ↦ W (j.map Subtype.val)) hs
@@ -586,8 +586,8 @@ private lemma isExactEVar_splitConformalEPredictor_fold (f : F)
     (hN : IsNonconformityMeasure (N f))
     (hsum : ∀ v, ∑ j, N f v j = Fintype.card (Option {i // fold i = f}))
     (hs : Measurable (Function.uncurry (s f))) (hW : ∀ j, Measurable (W j)) :
-    IsExactEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.1) ω)
-        (fun i ↦ W (some i.1) ω) (W none ω).1 (W none ω).2)
+    IsExactEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.val) ω)
+        (fun i ↦ W (some i.val) ω) (W none ω).1 (W none ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} := by
   simpa only [Option.map_some, Option.map_none] using
     (hN.isExactEVar_splitConformalEPredictor (W := fun j ↦ W (j.map Subtype.val)) hsum hs

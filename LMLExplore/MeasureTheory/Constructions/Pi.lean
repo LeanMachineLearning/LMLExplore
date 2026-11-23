@@ -435,7 +435,7 @@ theorem setLIntegral_eq_ite_of_ae_prefix (hpre : ∀ᵐ ω' ∂μ, ∀ i < k, ω
   have hae : ∀ᵐ ω' ∂μ, (ω' ∈ (fun (ω : ℕ → β) (i : Fin k) ↦ ω i) ⁻¹' B ↔
       ω ∈ (fun (ω : ℕ → β) (i : Fin k) ↦ ω i) ⁻¹' B) := by
     filter_upwards [hpre] with ω' h
-    have : (fun i : Fin k ↦ ω' i) = fun i : Fin k ↦ ω i := funext fun i ↦ h i i.2
+    have : (fun i : Fin k ↦ ω' i) = fun i : Fin k ↦ ω i := funext fun i ↦ h i i.isLt
     simp only [Set.mem_preimage, this]
   split_ifs with hω
   · rw [Measure.restrict_eq_self_of_ae_mem (hae.mono fun ω' h ↦ h.2 hω)]

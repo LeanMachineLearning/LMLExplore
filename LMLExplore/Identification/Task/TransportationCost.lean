@@ -194,8 +194,9 @@ lemma exists_pos_mem_simplex_mul_cost_le (hw : w ∈ simplex α) {c : ℝ≥0∞
   have hc1 : (c : ℝ) < 1 := by exact_mod_cast ENNReal.coe_lt_one_iff.1 hc
   set u : α → ℝ := fun _ ↦ (Fintype.card α : ℝ)⁻¹
   refine ⟨(c : ℝ) • w + (1 - (c : ℝ)) • u,
-    convex_simplex α hw (uniform_mem_simplex α) c.2 (sub_nonneg.2 hc1.le) (add_sub_cancel _ _),
-    fun a ↦ add_pos_of_nonneg_of_pos (mul_nonneg c.2 ((mem_simplex_iff.1 hw).1 a))
+    convex_simplex α hw (uniform_mem_simplex α) c.property (sub_nonneg.2 hc1.le)
+      (add_sub_cancel _ _),
+    fun a ↦ add_pos_of_nonneg_of_pos (mul_nonneg c.property ((mem_simplex_iff.1 hw).1 a))
       (mul_pos (sub_pos.2 hc1) (by positivity)), fun θ θ' ↦ ?_⟩
   calc (c : ℝ≥0∞) * task.cost w θ θ' = task.cost (c • w) θ θ' := by
         rw [cost_smul, ENNReal.smul_def, smul_eq_mul]
@@ -279,8 +280,8 @@ it is an infimum of costs, which are additive and positively homogeneous there. 
 theorem concaveOn_altCost (θ : Θ) (i : ℐ) :
     ConcaveOn ℝ≥0 (Set.Ici 0) fun w ↦ task.altCost θ w i := by
   refine ⟨NNReal.convex_iff.2 (convex_Ici 0), fun w hw v hv a b _ _ _ ↦ ?_⟩
-  have hw' : 0 ≤ a • w := smul_nonneg a.2 hw
-  have hv' : 0 ≤ b • v := smul_nonneg b.2 hv
+  have hw' : 0 ≤ a • w := smul_nonneg a.property hw
+  have hv' : 0 ≤ b • v := smul_nonneg b.property hv
   refine le_iInf₂ fun θ' hθ' ↦ ?_
   rw [task.cost_add hw' hv', task.cost_smul, task.cost_smul]
   gcongr <;> exact task.altCost_le_cost hθ' _

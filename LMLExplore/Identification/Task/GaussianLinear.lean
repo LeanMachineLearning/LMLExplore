@@ -81,7 +81,8 @@ lemma cost_gaussianReal_inner (hv : ∀ a, v a ≠ 0)
       inner_sub_right]
     congr 1
     field_simp
-  · exact fun a _ ↦ div_nonneg (mul_nonneg (div_nonneg (hw a) (v a).2) (sq_nonneg _)) zero_le_two
+  · exact fun a _ ↦
+      div_nonneg (mul_nonneg (div_nonneg (hw a) (v a).property) (sq_nonneg _)) zero_le_two
 
 /-- For a linear model with Gaussian observations, the transportation cost of an allocation
 `w ≥ 0` is continuous in the alternative. -/
@@ -104,7 +105,7 @@ theorem biInf_cost_gaussianReal_inner (hv : ∀ a, v a ≠ 0)
         invNormSq (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E) y := by
   have hV : ∀ x, 0 ≤ ⟪x, (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a)) x⟫_ℝ :=
     (isPositive_sum_smul_rankOne Finset.univ φ fun a _ ↦
-      div_nonneg (hw a) (v a).2).inner_nonneg_right
+      div_nonneg (hw a) (v a).property).inner_nonneg_right
   have h := biInf_ofReal_inner_sub_apply_sub_eq_div_invNormSq
     (V := (∑ a, (w a / v a) • rankOne ℝ (φ a) (φ a) : E →L[ℝ] E)) hV hc
   have h2 : (2 : ℝ≥0∞) ≠ 0 := two_ne_zero

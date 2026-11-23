@@ -146,7 +146,7 @@ theorem bellman_le_value_succ (k : ℕ) :
   -- functions to measurable ones. The abstract policy improvement step is applied with the
   -- evaluation operator of `d (k + 1)` in its place: the two agree at the value of `d k`.
   have hle := LMLExplore.map_le_of_le_map (D := {d : 𝓢 → 𝓐 // Measurable d})
-    (T := fun d ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
+    (T := fun d ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.property) hR)
     (B := M.bellmanEvalOp γ (Kernel.deterministic (d (k + 1)) (h.measurable (k + 1))) hR)
     (x := M.valueBM γ (Kernel.deterministic (d k) (h.measurable k)) hγ hR)
     (d := ⟨d (k + 1), h.measurable (k + 1)⟩)
@@ -222,7 +222,8 @@ variable [Countable 𝓐] [Nonempty 𝓐]
 iteration of the evaluation operators of the measurable deterministic stationary policies. -/
 private lemma isPolicyIteration_valueBM :
     LMLExplore.IsPolicyIteration
-      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEvalOp γ (Kernel.deterministic d d.2) hR)
+      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦
+        M.bellmanEvalOp γ (Kernel.deterministic d d.property) hR)
       (M.bellmanOp γ hR) (fun k ↦ ⟨d k, h.measurable k⟩)
       (fun k ↦ M.valueBM γ (Kernel.deterministic (d k) (h.measurable k)) hγ hR) where
   isFixedPt _ := isFixedPt_bellmanEvalOp_valueBM hγ hR
@@ -266,7 +267,7 @@ theorem exists_le_card_value_eq_optValue [Nonempty 𝓢] [Finite 𝓢] [Measurab
       M.value γ (Kernel.deterministic (d k) (h.measurable k)) = M.optValue γ := by
   have := Fintype.ofFinite 𝓢
   have hpi : LMLExplore.IsPolicyIteration
-      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEval γ (Kernel.deterministic d d.2))
+      (fun d : {d : 𝓢 → 𝓐 // Measurable d} ↦ M.bellmanEval γ (Kernel.deterministic d d.property))
       (M.bellman γ) (fun k ↦ ⟨d k, h.measurable k⟩)
       (fun k ↦ M.value γ (Kernel.deterministic (d k) (h.measurable k))) :=
     ⟨fun _ ↦ bellmanEval_value hγ hR, h.bellmanEval_succ_value hγ hR⟩
@@ -301,12 +302,12 @@ theorem exists_isPolicyIteration [Finite 𝓐] [Nonempty 𝓐] (hγ : γ < 1)
   have := Fintype.ofFinite 𝓐
   -- one improvement step, keeping the current policy when it is greedy for its value
   let step (d : {d : 𝓢 → 𝓐 // Measurable d}) : {d : 𝓢 → 𝓐 // Measurable d} :=
-    if M.IsApproxGreedy γ 0 (M.value γ (Kernel.deterministic d d.2)) d.1 then d
-    else ⟨M.greedy γ (M.value γ (Kernel.deterministic d d.2)), measurable_greedy
+    if M.IsApproxGreedy γ 0 (M.value γ (Kernel.deterministic d d.property)) d.val then d
+    else ⟨M.greedy γ (M.value γ (Kernel.deterministic d d.property)), measurable_greedy
       (measurable_value hγ hR)⟩
   let seq (k : ℕ) := step^[k] ⟨d₀, hd₀⟩
   have hseq (k : ℕ) : seq (k + 1) = step (seq k) := iterate_succ_apply' _ _ _
-  refine ⟨fun k ↦ (seq k).1, ⟨fun k ↦ (seq k).2, fun k ↦ ?_⟩, rfl,
+  refine ⟨fun k ↦ (seq k).val, ⟨fun k ↦ (seq k).property, fun k ↦ ?_⟩, rfl,
     (IsPolicyIteration.keepsGreedy_def _).2 fun k hk ↦ ?_⟩
   · simp only [hseq, step]
     split_ifs with hc

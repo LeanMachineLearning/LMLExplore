@@ -157,7 +157,7 @@ theorem sum_range_exp_neg_mul_div_le {c : ℝ} (hc : 0 < c) (m : ℕ) :
   have hr1 : exp (-c) < 1 := exp_lt_one_iff.2 (by linarith)
   have h := hasSum_pow_div_log_of_abs_lt_one (abs_lt.2 ⟨by linarith [exp_pos (-c)], hr1⟩)
   have hterm (s : ℕ) : exp (-(c * (s + 1))) = exp (-c) ^ (s + 1) := by
-    rw [← exp_nat_mul]
+    rw [← exp_natCast_mul]
     push_cast
     ring_nf
   simp_rw [hterm]
@@ -254,7 +254,7 @@ theorem sum_range_ite_mul_le_exp_neg_mul_le {D L c : ℝ} (hD : 0 < D) (hL : 0 �
 theorem hasSum_exp_neg_add_mul {d : ℝ} (hd : 0 < d) (m : ℕ) :
     HasSum (fun k : ℕ ↦ exp (-((k + m) * d))) (exp (-(m * d)) / (1 - exp (-d))) := by
   have h_eq (k : ℕ) : exp (-((k + m) * d)) = exp (-(m * d)) * exp (-d) ^ k := by
-    rw [← exp_nat_mul, ← exp_add]
+    rw [← exp_natCast_mul, ← exp_add]
     ring_nf
   simp_rw [h_eq, div_eq_mul_inv]
   exact (hasSum_geometric_of_lt_one (exp_pos _).le (exp_lt_one_iff.2 (neg_lt_zero.2 hd))).mul_left _
@@ -274,7 +274,7 @@ theorem summable_exp_neg_of_tendsto_div_log {f : ℕ → ℝ}
   filter_upwards [hf.eventually_ge_atTop 2, eventually_ge_atTop 2] with n hn hn2
   have hn1 : (1 : ℝ) < n := by exact_mod_cast hn2
   rw [le_div_iff₀ (log_pos hn1)] at hn
-  rw [norm_of_nonneg (exp_pos _).le, one_div, ← exp_log (zero_lt_one.trans hn1), ← exp_nat_mul,
+  rw [norm_of_nonneg (exp_pos _).le, one_div, ← exp_log (zero_lt_one.trans hn1), ← exp_natCast_mul,
     ← exp_neg, Nat.cast_ofNat]
   exact exp_le_exp.2 (neg_le_neg hn)
 

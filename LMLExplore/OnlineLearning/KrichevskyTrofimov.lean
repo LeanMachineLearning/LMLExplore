@@ -381,10 +381,10 @@ theorem krichevskyTrofimov_regret_le (hε : 0 < ε) (hL : 0 < L) (hg : ∀ t < n
   have hdual := regret_mul_le_of_mul_exp_sq_div_le_wealth hL hnR hβ hW u
   -- `n * u ^ 2 / β ^ 2 = (e |u| n / ε) ^ 2`
   have hβsq : (n : ℝ) * u ^ 2 / β ^ 2 = (exp 1 * |u| * n / ε) ^ 2 := by
-    rw [hβ_def, mul_pow, ← exp_nat_mul]
+    rw [hβ_def, mul_pow, ← exp_natCast_mul]
     have : ((2 : ℕ) : ℝ) * (-(log n / 2) - 1) = -log n - 2 := by push_cast; ring
     rw [this, exp_sub, exp_neg, exp_log hnR, div_pow, mul_pow, mul_pow, sq_abs,
-      show exp 2 = exp 1 ^ 2 by rw [← exp_nat_mul]; norm_num]
+      show exp 2 = exp 1 ^ 2 by rw [← exp_natCast_mul]; norm_num]
     field_simp
   rw [hβsq] at hdual
   -- `log (1 + z ^ 2) ≤ 2 log (z + 1)` for `z = e |u| n / ε ≥ 0`

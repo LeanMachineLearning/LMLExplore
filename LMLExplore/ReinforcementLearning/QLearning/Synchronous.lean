@@ -200,9 +200,10 @@ theorem syncQLearning_mem_Icc [Nonempty 𝓐] {B C : ℝ} (hη : ∀ t, η (t + 
     -- the value estimate at the sampled state lies in `[0, B]`
     have hV : (⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a)) ∈ Set.Icc 0 B :=
       ciSup_mem_Icc fun a ↦ ih _
-    have hγV : 0 ≤ (γ : ℝ) * ⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a) := mul_nonneg γ.2 hV.1
+    have hγV : 0 ≤ (γ : ℝ) * ⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a) :=
+      mul_nonneg γ.property hV.1
     have hγB : (γ : ℝ) * ⨆ a, syncQLearning r γ η Q₀ t ω (ω t p, a) ≤ γ * B :=
-      mul_le_mul_of_nonneg_left hV.2 γ.2
+      mul_le_mul_of_nonneg_left hV.2 γ.property
     rw [syncQLearning_succ]
     refine ⟨add_nonneg (mul_nonneg (sub_nonneg.2 h1) (ih p).1)
       (mul_nonneg h0 (add_nonneg (hr p).1 hγV)), ?_⟩

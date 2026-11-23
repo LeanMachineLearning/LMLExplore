@@ -343,7 +343,7 @@ private lemma ofReal_exp_le_coverMixture {L ε : ℝ} (hεL : ε ≤ L) {k₀ K 
   · -- too few observations: the bound is below `2⁻¹ ^ N`
     refine le_trans ?_ (pow_le_coverMixture N ω)
     rw [← ENNReal.ofReal_ofNat 2, ← ENNReal.ofReal_inv_of_pos two_pos,
-      ← ENNReal.ofReal_pow (by norm_num), ← hexp2, ← Real.exp_nat_mul]
+      ← ENNReal.ofReal_pow (by norm_num), ← hexp2, ← Real.exp_natCast_mul]
     refine ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 ?_)
     have hN : (N : ℝ) ≤ K := by exact_mod_cast hNK
     have h1 : (L - ε) * (N - K - badCount G N ω) ≤ 0 :=

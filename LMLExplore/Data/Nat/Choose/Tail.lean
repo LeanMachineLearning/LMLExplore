@@ -230,7 +230,7 @@ theorem two_pow_mul_exp_neg_mul_klBerReal_mul_sqrt_div_le_choose (n k : ℕ) :
   have hlhs : 2 ^ n * exp (-(n * klBerReal (k / n) (1 / 2))) * √(2 * π * n / (k * (n - k))) /
       exp 2 = exp (n * Real.log 2 + -(n * klBerReal (k / n) (1 / 2)) +
         Real.log (2 * π * n / (k * (n - k))) / 2 - 2) := by
-    rw [Real.exp_sub, Real.exp_add, Real.exp_add, Real.exp_nat_mul, Real.exp_log two_pos,
+    rw [Real.exp_sub, Real.exp_add, Real.exp_add, Real.exp_natCast_mul, Real.exp_log two_pos,
       ← Real.log_sqrt (by positivity), Real.exp_log (Real.sqrt_pos.2 (by positivity))]
   rw [hlhs, ← Real.exp_log hC, Real.exp_le_exp, hx, hkl]
   linarith
@@ -241,7 +241,7 @@ end Stirling
 private lemma exp_two_le_three_mul_sqrt_two_pi : exp 2 ≤ 3 * √(2 * π) := by
   have h4 : exp 2 ^ 2 ≤ 18 * π := by
     have : exp 2 ^ 2 = exp 1 ^ 4 := by
-      rw [← Real.exp_nat_mul, ← Real.exp_nat_mul]
+      rw [← Real.exp_natCast_mul, ← Real.exp_natCast_mul]
       norm_num
     rw [this]
     have := exp_one_lt_d9
@@ -272,7 +272,7 @@ theorem exp_neg_mul_klBerReal_le_sum_Icc_choose_div_two_pow (hnk : n ≤ 2 * k) 
     have hkR : (k : ℝ) ≠ 0 := by positivity
     have hexp : exp (-(k * klBerReal ((k : ℝ) / k) (1 / 2))) = 1 / 2 ^ k := by
       have hkl : klBerReal 1 (1 / 2) = Real.log 2 := by simp [klBerReal_apply]
-      rw [div_self hkR, hkl, exp_neg, Real.exp_nat_mul, Real.exp_log two_pos, one_div]
+      rw [div_self hkR, hkl, exp_neg, Real.exp_natCast_mul, Real.exp_log two_pos, one_div]
     rw [hexp, Icc_self, sum_singleton, Nat.choose_self, Nat.cast_one]
     have h3 : 1 / 3 * (√k / (2 * k - k + √k)) ≤ 1 := by
       have : √(k : ℝ) / (2 * k - k + √k) ≤ 1 :=

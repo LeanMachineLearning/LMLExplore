@@ -187,8 +187,8 @@ theorem continuous_subLogInv : Continuous subLogInv := by
   let g : ℝ → Ici (1 : ℝ) := fun x ↦ ⟨subLogInv x, one_le_subLogInv x⟩
   have hg : Monotone g := fun x x' h ↦ Subtype.mk_le_mk.2 (monotone_subLogInv h)
   have hsurj : Function.Surjective g := fun u ↦
-    ⟨u.1 - log u.1, Subtype.ext (subLogInv_sub_log u.2)⟩
-  exact continuous_subtype_val.comp (hg.continuous_of_surjective hsurj)
+    ⟨u.val - log u.val, Subtype.ext (subLogInv_sub_log u.property)⟩
+  exact continuous_subtypeVal.comp (hg.continuous_of_surjective hsurj)
 
 /-- `x ≤ h⁻¹(x)`. -/
 theorem self_le_subLogInv (x : ℝ) : x ≤ subLogInv x := by

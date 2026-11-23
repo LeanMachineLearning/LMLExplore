@@ -281,7 +281,7 @@ theorem exists_map_eq_add_smul_iff_bddAbove [ProperSpace E]
   · rintro ⟨g, h, hh⟩
     refine ⟨2 * orderUnitOsc e h, ?_⟩
     rintro _ ⟨γ, rfl⟩
-    exact hT.orderUnitOsc_le_two_mul_orderUnitOsc hnorm γ.2 (hv γ γ.2) hh
+    exact hT.orderUnitOsc_le_two_mul_orderUnitOsc hnorm γ.property (hv γ γ.property) hh
   · rintro ⟨B, hB⟩
     obtain ⟨g, h, hh, -⟩ := hT.exists_map_eq_add_smul_of_orderUnitOsc_le hnorm hv
       fun γ hγ ↦ hB ⟨⟨γ, hγ⟩, rfl⟩

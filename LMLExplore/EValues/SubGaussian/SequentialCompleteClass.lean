@@ -477,11 +477,11 @@ private lemma isClosed_setOf_le_expVec (F : Finset ℝ) :
   have hT : CompactSpace {π : FiniteMeasure EReal // π.mass ≤ 1} :=
     isCompact_iff_compactSpace.1 (isCompact_setOfPred_finiteMeasure_le_of_compactSpace EReal 1)
   have heq : {v : F → ℝ | ∃ π : FiniteMeasure EReal, π.mass ≤ 1 ∧ v ≤ expVec F π} =
-      {v : F → ℝ | ∃ π : {π : FiniteMeasure EReal // π.mass ≤ 1}, v ≤ expVec F π.1} := by
+      {v : F → ℝ | ∃ π : {π : FiniteMeasure EReal // π.mass ≤ 1}, v ≤ expVec F π.val} := by
     ext v
-    exact ⟨fun ⟨π, hπ1, hπ⟩ ↦ ⟨⟨π, hπ1⟩, hπ⟩, fun ⟨π, hπ⟩ ↦ ⟨π.1, π.2, hπ⟩⟩
+    exact ⟨fun ⟨π, hπ1, hπ⟩ ↦ ⟨⟨π, hπ1⟩, hπ⟩, fun ⟨π, hπ⟩ ↦ ⟨π.val, π.property, hπ⟩⟩
   rw [heq]
-  exact LMLExplore.isClosed_setOf_exists_le ((continuous_expVec F).comp continuous_subtype_val)
+  exact LMLExplore.isClosed_setOf_exists_le ((continuous_expVec F).comp continuous_subtypeVal)
     fun _ ↦ ⟨univ, isCompact_univ, fun _ _ _ _ ↦ mem_univ _⟩
 
 /-- The vectors dominated by the vector of a mixing measure of mass at most `1` form a convex
@@ -869,7 +869,7 @@ private lemma lintegral_envelope_update_le (E : ℕ → (ℕ → ℝ) → ℝ≥
   let St : ℝ → Type := fun y ↦ {p // IsStrategy (k + 1) (Function.update ω k y) p}
   have g₀ : ∀ y, St y := fun y ↦
     ⟨_, isStrategy_dirac_extendZero k (Function.update ω k y)⟩
-  let val : (y : ℝ) → St y → ℝ≥0∞ := fun y p ↦ ∫⁻ ω', E (p.1.2 ω') ω' ∂p.1.1
+  let val : (y : ℝ) → St y → ℝ≥0∞ := fun y p ↦ ∫⁻ ω', E (p.val.2 ω') ω' ∂p.val.1
   have hW : ∀ y, envelope E (k + 1) (Function.update ω k y) * P {y} =
       ⨆ g : (∀ y, St y), val y (g y) * P {y} := by
     intro y
@@ -885,10 +885,10 @@ private lemma lintegral_envelope_update_le (E : ℕ → (ℕ → ℝ) → ℝ≥
       · exact ⟨by gcongr, le_rfl⟩
       · exact ⟨le_rfl, by gcongr; exact le_of_not_ge h⟩⟩]
   refine iSup_le fun g ↦ ?_
-  have hmem := isStrategy_graft hP hS (fun y ↦ (g y).1) (fun y ↦ (g y).2)
-  calc ∑ y ∈ S, val y (g y) * P {y} = ∫⁻ ω', E (graftTime k S (fun y ↦ (g y).1.2) ω') ω'
-        ∂graftLaw S P (fun y ↦ (g y).1) := by
-        rw [lintegral_graft (fun y ↦ (g y).1) (fun y ↦ (g y).2)]
+  have hmem := isStrategy_graft hP hS (fun y ↦ (g y).val) (fun y ↦ (g y).property)
+  calc ∑ y ∈ S, val y (g y) * P {y} = ∫⁻ ω', E (graftTime k S (fun y ↦ (g y).val.2) ω') ω'
+        ∂graftLaw S P (fun y ↦ (g y).val) := by
+        rw [lintegral_graft (fun y ↦ (g y).val) (fun y ↦ (g y).property)]
         exact Finset.sum_congr rfl fun y _ ↦ mul_comm _ _
     _ ≤ envelope E k ω := lintegral_le_envelope E hmem
 

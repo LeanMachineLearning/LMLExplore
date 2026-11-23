@@ -109,7 +109,7 @@ theorem mem_effectiveSet_of_forall_exists_etvDist_lt
       let ⟨ν, hν, hνμ⟩ := h ε hε
       ⟨⟨ν, hν⟩, hνμ⟩
   refine mem_effectiveSet_of_measure_le_liminf (l := Filter.comap f (𝓝 0)) (μs := Subtype.val)
-    (.of_forall fun ν ↦ ν.2) fun s hs ↦ ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
+    (.of_forall fun ν ↦ ν.property) fun s hs ↦ ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
   have hev : ∀ᶠ ν : effectiveSet S in Filter.comap f (𝓝 0), μ s - ε ≤ (ν : Measure Ω) s := by
     filter_upwards [tendsto_comap.eventually (gt_mem_nhds (ENNReal.coe_pos.2 hε))] with ν hν
     exact tsub_le_iff_right.2 (measure_le_add_of_etvDist_le hs hν.le)

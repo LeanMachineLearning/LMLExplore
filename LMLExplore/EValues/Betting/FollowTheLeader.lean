@@ -142,7 +142,7 @@ private lemma logBetFactor_nonneg {l : ℝ} {e : ℝ≥0} (hl : 0 ≤ l) (he : 1
 nonpositive. -/
 private lemma logBetFactor_nonpos {l : ℝ} {e : ℝ≥0} (hl : l ∈ Icc (0 : ℝ) 1)
     (he : (e : ℝ) ≤ 1) : logBetFactor l e ≤ 0 :=
-  Real.log_nonpos (one_add_mul_sub_one_nonneg hl e.2) (by nlinarith [hl.1])
+  Real.log_nonpos (one_add_mul_sub_one_nonneg hl e.property) (by nlinarith [hl.1])
 
 /-- The logarithm of one round with a fraction in `[0, 1]` is at most `log (1 + e)`. -/
 private lemma logBetFactor_le_log_one_add {l : ℝ} (hl : l ∈ Icc (0 : ℝ) 1) (e : ℝ≥0) :

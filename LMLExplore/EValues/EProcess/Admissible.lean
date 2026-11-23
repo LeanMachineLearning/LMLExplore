@@ -286,14 +286,14 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : 
     [SigmaFiniteFiltration μ ℱ] (hSμ : ∀ P ∈ S, ∀ n, P.trim (ℱ.le n) ≪ μ.trim (ℱ.le n))
     (hS : ∀ P ∈ S, SFinite P) (hE : IsEProcess E ℱ S) :
     ∃ E' : ℕ → Ω → ℝ≥0∞, IsAdmissibleEProcess E' ℱ S ∧ E ≤ E' := by
-  have (P : S) : SFinite (P : Measure Ω) := hS P P.2
+  have (P : S) : SFinite (P : Measure Ω) := hS P P.property
   -- at every time, a countable subfamily with the null `ℱ n`-measurable sets of the null, by the
   -- Halmos–Savage lemma; the sum of the members of their union is a reference measure
   have h (n : ℕ) : ∃ T : Set S, T.Countable ∧ ∀ A, MeasurableSet[ℱ n] A →
       (∀ P ∈ T, (P : Measure Ω) A = 0) → ∀ P ∈ S, P A = 0 := by
     obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
       (μ := μ.trim (ℱ.le n)) (ν := fun P : S ↦ (P : Measure Ω).trim (ℱ.le n))
-      fun P ↦ hSμ P P.2 n
+      fun P ↦ hSμ P P.property n
     refine ⟨T, hT, fun A hA hTA P hP ↦ ?_⟩
     have h := hT_null A hA (fun P hPT ↦ by rw [trim_measurableSet_eq _ hA]; exact hTA P hPT)
       ⟨P, hP⟩
@@ -304,6 +304,6 @@ theorem IsEProcess.exists_isAdmissibleEProcess_le_of_absolutelyContinuous (μ : 
     (Measure.sum fun P : ⋃ n, T n ↦ ((P : S) : Measure Ω)) fun n A hA ↦ ?_
   rw [Measure.sum_apply_eq_zero' (ℱ.le n A hA)]
   refine ⟨fun h ↦ hT_null n A hA fun P hP ↦ h ⟨P, mem_iUnion.2 ⟨n, hP⟩⟩,
-    fun h P ↦ h _ (P : S).2⟩
+    fun h P ↦ h _ (P : S).property⟩
 
 end ProbabilityTheory

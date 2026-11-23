@@ -228,12 +228,12 @@ theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
     by_cases hq : (q : ℝ) = 1
     · rw [rateFunction_eq_top_of_ae_ge aemeasurable_id (hae.mono fun z hz ↦ hz.1)
         ((measureReal_eq_zero_iff).1 (by rw [hP, hq, sub_self])), eq_comm,
-        klBer_eq_top_iff hx q.2]
+        klBer_eq_top_iff hx q.property]
       exact Or.inr ⟨hq, zero_ne_one⟩
     · rw [rateFunction_eq_ofReal_neg_log_measureReal_of_ae_ge aemeasurable_id
         (hae.mono fun z hz ↦ hz.1)
         (fun h ↦ sub_ne_zero.2 (Ne.symm hq) (by rw [← hP]; exact (measureReal_eq_zero_iff).2 h)),
-        hP, klBer_eq_ofReal_klBerReal hx q.2 ((klBer_ne_top_iff hx q.2).2
+        hP, klBer_eq_ofReal_klBerReal hx q.property ((klBer_ne_top_iff hx q.property).2
           ⟨fun _ ↦ rfl, fun h ↦ absurd h hq⟩)]
       simp [klBerReal_apply]
   rcases hx.2.eq_or_lt with rfl | hx1
@@ -244,20 +244,20 @@ theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
         (by norm_num)]
     by_cases hq : (q : ℝ) = 0
     · rw [rateFunction_eq_top_of_ae_le aemeasurable_id (hae.mono fun z hz ↦ hz.2)
-        ((measureReal_eq_zero_iff).1 (by rw [hP, hq])), eq_comm, klBer_eq_top_iff hx q.2]
+        ((measureReal_eq_zero_iff).1 (by rw [hP, hq])), eq_comm, klBer_eq_top_iff hx q.property]
       exact Or.inl ⟨hq, one_ne_zero⟩
     · rw [rateFunction_eq_ofReal_neg_log_measureReal_of_ae_le aemeasurable_id
         (hae.mono fun z hz ↦ hz.2)
         (fun h ↦ hq (by rw [← hP]; exact (measureReal_eq_zero_iff).2 h)),
-        hP, klBer_eq_ofReal_klBerReal hx q.2 ((klBer_ne_top_iff hx q.2).2
+        hP, klBer_eq_ofReal_klBerReal hx q.property ((klBer_ne_top_iff hx q.property).2
           ⟨fun h ↦ absurd h hq, fun _ ↦ rfl⟩), klBerReal_one_left]
   -- At an interior level, the law is a Dirac mass at `0` or `1`, or a member of the family.
-  rcases q.2.1.eq_or_lt with hq0 | hq0
+  rcases q.property.1.eq_or_lt with hq0 | hq0
   · obtain rfl : q = 0 := Subtype.ext hq0.symm
     rw [bernoulliMeasure_zero, rateFunction_eq_top_of_ae_lt aemeasurable_id
       (by rw [ae_dirac_eq]; exact hx0), eq_comm, klBer_eq_top_iff hx (by simp)]
     exact Or.inl ⟨rfl, hx0.ne'⟩
-  rcases q.2.2.eq_or_lt with hq1 | hq1
+  rcases q.property.2.eq_or_lt with hq1 | hq1
   · obtain rfl : q = 1 := Subtype.ext hq1
     rw [bernoulliMeasure_one, rateFunction_eq_top_of_ae_gt aemeasurable_id
       (by rw [ae_dirac_eq]; exact hx1), eq_comm, klBer_eq_top_iff hx (by simp)]
@@ -268,7 +268,7 @@ theorem rateFunction_id_bernoulliMeasure (q : I) (hx : x ∈ Icc 0 1) :
       (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact ⟨hx0, hx1⟩)
       (by rw [expFamilyMeans_bernoulliMeasure_sigmoid]; exact ⟨hq0, hq1⟩),
     expFamilyDiv_bernoulliMeasure_sigmoid 0 ⟨hx0, hx1⟩ ⟨hq0, hq1⟩,
-    klBer_eq_ofReal_klBerReal hx q.2 (klBer_ne_top ⟨hq0, hq1⟩)]
+    klBer_eq_ofReal_klBerReal hx q.property (klBer_ne_top ⟨hq0, hq1⟩)]
 
 /-- The Cramér rate function of `Ber((1 : ℝ), 0, q)` is infinite at every level `x ∉ [0, 1]`,
 beyond the essential infimum `0` or supremum `1` of the law. -/

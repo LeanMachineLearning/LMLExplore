@@ -99,7 +99,7 @@ lemma seqBlock_succ (m j : ℕ) (ω : ℕ → 𝓧) :
 /-- The `j`-th block of `m` terms is a function of the terms `j * m, …, j * m + m - 1`. -/
 lemma dependsOn_seqBlock (m j : ℕ) :
     DependsOn (seqBlock (𝓧 := 𝓧) m j) (Set.Ico (j * m) (j * m + m)) :=
-  fun _ _ h ↦ funext fun i ↦ h _ ⟨Nat.le_add_right _ _, Nat.add_lt_add_left i.2 _⟩
+  fun _ _ h ↦ funext fun i ↦ h _ ⟨Nat.le_add_right _ _, Nat.add_lt_add_left i.isLt _⟩
 
 /-- A block is measurable. -/
 @[fun_prop]

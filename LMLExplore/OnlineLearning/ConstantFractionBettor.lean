@@ -277,7 +277,7 @@ theorem constantFractionBettor_regret_le (hε : 0 < ε) (hL : 0 < L) (ha : 0 < a
   have hβsq : 2 * ((n : ℝ) + a) * u ^ 2 / β ^ 2 =
       2 * (n + a) * exp (n / (2 * a)) * u ^ 2 / ε ^ 2 := by
     have hβ2 : β ^ 2 = ε ^ 2 / exp (n / (2 * a)) := by
-      rw [hβ_def, mul_pow, ← exp_nat_mul, div_eq_mul_inv (ε ^ 2), ← exp_neg]
+      rw [hβ_def, mul_pow, ← exp_natCast_mul, div_eq_mul_inv (ε ^ 2), ← exp_neg]
       congr 2
       push_cast
       ring
@@ -307,7 +307,7 @@ theorem constantFractionBettor_regret_le_of_horizon (hε : 0 < ε) (hL : 0 < L)
   -- `e ^ 2 ≤ 38 / 5`, so `5 n e ^ 2 u ^ 2 / (2 ε ^ 2) ≤ (|u| √(19 n) / ε) ^ 2`
   have he : exp 2 ≤ 38 / 5 := by
     have h := exp_one_lt_d9
-    have h2 : exp 2 = exp 1 ^ 2 := by rw [← exp_nat_mul]; norm_num
+    have h2 : exp 2 = exp 1 ^ 2 := by rw [← exp_natCast_mul]; norm_num
     rw [h2]
     nlinarith [exp_pos 1]
   set z := |u| * √(19 * n) / ε with hz_def

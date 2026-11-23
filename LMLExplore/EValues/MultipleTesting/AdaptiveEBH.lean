@@ -167,7 +167,7 @@ private lemma lintegral_mul_inv_one_add_sum_erase_le {P : Measure Ω}
     (hq : ∀ i ∈ N, q ≤ ∫⁻ ω, h (E i ω) ∂P) {i : ι} (hi : i ∈ N) :
     ∫⁻ ω, E i ω * (1 + ∑ j ∈ N.erase i, h (E j ω))⁻¹ ∂P ≤
       (1 - (1 - q) ^ #N) / (#N * q) := by
-  have hE' : ∀ j : N, Measurable (E j) := fun j ↦ hE j j.2
+  have hE' : ∀ j : N, Measurable (E j) := fun j ↦ hE j j.property
   have h_sum (ω : Ω) : ∑ j ∈ (univ : Finset N).erase ⟨i, hi⟩, h (E j ω) =
       ∑ j ∈ N.erase i, h (E j ω) := by
     rw [univ_eq_attach]
@@ -196,7 +196,7 @@ private lemma lintegral_mul_inv_one_add_sum_erase_le {P : Measure Ω}
       Nat.sub_add_cancel (card_pos.2 ⟨i, hi⟩)]
   have h_inv := lintegral_inv_one_add_sum_le (hind.comp (fun _ ↦ h) fun _ ↦ hh)
     ((univ : Finset N).erase ⟨i, hi⟩) (fun j _ ↦ hh.comp (hE' j))
-    (fun j _ ↦ ae_of_all _ fun ω ↦ hh1 _) hq0 hq1 fun j _ ↦ hq j j.2
+    (fun j _ ↦ ae_of_all _ fun ω ↦ hh1 _) hq0 hq1 fun j _ ↦ hq j j.property
   simp only [Function.comp_apply, h_sum, ← Nat.cast_add_one, h_card] at h_inv
   rw [lintegral_mul_eq_lintegral_mul_lintegral_of_indepFun'' (hE i hi).aemeasurable
     hg_meas.aemeasurable h_indep]
@@ -471,7 +471,8 @@ private lemma sub_mul_toReal_le_of_forall_le_lintegral (hg_top : ∀ x, g x ≠ 
     ENNReal.mul_ne_top ENNReal.ofReal_ne_top (hg_top x)
   have h_real := ENNReal.toReal_mono (ENNReal.add_ne_top.2 ⟨hfin _ _, hfin _ _⟩) h
   rw [ENNReal.toReal_add (hfin _ _) (hfin _ _), ENNReal.toReal_mul, ENNReal.toReal_mul,
-    ENNReal.toReal_ofReal w.2.1, ENNReal.toReal_ofReal (sub_nonneg.2 w.2.2), hw] at h_real
+    ENNReal.toReal_ofReal w.property.1, ENNReal.toReal_ofReal (sub_nonneg.2 w.property.2), hw]
+    at h_real
   calc (b - a) * q.toReal ≤ (b - a) * ((b - 1) / (b - a) * (g (ENNReal.ofReal a)).toReal +
         (1 - a) / (b - a) * (g (ENNReal.ofReal b)).toReal) :=
         mul_le_mul_of_nonneg_left h_real hba.le

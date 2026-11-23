@@ -670,18 +670,18 @@ only the `K - 1` pairs of the best arm with another arm matter. -/
 theorem measureReal_histOutputMeasure_coverGlrt_baiTask_le
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
     (hstop : ∀ n, MeasurableSet {h | ∀ b : {b // b ≠ rec n h}, unionBoundThreshold 2 x n <
-      ⨅ θ' ∈ {θ' | mean θ' (rec n h) ≤ mean θ' b}, expFamilyEvidence ρ T {rec n h, b.1} n h
+      ⨅ θ' ∈ {θ' | mean θ' (rec n h) ≤ mean θ' b}, expFamilyEvidence ρ T {rec n h, b.val} n h
         (mean θ')})
     {θ : Θ} {a : α} (ha : a ∈ (baiTask ν mean).correct θ)
     (hμ : ∀ b, mean θ b ∈ (ρ b).expFamilyMeans (T b))
     (hν : ∀ b, MGFDominatedOn id (ν θ b) (T b)
       ((ρ b).expFamily (T b) ((ρ b).natParam (T b) (mean θ b))) Set.univ) (hx : 2 ≤ x) :
     (histOutputMeasure (coverGlrt alg (fun i (b : {b // b ≠ i}) ↦ {θ' | mean θ' i ≤ mean θ' b})
-        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.1} n h (mean θ'))
+        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.val} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 x n) rec hrec hstop)
         (Environment.bandit (ν θ))).real
       {p | p.1 ∈ (coverGlrt alg (fun i (b : {b // b ≠ i}) ↦ {θ' | mean θ' i ≤ mean θ' b})
-        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.1} n h (mean θ'))
+        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.val} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 x n) rec hrec hstop).stopSet ∧
         p.2 ∉ (baiTask ν mean).correct θ} ≤
       (Fintype.card α - 1 : ℕ) * ((x / 2) ^ 2 * exp (2 - x)) := by
@@ -716,19 +716,19 @@ theorem isDeltaPAC_coverGlrt_baiTask {S : Set Θ} (hδ : 0 < δ) (hδ1 : δ ≤ 
     (rec : (n : ℕ) → Hist Unit α ℝ n → α) (hrec : ∀ n, Measurable (rec n))
     (hstop : ∀ n, MeasurableSet {h | ∀ b : {b // b ≠ rec n h},
       unionBoundThreshold 2 (unionBoundLevel 2 (δ / (Fintype.card α - 1 : ℕ))) n <
-        ⨅ θ' ∈ {θ' | mean θ' (rec n h) ≤ mean θ' b}, expFamilyEvidence ρ T {rec n h, b.1} n h
+        ⨅ θ' ∈ {θ' | mean θ' (rec n h) ≤ mean θ' b}, expFamilyEvidence ρ T {rec n h, b.val} n h
           (mean θ')})
     (hμ : ∀ θ ∈ ((baiTask ν mean).restrict S).M, ∀ b, mean θ b ∈ (ρ b).expFamilyMeans (T b))
     (hν : ∀ θ ∈ ((baiTask ν mean).restrict S).M, ∀ b, MGFDominatedOn id (ν θ b) (T b)
       ((ρ b).expFamily (T b) ((ρ b).natParam (T b) (mean θ b))) Set.univ)
     (h_stops : ∀ θ ∈ ((baiTask ν mean).restrict S).M, StopsAS
       (coverGlrt alg (fun i (b : {b // b ≠ i}) ↦ {θ' | mean θ' i ≤ mean θ' b})
-        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.1} n h (mean θ'))
+        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.val} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 (unionBoundLevel 2 (δ / (Fintype.card α - 1 : ℕ))) n)
         rec hrec hstop) (Environment.bandit (ν θ))) :
     ((baiTask ν mean).restrict S).IsDeltaPAC
       (coverGlrt alg (fun i (b : {b // b ≠ i}) ↦ {θ' | mean θ' i ≤ mean θ' b})
-        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.1} n h (mean θ'))
+        (fun i b n h θ' ↦ expFamilyEvidence ρ T {i, b.val} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 (unionBoundLevel 2 (δ / (Fintype.card α - 1 : ℕ))) n)
         rec hrec hstop) δ := by
   refine IdentTask.isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
@@ -759,20 +759,20 @@ theorem measureReal_histOutputMeasure_coverGlrt_topMTask_le {m : ℕ}
     (rec : (n : ℕ) → Hist Unit α ℝ n → Finset α) (hrec : ∀ n, Measurable (rec n))
     (hrec_card : ∀ n h, #(rec n h) = m)
     (hstop : ∀ n, MeasurableSet {h | ∀ p : {p : α × α // p.1 ∈ rec n h ∧ p.2 ∉ rec n h},
-      unionBoundThreshold 2 x n < ⨅ θ' ∈ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2},
-        expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ')})
+      unionBoundThreshold 2 x n < ⨅ θ' ∈ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2},
+        expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ')})
     {θ : Θ} {t : Finset α} (ht : t ∈ (topMTask ν mean m).correct θ)
     (hμ : ∀ b, mean θ b ∈ (ρ b).expFamilyMeans (T b))
     (hν : ∀ b, MGFDominatedOn id (ν θ b) (T b)
       ((ρ b).expFamily (T b) ((ρ b).natParam (T b) (mean θ b))) Set.univ) (hx : 2 ≤ x) :
     (histOutputMeasure (coverGlrt alg
-        (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2})
-        (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ'))
+        (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2})
+        (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 x n) rec hrec hstop)
         (Environment.bandit (ν θ))).real
       {p | p.1 ∈ (coverGlrt alg
-        (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2})
-        (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ'))
+        (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2})
+        (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ'))
         (fun _ _ n _ ↦ unionBoundThreshold 2 x n) rec hrec hstop).stopSet ∧
         p.2 ∉ (topMTask ν mean m).correct θ} ≤
       ((Fintype.card α - m) * m : ℕ) * ((x / 2) ^ 2 * exp (2 - x)) := by
@@ -810,21 +810,21 @@ theorem isDeltaPAC_coverGlrt_topMTask {m : ℕ} {S : Set Θ} (hδ : 0 < δ) (hδ
     (hrec_card : ∀ n h, #(rec n h) = m)
     (hstop : ∀ n, MeasurableSet {h | ∀ p : {p : α × α // p.1 ∈ rec n h ∧ p.2 ∉ rec n h},
       unionBoundThreshold 2 (unionBoundLevel 2 (δ / ((Fintype.card α - m) * m : ℕ))) n <
-        ⨅ θ' ∈ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2},
-          expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ')})
+        ⨅ θ' ∈ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2},
+          expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ')})
     (hμ : ∀ θ ∈ ((topMTask ν mean m).restrict S).M, ∀ b,
       mean θ b ∈ (ρ b).expFamilyMeans (T b))
     (hν : ∀ θ ∈ ((topMTask ν mean m).restrict S).M, ∀ b, MGFDominatedOn id (ν θ b) (T b)
       ((ρ b).expFamily (T b) ((ρ b).natParam (T b) (mean θ b))) Set.univ)
     (h_stops : ∀ θ ∈ ((topMTask ν mean m).restrict S).M, StopsAS (coverGlrt alg
-      (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2})
-      (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ'))
+      (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2})
+      (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ'))
       (fun _ _ n _ ↦
         unionBoundThreshold 2 (unionBoundLevel 2 (δ / ((Fintype.card α - m) * m : ℕ))) n)
       rec hrec hstop) (Environment.bandit (ν θ))) :
     ((topMTask ν mean m).restrict S).IsDeltaPAC (coverGlrt alg
-      (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.1.1 ≤ mean θ' p.1.2})
-      (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.1.1, p.1.2} n h (mean θ'))
+      (fun s (p : {p : α × α // p.1 ∈ s ∧ p.2 ∉ s}) ↦ {θ' | mean θ' p.val.1 ≤ mean θ' p.val.2})
+      (fun _ p n h θ' ↦ expFamilyEvidence ρ T {p.val.1, p.val.2} n h (mean θ'))
       (fun _ _ n _ ↦
         unionBoundThreshold 2 (unionBoundLevel 2 (δ / ((Fintype.card α - m) * m : ℕ))) n)
       rec hrec hstop) δ := by

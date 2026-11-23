@@ -190,8 +190,8 @@ private lemma antidiagonalUniform_comp_map_add_prod_geometricMeasure (h₁ : p�
   rw [Kernel.antidiagonalUniform_comp_singleton, Measure.map_add_singleton_eq_sum_antidiagonal,
     sum_congr rfl fun y _ ↦ prod_geometricMeasure_singleton h₁ h₂ y,
     ← ENNReal.ofReal_sum_of_nonneg hnn, hc, ← ENNReal.ofReal_mul (sum_nonneg hnn), hsum,
-    geomPairInvKernel_comp_singleton (one_le_inv₀ h₁' |>.mpr p₁.2.2)
-      (one_le_inv₀ h₂' |>.mpr p₂.2.2) (inv_injective.ne hne), inv_inv, inv_inv]
+    geomPairInvKernel_comp_singleton (one_le_inv₀ h₁' |>.mpr p₁.property.2)
+      (one_le_inv₀ h₂' |>.mpr p₂.property.2) (inv_injective.ne hne), inv_inv, inv_inv]
   congr 1
   field_simp
   ring

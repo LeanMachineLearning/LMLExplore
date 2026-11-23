@@ -83,7 +83,7 @@ theorem exists_measurable_forall_eq_measurable_comp_piMap {κ : Type*} [Countabl
   have hRc (k : κ) : (R k).Countable := (hCc k).biUnion (hDc k)
   -- the sides of these cylinders
   choose idx side hside hidx using fun k (B : R k) ↦
-    Set.iUnion₂_subset (hDcyl k) B.2
+    Set.iUnion₂_subset (hDcyl k) B.property
   set 𝒜 : Set (Set α) := ⋃ k, Set.range (side k)
   have h𝒜c : 𝒜.Countable := Set.countable_iUnion fun k ↦
     have := (hRc k).to_subtype

@@ -73,7 +73,7 @@ experts is in the simplex of the arms. -/
 private lemma nonempty_arms {Ω : Type*} {mΩ : MeasurableSpace Ω} (P : Measure Ω)
     [IsProbabilityMeasure P] (adv : 𝓞 → β → simplex α) (O : ℕ → Ω → 𝓞) : Nonempty α :=
   have := nonempty_of_isProbabilityMeasure P
-  nonempty_of_mem_simplex (adv (O 0 (Classical.arbitrary Ω)) (Classical.arbitrary β)).2
+  nonempty_of_mem_simplex (adv (O 0 (Classical.arbitrary Ω)) (Classical.arbitrary β)).property
 
 variable [MeasurableSpace α] [MeasurableSingletonClass α] [MeasurableSpace 𝓞]
   {hadv : Measurable adv}
@@ -98,16 +98,16 @@ theorem measure_le_mul_sum_dotProduct_sub_le (h : IsAlgEnvSeq O A Y (exp4IX adv 
   rw [exp4IX_def] at h
   have hE : ∀ a, Measurable fun o ↦ 2 * c * (adv o m : α → ℝ) a := fun a ↦
     measurable_const.mul ((measurable_pi_apply a).comp
-      (measurable_subtype_coe.comp ((measurable_pi_apply m).comp hadv)))
+      (measurable_subtypeVal.comp ((measurable_pi_apply m).comp hadv)))
   refine le_trans (measure_mono fun ω hω ↦ ?_)
     (WeightAlgorithm.measure_log_one_div_le_sum_sum_mul_iwEstimator_add_sub_le h hY
       (c := fun t a ω ↦ 2 * c * (adv (O t ω) m : α → ℝ) a)
       (fun t _ a ↦ Measurable.comp (mα := h.filtrationObs t)
         (g := fun o ↦ 2 * c * (adv o m : α → ℝ) a) (hE a) (h.adapted_obs_filtrationObs t))
-      (fun t _ a ω ↦ mul_nonneg (by positivity) ((mem_simplex_iff.1 (adv (O t ω) m).2).1 a))
+      (fun t _ a ω ↦ mul_nonneg (by positivity) ((mem_simplex_iff.1 (adv (O t ω) m).property).1 a))
       (fun t ht a ω ↦ by
-        have h1 := (simplex_subset_Icc (adv (O t ω) m).2).2 a
-        have h0 := (mem_simplex_iff.1 (adv (O t ω) m).2).1 a
+        have h1 := (simplex_subset_Icc (adv (O t ω) m).property).2 a
+        have h0 := (mem_simplex_iff.1 (adv (O t ω) m).property).1 a
         calc 2 * c * (adv (O t ω) m : α → ℝ) a ≤ 2 * c * 1 :=
               mul_le_mul_of_nonneg_left h1 (by positivity)
           _ ≤ 2 * γ t := by linarith [hcγ t ht])
@@ -193,7 +193,7 @@ theorem measure_le_expertRandomRegret_le (h : IsAlgEnvSeq O A Y (exp4IX adv hadv
           ∑ a, (adv (O t ω) m : α → ℝ) a * (1 - env.means O A Y a t ω)) := by
     rw [← Finset.sum_add_distrib]
     refine Finset.sum_congr rfl fun t _ ↦ ?_
-    have hE := (mem_simplex_iff.1 (adv (O t ω) m).2).2
+    have hE := (mem_simplex_iff.1 (adv (O t ω) m).property).2
     simp only [mul_sub, mul_one, Finset.sum_sub_distrib, hE]
     ring
   have h1 : ∑ t ∈ range n, ((adv (O t ω) m : α → ℝ) ⬝ᵥ Yh t ω -

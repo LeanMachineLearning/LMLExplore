@@ -114,7 +114,7 @@ theorem measure_exists_le_sum_and_gt_and_lt_rateFunction_le
   -- that at least `a` variables are selected with mean above such a level
   let ι := {q : ℚ // Q[Y] < (q : ℝ) ∧ ENNReal.ofReal r < rateFunction Y Q q}
   let G : ι → Set Ω := fun q ↦ {ω | ∃ n, a ≤ ∑ k ∈ range n, w k ω ∧
-    (q.1 : ℝ) ≤ (∑ k ∈ range n, w k ω * X k ω) / ∑ k ∈ range n, w k ω}
+    (q.val : ℝ) ≤ (∑ k ∈ range n, w k ω * X k ω) / ∑ k ∈ range n, w k ω}
   -- by lower semicontinuity, every mean of rate above `r` is above such a level
   have h_sub : {ω | ∃ n, a ≤ ∑ k ∈ range n, w k ω ∧
       Q[Y] < (∑ k ∈ range n, w k ω * X k ω) / ∑ k ∈ range n, w k ω ∧
@@ -131,7 +131,7 @@ theorem measure_exists_le_sum_and_gt_and_lt_rateFunction_le
   -- the events decrease with the level, so they form a directed family
   have h_dir : Directed (· ⊆ ·) G := by
     intro i j
-    rcases le_total (i.1 : ℝ) j.1 with h | h
+    rcases le_total (i.val : ℝ) j.val with h | h
     · exact ⟨i, subset_rfl, fun ω ⟨n, hn, hq⟩ ↦ ⟨n, hn, h.trans hq⟩⟩
     · exact ⟨j, fun ω ⟨n, hn, hq⟩ ↦ ⟨n, hn, h.trans hq⟩, subset_rfl⟩
   -- each event is controlled by the exponential supermartingale at a well-chosen parameter

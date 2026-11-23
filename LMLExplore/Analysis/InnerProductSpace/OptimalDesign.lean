@@ -659,7 +659,7 @@ theorem exists_design_isUnit_designOperator {𝒜 : Set E} (hne : 𝒜.Nonempty)
   refine ⟨u.map (↑), (StdSimplex.support_weights_map_subset _ u).trans ?_,
     (isUnit_designOperator_iff _).2 ?_⟩
   · rintro _ ⟨y, -, rfl⟩
-    exact ht𝒜 y.2
+    exact ht𝒜 y.property
   · refine eq_top_iff.2 ((hspan.symm.trans hbspan.symm).le.trans (Submodule.span_mono ?_))
     intro x hx
     have hxt : x ∈ t := by simp [t, hx]
@@ -815,13 +815,13 @@ theorem exists_designOperator_eq_card_support_le [Nontrivial E] {w : StdSimplex 
   -- operators, of which there are at most `d (d + 1) / 2`
   have hlin : LinearIndependent ℝ ((↑) : t → E →L[ℝ] E) :=
     hai.linearIndependent_of_forall_apply_eq ℓ (Nat.cast_ne_zero.2 finrank_pos.ne') fun X ↦ by
-      obtain ⟨a, ha, hX⟩ := htS X.2
+      obtain ⟨a, ha, hX⟩ := htS X.property
       rw [← hX, hℓ a ha]
   have hcard : #t ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
     have hlin' := hlin.map' (coeLM ℝ) (LinearMap.ker_eq_bot.2 coe_injective)
     rw [← Fintype.card_coe]
     refine hlin'.fintype_card_le_of_isSymmetric fun X ↦ ?_
-    obtain ⟨a, -, hX⟩ := htS X.2
+    obtain ⟨a, -, hX⟩ := htS X.property
     simp [← hX]
   -- one point `a` of the support for each operator `a ⊗ a` of `t` carries the design `w'`
   obtain ⟨S', hS'S, hinj, himg⟩ := Finset.exists_subset_injOn_image_eq_of_surjOn _ t htS
@@ -842,7 +842,7 @@ theorem exists_design_inner_ringInverse_le_finrank_and_card_support_le [Nontrivi
     ∃ w : StdSimplex ℝ E, ↑w.weights.support ⊆ 𝒜 ∧ IsUnit (designOperator w) ∧
       (∀ a ∈ 𝒜, ⟪a, Ring.inverse (designOperator w) a⟫_ℝ ≤ finrank ℝ E) ∧
       #w.weights.support ≤ finrank ℝ E * (finrank ℝ E + 1) / 2 := by
-  have hne : 𝒜.Nonempty := Set.nonempty_iff_ne_empty.2 fun h ↦ by
+  have hne : 𝒜.Nonempty := Set.ne_empty_iff_nonempty.1 fun h ↦ by
     simp [h] at hspan
   obtain ⟨w, hw, hu, hle⟩ := exists_design_inner_ringInverse_le_finrank h𝒜 hne hspan
   obtain ⟨w', hw'w, hV, hcard⟩ :=

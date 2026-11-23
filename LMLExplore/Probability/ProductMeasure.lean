@@ -200,7 +200,7 @@ lemma indepFun_initSeg_shift_iterate (P : Measure 𝓧) [IsProbabilityMeasure P]
     (Set.disjoint_left.2 fun i (hi : i < t) (hi' : t ≤ i) ↦ (not_lt.2 hi') hi)
     (fun i ↦ measurable_pi_apply i)
   rw [shift_iterate_eq_reindex, initSeg_def]
-  exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.2⟩)
+  exact h.comp (φ := fun (y : Set.Iio t → 𝓧) (i : Fin t) ↦ y ⟨i, i.isLt⟩)
     (ψ := fun (y : Set.Ici t → 𝓧) (i : ℕ) ↦ y ⟨i + t, Nat.le_add_left t i⟩)
     (by fun_prop) (by fun_prop)
 
@@ -290,9 +290,9 @@ theorem infinitePi_fin_mem_and_forall_add_mem {X : Type*} [MeasurableSpace X] (�
     (Finset.disjoint_left.2 fun i hi hi' ↦ by simp at hi hi'; omega) (fun _ ↦ by fun_prop)
   simp only [id] at h_ind
   have h_fin : Measurable fun (u : {i // i ∈ range n} → X) (i : Fin n) ↦
-      u ⟨i, mem_range.2 i.2⟩ := by fun_prop
+      u ⟨i, mem_range.2 i.isLt⟩ := by fun_prop
   have h_set : {z : ℕ → X | initSeg n z ∈ B ∧ ∀ j < m, z (n + j) ∈ C} =
-      (fun z (i : range n) ↦ z i) ⁻¹' ((fun u (i : Fin n) ↦ u ⟨i, mem_range.2 i.2⟩) ⁻¹' B) ∩
+      (fun z (i : range n) ↦ z i) ⁻¹' ((fun u (i : Fin n) ↦ u ⟨i, mem_range.2 i.isLt⟩) ⁻¹' B) ∩
         (fun z (i : Ico n (n + m)) ↦ z i) ⁻¹' (Set.univ.pi fun _ ↦ C) := by
     ext z
     simp only [initSeg_def, Set.mem_ofPred_eq, Set.mem_inter_iff, Set.mem_preimage, Set.mem_pi,
@@ -418,7 +418,7 @@ theorem lintegral_infinitePi_congr_of_dependsOn {μ μ' : (i : ι) → Measure (
   simp_rw [hfg]
   rw [lintegral_restrict_infinitePi μ hg, lintegral_restrict_infinitePi μ' hg]
   congr 2
-  exact funext fun i ↦ h i i.2
+  exact funext fun i ↦ h i i.property
 
 end Update
 
@@ -458,7 +458,7 @@ lemma ae_eventually_lt_exp_of_lintegral_le (P : Measure 𝓧) {F : (n : ℕ) →
       rw [← lintegral_map' hFm (measurable_initSeg n).aemeasurable, hmap]
       exact hFC n
     _ = C * ENNReal.ofReal (Real.exp (-ε)) ^ n := by
-      rw [div_eq_mul_inv, ← ENNReal.ofReal_pow (Real.exp_pos _).le, ← Real.exp_nat_mul,
+      rw [div_eq_mul_inv, ← ENNReal.ofReal_pow (Real.exp_pos _).le, ← Real.exp_natCast_mul,
         ← ENNReal.ofReal_inv_of_pos (Real.exp_pos _), ← Real.exp_neg]
       ring_nf
   -- the Borel–Cantelli lemma

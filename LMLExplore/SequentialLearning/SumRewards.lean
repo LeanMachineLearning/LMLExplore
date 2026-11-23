@@ -252,7 +252,7 @@ pull of `a`, whatever the auxiliary stream. -/
 lemma armObs_eq_rewardByCount {𝓨 : Type*} (Y : ℕ → Ω → 𝓨) (a : α) (t : ℕ)
     (ω : Ω × (ℕ → α → 𝓨)) (i : Fin (pullCount A a t ω.1)) :
     armObs A Y a t ω.1 i = rewardByCount A Y a (i + 1) ω := by
-  rw [armObs_def, rewardByCount_of_stepsUntil_ne_top (stepsUntil_lt_of_lt_pullCount i.2).ne_top]
+  rw [armObs_def, rewardByCount_of_stepsUntil_ne_top (stepsUntil_lt_of_lt_pullCount i.isLt).ne_top]
 
 /-- The observations of arm `a` before round `t` add up to the sum of its rewards. -/
 @[simp]

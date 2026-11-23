@@ -402,7 +402,7 @@ theorem hasLDP_empMean_of_abs_pullCount_sub_le
       measure_iUnion_fintype_le _ _
     _ ≤ ∑ _d : α → Fin (2 * k + 1), ENNReal.ofReal (Real.exp (-(T * r))) :=
       Finset.sum_le_sum fun d _ ↦ hT (fun a ↦ n₀ a + d a) fun a ↦
-        abs_ceil_sub_add_sub_le (mul_nonneg T.cast_nonneg (hw a).le) (Nat.lt_succ_iff.1 (d a).2)
+        abs_ceil_sub_add_sub_le (mul_nonneg T.cast_nonneg (hw a).le) (Nat.lt_succ_iff.1 (d a).isLt)
     _ = Fintype.card (α → Fin (2 * k + 1)) * ENNReal.ofReal (Real.exp (-(T * r))) := by
       rw [Finset.sum_const, nsmul_eq_mul, Finset.card_univ]
   · -- The means of the stream are in the interior of `U` for all the numbers of pulls in the

@@ -113,7 +113,7 @@ theorem jointlyConvexLikeOn_iff : JointlyConvexLikeOn C F h ↔
 /-- The Lagrangian of a nonnegative multiplier is below the objective on the feasible set. -/
 private lemma add_sum_mul_le [Fintype ι] (π : ι → ℝ≥0) {x : X} (hx : ∀ i, h i x ≤ 0) :
     F x + ∑ i, (π i : ℝ) * h i x ≤ F x :=
-  add_le_of_nonpos_right <| Finset.sum_mul_nonpos (fun i _ ↦ (π i).2) fun i _ ↦ hx i
+  add_le_of_nonpos_right <| Finset.sum_mul_nonpos (fun i _ ↦ (π i).property) fun i _ ↦ hx i
 
 /-- **Weak duality** in `EReal`: for every problem, the supremum over the multipliers of the
 infimum of the Lagrangian over `C` is below the infimum of the objective on the feasible set. -/
@@ -343,7 +343,7 @@ theorem isMinOn_iff_exists_isMinOn_add_sum_mul_of_convexLike [Fintype ι]
       fun y hy hyh ↦ isMinOn_iff.1 hmin y ⟨hy, hyh⟩
     -- At `x` the sum of the nonpositive terms `π i * h i x` is nonnegative, hence each is zero.
     have hslack (i : ι) : (π i : ℝ) * h i x = 0 :=
-      Finset.mul_eq_zero_of_sum_mul_nonneg (fun i _ ↦ (π i).2) (fun i _ ↦ hxh i)
+      Finset.mul_eq_zero_of_sum_mul_nonneg (fun i _ ↦ (π i).property) (fun i _ ↦ hxh i)
         ((le_add_iff_nonneg_right _).1 (hπ x hx)) (Finset.mem_univ i)
     exact ⟨π, isMinOn_iff.2 fun y hy ↦ by simpa [hslack] using hπ y hy, hslack⟩
   · rintro ⟨π, hmin, hslack⟩
@@ -387,13 +387,13 @@ theorem exists_iInf_eq_iInf_add_of_slater (hF : ConvexOn ℝ C F) (hh : ∀ i, C
     fun x hx hxh ↦ ciInf_le hbdd' (⟨x, hx, hxh⟩ : {x ∈ C | ∀ i, h i x ≤ 0})
   have : Nonempty C := ⟨⟨x₀, hx₀⟩⟩
   have : Nonempty {x ∈ C | ∀ i, h i x ≤ 0} := ⟨⟨x₀, hx₀, fun i ↦ (hx₀h i).le⟩⟩
-  refine ⟨π, le_antisymm (le_ciInf fun x ↦ hπ x x.2) ?_⟩
+  refine ⟨π, le_antisymm (le_ciInf fun x ↦ hπ x x.property) ?_⟩
   apply le_ciInf
   intro x
-  refine le_trans (ciInf_le ⟨⨅ x : {x ∈ C | ∀ i, h i x ≤ 0}, F x, ?_⟩ (⟨x, x.2.1⟩ : C))
-    (add_sum_mul_le π x.2.2)
+  refine le_trans (ciInf_le ⟨⨅ x : {x ∈ C | ∀ i, h i x ≤ 0}, F x, ?_⟩ (⟨x, x.property.1⟩ : C))
+    (add_sum_mul_le π x.property.2)
   rintro _ ⟨y, rfl⟩
-  exact hπ y y.2
+  exact hπ y y.property
 
 /-- **Strong duality under Slater's condition** in `EReal` [Lue69, §8.6, Theorem 1]. If `F` and
 the finitely many constraints `h i` are convex on `C` and some point of `C` satisfies every

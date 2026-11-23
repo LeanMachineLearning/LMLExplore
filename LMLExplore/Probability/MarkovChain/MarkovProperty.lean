@@ -64,9 +64,9 @@ theorem markovChainKernel_map_prodMk_eval_zero :
   ext x : 1
   have h := Measure.markovChainLaw_map_prefix_shift_iterate_eq_compProd (Measure.dirac x) κ 0
   simp only [Function.iterate_zero, id_eq] at h
-  have hpre : (markovChainLaw (Measure.dirac x) κ).map (fun z (i : Fin 1) ↦ z i.1) =
+  have hpre : (markovChainLaw (Measure.dirac x) κ).map (fun z (i : Fin 1) ↦ z i.val) =
       Measure.dirac (fun _ ↦ x) := by
-    have hc : (fun (z : ℕ → α) (i : Fin 1) ↦ z i.1) = (fun a _ ↦ a) ∘ fun z ↦ z 0 := by
+    have hc : (fun (z : ℕ → α) (i : Fin 1) ↦ z i.val) = (fun a _ ↦ a) ∘ fun z ↦ z 0 := by
       funext z i
       rw [Fin.fin_one_eq_zero i]
       rfl

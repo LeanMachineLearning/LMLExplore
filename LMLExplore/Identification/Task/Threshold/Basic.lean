@@ -564,7 +564,7 @@ theorem charTime_minThresholdTask_gaussianBandit_true [MeasurableSingletonClass 
       ENNReal.ofReal (2 * σ2 / (μ a₀ - γ) ^ 2) :=
   charTime_minThresholdTask_gaussianReal_true (v := fun _ ↦ σ2) (fun _ ↦ hσ2)
     (Bandits.gaussianBandit_apply · σ2) hγ fun a ha ↦
-      div_le_div_of_nonneg_right (by nlinarith [ha₀ a]) σ2.2
+      div_le_div_of_nonneg_right (by nlinarith [ha₀ a]) σ2.property
 
 end Gaussian
 

@@ -355,9 +355,9 @@ lemma iIndepFun.cgf_sum_of_hasLaw_expFamily (h_indep : iIndepFun X P) (hT : AEMe
   -- Restrict the family to `s`, so that the hypotheses hold for every index.
   rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
     (h_indep.comp_subtype_of_hasLaw (aemeasurable_expFamily hT η) hX).cgf_sum₀
-    (fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT)
-    fun i _ ↦ ((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt]
-  simp [fun i : s ↦ (hX i i.2).cgf_expFamily hT hη hηt, mul_sub]
+    (fun i ↦ (hX i i.property).aemeasurable_comp_expFamily hT)
+    fun i _ ↦ ((hX i i.property).integrable_exp_mul_iff_expFamily hT hη).2 hηt]
+  simp [fun i : s ↦ (hX i i.property).cgf_expFamily hT hη hηt, mul_sub]
 
 /-- For independent random variables `X i` with law `ρ_η`, the sum `∑ i ∈ s, T (X i)` has an
 exponential moment of order `t` if `η + t` is a natural parameter of `ρ` and `T`. -/
@@ -369,9 +369,9 @@ lemma iIndepFun.integrable_exp_mul_sum_of_hasLaw_expFamily (h_indep : iIndepFun 
   refine (mgf_pos_iff (X := fun ω ↦ ∑ i ∈ s, T (X i ω))).1 ?_
   rw [← Finset.sum_fn, ← Finset.sum_coe_sort s,
     (h_indep.comp_subtype_of_hasLaw (aemeasurable_expFamily hT η) hX).mgf_sum₀
-    fun i ↦ (hX i i.2).aemeasurable_comp_expFamily hT]
+    fun i ↦ (hX i i.property).aemeasurable_comp_expFamily hT]
   exact Finset.prod_pos fun i _ ↦
-    mgf_pos (((hX i i.2).integrable_exp_mul_iff_expFamily hT hη).2 hηt)
+    mgf_pos (((hX i i.property).integrable_exp_mul_iff_expFamily hT hη).2 hηt)
 
 /-- For independent random variables `X i` with law `ρ_η`, the cumulant generating function of
 `∑ i ∈ s, T (X i)` agrees with `u ↦ #s (ψ(η + u) - ψ(η))` near every `t` such that `η + t` is in

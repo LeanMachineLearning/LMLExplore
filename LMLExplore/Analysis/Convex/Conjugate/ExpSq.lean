@@ -58,7 +58,7 @@ theorem Real.mul_sub_mul_exp_sq_div_le {α β : ℝ} (hα : 0 < α) (hβ : 0 < �
   set q := exp (a ^ 2 / (2 * α)) with hq_def
   have hq : 1 ≤ q := one_le_exp (by positivity)
   have hq2 : q ^ 2 = 1 + s := by
-    rw [hq_def, ← exp_nat_mul, ha2, ← exp_log (show 0 < 1 + s by linarith)]
+    rw [hq_def, ← exp_natCast_mul, ha2, ← exp_log (show 0 < 1 + s by linarith)]
     congr 1
     field_simp
     norm_num

@@ -217,16 +217,16 @@ theorem exists_isNumeraire_absolutelyContinuous_iff (hS : S.Finite)
     rw [hν, lintegral_sum_measure, tsum_fintype]
   have hEν : ∫⁻ ω, E ω ∂ν ≠ ∞ := by
     rw [h_int]
-    exact ENNReal.sum_ne_top.2 fun P' _ ↦ by simp [P'.2.2]
+    exact ENNReal.sum_ne_top.2 fun P' _ ↦ by simp [P'.property.2]
   refine ⟨ν.withDensity E, isFiniteMeasure_withDensity hEν, fun P hP ↦ (hSν P hP).trans ?_,
     isNumeraire_withDensity hE.mem hEν fun F hF ↦ ?_⟩
   · refine withDensity_absolutelyContinuous' hE.mem.measurable.aemeasurable ?_
     rw [Measure.ae_sum_iff]
-    exact fun P' ↦ hE0 P' P'.2.1
+    exact fun P' ↦ hE0 P' P'.property.1
   · rw [h_int, h_int]
     refine Finset.sum_le_sum fun P' _ ↦ ?_
-    rw [P'.2.2]
-    exact hF.lintegral_le_one P'.2.1
+    rw [P'.property.2]
+    exact hF.lintegral_le_one P'.property.1
 
 /-! ### An admissible e-variable for the Poisson family that is a numeraire against no
 alternative -/
@@ -340,7 +340,7 @@ theorem isAdmissibleEVar_indicator_odd_poissonMeasure :
       (Real.tendsto_exp_neg_atTop_nhds_zero.comp tendsto_natCast_atTop_atTop)
     rwa [ENNReal.ofReal_zero] at h
   have h_zero : (F k - E k) * c = 0 :=
-    le_zero_iff.1 (ge_of_tendsto h_lim ((eventually_ge_atTop 1).mono h_bound))
+    nonpos_iff_eq_zero.1 (ge_of_tendsto h_lim ((eventually_ge_atTop 1).mono h_bound))
   rcases mul_eq_zero.1 h_zero with h | h
   · exact tsub_eq_zero_iff_le.1 h
   · exact absurd (ENNReal.ofReal_eq_zero.1 h) (not_le.2 (by positivity))

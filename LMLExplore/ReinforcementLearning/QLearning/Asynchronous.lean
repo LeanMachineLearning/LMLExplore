@@ -117,7 +117,7 @@ lemma abs_qLearning_target_le [Nonempty 𝓐] {ω : Ω} {B C : ℝ} {t : ℕ} (h
     |Y t ω + γ * ⨆ a, qLearning γ Q₀ O A Y α t ω (O (t + 1) ω, a)| ≤ B := by
   refine (abs_add_le _ _).trans (le_trans ?_ hB)
   rw [abs_mul, NNReal.abs_eq]
-  exact add_le_add hY (mul_le_mul_of_nonneg_left (abs_ciSup_le fun a ↦ hQ _) γ.2)
+  exact add_le_add hY (mul_le_mul_of_nonneg_left (abs_ciSup_le fun a ↦ hQ _) γ.property)
 
 /-- With learning rates in `[0, 1]` at the visited pairs, rewards bounded by `C` and an initial
 action value bounded by `B`, where `C + γ * B ≤ B`, the iterates of Q-learning stay bounded by

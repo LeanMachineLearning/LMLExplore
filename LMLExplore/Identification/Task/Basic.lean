@@ -352,7 +352,7 @@ lemma isDeltaCorrect_iff : task.IsDeltaCorrect A δ ↔
     ∀ θ ∈ task.M, (histOutputMeasure A (Environment.bandit (task.ν θ))).real
       {p | p.1 ∉ A.stopSet ∨ p.2 ∉ task.correct θ} ≤ δ :=
   Identification.isDeltaCorrect_iff.trans
-    ⟨fun h θ hθ ↦ h ⟨θ, hθ⟩, fun h θ ↦ h θ θ.2⟩
+    ⟨fun h θ hθ ↦ h ⟨θ, hθ⟩, fun h θ ↦ h θ θ.property⟩
 
 /-- The defining property of a `δ`-PAC algorithm on a task: on every admissible model `θ`, its
 answer is not correct for `θ` with probability at most `δ`, and it stops almost surely. -/
@@ -362,7 +362,7 @@ lemma isDeltaPAC_iff : task.IsDeltaPAC A δ ↔
     ∀ θ ∈ task.M, StopsAS A (Environment.bandit (task.ν θ)) :=
   Identification.isDeltaPAC_iff.trans
     ⟨fun h ↦ ⟨fun θ hθ ↦ h.1 ⟨θ, hθ⟩, fun θ hθ ↦ h.2 ⟨θ, hθ⟩⟩,
-      fun h ↦ ⟨fun θ ↦ h.1 θ θ.2, fun θ ↦ h.2 θ θ.2⟩⟩
+      fun h ↦ ⟨fun θ ↦ h.1 θ θ.property, fun θ ↦ h.2 θ θ.property⟩⟩
 
 /-- If `i` is the only correct answer of an admissible model `θ`, a `δ`-correct algorithm stops
 and answers `i` on `θ` with probability at least `1 - δ`. -/
@@ -400,7 +400,7 @@ level `δ` on the admissible models. -/
 lemma IsDeltaCorrect.isPAC (h : task.IsDeltaCorrect A δ)
     (hc : ∀ θ ∈ task.M, MeasurableSet (task.correct θ)) :
     A.IsPAC (fun θ : task.M ↦ Environment.bandit (task.ν θ)) (fun θ i ↦ i ∉ task.correct θ) δ :=
-  Identification.IsDeltaCorrect.isPAC h fun θ ↦ (hc θ θ.2).compl
+  Identification.IsDeltaCorrect.isPAC h fun θ ↦ (hc θ θ.property).compl
 
 /-- **`δ`-PAC from the error of the stopped algorithm.** If on every admissible model `θ` the
 algorithm stops almost surely, and it stops with an answer that is not correct for `θ` with
@@ -423,7 +423,7 @@ lemma isDeltaPAC_of_measureReal_mem_stopSet_and_notMem_le
       measureReal_congr <| Filter.eventuallyEqSet_iff.2 <| h_ae.mono fun p hp ↦ by simp [hp]
     _ ≤ δ := h_err θ hθ
   exact isDeltaPAC_iff_isDeltaPAC.2 <| Identification.isDeltaPAC_iff.2
-    ⟨h_correct.isPAC hc, fun θ ↦ h_stops θ θ.2⟩
+    ⟨h_correct.isPAC hc, fun θ ↦ h_stops θ θ.property⟩
 
 lemma IsDeltaCorrect.mono (h : task.IsDeltaCorrect A δ) (hδ : δ ≤ δ') :
     task.IsDeltaCorrect A δ' :=
@@ -445,12 +445,12 @@ lemma IsDeltaPAC.restrict (h : task.IsDeltaPAC A δ) (S : Set Θ) :
 /-- A `δ`-correct algorithm on a task is `δ`-correct on its pullback along every map of models. -/
 lemma IsDeltaCorrect.comap (h : task.IsDeltaCorrect A δ) (f : Θ' → Θ) :
     (task.comap f).IsDeltaCorrect A δ :=
-  Identification.IsDeltaCorrect.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.2⟩
+  Identification.IsDeltaCorrect.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.property⟩
 
 /-- A `δ`-PAC algorithm on a task is `δ`-PAC on its pullback along every map of models. -/
 lemma IsDeltaPAC.comap (h : task.IsDeltaPAC A δ) (f : Θ' → Θ) :
     (task.comap f).IsDeltaPAC A δ :=
-  Identification.IsDeltaPAC.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.2⟩
+  Identification.IsDeltaPAC.comp h fun θ : (task.comap f).M ↦ ⟨f θ, θ.property⟩
 
 /-- If every admissible model of `task` is the image of a model under `f`, an algorithm is
 `δ`-correct on the pullback along `f` iff it is `δ`-correct on `task`. -/

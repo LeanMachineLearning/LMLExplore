@@ -38,6 +38,6 @@ theorem lintegral_prod_eq_prod_lintegral_of_indepFun' (s : Finset ι) {X : ι �
     ∫⁻ ω, ∏ i ∈ s, X i ω ∂μ = ∏ i ∈ s, ∫⁻ ω, X i ω ∂μ := by
   simp_rw [← Finset.prod_coe_sort s]
   exact lintegral_prod_eq_prod_lintegral_of_indepFun _ (fun i : s ↦ X i)
-    (hX.precomp Subtype.val_injective) fun i ↦ x_mea i i.2
+    (hX.precomp Subtype.val_injective) fun i ↦ x_mea i i.property
 
 end ProbabilityTheory

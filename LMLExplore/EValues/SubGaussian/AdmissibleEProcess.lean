@@ -204,7 +204,7 @@ private lemma one_lt_exp_half : 1 < Real.exp (1 / 2) := by
 
 /-- `√e ^ 2 = e`. -/
 private lemma exp_half_sq : Real.exp (1 / 2) ^ 2 = Real.exp 1 := by
-  rw [← Real.exp_nat_mul]
+  rw [← Real.exp_natCast_mul]
   norm_num
 
 /-- The parameter `ksParam` is less than `1 / 2`. -/
@@ -459,7 +459,7 @@ private lemma pow_three_le_baseWeight (j : Fin 4) : ksParam ^ 3 ≤ baseWeight j
   have hp := ksParam_pos
   have hq : ksParam ≤ 1 - ksParam := by linarith [ksParam_lt_half]
   have hq0 : 0 ≤ 1 - ksParam := hp.le.trans hq
-  have hj : (j : ℕ) ≤ 3 := Nat.lt_succ_iff.1 j.2
+  have hj : (j : ℕ) ≤ 3 := Nat.lt_succ_iff.1 j.isLt
   calc ksParam ^ 3 = ksParam ^ (j : ℕ) * ksParam ^ (3 - (j : ℕ)) := by
         rw [← pow_add, Nat.add_sub_cancel' hj]
     _ ≤ ksParam ^ (j : ℕ) * (1 - ksParam) ^ (3 - (j : ℕ)) := by gcongr
@@ -474,7 +474,7 @@ private lemma sum_baseWeight_mul_exp (t : ℝ) :
       Real.exp (t ^ 2 / 2 - 3 * ksGap t) := by
   have h (j : Fin 4) : Real.exp (baseMean j * t + baseVar * t ^ 2 / 2) =
       Real.exp (baseVar * t ^ 2 / 2 - 3 * ksParam * t) * Real.exp t ^ (j : ℕ) := by
-    rw [← Real.exp_nat_mul, ← Real.exp_add]
+    rw [← Real.exp_natCast_mul, ← Real.exp_add]
     congr 1
     simp only [baseMean]
     ring
@@ -484,7 +484,7 @@ private lemma sum_baseWeight_mul_exp (t : ℝ) :
         ((3 : ℕ) : ℝ) * Real.log (ksParam * Real.exp t + (1 - ksParam)) := by
       simp only [ksGap, baseVar, Nat.cast_ofNat]
       ring
-    rw [h3, Real.exp_add, Real.exp_nat_mul, Real.exp_log (ksDen_pos t)]
+    rw [h3, Real.exp_add, Real.exp_natCast_mul, Real.exp_log (ksDen_pos t)]
   simp_rw [h, mul_left_comm _ (Real.exp (baseVar * t ^ 2 / 2 - 3 * ksParam * t)), ← Finset.mul_sum,
     sum_baseWeight_mul_pow, hR]
 
@@ -606,7 +606,7 @@ private lemma exists_base_coeffs (T₁ T₂ T₃ T₄ : ℝ) :
   obtain ⟨c, h1, h2, h3, h4⟩ := exists_coeffs_four (Real.exp_pos 1).ne' hE T₁
     (T₂ + 3 * ksParam * T₁) (T₃ * Q⁻¹) ((T₄ - (baseVar - 3 * ksParam) * T₃) * Q⁻¹)
   have hexp (j : Fin 4) : Real.exp (baseMean j + baseVar / 2) = Q * Real.exp 1 ^ (j : ℕ) := by
-    rw [← Real.exp_nat_mul, ← Real.exp_add]
+    rw [← Real.exp_natCast_mul, ← Real.exp_add]
     congr 1
     simp only [baseMean]
     ring

@@ -719,7 +719,7 @@ theorem ueBHCount_le (y : Fin K → ℝ) (u : ℝ) : ueBHCount y u ≤ K :=
 private lemma ueBHCount_mem {u : ℝ} (h : 0 < ueBHCount y u) :
     ueBHCount y u ∈ ({k ∈ Icc 1 K | u ≤ k * rankBudget y k} : Finset ℕ) := by
   have hne : ({k ∈ Icc 1 K | u ≤ k * rankBudget y k} : Finset ℕ).Nonempty := by
-    rw [nonempty_iff_ne_empty]
+    rw [← ne_empty_iff_nonempty]
     intro he
     rw [ueBHCount, he, sup_empty] at h
     exact lt_irrefl _ h

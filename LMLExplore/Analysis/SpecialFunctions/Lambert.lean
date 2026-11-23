@@ -86,10 +86,10 @@ lemma exists_mul_exp_eq {x : ℝ} (hx : -exp (-1) ≤ x) : ∃ w, -1 ≤ w ∧ w
 /-- The map `w ↦ w * exp w` as an order isomorphism from `[-1, ∞)` onto `[-exp (-1), ∞)`. Its
 inverse is the Lambert function `Real.lambertW`. -/
 noncomputable def mulExpOrderIso : Ici (-1 : ℝ) ≃o Ici (-exp (-1)) :=
-  StrictMono.orderIsoOfSurjective (fun w ↦ ⟨w * exp w, neg_exp_neg_one_le_mul_exp w.2⟩)
-    (fun a b h ↦ Subtype.mk_lt_mk.2 (strictMonoOn_mul_exp a.2 b.2 h))
+  StrictMono.orderIsoOfSurjective (fun w ↦ ⟨w * exp w, neg_exp_neg_one_le_mul_exp w.property⟩)
+    (fun a b h ↦ Subtype.mk_lt_mk.2 (strictMonoOn_mul_exp a.property b.property h))
     fun x ↦ by
-      obtain ⟨w, hw, hwx⟩ := exists_mul_exp_eq x.2
+      obtain ⟨w, hw, hwx⟩ := exists_mul_exp_eq x.property
       exact ⟨⟨w, hw⟩, Subtype.ext hwx⟩
 
 @[simp]
@@ -123,7 +123,7 @@ lemma neg_exp_neg_one_le_of_nonneg (hx : 0 ≤ x) : -exp (-1) ≤ x :=
 
 /-- The Lambert function takes values in `[-1, ∞)`. -/
 lemma neg_one_le_lambertW (x : ℝ) : -1 ≤ lambertW x :=
-  (mulExpOrderIso.symm (projIci (-exp (-1)) x)).2
+  (mulExpOrderIso.symm (projIci (-exp (-1)) x)).property
 
 /-- The Lambert function inverts `w ↦ w * exp w`: `lambertW x * exp (lambertW x) = x` for
 `x ≥ -exp (-1)`. -/
@@ -180,7 +180,7 @@ theorem strictMonoOn_lambertW : StrictMonoOn lambertW (Ici (-exp (-1))) := fun x
 /-- The Lambert function is continuous. -/
 @[fun_prop]
 theorem continuous_lambertW : Continuous lambertW :=
-  continuous_subtype_val.comp <| mulExpOrderIso.symm.continuous.comp <|
+  continuous_subtypeVal.comp <| mulExpOrderIso.symm.continuous.comp <|
     (continuous_const.max continuous_id).subtype_mk _
 
 /-- For `x ≥ -exp (-1)` and `w ≥ -1`, `w ≤ lambertW x` iff `w * exp w ≤ x`. -/
@@ -247,7 +247,8 @@ theorem lambertW_eq_log_sub_log (hx : 0 < x) : lambertW x = log x - log (lambert
 
 /-- For `x > 0`, `exp (lambertW x / 2) = √(x / lambertW x)` [Ora, Appendix A.2.1]. -/
 theorem exp_lambertW_div_two (hx : 0 < x) : exp (lambertW x / 2) = √(x / lambertW x) := by
-  rw [← exp_lambertW hx, eq_comm, sqrt_eq_iff_eq_sq (exp_pos _).le (exp_pos _).le, ← exp_nat_mul]
+  rw [← exp_lambertW hx, eq_comm, sqrt_eq_iff_eq_sq (exp_pos _).le (exp_pos _).le,
+    ← exp_natCast_mul]
   congr 1
   push_cast
   ring

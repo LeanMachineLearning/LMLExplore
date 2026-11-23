@@ -397,7 +397,7 @@ theorem exists_mul_le_integral_linearRegret_gaussianLinearEnv_closedBall [Finite
             ∂(trajMeasure alg
               (gaussianLinearEnv (Measure.dirac ()) (fun _ ↦ Subtype.val) θ σ2 hθ)) := by
   have hball (x : Metric.closedBall (0 : E) 1) : ‖(x : E)‖ ≤ 1 := by
-    have := x.2
+    have := x.property
     rwa [Metric.mem_closedBall, dist_zero_right] at this
   set d : ℝ := (finrank ℝ E : ℝ) with hd_def
   -- the degenerate cases, where the bound is `0` and `θ = 0`
@@ -426,7 +426,7 @@ theorem exists_mul_le_integral_linearRegret_gaussianLinearEnv_closedBall [Finite
     rw [hΔ, mul_pow, mul_pow, Real.sq_sqrt (by positivity), Real.sq_sqrt hd'.le]
     ring
   obtain ⟨θ, hθ, hR⟩ := exists_mul_one_sub_le_integral_linearRegret_gaussianLinearEnv_of_norm_le_one
-    alg b measurable_subtype_coe hball hvert hσ2 n Δ (by positivity)
+    alg b measurable_subtypeVal hball hvert hσ2 n Δ (by positivity)
   refine ⟨θ, ?_, fun hθm ↦ le_of_eq_of_le ?_ (hR hθm)⟩
   · have hθ2 (i : Fin (finrank ℝ E)) : ⟪b i, θ⟫_ℝ ^ 2 = Δ ^ 2 := by rw [← sq_abs, hθ]
     rw [← b.sum_sq_inner_right]

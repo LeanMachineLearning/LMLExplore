@@ -214,7 +214,7 @@ theorem measureReal_sum_ge_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
   have hm1 : m < 1 := hmp.trans_le hp.2
   rcases hp.2.eq_or_lt with rfl | hp1
   · -- `p = 1`: the sum reaches `#s` with probability at most `m ^ #s = exp (-(#s * d(1, m)))`
-    rw [mul_one, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul, exp_log hm]
+    rw [mul_one, klBerReal_one_left, mul_neg, neg_neg, exp_natCast_mul, exp_log hm]
     exact measureReal_card_le_sum_le_pow h_indep hXm hX hmean
   · -- `m < p < 1`: the `X i` are dominated on `Set.Ici 0` by `Ber(1, 0, m)`, the member of mean
     -- `m` of the exponential family of `Ber(1, 0, 1/2)`, whose divergence is `d`
@@ -278,7 +278,7 @@ theorem measureReal_sum_le_le_exp_klBerReal {X : ι → Ω → ℝ} (h_indep : i
       (fun i hi ↦ by
         simp [integral_sub (integrable_const 1) (.of_mem_Icc 0 1 (hXm i hi) (hX i hi))]
         linarith [hmean i hi])
-    rw [← klBerReal_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_nat_mul,
+    rw [← klBerReal_one_sub, sub_zero, klBerReal_one_left, mul_neg, neg_neg, exp_natCast_mul,
       exp_log (sub_pos.2 hm)]
     refine le_of_eq_of_le ?_ h
     congr 1

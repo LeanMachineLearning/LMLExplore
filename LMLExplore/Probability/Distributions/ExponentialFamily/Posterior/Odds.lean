@@ -178,7 +178,7 @@ theorem iIndepFun.lintegral_exp_sub_le (h_indep : iIndepFun X P)
   have hint := h_indep.integrable_exp_mul_sum_of_mgfDominatedOn hX ht hY
   have hmgf := (h_indep.mgf_sum_le_pow_of_mgfDominatedOn hX ht hY).trans
     (pow_le_pow_left₀ mgf_nonneg Measure.mgf_expFamily_le_exp_cgf_sub s.card)
-  rw [← exp_nat_mul, show η + (θ - e) = θ + η - e by ring] at hmgf
+  rw [← exp_natCast_mul, show η + (θ - e) = θ + η - e by ring] at hmgf
   -- two tangent lines of `ψ`, at `θ + η - e` and at `e`
   have h1 := Measure.cgf_add_deriv_cgf_mul_sub_le_cgf hw (interior_subset hθ)
   have h2 := Measure.cgf_add_deriv_cgf_mul_sub_le_cgf he (interior_subset hη)

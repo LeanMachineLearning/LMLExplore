@@ -117,7 +117,7 @@ lemma run_congr {c c' : ℕ → C} {g g' : ℕ → G} {t : ℕ} (hc : ∀ s ≤ 
     (hg : ∀ s < t, g s = g' s) : A.run c g t = A.run c' g' t := by
   rw [run_def, run_def, hc t le_rfl]
   congr
-  exact funext fun s ↦ by rw [hc s s.2.le, hg s s.2]
+  exact funext fun s ↦ by rw [hc s s.isLt.le, hg s s.isLt]
 
 /-- The play of round `t` does not depend on the feedback of the rounds `s ≥ t`. -/
 lemma run_congr_feedback (c : ℕ → C) {g g' : ℕ → G} {t : ℕ} (hg : ∀ s < t, g s = g' s) :
@@ -134,7 +134,7 @@ lemma exists_run_eq_play [Nonempty G] (t : ℕ) (h : Fin t → C × G) (c₀ : C
     fun s ↦ if hs : s < t then (h ⟨s, hs⟩).2 else g₀, fun B ↦ ?_⟩
   simp only [run_def, lt_irrefl, dite_false]
   congr
-  exact funext fun s ↦ by simp [s.2]
+  exact funext fun s ↦ by simp [s.isLt]
 
 /-- A learner with a nonempty type of feedback is determined by its runs. -/
 lemma ext_run [Nonempty G] {A B : OnlineLearner C G X}

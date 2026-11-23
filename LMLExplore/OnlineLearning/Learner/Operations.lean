@@ -109,7 +109,7 @@ private lemma play_congr {t t' : ℕ} (ht : t = t') {h : Fin t → C × G} {h' :
     A.play t h c = A.play t' h' c := by
   subst ht
   congr
-  exact funext fun i ↦ hh i i.2
+  exact funext fun i ↦ hh i i.isLt
 
 /-- The learner `A` **restarted at round `s`**: from round `s` on, it plays as a fresh copy of `A`
 started at round `s`, from the contexts and feedback of the rounds `s, s + 1, …` only; before
@@ -379,7 +379,7 @@ variable {G' : Type*} (A : OnlineLearner C G X)
 outer feedback of the rounds `s < t` and the context `c` of round `t`: `A` receives at each round
 `s < t` the feedback `φ z (h s).2`, for its own play `z` of round `s`. By recursion on `t`. -/
 private def reducePlay (φ : X → G' → G) (t : ℕ) (h : Fin t → C × G') (c : C) : X :=
-  A.play t (fun s ↦ ((h s).1, φ (reducePlay φ s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1)
+  A.play t (fun s ↦ ((h s).1, φ (reducePlay φ s (fun r ↦ h (Fin.castLE s.isLt.le r)) (h s).1)
     (h s).2)) c
 termination_by t
 decreasing_by exact s.isLt
@@ -402,7 +402,7 @@ by `f` of the play of `A` from the contexts of `h` and the surrogate feedback of
 on the truncated histories. -/
 lemma play_reduce (f : X → Y) (φ : X → G' → G) (t : ℕ) (h : Fin t → C × G') (c : C) :
     (A.reduce f φ).play t h c = f (A.play t (fun s ↦ ((h s).1,
-      φ ((A.reduce id φ).play s (fun r ↦ h (Fin.castLE s.2.le r)) (h s).1) (h s).2)) c) := by
+      φ ((A.reduce id φ).play s (fun r ↦ h (Fin.castLE s.isLt.le r)) (h s).1) (h s).2)) c) := by
   simp only [play_reduce_eq_reducePlay, id]
   rw [reducePlay]
 
@@ -416,7 +416,7 @@ private lemma reducePlay_eq_run (φ : X → G' → G) (c : ℕ → C) (g : ℕ �
     rw [reducePlay, run_def]
     congr 1
     funext s
-    rw [closedLoopFeedback_eq, ← ih s s.2]
+    rw [closedLoopFeedback_eq, ← ih s s.isLt]
     simp only [Fin.val_castLE]
 
 /-- The plays of the reduction `A.reduce f φ` are the images by `f` of the plays of the closed-loop
@@ -483,7 +483,7 @@ is the regret of `A` on the subsequence of rounds of nonzero feedback (`regret_r
 `HasRegretBound.skipZero`). -/
 noncomputable def skipZero : OnlineLearner C G X where
   play t h c := A.play (count (histFeedback h · ≠ 0) t)
-    (fun i ↦ h ⟨nth (histFeedback h · ≠ 0) i, nth_lt_of_lt_count i.2⟩) c
+    (fun i ↦ h ⟨nth (histFeedback h · ≠ 0) i, nth_lt_of_lt_count i.isLt⟩) c
 
 /-- **The plays of the learner skipping the rounds with zero feedback.** Its play of round `t` is
 the play of `A` from the contexts and feedback of the `count (g · ≠ 0) t` rounds `s < t` of

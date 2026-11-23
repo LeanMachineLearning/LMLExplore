@@ -139,7 +139,7 @@ instance instCompleteSpace : CompleteSpace (boundedMeasurable α) :=
   isClosed_boundedMeasurable.completeSpace_coe
 
 theorem measurable (f : boundedMeasurable α) : Measurable ⇑(f : ℓ^∞(α, ℝ)) :=
-  f.2
+  f.property
 
 @[ext]
 theorem ext {f g : boundedMeasurable α}

@@ -201,7 +201,7 @@ theorem HasSubgradientWithinAt.norm_le_of_lipschitzOnWith (hg : HasSubgradientWi
     rw [dist_self_add_left, norm_smul, Real.norm_of_nonneg hτ.le] at h₂
     refine le_of_mul_le_mul_left ?_ hτ
     linarith
-  refine ContinuousLinearMap.opNorm_le_bound _ L.2 fun v ↦ abs_le.2 ⟨?_, key v⟩
+  refine ContinuousLinearMap.opNorm_le_bound _ L.property fun v ↦ abs_le.2 ⟨?_, key v⟩
   have := key (-v)
   rw [map_neg, norm_neg] at this
   linarith

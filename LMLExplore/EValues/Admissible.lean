@@ -188,7 +188,7 @@ theorem isAdmissibleEVar_iff_iInf_div_eq_zero :
         (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) hP,
       hE.mem.ae_lt_top hP] with ω hω hω_top hωA
     rw [indicator_of_mem hωA] at hω
-    exact ht (le_zero_iff.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
+    exact ht (nonpos_iff_eq_zero.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
   refine isAdmissibleEVar_iff_forall_le.2 ⟨hE, fun F hF hEF ↦
     eventuallyEq_quasiSure_iff.2 fun P hP ↦ ?_⟩
   -- on each set where `F` exceeds `E` by `n⁻¹`, `E` can be raised by `n⁻¹`: that set is polar
@@ -204,7 +204,7 @@ theorem isAdmissibleEVar_iff_iInf_div_eq_zero :
       · simpa [indicator_of_notMem hω] using hEF ω
     have h_le := (hE.isEVar_add_indicator_iff hB).1 hG
     rw [h _ hB ⟨P, hP, hPB⟩] at h_le
-    exact ENNReal.inv_ne_zero.2 (ENNReal.natCast_ne_top n) (le_zero_iff.1 h_le)
+    exact ENNReal.inv_ne_zero.2 (ENNReal.natCast_ne_top n) (nonpos_iff_eq_zero.1 h_le)
   -- and `{E < F}` is their union
   have h_lt : P {ω | E ω < F ω} = 0 := by
     refine measure_mono_null (fun ω (hω : E ω < F ω) ↦ ?_) (measure_iUnion_null h_null)
@@ -283,7 +283,7 @@ theorem IsStronglyAdmissibleEVar.isAdmissibleEVar (hE : IsStronglyAdmissibleEVar
     IsAdmissibleEVar E S := by
   refine isAdmissibleEVar_iff_iInf_div_eq_zero.2 ⟨hE.toIsEVar, fun A hA hSA ↦ ?_⟩
   obtain ⟨P, hP, hPA, hPE⟩ := hE.exists_lintegral_eq A hA hSA
-  exact le_zero_iff.1 (iInf₂_le_of_le P hP (iInf_le_of_le hPA (by simp [hPE])))
+  exact nonpos_iff_eq_zero.1 (iInf₂_le_of_le P hP (iInf_le_of_le hPA (by simp [hPE])))
 
 /-- An e-variable such that every member of the null is absolutely continuous with respect to some
 member under which the e-variable is exact is strongly admissible [RW, Corollary 2.15 (b)]. -/
@@ -382,7 +382,7 @@ theorem isAdmissibleEVar_iff_isStronglyAdmissibleEVar_of_finite (hS : S.Finite)
       (hE.eventuallyLE hF (.of_forall fun ω ↦ le_self_add)) hP,
     hE.mem.ae_lt_top hP] with ω hω hω_top hωA
   rw [indicator_of_mem hωA] at hω
-  exact hε (le_zero_iff.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
+  exact hε (nonpos_iff_eq_zero.1 ((ENNReal.add_le_add_iff_left hω_top.ne).1 (by simpa using hω)))
 
 /-- Every member of the null is absolutely continuous with respect to the sum of the members
 under which `E` is exact if and only if every measurable set charged by a member of the null is
@@ -396,7 +396,7 @@ private lemma forall_absolutelyContinuous_sum_iff :
         (P' : Measure Ω)) A ≠ 0 := fun h0 ↦ hPA (h P hP h0)
     rw [Ne, Measure.sum_apply_eq_zero' hA, not_forall] at h0
     obtain ⟨P', hP'⟩ := h0
-    exact ⟨P', P'.2.1, hP', P'.2.2⟩
+    exact ⟨P', P'.property.1, hP', P'.property.2⟩
   · by_contra hPA
     obtain ⟨P', hP', hP'A, hP'E⟩ := h A hA ⟨P, hP, hPA⟩
     exact hP'A (le_antisymm ((Measure.le_sum _ (⟨P', hP', hP'E⟩ :
@@ -432,35 +432,36 @@ theorem IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuousSet (R : Measur
   -- for the `R`-almost everywhere order, so that its essential supremum for `R` is the supremum
   -- of a nondecreasing sequence of members, an e-variable by monotone convergence
   set D : Set (Ω → ℝ≥0∞) := {F | IsEVar F S ∧ E ≤ᶠ[quasiSure S] F}
-  have h_chain : ∀ c : Set D, IsChain (fun F G : D ↦ F.1 ≤ᶠ[quasiSure S] G.1) c → c.Nonempty →
-      ∃ ub : D, ∀ F ∈ c, F.1 ≤ᶠ[quasiSure S] ub.1 := by
+  have h_chain : ∀ c : Set D, IsChain (fun F G : D ↦ F.val ≤ᶠ[quasiSure S] G.val) c → c.Nonempty →
+      ∃ ub : D, ∀ F ∈ c, F.val ≤ᶠ[quasiSure S] ub.val := by
     intro c hc hc_ne
     have : Nonempty c := hc_ne.to_subtype
     -- the chain is directed for the `R`-almost everywhere order
-    have hdir : Directed (· ≤ᵐ[R] ·) fun F : c ↦ (F : D).1 := by
+    have hdir : Directed (· ≤ᵐ[R] ·) fun F : c ↦ (F : D).val := by
       intro F F'
       rcases eq_or_ne F F' with rfl | hFF'
       · exact ⟨F, .refl _ _, .refl _ _⟩
-      have hm (F : c) := (F : D).2.1.measurable
-      rcases hc F.2 F'.2 fun h ↦ hFF' (Subtype.ext h) with h | h
+      have hm (F : c) := (F : D).property.1.measurable
+      rcases hc F.property F'.property fun h ↦ hFF' (Subtype.ext h) with h | h
       · exact ⟨F', h_ae (hm F) (hm F') h, .refl _ _⟩
       · exact ⟨F, .refl _ _, h_ae (hm F') (hm F) h⟩
     -- a nondecreasing sequence of the chain whose supremum is its essential supremum for `R`
     obtain ⟨s, hs_mono, hs_eq⟩ := exists_seq_monotone_ae_eq_essSupFamily
-      (fun F : c ↦ (F : D).2.1.measurable.aemeasurable) hdir
-    set G : Ω → ℝ≥0∞ := fun ω ↦ ⨆ n, (s n : D).1 ω
+      (fun F : c ↦ (F : D).property.1.measurable.aemeasurable) hdir
+    set G : Ω → ℝ≥0∞ := fun ω ↦ ⨆ n, (s n : D).val ω
     have hG : IsEVar G S := by
-      refine ⟨.iSup fun n ↦ (s n : D).2.1.measurable, fun P hP ↦ ?_⟩
-      rw [lintegral_iSup' (fun n ↦ (s n : D).2.1.measurable.aemeasurable)
+      refine ⟨.iSup fun n ↦ (s n : D).property.1.measurable, fun P hP ↦ ?_⟩
+      rw [lintegral_iSup' (fun n ↦ (s n : D).property.1.measurable.aemeasurable)
         ((hSR P hP).ae_le hs_mono)]
-      exact iSup_le fun n ↦ (s n : D).2.1.lintegral_le_one hP
-    refine ⟨⟨G, hG, (s 0 : D).2.2.trans (.of_forall fun ω ↦ le_iSup (fun n ↦ (s n : D).1 ω) 0)⟩,
+      exact iSup_le fun n ↦ (s n : D).property.1.lintegral_le_one hP
+    refine ⟨⟨G, hG,
+      (s 0 : D).property.2.trans (.of_forall fun ω ↦ le_iSup (fun n ↦ (s n : D).val ω) 0)⟩,
       fun F hF ↦ eventuallyLE_quasiSure_iff.2 fun P hP ↦ (hSR P hP).ae_le ?_⟩
-    exact (ae_le_essSupFamily (fun F : c ↦ (F : D).2.1.measurable.aemeasurable) ⟨F, hF⟩).trans
-      hs_eq.le
+    exact (ae_le_essSupFamily (fun F : c ↦ (F : D).property.1.measurable.aemeasurable)
+      ⟨F, hF⟩).trans hs_eq.le
   have : Nonempty D := ⟨⟨E, hE, .refl _ _⟩⟩
   obtain ⟨⟨M, hM, hEM⟩, hmax⟩ := exists_maximal_of_nonempty_chains_bounded
-    (r := fun F G : D ↦ F.1 ≤ᶠ[quasiSure S] G.1) h_chain fun h h' ↦ h.trans h'
+    (r := fun F G : D ↦ F.val ≤ᶠ[quasiSure S] G.val) h_chain fun h h' ↦ h.trans h'
   -- a maximal element is admissible, and its maximum with `E` is a version of it
   have hadm : IsAdmissibleEVar M S := ⟨hM, fun G hG hMG ↦ hmax ⟨G, hG, hEM.trans hMG⟩ hMG⟩
   refine ⟨fun ω ↦ max (E ω) (M ω), hadm.congr (hE.measurable.max hM.measurable) ?_,
@@ -473,12 +474,12 @@ e-variable is at most an admissible e-variable. -/
 theorem IsEVar.exists_isAdmissibleEVar_le (hS : S.Countable) (hS_sfin : ∀ P ∈ S, SFinite P)
     (hE : IsEVar E S) : ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' := by
   have : Countable S := hS.to_subtype
-  have (P : S) : SFinite (P : Measure Ω) := hS_sfin P P.2
+  have (P : S) : SFinite (P : Measure Ω) := hS_sfin P P.property
   -- the sum of the members is a reference measure
   refine hE.exists_isAdmissibleEVar_le_of_absolutelyContinuousSet
     (Measure.sum fun P : S ↦ (P : Measure Ω))
     (Measure.absolutelyContinuousSet_iff.2 fun A _ hA ↦ ?_) fun P hP ↦ ?_
-  · exact Measure.sum_apply_eq_zero.2 fun P ↦ hA P P.2
+  · exact Measure.sum_apply_eq_zero.2 fun P ↦ hA P P.property
   · exact Measure.absolutelyContinuous_sum_right (⟨P, hP⟩ : S) .rfl
 
 /-- **Every e-variable for a dominated null is dominated by an admissible e-variable**
@@ -488,16 +489,16 @@ theorem IsEVar.exists_isAdmissibleEVar_le_of_absolutelyContinuous (μ : Measure 
     (hSμ : ∀ P ∈ S, P ≪ μ) (hE : IsEVar E S) :
     ∃ E' : Ω → ℝ≥0∞, IsAdmissibleEVar E' S ∧ E ≤ E' := by
   -- each member is s-finite, being absolutely continuous with respect to `μ`
-  have (P : S) : SFinite (P : Measure Ω) := sfinite_of_absolutelyContinuous (hSμ P P.2)
+  have (P : S) : SFinite (P : Measure Ω) := sfinite_of_absolutelyContinuous (hSμ P P.property)
   -- by the Halmos–Savage lemma, a countable subfamily has the null sets of the null, and the sum
   -- of its members is a reference measure
   obtain ⟨T, hT, hT_null⟩ := Measure.exists_countable_forall_measure_eq_zero
-    (ν := fun P : S ↦ (P : Measure Ω)) fun P ↦ hSμ P P.2
+    (ν := fun P : S ↦ (P : Measure Ω)) fun P ↦ hSμ P P.property
   have : Countable T := hT.to_subtype
   refine hE.exists_isAdmissibleEVar_le_of_absolutelyContinuousSet
     (Measure.sum fun P : T ↦ ((P : S) : Measure Ω))
     (Measure.absolutelyContinuousSet_iff.2 fun A _ hA ↦ ?_) fun P hP ↦ ?_
-  · exact Measure.sum_apply_eq_zero.2 fun P ↦ hA _ (P : S).2
+  · exact Measure.sum_apply_eq_zero.2 fun P ↦ hA _ (P : S).property
   · refine .mk fun A hA hA0 ↦ hT_null A hA (fun P hPT ↦ ?_) ⟨P, hP⟩
     exact (Measure.sum_apply_eq_zero' hA).1 hA0 ⟨P, hPT⟩
 

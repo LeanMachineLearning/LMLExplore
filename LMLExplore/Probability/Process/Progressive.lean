@@ -44,7 +44,7 @@ variable {ι Ω β : Type*} {mΩ : MeasurableSpace Ω} [MeasurableSpace β] [Pre
 
 /-- In countable time with measurable singletons, an adapted process is progressive. -/
 theorem Adapted.isProgressive_of_countable (hu : Adapted ℱ u) : IsProgressive ℱ u := fun _ ↦
-  measurable_from_prod_countable_right fun j ↦ hu.measurable_le (mem_Iic.1 j.2)
+  measurable_from_prod_countable_right fun j ↦ hu.measurable_le (mem_Iic.1 j.property)
 
 /-- In countable time with measurable singletons, a process is progressive exactly when it is
 adapted. -/

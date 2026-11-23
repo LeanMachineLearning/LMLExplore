@@ -424,7 +424,7 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
   have hZE : P (Z ∩ E) = 0 := by
     refine measure_eq_zero_iff_ae_notMem.2 ?_
     filter_upwards [hM.ae_eq_zero_of_eq_zero hP] with ω hω ⟨hωZ, n, hn, hcn⟩
-    exact hc0 (le_zero_iff.1 (hcn.trans_eq (hω m hωZ.2 n hn)))
+    exact hc0 (nonpos_iff_eq_zero.1 (hcn.trans_eq (hω m hωZ.2 n hn)))
   -- The sets `B k` increase to `s` off `Z`.
   have hcover : s ∩ E ⊆ (⋃ k, B k ∩ E) ∪ Z ∩ E := by
     rintro ω ⟨hωs, hωE⟩

@@ -162,15 +162,15 @@ lemma le_cost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     rw [dotProduct_sub]
     nlinarith
   have hS : 0 ≤ ∑ a, u a ^ 2 * v a / w a :=
-    Finset.sum_nonneg fun a _ ↦ div_nonneg (mul_nonneg (sq_nonneg _) (v a).2) (hw a)
+    Finset.sum_nonneg fun a _ ↦ div_nonneg (mul_nonneg (sq_nonneg _) (v a).property) (hw a)
   have hG : 0 ≤ ∑ a, w a * (μ a - μ' a) ^ 2 / v a :=
-    Finset.sum_nonneg fun a _ ↦ div_nonneg (mul_nonneg (hw a) (sq_nonneg _)) (v a).2
+    Finset.sum_nonneg fun a _ ↦ div_nonneg (mul_nonneg (hw a) (sq_nonneg _)) (v a).property
   have h2 : (u ⬝ᵥ (μ - μ')) ^ 2 ≤
       (∑ a, u a ^ 2 * v a / w a) * ∑ a, w a * (μ a - μ' a) ^ 2 / v a := by
     rw [dotProduct]
     refine Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul _
-      (fun a _ ↦ div_nonneg (mul_nonneg (sq_nonneg _) (v a).2) (hw a))
-      (fun a _ ↦ div_nonneg (mul_nonneg (hw a) (sq_nonneg _)) (v a).2)
+      (fun a _ ↦ div_nonneg (mul_nonneg (sq_nonneg _) (v a).property) (hw a))
+      (fun a _ ↦ div_nonneg (mul_nonneg (hw a) (sq_nonneg _)) (v a).property)
       fun a _ ↦ ?_
     rcases eq_or_ne (w a) 0 with h | h
     · simp [h, hwu a h]
@@ -206,7 +206,7 @@ theorem altCost_halfSpaceTask_gaussianReal (hv : ∀ a, v a ≠ 0)
     intro h
     have hu (a : α) : u a = 0 := by
       have := (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦
-        div_nonneg (mul_nonneg (sq_nonneg _) (v a).2) (hw a)).1 h a (Finset.mem_univ a)
+        div_nonneg (mul_nonneg (sq_nonneg _) (v a).property) (hw a)).1 h a (Finset.mem_univ a)
       rcases div_eq_zero_iff.1 this with h | h
       · exact pow_eq_zero_iff two_ne_zero |>.1 ((mul_eq_zero.1 h).resolve_right (hva a))
       · exact hwu a h

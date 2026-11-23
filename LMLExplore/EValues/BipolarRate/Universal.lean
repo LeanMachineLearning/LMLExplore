@@ -130,7 +130,7 @@ private lemma exists_seq_boundedLogEVarSet [MeasurableSpace.CountablyGenerated �
   have hA : Nonempty A := ⟨⟨0, 0, zero_mem_boundedLogEVarSet hS₁ m N, Lp.coeFn_zero _ _ _⟩⟩
   have : Fact ((1 : ℝ≥0∞) ≠ ∞) := ⟨ENNReal.one_ne_top⟩
   obtain ⟨v, hv⟩ := TopologicalSpace.exists_dense_seq A
-  choose u hu hvu using fun j ↦ (v j).2
+  choose u hu hvu using fun j ↦ (v j).property
   refine ⟨u, hu, fun Q hQ hQρ f hf c hc ↦ ?_⟩
   have hfm : MemLp f 1 ν := MemLp.of_bound hf.1.aestronglyMeasurable N
     (ae_of_all _ fun x ↦ by simpa [Real.norm_eq_abs] using hf.2.1 x)
