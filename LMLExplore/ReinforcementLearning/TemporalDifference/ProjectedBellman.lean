@@ -453,7 +453,7 @@ theorem isInvertible_tdOperator [CompleteSpace E] [IsMarkovKernel P]
     (tdOperator ν φ P γ).IsInvertible := by
   have hγ' : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
   exact ContinuousLinearMap.isInvertible_of_coercive _ (mul_pos hγ' hω) fun θ ↦ by
-    rw [mul_assoc]
+    rw [RCLike.re_to_real, mul_assoc]
     exact (mul_le_mul_of_nonneg_left (h θ) hγ'.le).trans
       (one_sub_mul_integral_sq_le_inner_tdOperator hP θ)
 
