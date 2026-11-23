@@ -54,7 +54,8 @@ e-variables are `ℝ≥0∞`-valued.
   `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
 * `ProbabilityTheory.isEVar_tsum_mul`, `ProbabilityTheory.isEVar_finsetSum_mul`: a countable or
   finite mixture `∑ i, w i * E i` of e-variables, with weights of sum at most `1`, is an
-  e-variable.
+  e-variable; `ProbabilityTheory.isExactEVar_finsetSum_mul`: a finite mixture of exact
+  e-variables, with weights of sum `1`, is an exact e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `0` elsewhere, is an e-variable for `S`.
 * `ProbabilityTheory.absolutelyContinuousSet_iff_forall_isEVar_ae_ne_top`: a measure `Q` is
@@ -269,6 +270,18 @@ theorem isEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Fi
   convert isEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
     (by rwa [Finset.tsum_subtype s w]) using 2 with ω
   exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
+
+/-- **Finite mixtures of exact e-variables.** For exact e-variables `E i`, `i ∈ s`, and weights
+`w i` with `∑ i ∈ s, w i = 1`, the mixture `∑ i ∈ s, w i * E i` is an exact e-variable. -/
+theorem isExactEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
+    (hE : ∀ i ∈ s, IsExactEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i = 1) :
+    IsExactEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
+  refine ⟨isEVar_finsetSum_mul s (fun i hi ↦ (hE i hi).toIsEVar) hw.le, fun P hP ↦ ?_⟩
+  rw [lintegral_finsetSum' s fun i hi ↦ ((hE i hi).measurable.const_mul (w i)).aemeasurable]
+  calc ∑ i ∈ s, ∫⁻ ω, w i * E i ω ∂P
+  _ = ∑ i ∈ s, w i := Finset.sum_congr rfl fun i hi ↦ by
+    rw [lintegral_const_mul _ (hE i hi).measurable, (hE i hi).lintegral_eq_one hP, mul_one]
+  _ = 1 := hw
 
 /-! ### Products of independent e-variables -/
 
