@@ -21,14 +21,19 @@ the sequential form of admissible e-variables (`ProbabilityTheory.IsAdmissibleEV
 quasi-sure order of the null. On the space of stopped paths it is exactly the admissibility of
 `Function.uncurry E` among the e-variables of the stopped null.
 
-An e-process is admissible as soon as every event of time `n` charged by some member of the null
-is charged by a member under which `E n` has expectation one: under such a member, an e-process
-that dominates `E` has expectation at most that of `E n` at time `n`, so it is equal to `E n`
-almost surely there. Test martingales with initial expectation one are admissible for this reason,
-and for a simple null they are all the admissible e-processes [RRLK, Theorem 18]. For a composite
-null of probability measures, an admissible e-process is the quasi-sure essential infimum of test
-martingales for the members [RRLK, Corollary 26], and, for a locally dominated null, every
-e-process is below an admissible one [RRLK, Proposition 9].
+The admissibility criterion of Ramdas and Wang for e-variables [RW, Theorem 2.14], applied on the
+space of stopped paths, characterizes the admissible e-processes for any null [EVR26, Note 46,
+Theorem 6]: `E` is admissible exactly when, for every family of events `B n` of the filtration not
+all polar for the null, the deficits `1 - ∫⁻ E τ ∂P` at the bounded stopping times `τ` are
+arbitrarily small compared with the masses `P (B τ)` of the events read at `τ`. The infimum of
+these ratios is the largest amount that can be added to `E` on the events `B n`. In particular an
+e-process is admissible as soon as every event of time `n` charged by some member of the null is
+charged by a member under which `E n` has expectation one. Test martingales with initial
+expectation one are admissible for this reason, and for a simple null they are all the admissible
+e-processes [RRLK, Theorem 18]. For a composite null of probability measures, an admissible
+e-process is the quasi-sure essential infimum of test martingales for the members
+[RRLK, Corollary 26], and, for a locally dominated null, every e-process is below an admissible
+one [RRLK, Proposition 9].
 
 ## Main definitions
 
@@ -43,11 +48,21 @@ e-process is below an admissible one [RRLK, Proposition 9].
   time to an admissible e-process is an admissible e-process.
 * `ProbabilityTheory.isAdmissibleEProcess_iff_measure_lt_eq_zero`: an e-process is admissible
   exactly when no e-process dominates it strictly, the definition of [RRLK, §4.2].
+* `ProbabilityTheory.isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull`: admissible
+  e-processes are the admissible e-variables of the stopped null.
+* `ProbabilityTheory.IsEProcess.isEProcess_add_indicator_iff`,
+  `ProbabilityTheory.IsEProcess.isEProcess_add_indicator_iff'`: raising an e-process by `t` on
+  adapted events `B n` gives an e-process exactly when `t` is at most the ratios of the deficits
+  at the bounded stopping times, or at the stopping times that are finite everywhere, to the
+  masses of the events read at them [EVR26, Note 46].
+* `ProbabilityTheory.isAdmissibleEProcess_iff_iInf_div_eq_zero`,
+  `ProbabilityTheory.isAdmissibleEProcess_iff_iInf_div_eq_zero'`: **the admissibility criterion**,
+  for any null: an e-process is admissible exactly when the infimum of these ratios is zero for
+  every family of adapted events not all polar for the null, over the bounded stopping times and
+  over the stopping times that are finite everywhere [EVR26, Note 46, Theorem 6].
 * `ProbabilityTheory.IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq`: an e-process such
   that every event of time `n` charged by a member of the null is charged by a member under which
   `E n` has expectation `1` is admissible.
-* `ProbabilityTheory.isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull`: admissible
-  e-processes are the admissible e-variables of the stopped null.
 * `ProbabilityTheory.IsTestMartingale.isAdmissibleEProcess`: a test martingale with initial
   expectation `1` under every member is admissible [RRLK, Corollary 29].
 * `ProbabilityTheory.isAdmissibleEProcess_singleton_iff`: for a simple null, the admissible
@@ -63,9 +78,14 @@ e-process is below an admissible one [RRLK, Proposition 9].
 
 ## References
 
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, the notes and the
+  Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026, Note 46,
+  Theorem 6 (`results/46-admissibility-criterion.md`).
 * [RRLK] A. Ramdas, J. Ruf, M. Larsson and W. M. Koolen, *Admissible anytime-valid sequential
   inference must rely on nonnegative martingales*, arXiv:2009.03167v3: §4.2, Proposition 9,
   Theorem 18, Corollaries 26 and 29.
+* [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
+  Statistics 1 (2025), arXiv:2410.23614v6: Theorem 2.14.
 -/
 
 public section
@@ -123,22 +143,6 @@ theorem isAdmissibleEProcess_iff_measure_lt_eq_zero :
   exact and_congr_right fun _ ↦ forall₃_congr fun F _ _ ↦ (forall_congr' fun n ↦ key F n).trans
     ⟨fun h P hP n ↦ h n P hP, fun h n P hP ↦ h P hP n⟩
 
-/-- **A sufficient condition for admissibility.** An e-process `E` such that every
-`ℱ n`-measurable set charged by a member of the null is charged by a member `P` under which `E n`
-has expectation `1` is admissible. -/
-theorem IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq (hE : IsEProcess E ℱ S)
-    (h : ∀ n A, MeasurableSet[ℱ n] A → (∃ P ∈ S, P A ≠ 0) →
-      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E n ω ∂P = 1) :
-    IsAdmissibleEProcess E ℱ S := by
-  refine isAdmissibleEProcess_iff_measure_lt_eq_zero.2 ⟨hE, fun F hF hEF P₀ hP₀ n ↦ ?_⟩
-  by_contra hP₀A
-  -- a member of the null that charges `{E n < F n}` and under which `E n` has expectation `1`
-  -- cannot charge it
-  obtain ⟨P, hP, hPA, hPE⟩ := h n _
-    (measurableSet_lt (hE.adapted n) (hF.adapted n)) ⟨P₀, hP₀, hP₀A⟩
-  exact hPA ((hF.isEVar n).measure_lt_eq_zero_of_ae_le hP (ae_of_eventually_quasiSure (hEF n) hP)
-    hPE)
-
 /-! ### Admissible e-processes on stopped paths -/
 
 /-- **Admissible e-processes are the admissible e-variables of the stopped null.** An adapted
@@ -167,6 +171,169 @@ theorem isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull :
   · have hE' : IsEProcess E ℱ S := isEProcess_iff_isEVar_stoppedNull.2 hE.mem
     exact (hle hF.adapted hE'.adapted).1 (hE.eventuallyLE (isEProcess_iff_isEVar_stoppedNull.1 hF)
       ((hle hE'.adapted hF.adapted).2 hEF))
+
+/-! ### The admissibility criterion -/
+
+/-- At a stopping time that is finite everywhere, the value of an e-process `E` raised by `t` on
+adapted events `B n` is an e-variable exactly when `t` is at most every ratio of the deficit of
+`E τ` to the mass of the event `B τ` read at `τ`: the e-variable form
+`ProbabilityTheory.IsEVar.isEVar_add_indicator_iff` at `τ`. -/
+private theorem IsEProcess.isEVar_stoppedValue_add_indicator_iff (hE : IsEProcess E ℱ S)
+    {B : ℕ → Set Ω} (hB : ∀ n, MeasurableSet[ℱ n] (B n)) {t : ℝ≥0∞} {τ : Ω → WithTop ℕ}
+    (hτ : IsStoppingTime ℱ τ) (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    IsEVar (stoppedValue (fun n ω ↦ E n ω + (B n).indicator (fun _ ↦ t) ω) τ) S ↔
+      t ≤ ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+        (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) := by
+  -- the raised process read at `τ` is `E τ` raised by `t` on the event `B τ`
+  have h_eq : stoppedValue (fun n ω ↦ E n ω + (B n).indicator (fun _ ↦ t) ω) τ =
+      fun ω ↦ stoppedValue E τ ω + (stoppedEvent B τ).indicator (fun _ ↦ t) ω :=
+    funext fun ω ↦ by
+      by_cases hω : ω ∈ B (τ ω).untopA <;>
+        simp [stoppedValue, hω, mem_stoppedEvent_of_ne_top (hτ_top ω)]
+  rw [h_eq]
+  exact (hE.isEVar_stoppedValue hτ hτ_top).isEVar_add_indicator_iff
+    (measurableSet_stoppedEvent (fun n ↦ ℱ.le n _ (hB n)) hτ.measurable')
+
+/-- **The largest amount that can be added on adapted events.** For an e-process `E` and events
+`B n` of the filtration, raising `E n` by `t` on `B n` at every time `n` gives an e-process exactly
+when `t` is at most the deficit `1 - ∫⁻ E τ ∂P` divided by `P (B τ)`, for every bounded stopping
+time `τ` and every member `P` of the null that charges the event `B τ` read at `τ`
+(`MeasureTheory.stoppedEvent`) [EVR26, Note 46]. At each stopping time this is the e-variable form
+`ProbabilityTheory.IsEVar.isEVar_add_indicator_iff`. -/
+theorem IsEProcess.isEProcess_add_indicator_iff (hE : IsEProcess E ℱ S) {B : ℕ → Set Ω}
+    (hB : ∀ n, MeasurableSet[ℱ n] (B n)) {t : ℝ≥0∞} :
+    IsEProcess (fun n ω ↦ E n ω + (B n).indicator (fun _ ↦ t) ω) ℱ S ↔
+      t ≤ ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (_ : ∃ N : ℕ, ∀ ω, τ ω ≤ N),
+        ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+          (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) := by
+  refine ⟨fun hF ↦ le_iInf₂ fun τ hτ ↦ le_iInf fun ⟨N, hτN⟩ ↦
+    (hE.isEVar_stoppedValue_add_indicator_iff hB hτ fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)).1
+      (hF.isEVar_stoppedValue_of_le hτ hτN),
+    fun h ↦ ⟨fun n ↦ (hE.adapted n).add (measurable_const.indicator (hB n)), fun τ hτ N hτN ↦
+      (hE.isEVar_stoppedValue_add_indicator_iff hB hτ fun ω ↦
+        WithTop.ne_top_of_le_natCast (hτN ω)).2
+        (h.trans (iInf₂_le_of_le τ hτ (iInf_le _ ⟨N, hτN⟩)))⟩⟩
+
+/-- **The largest amount that can be added on adapted events, at stopping times with values in
+`ℕ`.** In `ProbabilityTheory.IsEProcess.isEProcess_add_indicator_iff`, the bounded stopping times
+can be replaced by the stopping times that are finite everywhere [EVR26, Note 46]. -/
+theorem IsEProcess.isEProcess_add_indicator_iff' (hE : IsEProcess E ℱ S)
+    {B : ℕ → Set Ω} (hB : ∀ n, MeasurableSet[ℱ n] (B n)) {t : ℝ≥0∞} :
+    IsEProcess (fun n ω ↦ E n ω + (B n).indicator (fun _ ↦ t) ω) ℱ S ↔
+      t ≤ ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (_ : ∀ ω, τ ω ≠ ⊤),
+        ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+          (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) := by
+  refine ⟨fun hF ↦ le_iInf₂ fun τ hτ ↦ le_iInf fun hτ_top ↦
+    (hE.isEVar_stoppedValue_add_indicator_iff hB hτ hτ_top).1 (hF.isEVar_stoppedValue hτ hτ_top),
+    fun h ↦ (hE.isEProcess_add_indicator_iff hB).2 (h.trans <| iInf₂_mono fun τ hτ ↦
+      le_iInf fun ⟨N, hτN⟩ ↦ iInf_le_of_le (fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω)) le_rfl)⟩
+
+/-- The infimum of the ratios of the e-variable criterion over the stopped null, for the set of
+stopped paths `{x | x.2 ∈ B x.1}` of adapted events `B n`, is the infimum over the stopping times
+that are finite everywhere and the members of the null of the ratios at the event `B τ`. -/
+private theorem iInf_stoppedNull_div_eq (hE : Adapted ℱ E) {B : ℕ → Set Ω}
+    (hB : ∀ n, MeasurableSet[ℱ n] (B n)) :
+    ⨅ μ ∈ stoppedNull ℱ S, ⨅ (_ : μ {x | x.2 ∈ B x.1} ≠ 0),
+        (1 - ∫⁻ x, Function.uncurry E x ∂μ) / μ {x | x.2 ∈ B x.1} =
+      ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (_ : ∀ ω, τ ω ≠ ⊤),
+        ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+          (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) := by
+  -- under a stopped law, `Function.uncurry E` has the integral of `E τ`
+  have h_int {P : Measure Ω} {τ : Ω → WithTop ℕ} (hτ : IsStoppingTime ℱ τ) :
+      ∫⁻ x, Function.uncurry E x ∂(stoppedLaw ℱ P fun ω ↦ (τ ω).untopA) =
+        ∫⁻ ω, stoppedValue E τ ω ∂P := by
+    rw [lintegral_stoppedLaw hτ.measurable'.untopA
+      (Filtration.measurable_uncurry_progressive_iff.2 hE)]
+    simp [stoppedValue]
+  refine le_antisymm (le_iInf₂ fun τ hτ ↦ le_iInf fun hτ_top ↦ le_iInf₂ fun P hP ↦ ?_)
+    (le_iInf₂ fun μ hμ ↦ ?_)
+  · refine iInf₂_le_of_le _ (stoppedLaw_mem_stoppedNull hP hτ hτ_top) ?_
+    rw [stoppedLaw_setOf_mem hB hτ.measurable' hτ_top, h_int hτ]
+  · obtain ⟨P, hP, τ, hτ, hτ_top, rfl⟩ := mem_stoppedNull.1 hμ
+    refine iInf₂_le_of_le τ hτ (iInf_le_of_le hτ_top (iInf₂_le_of_le P hP ?_))
+    rw [stoppedLaw_setOf_mem hB hτ.measurable' hτ_top, h_int hτ]
+
+/-- **The admissibility criterion for e-processes, at stopping times with values in `ℕ`**
+[EVR26, Note 46, Theorem 6]. An e-process `E` for any null `S` is admissible exactly when, for
+every family of events `B n` of the filtration not all polar for the null, the deficits
+`1 - ∫⁻ E τ ∂P` at the stopping times `τ` that are finite everywhere, under the members `P` that
+charge the event `B τ` read at `τ`, are arbitrarily small compared with `P (B τ)`. This is the
+criterion of Ramdas and Wang for e-variables
+(`ProbabilityTheory.isAdmissibleEVar_iff_iInf_div_eq_zero`) for the stopped null, whose measurable
+sets are the families of their sections `B n`. No domination, finiteness or mass hypothesis is
+needed. -/
+theorem isAdmissibleEProcess_iff_iInf_div_eq_zero' :
+    IsAdmissibleEProcess E ℱ S ↔ IsEProcess E ℱ S ∧ ∀ B : ℕ → Set Ω,
+      (∀ n, MeasurableSet[ℱ n] (B n)) → (∃ n, ∃ P ∈ S, P (B n) ≠ 0) →
+        ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (_ : ∀ ω, τ ω ≠ ⊤),
+          ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+            (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) = 0 := by
+  rw [isAdmissibleEProcess_iff_isAdmissibleEVar_stoppedNull, isAdmissibleEVar_iff_iInf_div_eq_zero,
+    ← isEProcess_iff_isEVar_stoppedNull]
+  refine and_congr_right fun hE ↦ ?_
+  refine ⟨fun h B hB ⟨n, P, hP, hPB⟩ ↦ ?_, fun h A hA hSA ↦ ?_⟩
+  · -- the set of stopped paths of the family `B` is charged at the constant time `n`
+    rw [← iInf_stoppedNull_div_eq hE.adapted hB]
+    have hn : IsStoppingTime ℱ fun _ : Ω ↦ (n : WithTop ℕ) := isStoppingTime_const ℱ n
+    refine h _ (Filtration.measurableSet_progressive_iff_of_countable.2 hB) ⟨_,
+      stoppedLaw_mem_stoppedNull hP hn fun _ ↦ WithTop.natCast_ne_top n, ?_⟩
+    rwa [stoppedLaw_setOf_mem hB hn.measurable' fun _ ↦ WithTop.natCast_ne_top n,
+      stoppedEvent_const]
+  · -- a progressive set of stopped paths is the set of stopped paths of its sections
+    set B : ℕ → Set Ω := fun n ↦ {ω | (n, ω) ∈ A} with hB_def
+    have hB : ∀ n, MeasurableSet[ℱ n] (B n) :=
+      Filtration.measurableSet_progressive_iff_of_countable.1 hA
+    have hA_eq : {x : ℕ × Ω | x.2 ∈ B x.1} = A := by
+      ext
+      simp [hB_def]
+    rw [← hA_eq] at hSA ⊢
+    rw [iInf_stoppedNull_div_eq hE.adapted hB]
+    refine h B hB ?_
+    -- a stopped law charges it only if the null charges one of the sections
+    obtain ⟨μ, hμ, hμA⟩ := hSA
+    obtain ⟨P, hP, τ, hτ, hτ_top, rfl⟩ := mem_stoppedNull.1 hμ
+    rw [stoppedLaw_setOf_mem hB hτ.measurable' hτ_top] at hμA
+    by_contra hne
+    refine hμA (measure_mono_null stoppedEvent_subset_iUnion (measure_iUnion_null fun n ↦ ?_))
+    by_contra hPn
+    exact hne ⟨n, P, hP, hPn⟩
+
+/-- **The admissibility criterion for e-processes** [EVR26, Note 46, Theorem 6]. An e-process `E`
+for any null `S` is admissible exactly when, for every family of events `B n` of the filtration
+not all polar for the null, the deficits `1 - ∫⁻ E τ ∂P` at the bounded stopping times `τ`, under
+the members `P` that charge the event `B τ` read at `τ`, are arbitrarily small compared with
+`P (B τ)`. The infimum is the largest amount that can be added to `E` on the events `B n`
+(`ProbabilityTheory.IsEProcess.isEProcess_add_indicator_iff`), as it is over the stopping times
+that are finite everywhere (`ProbabilityTheory.isAdmissibleEProcess_iff_iInf_div_eq_zero'`). No
+domination, finiteness or mass hypothesis is needed. -/
+theorem isAdmissibleEProcess_iff_iInf_div_eq_zero :
+    IsAdmissibleEProcess E ℱ S ↔ IsEProcess E ℱ S ∧ ∀ B : ℕ → Set Ω,
+      (∀ n, MeasurableSet[ℱ n] (B n)) → (∃ n, ∃ P ∈ S, P (B n) ≠ 0) →
+        ⨅ (τ : Ω → WithTop ℕ) (_ : IsStoppingTime ℱ τ) (_ : ∃ N : ℕ, ∀ ω, τ ω ≤ N),
+          ⨅ P ∈ S, ⨅ (_ : P (stoppedEvent B τ) ≠ 0),
+            (1 - ∫⁻ ω, stoppedValue E τ ω ∂P) / P (stoppedEvent B τ) = 0 := by
+  rw [isAdmissibleEProcess_iff_iInf_div_eq_zero']
+  refine and_congr_right fun hE ↦ forall₃_congr fun B hB _ ↦ ?_
+  -- both infima are the largest amount that can be added to `E` on the events `B n`
+  exact ⟨fun h0 ↦ nonpos_iff_eq_zero.1 (((hE.isEProcess_add_indicator_iff' hB).1
+      ((hE.isEProcess_add_indicator_iff hB).2 le_rfl)).trans h0.le),
+    fun h0 ↦ nonpos_iff_eq_zero.1 (((hE.isEProcess_add_indicator_iff hB).1
+      ((hE.isEProcess_add_indicator_iff' hB).2 le_rfl)).trans h0.le)⟩
+
+/-- **A sufficient condition for admissibility.** An e-process `E` such that every
+`ℱ n`-measurable set charged by a member of the null is charged by a member `P` under which `E n`
+has expectation `1` is admissible: the ratios of the criterion
+`ProbabilityTheory.isAdmissibleEProcess_iff_iInf_div_eq_zero` vanish at the constant time `n`. -/
+theorem IsEProcess.isAdmissibleEProcess_of_exists_lintegral_eq (hE : IsEProcess E ℱ S)
+    (h : ∀ n A, MeasurableSet[ℱ n] A → (∃ P ∈ S, P A ≠ 0) →
+      ∃ P ∈ S, P A ≠ 0 ∧ ∫⁻ ω, E n ω ∂P = 1) :
+    IsAdmissibleEProcess E ℱ S := by
+  refine isAdmissibleEProcess_iff_iInf_div_eq_zero.2 ⟨hE, fun B hB ⟨n, P₀, hP₀, hP₀B⟩ ↦ ?_⟩
+  obtain ⟨P, hP, hPB, hPE⟩ := h n (B n) (hB n) ⟨P₀, hP₀, hP₀B⟩
+  refine nonpos_iff_eq_zero.1 (iInf₂_le_of_le (fun _ ↦ (n : WithTop ℕ))
+    (isStoppingTime_const ℱ n) (iInf_le_of_le ⟨n, fun _ ↦ le_rfl⟩ (iInf₂_le_of_le P hP
+      (iInf_le_of_le (by rwa [stoppedEvent_const]) ?_))))
+  simp [hPE]
 
 /-! ### Admissibility and test martingales -/
 
