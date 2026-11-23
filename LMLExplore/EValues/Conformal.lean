@@ -81,7 +81,7 @@ the sample is exchangeable.
   split conformal e-predictors** [Vov25, Proposition 10], when the calibration points and the test
   observation are exchangeable given the training set proper, and in particular when the whole
   sample is exchangeable; the exact versions are
-  `ProbabilityTheory.IsNonconformityMeasure.isExactEVar_splitConformalEPredictor(_sumElim)`.
+  `ProbabilityTheory.IsNonconformityMeasure.isExactEVar_splitConformalEPredictor(_inl_inr)`.
 * `ProbabilityTheory.isEVar_crossConformalEPredictor`,
   `ProbabilityTheory.isExactEVar_crossConformalEPredictor`: **validity of cross-conformal
   e-predictors** [Vov25, Proposition 11], for weights of sum at most `1`, and with expectation one
@@ -408,9 +408,10 @@ under a nonconformity measure on these pairs. -/
 private lemma splitConformalEPredictor_eq_comp (N : (Option ι → 𝓢) → Option ι → ℝ≥0∞)
     (s : 𝓣 → 𝓧 × 𝓨 → 𝓢) (T : Ω → 𝓣) (W : Option ι → Ω → 𝓧 × 𝓨) :
     (fun ω ↦ splitConformalEPredictor N s (T ω) (fun i ↦ W (some i) ω) (W none ω).1 (W none ω).2) =
-      fun ω ↦ (fun v : Option ι → 𝓣 × (𝓧 × 𝓨) ↦ N (fun j ↦ s (v j).1 (v j).2) none)
+      fun ω ↦ (fun v : Option ι → 𝓣 × (𝓧 × 𝓨) ↦ N (fun j ↦ Function.uncurry s (v j)) none)
         fun j ↦ (T ω, W j ω) := by
   ext ω
+  simp only [Function.uncurry_apply_pair]
   exact splitConformalEPredictor_some_none N s (T ω) fun j ↦ W j ω
 
 variable [MeasurableSpace 𝓧] [MeasurableSpace 𝓨] [MeasurableSpace 𝓢] [MeasurableSpace 𝓣]
@@ -447,6 +448,19 @@ theorem IsNonconformityMeasure.isExactEVar_splitConformalEPredictor (hN : IsNonc
 
 variable [Countable κ] {s : (κ → 𝓧 × 𝓨) → 𝓧 × 𝓨 → 𝓢} {Z : κ ⊕ Option ι → Ω → 𝓧 × 𝓨}
 
+omit [Fintype ι] in
+/-- The probability measures under which a sample `Z` is exchangeable are among those under which
+its calibration and test observations, each paired with the training set proper, are
+exchangeable. -/
+private lemma setOf_exchangeableFamily_subset_inl_inr (hZ : ∀ j, Measurable (Z j)) :
+    {P | IsProbabilityMeasure P ∧ ExchangeableFamily P Z} ⊆
+      {P | IsProbabilityMeasure P ∧
+        ExchangeableFamily P fun j ω ↦ ((fun k ↦ Z (.inl k) ω), Z (.inr j) ω)} := by
+  intro P hP
+  -- `ExchangeableFamily.prodMk_inl_inr` needs the instance `IsFiniteMeasure P`.
+  have := hP.1
+  exact ⟨hP.1, hP.2.prodMk_inl_inr hZ⟩
+
 /-- **Validity of split conformal e-predictors** [Vov25, Proposition 10]: for a random sample `Z`
 made of a training set proper, at the indices `inl k`, of calibration observations, at the indices
 `inr (some i)`, and of a test observation, at the index `inr none`, the split conformal
@@ -459,10 +473,8 @@ theorem IsNonconformityEMeasure.isEVar_splitConformalEPredictor_inl_inr
       (fun ω ↦ splitConformalEPredictor N s (fun k ↦ Z (.inl k) ω)
         (fun i ↦ Z (.inr (some i)) ω) (Z (.inr none) ω).1 (Z (.inr none) ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P Z} := by
-  refine IsEVar.anti_set (fun P hP ↦ ?_) (hN.isEVar_splitConformalEPredictor hs
-    (Measurable.of_eval fun k ↦ hZ (.inl k)) fun j ↦ hZ (.inr j))
-  have := hP.1
-  exact ⟨hP.1, hP.2.prodMk_inl_inr hZ⟩
+  exact (hN.isEVar_splitConformalEPredictor hs (Measurable.of_eval fun k ↦ hZ (.inl k))
+    fun j ↦ hZ (.inr j)).anti_set (setOf_exchangeableFamily_subset_inl_inr hZ)
 
 /-- **Validity of admissible split conformal e-predictors** [Vov25, Proposition 10]: when the
 normalizing transformation is admissible, the split conformal e-predictor at the true label of the
@@ -474,10 +486,8 @@ theorem IsNonconformityMeasure.isExactEVar_splitConformalEPredictor_inl_inr
       (fun ω ↦ splitConformalEPredictor N s (fun k ↦ Z (.inl k) ω)
         (fun i ↦ Z (.inr (some i)) ω) (Z (.inr none) ω).1 (Z (.inr none) ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P Z} := by
-  refine IsExactEVar.anti_set (fun P hP ↦ ?_) (hN.isExactEVar_splitConformalEPredictor hsum hs
-    (Measurable.of_eval fun k ↦ hZ (.inl k)) fun j ↦ hZ (.inr j))
-  have := hP.1
-  exact ⟨hP.1, hP.2.prodMk_inl_inr hZ⟩
+  exact (hN.isExactEVar_splitConformalEPredictor hsum hs (Measurable.of_eval fun k ↦ hZ (.inl k))
+    fun j ↦ hZ (.inr j)).anti_set (setOf_exchangeableFamily_subset_inl_inr hZ)
 
 end SplitConformalEPredictor
 
@@ -492,6 +502,14 @@ proper of the fold `f` followed by the calibration and test indices of that fold
 private def foldEmbedding (fold : κ → F) (f : F) :
     {i // fold i ≠ f} ⊕ Option {i // fold i = f} → Option κ :=
   Sum.elim (fun i ↦ some i.1) (Option.map Subtype.val)
+
+private lemma foldEmbedding_inl (fold : κ → F) (f : F) (i : {i // fold i ≠ f}) :
+    foldEmbedding fold f (.inl i) = some i.1 :=
+  rfl
+
+private lemma foldEmbedding_inr (fold : κ → F) (f : F) (j : Option {i // fold i = f}) :
+    foldEmbedding fold f (.inr j) = j.map Subtype.val :=
+  rfl
 
 private lemma injective_foldEmbedding (fold : κ → F) (f : F) :
     Function.Injective (foldEmbedding fold f) := by
@@ -532,14 +550,20 @@ variable [MeasurableSpace 𝓧] [MeasurableSpace 𝓨] [MeasurableSpace 𝓢] [F
   {s : ∀ f, ({i // fold i ≠ f} → 𝓧 × 𝓨) → 𝓧 × 𝓨 → 𝓢} {W : Option κ → Ω → 𝓧 × 𝓨}
 
 omit [Fintype F] [Fintype κ] [DecidableEq F] in
-/-- In an exchangeable sample of training and test observations, the calibration and test
-observations of a fold, each paired with the training set proper of that fold, are
-exchangeable. -/
-private lemma exchangeableFamily_fold [Countable κ] {P : Measure Ω} [IsFiniteMeasure P]
-    (hP : ExchangeableFamily P W) (hW : ∀ j, Measurable (W j)) (f : F) :
-    ExchangeableFamily P fun (j : Option {i // fold i = f}) ω ↦
-      ((fun i : {i // fold i ≠ f} ↦ W (some i.1) ω), W (j.map Subtype.val) ω) :=
-  (hP.comp_injective (injective_foldEmbedding fold f)).prodMk_inl_inr fun _ ↦ hW _
+/-- The probability measures under which a sample of training and test observations is
+exchangeable are among those under which the calibration and test observations of a fold, each
+paired with the training set proper of that fold, are exchangeable. -/
+private lemma setOf_exchangeableFamily_subset_fold [Countable κ] (hW : ∀ j, Measurable (W j))
+    (f : F) :
+    {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} ⊆
+      {P | IsProbabilityMeasure P ∧ ExchangeableFamily P fun (j : Option {i // fold i = f}) ω ↦
+        ((fun i : {i // fold i ≠ f} ↦ W (some i.1) ω), W (j.map Subtype.val) ω)} := by
+  intro P hP
+  -- `ExchangeableFamily.prodMk_inl_inr` needs the instance `IsFiniteMeasure P`.
+  have := hP.1
+  refine ⟨hP.1, ?_⟩
+  simpa only [foldEmbedding_inl, foldEmbedding_inr] using
+    (hP.2.comp_injective (injective_foldEmbedding fold f)).prodMk_inl_inr fun _ ↦ hW _
 
 omit [Fintype F] in
 /-- The split conformal e-predictor of a fold, at the true label of the test object, is an
@@ -549,11 +573,10 @@ private lemma isEVar_splitConformalEPredictor_fold (f : F) (hN : IsNonconformity
     IsEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.1) ω)
         (fun i ↦ W (some i.1) ω) (W none ω).1 (W none ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} := by
-  refine IsEVar.anti_set (fun P hP ↦ ?_)
+  simpa only [Option.map_some, Option.map_none] using
     (hN.isEVar_splitConformalEPredictor (W := fun j ↦ W (j.map Subtype.val)) hs
-      (Measurable.of_eval fun _ ↦ hW _) fun _ ↦ hW _)
-  have := hP.1
-  exact ⟨hP.1, exchangeableFamily_fold hP.2 hW f⟩
+      (Measurable.of_eval fun _ ↦ hW _) fun _ ↦ hW _).anti_set
+      (setOf_exchangeableFamily_subset_fold hW f)
 
 omit [Fintype F] in
 /-- The split conformal e-predictor of a fold with an admissible normalizing transformation, at the
@@ -566,11 +589,10 @@ private lemma isExactEVar_splitConformalEPredictor_fold (f : F)
     IsExactEVar (fun ω ↦ splitConformalEPredictor (N f) (s f) (fun i ↦ W (some i.1) ω)
         (fun i ↦ W (some i.1) ω) (W none ω).1 (W none ω).2)
       {P | IsProbabilityMeasure P ∧ ExchangeableFamily P W} := by
-  refine IsExactEVar.anti_set (fun P hP ↦ ?_)
+  simpa only [Option.map_some, Option.map_none] using
     (hN.isExactEVar_splitConformalEPredictor (W := fun j ↦ W (j.map Subtype.val)) hsum hs
-      (Measurable.of_eval fun _ ↦ hW _) fun _ ↦ hW _)
-  have := hP.1
-  exact ⟨hP.1, exchangeableFamily_fold hP.2 hW f⟩
+      (Measurable.of_eval fun _ ↦ hW _) fun _ ↦ hW _).anti_set
+      (setOf_exchangeableFamily_subset_fold hW f)
 
 /-- **Validity of cross-conformal e-predictors** [Vov25, Proposition 11]: for normalizing
 transformations `N f`, measurable split nonconformity measures `s f` and weights of sum at most

@@ -54,7 +54,8 @@ e-variables are `ℝ≥0∞`-valued.
   `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
 * `ProbabilityTheory.isEVar_tsum_mul`, `ProbabilityTheory.isEVar_finsetSum_mul`: a countable or
   finite mixture `∑ i, w i * E i` of e-variables, with weights of sum at most `1`, is an
-  e-variable; `ProbabilityTheory.isExactEVar_finsetSum_mul`: a finite mixture of exact
+  e-variable; `ProbabilityTheory.isExactEVar_tsum_mul`,
+  `ProbabilityTheory.isExactEVar_finsetSum_mul`: a countable or finite mixture of exact
   e-variables, with weights of sum `1`, is an exact e-variable.
 * `ProbabilityTheory.isEVar_piecewise_top`: the function equal to `∞` on a measurable set null
   for every member of `S`, and to `0` elsewhere, is an e-variable for `S`.
@@ -271,17 +272,26 @@ theorem isEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Fi
     (by rwa [Finset.tsum_subtype s w]) using 2 with ω
   exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 
+/-- **Countable mixtures of exact e-variables.** For a countable family of exact e-variables `E i`
+and weights `w i` with `∑' i, w i = 1`, the mixture `∑' i, w i * E i` is an exact e-variable. -/
+theorem isExactEVar_tsum_mul {ι : Type*} [Countable ι] {E : ι → Ω → ℝ≥0∞}
+    (hE : ∀ i, IsExactEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑' i, w i = 1) :
+    IsExactEVar (fun ω ↦ ∑' i, w i * E i ω) S := by
+  refine ⟨isEVar_tsum_mul (fun i ↦ (hE i).toIsEVar) hw.le, fun P hP ↦ ?_⟩
+  rw [lintegral_tsum fun i ↦ ((hE i).measurable.const_mul (w i)).aemeasurable]
+  calc ∑' i, ∫⁻ ω, w i * E i ω ∂P
+  _ = ∑' i, w i := tsum_congr fun i ↦ by
+    rw [lintegral_const_mul _ (hE i).measurable, (hE i).lintegral_eq_one hP, mul_one]
+  _ = 1 := hw
+
 /-- **Finite mixtures of exact e-variables.** For exact e-variables `E i`, `i ∈ s`, and weights
 `w i` with `∑ i ∈ s, w i = 1`, the mixture `∑ i ∈ s, w i * E i` is an exact e-variable. -/
 theorem isExactEVar_finsetSum_mul {ι : Type*} {E : ι → Ω → ℝ≥0∞} (s : Finset ι)
     (hE : ∀ i ∈ s, IsExactEVar (E i) S) {w : ι → ℝ≥0∞} (hw : ∑ i ∈ s, w i = 1) :
     IsExactEVar (fun ω ↦ ∑ i ∈ s, w i * E i ω) S := by
-  refine ⟨isEVar_finsetSum_mul s (fun i hi ↦ (hE i hi).toIsEVar) hw.le, fun P hP ↦ ?_⟩
-  rw [lintegral_finsetSum' s fun i hi ↦ ((hE i hi).measurable.const_mul (w i)).aemeasurable]
-  calc ∑ i ∈ s, ∫⁻ ω, w i * E i ω ∂P
-  _ = ∑ i ∈ s, w i := Finset.sum_congr rfl fun i hi ↦ by
-    rw [lintegral_const_mul _ (hE i hi).measurable, (hE i hi).lintegral_eq_one hP, mul_one]
-  _ = 1 := hw
+  convert isExactEVar_tsum_mul (fun i : s ↦ hE i i.2) (w := fun i ↦ w i)
+    (by rwa [Finset.tsum_subtype s w]) using 2 with ω
+  exact (Finset.tsum_subtype s fun i ↦ w i * E i ω).symm
 
 /-! ### Products of independent e-variables -/
 
