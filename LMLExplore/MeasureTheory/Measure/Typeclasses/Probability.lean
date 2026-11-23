@@ -20,8 +20,8 @@ sum `1` is a probability measure. This is the finite form of Tau Ceti's
 
 * `MeasureTheory.isProbabilityMeasure_sum_smul`: a finite convex combination of probability
   measures is a probability measure.
-* `MeasureTheory.convex_isProbabilityMeasure`: the probability measures form a convex set of
-  measures over `ℝ≥0∞`.
+* `MeasureTheory.convex_setOfPred_isProbabilityMeasure`: the probability measures form a convex
+  set of measures over `ℝ≥0∞`.
 -/
 
 public section
@@ -40,7 +40,7 @@ lemma isProbabilityMeasure_sum_smul {α ι : Type*} {mα : MeasurableSpace α} [
   exact_mod_cast hw
 
 /-- The probability measures form a convex set of measures over `ℝ≥0∞`. -/
-lemma convex_isProbabilityMeasure {α : Type*} {mα : MeasurableSpace α} :
+lemma convex_setOfPred_isProbabilityMeasure {α : Type*} {mα : MeasurableSpace α} :
     Convex ℝ≥0∞ {P : Measure α | IsProbabilityMeasure P} := by
   intro P (_ : IsProbabilityMeasure P) Q (_ : IsProbabilityMeasure Q) a b _ _ hab
   exact TauCeti.MeasureTheory.isProbabilityMeasure_smul_add_smul hab P Q

@@ -9,6 +9,7 @@ public import LMLExplore.EValues.EffectiveSet.Basic
 public import LMLExplore.EValues.Null.Bipolar
 import LMLExplore.Analysis.Convex.ENNReal
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
+import LMLExplore.MeasureTheory.Measure.WithDensity
 
 /-!
 # The effective null of a dominated null
@@ -79,8 +80,7 @@ theorem isEVar_image_withDensity_iff (hD : ∀ p ∈ D, Measurable p) {X : Ω �
     IsEVar X ((fun p ↦ μ.withDensity p) '' D) ↔ μ.withDensity X ∈ polarNull D := by
   simp only [isEVar_iff_lintegral_le_one, forall_mem_image, mem_polarNull_iff, hX, true_and]
   refine forall₂_congr fun p hp ↦ ?_
-  rw [lintegral_withDensity_eq_lintegral_mul _ (hD p hp) hX,
-    lintegral_withDensity_eq_lintegral_mul _ hX (hD p hp), mul_comm]
+  rw [lintegral_withDensity_comm (hD p hp).aemeasurable hX.aemeasurable]
 
 /-- The measures whose densities are in the closed solid convex hull of a set `D` of measurable
 densities are in the effective null of the measures `μ.withDensity p`, `p ∈ D`. This holds for
@@ -94,8 +94,7 @@ theorem withDensity_mem_effectiveSet_of_mem_closedSolidConvexHull (hD : ∀ p �
   have hq_evar := IsEVar.of_mem_closedSolidConvexHull hD hq
   have h_le := hq_evar.lintegral_le_one
     ⟨(isEVar_image_withDensity_iff hD hX.measurable).1 hX, withDensity_absolutelyContinuous μ X⟩
-  rwa [lintegral_withDensity_eq_lintegral_mul _ hq_evar.measurable hX.measurable, mul_comm,
-    ← lintegral_withDensity_eq_lintegral_mul _ hX.measurable hq_evar.measurable]
+  rwa [lintegral_withDensity_comm hX.measurable.aemeasurable hq_evar.measurable.aemeasurable]
 
 /-- **The densities of the effective null.** For a σ-finite measure `μ` and a nonempty set `D` of
 measurable densities, a measurable, `μ`-almost everywhere finite `q` is the density of a member of
@@ -112,8 +111,7 @@ theorem withDensity_mem_effectiveSet_iff [SigmaFinite μ] (hne : D.Nonempty)
   rintro ν ⟨hν, hν_fin, hνμ⟩
   have hg := Measure.measurable_rnDeriv ν μ
   rw [← Measure.withDensity_rnDeriv_eq ν μ hνμ] at hν ⊢
-  rw [lintegral_withDensity_eq_lintegral_mul _ hg hq, mul_comm,
-    ← lintegral_withDensity_eq_lintegral_mul _ hq hg]
+  rw [lintegral_withDensity_comm hq.aemeasurable hg.aemeasurable]
   exact h _ ((isEVar_image_withDensity_iff hD hg).2 hν)
 
 /-- **The effective null of a dominated null** [LRR25, Lemma 4.5]. Let `S` be a nonempty null of
@@ -189,7 +187,7 @@ theorem effectiveSet_range_inter_eq_convexHull {ι : Type*} [Finite ι] {P : ι 
   have := Fintype.ofFinite ι
   refine subset_antisymm ?_ (convexHull_min (fun _ ⟨i, hi⟩ ↦ hi ▸
     ⟨subset_effectiveSet ⟨i, rfl⟩, inferInstanceAs (IsProbabilityMeasure (P i))⟩)
-    (convex_effectiveSet.inter convex_isProbabilityMeasure))
+    (convex_effectiveSet.inter convex_setOfPred_isProbabilityMeasure))
   rintro ν ⟨hν, hν_prob⟩
   have : IsProbabilityMeasure ν := hν_prob
   -- the null is not empty, since the empty null has no probability measure in its effective null

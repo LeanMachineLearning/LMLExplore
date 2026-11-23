@@ -32,6 +32,8 @@ conditionally bounded increment.
   `m`-measurable set.
 * `MeasureTheory.lintegral_withDensity_inv_eq_lintegral_div`: integrating against the measure of
   density `X⁻¹` is integrating `Y / X`.
+* `MeasureTheory.lintegral_withDensity_comm`: integrating `f` against the measure of density `g`
+  is integrating `g` against the measure of density `f`.
 -/
 
 public section
@@ -124,5 +126,12 @@ theorem lintegral_withDensity_inv_eq_lintegral_div {X : Ω → ℝ≥0∞} (hX :
     ∫⁻ ω, Y ω ∂(μ.withDensity fun ω ↦ (X ω)⁻¹) = ∫⁻ ω, Y ω / X ω ∂μ := by
   rw [lintegral_withDensity_eq_lintegral_mul₀ (f := fun ω ↦ (X ω)⁻¹) hX.inv hY]
   simp_rw [Pi.mul_apply, mul_comm _ (Y _), ← div_eq_mul_inv]
+
+/-- Integrating `f` against the measure of density `g` with respect to `μ` is integrating `g`
+against the measure of density `f`: both are `∫⁻ ω, f ω * g ω ∂μ`. -/
+theorem lintegral_withDensity_comm (hf : AEMeasurable f μ) (hg : AEMeasurable g μ) :
+    ∫⁻ ω, f ω ∂(μ.withDensity g) = ∫⁻ ω, g ω ∂(μ.withDensity f) := by
+  rw [lintegral_withDensity_eq_lintegral_mul₀ hg hf, lintegral_withDensity_eq_lintegral_mul₀ hf hg,
+    mul_comm]
 
 end MeasureTheory
