@@ -18,9 +18,11 @@ of p-values, the conditional probability `P (p ∈ D ∣ p i ≤ s)` is nondecre
 (11)]. This is the weak form of the condition of [BY01], conditioning on `p i ≤ s` rather than on
 `p i = s`. The sets `D` are upper sets, as in [BY01; BR08], so that `{x | f x ≤ t}` qualifies for
 every coordinatewise nonincreasing `f`; [Goe26, (11)] in v2 writes "decreasing sets" instead, a
-condition with which the lemma of Blanchard and Roquain cannot be proved. P-values that are all
-nondecreasing functions of one statistic are PRDS on every set of hypotheses
-(`ProbabilityTheory.isPRDS_of_monotone`), and PRDS passes to subsets of hypotheses
+degenerate condition: taking `D = {x | x i ≤ s}`, it forces each `p i`, `i ∈ N`, to be almost
+surely constant under a probability measure (hence at least `1` for a p-variable), so that the
+lemma of Blanchard and Roquain holds trivially under it, and it is not the condition of [BY01;
+BR08]. P-values that are all nondecreasing functions of one statistic are PRDS on every set of
+hypotheses (`ProbabilityTheory.isPRDS_of_monotone`), and PRDS passes to subsets of hypotheses
 (`ProbabilityTheory.IsPRDS.mono`).
 
 Under PRDS, a p-variable `p i` with `i ∈ N` earns an e-value against every coordinatewise
@@ -262,8 +264,9 @@ variable {p : ι → Ω → ℝ≥0∞} {N : Set ι} {i : ι}
 every `i ∈ N` and every measurable upper set `D` of vectors of p-values, the conditional
 probability `P (p ∈ D ∣ p i ≤ s)` is nondecreasing in `s`. It is stated without division, as
 `P (p ∈ D, p i ≤ s) * P (p i ≤ t) ≤ P (p ∈ D, p i ≤ t) * P (p i ≤ s)` for `s ≤ t`. The sets `D`
-are upper sets, as in [BY01; BR08]; [Goe26, (11)] in v2 writes "decreasing sets", with which the
-lemma of Blanchard and Roquain cannot be proved. -/
+are upper sets, as in [BY01; BR08]; [Goe26, (11)] in v2 writes "decreasing sets", a degenerate
+condition that forces each `p i`, `i ∈ N`, to be almost surely constant under a probability
+measure (hence at least `1` for a p-variable), and is not the condition of [BY01; BR08]. -/
 def IsPRDS (p : ι → Ω → ℝ≥0∞) (P : Measure Ω) (N : Set ι) : Prop :=
   ∀ i ∈ N, ∀ D : Set (ι → ℝ≥0∞), MeasurableSet D → IsUpperSet D → ∀ ⦃s t : ℝ≥0∞⦄, s ≤ t →
     P ({ω | (p · ω) ∈ D} ∩ {ω | p i ω ≤ s}) * P {ω | p i ω ≤ t} ≤
