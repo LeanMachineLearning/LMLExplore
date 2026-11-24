@@ -292,12 +292,6 @@ end Hoeffding
 
 section Bernoulli
 
-/-- The cumulant generating function of the Bernoulli law of mean `q` is
-`log (1 - q + q exp t)`. -/
-private lemma cgf_id_bernoulliMeasure (q : I) (t : ℝ) :
-    cgf id Ber((1 : ℝ), 0, q) t = log (1 - q + q * exp t) := by
-  rw [cgf, TauCeti.Probability.mgf_id_bernoulliMeasure]
-
 /-- **Observations in `[0, 1]` with conditional mean at most `q` are members of the null of the
 Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
 observation `X k` has values in `[0, 1]` and conditional mean at most `q` given `ℱ k` belongs to
@@ -308,7 +302,7 @@ theorem mem_condEVarNull_subPsiBets_log_of_condExp_le [StandardBorelSpace Ω] {P
     P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Ici 0)) X ℱ :=
   mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
     (LMLExplore.hasCondMGFBound_Ici_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
-      (hq k)).mono subset_rfl fun t _ ↦ (cgf_id_bernoulliMeasure q t).le
+      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
 
 /-- **Observations in `[0, 1]` with conditional mean at least `q` are members of the null of the
 Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
@@ -320,7 +314,7 @@ theorem mem_condEVarNull_subPsiBets_log_of_le_condExp [StandardBorelSpace Ω] {P
     P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Iic 0)) X ℱ :=
   mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
     (LMLExplore.hasCondMGFBound_Iic_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
-      (hq k)).mono subset_rfl fun t _ ↦ (cgf_id_bernoulliMeasure q t).le
+      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
 
 /-- The confidence sequence of the Bernoulli bets for the parameters `q`, for any family of nulls
 contained in the nulls of the Bernoulli bets on `Λ`. -/
