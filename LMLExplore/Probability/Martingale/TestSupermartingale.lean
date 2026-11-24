@@ -60,7 +60,8 @@ stopping time `τ` is multiplied by a new supermartingale `B` that equals `1` up
   measures, a process `M` with `M 0 = 1` is a test supermartingale for `𝒢` exactly when its shift
   `fun n ↦ M (n + 1)` is one for `ℱ`.
 * `ProbabilityTheory.isTestSupermartingale_mul_prod`, `ProbabilityTheory.isTestMartingale_mul_prod`:
-  wealth processes `M₀ * ∏ k < n, F k` of conditional e-variables.
+  wealth processes `M₀ * ∏ k < n, F k` of conditional e-variables; without a bound on the initial
+  expectation, `ProbabilityTheory.isENNSupermartingale_mul_prod`.
 * `ProbabilityTheory.isTestSupermartingale_portfolio`,
   `ProbabilityTheory.isTestSupermartingale_prod`,
   `ProbabilityTheory.isTestSupermartingale_betting_condEVar` and their martingale versions:
@@ -443,6 +444,17 @@ end Shift
 
 /-! ### Wealth processes -/
 
+/-- **Wealth of a reinvesting gambler, without normalization.** For an `ℱ 0`-measurable initial
+wealth `M₀` and factors `F k` that are `ℱ (k + 1)`-measurable conditional e-variables given `ℱ k`,
+the wealth `M₀ * ∏ k < n, F k` is an `ℝ≥0∞`-valued supermartingale under every member of `S`. -/
+theorem isENNSupermartingale_mul_prod {M₀ : Ω → ℝ≥0∞} (hM₀ : Measurable[ℱ 0] M₀)
+    {F : ℕ → Ω → ℝ≥0∞} (hF_meas : ∀ k, Measurable[ℱ (k + 1)] (F k))
+    (hF : ∀ k, IsCondEVar (F k) (ℱ k) S) :
+    IsENNSupermartingale (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) ℱ S := by
+  refine ⟨adapted_mul_prod_range hM₀ hF_meas, fun P hP n s hs ↦ ?_⟩
+  simp_rw [prod_range_succ, ← mul_assoc]
+  exact (hF n).setLIntegral_mul_le (ℱ.le n) hP (adapted_mul_prod_range hM₀ hF_meas n) hs
+
 /-- **Wealth of a reinvesting gambler.** For an `ℱ 0`-measurable initial wealth `M₀` with
 expectation at most `1` under every member of `S`, and factors `F k` that are
 `ℱ (k + 1)`-measurable conditional e-variables given `ℱ k`, the wealth
@@ -450,10 +462,8 @@ expectation at most `1` under every member of `S`, and factors `F k` that are
 theorem isTestSupermartingale_mul_prod {M₀ : Ω → ℝ≥0∞} (hM₀ : Measurable[ℱ 0] M₀)
     (hM₀_le : ∀ P ∈ S, ∫⁻ ω, M₀ ω ∂P ≤ 1) {F : ℕ → Ω → ℝ≥0∞}
     (hF_meas : ∀ k, Measurable[ℱ (k + 1)] (F k)) (hF : ∀ k, IsCondEVar (F k) (ℱ k) S) :
-    IsTestSupermartingale (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) ℱ S := by
-  refine ⟨⟨adapted_mul_prod_range hM₀ hF_meas, fun P hP n s hs ↦ ?_⟩, by simpa using hM₀_le⟩
-  simp_rw [prod_range_succ, ← mul_assoc]
-  exact (hF n).setLIntegral_mul_le (ℱ.le n) hP (adapted_mul_prod_range hM₀ hF_meas n) hs
+    IsTestSupermartingale (fun n ω ↦ M₀ ω * ∏ k ∈ range n, F k ω) ℱ S :=
+  ⟨isENNSupermartingale_mul_prod hM₀ hF_meas hF, by simpa using hM₀_le⟩
 
 /-- **Wealth of a reinvesting gambler, exact case.** For an `ℱ 0`-measurable initial wealth `M₀`
 with expectation at most `1` under every member of `S`, and factors `F k` that are
