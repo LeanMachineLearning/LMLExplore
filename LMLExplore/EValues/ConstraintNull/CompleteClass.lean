@@ -622,6 +622,13 @@ theorem quasiSure_constraintNull_eq_principal (hg : ∀ i, Measurable (g i))
   exact hμx (measure_mono_null (singleton_subset_iff.2 hxs)
     (mem_ae_iff.1 (mem_quasiSure_iff.1 h μ hμ)))
 
+/-- The bets on finitely many constraints are the weights whose bet is quasi-surely nonnegative
+for the null. -/
+theorem mem_constraintBets_iff_eventually_quasiSure {π : ι → ℝ≥0} :
+    π ∈ constraintBets g ↔
+      ∀ᶠ x in quasiSure (constraintNull (range g)), 0 ≤ 1 + ∑ i, (π i : ℝ) * g i x := by
+  rw [mem_constraintBets_iff, eventually_quasiSure_iff]
+
 /-! ### The complete class theorem -/
 
 /-- **The complete class theorem on a set without arbitrage**: a measurable `f` with a nonpositive

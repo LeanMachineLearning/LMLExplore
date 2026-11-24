@@ -13,15 +13,17 @@ import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 import Mathlib.MeasureTheory.Integral.DominatedConvergence
 
 /-!
-# Integrability of `log (1 + ∑ i, |f i|)`
+# Integrability of `log⁺ f` and `log (1 + ∑ i, |f i|)`
 
-Finitely many real functions whose positive logarithms `log⁺ (f i)` are integrable under a finite
-measure have an integrable `log (1 + ∑ i, |f i|)`, and damping the sum by a factor in `[0, 1]`
-keeps the integrability. As the damping factor tends to `0`, so does the integral of the damped
+The positive logarithm `log⁺ f` of an integrable real function is integrable. Finitely many real
+functions whose positive logarithms `log⁺ (f i)` are integrable under a finite measure have an
+integrable `log (1 + ∑ i, |f i|)`, and damping the sum by a factor in `[0, 1]` keeps the
+integrability. As the damping factor tends to `0`, so does the integral of the damped
 logarithm, by dominated convergence.
 
 ## Main statements
 
+* `MeasureTheory.Integrable.posLog`: if `f` is integrable, so is `log⁺ f`.
 * `MeasureTheory.integrable_log_one_add_sum_abs`: if every `log⁺ (f i)` is integrable under a
   finite measure, so is `log (1 + ∑ i, |f i|)`.
 * `MeasureTheory.Integrable.log_one_add_const_mul`: if `log (1 + f)` is integrable for a
@@ -37,6 +39,16 @@ open MeasureTheory Filter Topology
 namespace MeasureTheory
 
 variable {α ι : Type*} [MeasurableSpace α] {μ : Measure α}
+
+/-- If `f` is integrable, so is its positive logarithm `log⁺ f`, which is below `|f|`. -/
+theorem Integrable.posLog {f : α → ℝ} (hf : Integrable f μ) :
+    Integrable (fun x ↦ Real.posLog (f x)) μ := by
+  have hm : AEMeasurable (fun x ↦ Real.posLog (f x)) μ := by
+    have := hf.aemeasurable
+    fun_prop
+  refine hf.abs.mono' hm.aestronglyMeasurable (ae_of_all _ fun x ↦ ?_)
+  rw [Real.norm_eq_abs, abs_of_nonneg Real.posLog_nonneg]
+  exact Real.posLog_le_abs _
 
 /-- If every `log⁺ (f i)` is integrable under a finite measure, so is `log (1 + ∑ i, |f i|)`. -/
 theorem integrable_log_one_add_sum_abs [Fintype ι] [IsFiniteMeasure μ] {f : ι → α → ℝ}
