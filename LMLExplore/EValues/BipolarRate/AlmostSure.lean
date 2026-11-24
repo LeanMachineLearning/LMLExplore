@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.EProcess
+public import LMLExplore.EValues.EProcess.LevelStoppingTime
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.Null.PrefixBet
@@ -28,6 +29,13 @@ The bound in expectation, `ProbabilityTheory.IsEProcess.eintegral_log_div_le_bip
 [RR26, Lemma 3.3], holds for each time `n ≠ 0` separately; the almost sure bound is about the
 whole trajectory.
 
+Its consequence for sequential tests is the almost sure form of the lower bound on stopping times
+[ARR26, Theorem 3.1], with the bipolar rate `d` in place of `KL_inf(Q₁, S₁) ≥ d`: if `τ k` is a
+sequential test of level `exp (-k)` for the i.i.d. null, for every `k`, then almost surely
+`liminf_k τ k / k ≥ 1 / d`, with no relation between the tests at different levels; and nested
+tests `τ α`, with `τ α ≤ τ α'` for `α' ≤ α`, have `liminf_{α → 0} τ α / log (1/α) ≥ 1 / d`. The
+lower bound in expectation is `ProbabilityTheory.toENNReal_log_inv_div_bipolarRate_le_lintegral`.
+
 ## Main definitions
 
 * `ProbabilityTheory.coverWeight`: the weight `1 / (k (k + 1))` of a block of `k` observations in
@@ -44,6 +52,12 @@ whole trajectory.
   evaluated at the first `n` observations.
 * `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`: the bound for e-processes in the
   filtration `Filtration.piLT` of the observations, per observation seen.
+* `ProbabilityTheory.ae_inv_toENNReal_bipolarRate_le_liminf_div`: tests `τ k` of level `exp (-k)`
+  have `liminf_k τ k / k ≥ 1 / d` almost surely, and
+  `ProbabilityTheory.ae_inv_toENNReal_klInf_le_liminf_div` the same with `KL_inf(Q₁, S₁)`
+  [ARR26, Theorem 3.1].
+* `ProbabilityTheory.ae_inv_toENNReal_bipolarRate_le_liminf_div_log`: nested tests `τ α` of
+  level `α` have `liminf_{α → 0} τ α / log (1/α) ≥ 1 / d` almost surely.
 
 ## Implementation notes
 
@@ -68,12 +82,23 @@ Write `d` for the bipolar rate, assume it finite, and let `L > d`. The proof has
   `MeasureTheory.Measure.ergodic_shift_infinitePi_const`), so this event has probability one, and
   the covering step gives `L' ≤ d`, a contradiction.
 
-The statements and proofs are adapted from `EValuesResearch/Results/BipolarRate.lean`
+For the tests, let `c d < 1` and `ε > 0` small. The mixture
+`∑ k, (1 - exp (-ε)) exp (-ε k) exp k 𝟙{τ k ≤ n}` of the bets on the tests is a function of the
+first `n` observations with expectation at most one under the null. If `τ k < c k` for infinitely
+many `k`, it exceeds `exp ((1 - ε) k)` at the times `⌈c k⌉`, a rate `(1 - ε) / c > d`, which the
+almost sure bound excludes. [ARR26] bound instead the probability of `{τ k ≤ c k}` by a change of
+measure to a member of the null close to `Q₁` in relative entropy, which gives the bound with
+`KL_inf(Q₁, S₁)` only. As in [ARR26, proof of Theorem 3.1], the bounds for the rationals `c` are
+intersected, and the nested form follows by comparing `α` with the grid points `exp (-m)`.
+
+The growth bound and its proof are adapted from `EValuesResearch/Results/BipolarRate.lean`
 (commit `decbae4`) in the paper project `RemyDegenne/evalues_research` (same author), which
 formalizes [EVR26, Note 01], rewritten on the API of LMLExplore.
 
 ## References
 
+* [ARR26] S. Agrawal, A. Ram and A. Ramdas, *On stopping times of power-one sequential tests:
+  tight lower and upper bounds*, arXiv:2504.19952v2.
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
 * [WSJ26] I. Waudby-Smith, R. Sandoval and M. I. Jordan, *Instance-log-optimality of
   portfolio-based e-processes and their sequential hypothesis tests*, arXiv:2504.02818v2.
@@ -86,7 +111,7 @@ public section
 
 open MeasureTheory Filter
 open TauCeti.Probability (shift measurable_shift_iterate)
-open scoped ENNReal
+open scoped ENNReal Topology
 
 namespace ProbabilityTheory
 
@@ -752,5 +777,275 @@ theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsPro
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
       limsup (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ :=
   ae_limsup_log_div_le_bipolarRate_of_adapted Q₁ hS₁ hE.adapted hE.isEVar
+
+/-! ### Sequential tests of small levels stop late, almost surely -/
+
+section Test
+
+variable {τ : ℕ → (ℕ → 𝓧) → WithTop ℕ}
+
+/-- The mixture over `k` of the bets `exp k * 𝟙{τ k ≤ n}` on the tests `τ k`, with the
+geometric weights `(1 - exp (-ε)) * exp (-ε) ^ k`. -/
+private noncomputable def levelMixture (τ : ℕ → (ℕ → 𝓧) → WithTop ℕ) (ε : ℝ) (n : ℕ)
+    (ω : ℕ → 𝓧) : ℝ≥0∞ :=
+  ∑' k : ℕ, ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k * Real.exp k) *
+    {ω | τ k ω ≤ n}.indicator 1 ω
+
+/-- The mixture is adapted to the filtration of the observations when the `τ k` are stopping
+times of it. -/
+private lemma adapted_levelMixture (hτ : ∀ k, IsStoppingTime Filtration.piLT (τ k)) (ε : ℝ) :
+    Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (levelMixture τ ε) := fun n ↦
+  @Measurable.tsum _ _ _ (Filtration.piLT n) _ _ _ _ _ _ _ _ _ _ _ _ fun k ↦
+    (measurable_const.indicator (hτ k n)).const_mul _
+
+/-- The weights of the mixture add up to `1`. -/
+private lemma tsum_ofReal_weight {ε : ℝ} (hε : 0 < ε) :
+    ∑' k : ℕ, ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k) = 1 := by
+  have h0 : 0 ≤ Real.exp (-ε) := (Real.exp_pos _).le
+  have h1 : Real.exp (-ε) < 1 := Real.exp_lt_one_iff.2 (by linarith)
+  have hpos : 0 < 1 - Real.exp (-ε) := sub_pos.2 h1
+  rw [← ENNReal.ofReal_tsum_of_nonneg (fun k ↦ mul_nonneg hpos.le (pow_nonneg h0 k))
+    ((summable_geometric_of_lt_one h0 h1).mul_left _), tsum_mul_left,
+    tsum_geometric_of_lt_one h0 h1, mul_inv_cancel₀ hpos.ne', ENNReal.ofReal_one]
+
+/-- The mixture of the bets on tests `τ k` of level `exp (-k)` is an e-variable for the i.i.d.
+null. -/
+private lemma isEVar_levelMixture
+    (hτ : ∀ k, IsLevelStoppingTime (τ k) Filtration.piLT (iidNull S₁)
+      (ENNReal.ofReal (Real.exp (-k)))) {ε : ℝ} (hε : 0 < ε) (n : ℕ) :
+    IsEVar (levelMixture τ ε n) (iidNull S₁) := by
+  refine ⟨(adapted_levelMixture (fun k ↦ (hτ k).isStoppingTime) ε n).mono
+    (Filtration.le _ n) le_rfl, fun μ hμ ↦ ?_⟩
+  have hm : ∀ k, MeasurableSet {ω | τ k ω ≤ n} := fun k ↦
+    Filtration.le _ n _ ((hτ k).isStoppingTime n)
+  unfold levelMixture
+  rw [lintegral_tsum (f := fun (k : ℕ) ω ↦ ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k *
+    Real.exp k) * {ω | τ k ω ≤ n}.indicator 1 ω) fun k ↦
+    ((measurable_const.indicator (hm k)).const_mul _).aemeasurable, ← tsum_ofReal_weight hε]
+  refine tsum_le_tsum fun k ↦ ?_
+  rw [lintegral_const_mul _ (measurable_one.indicator (hm k)), lintegral_indicator_one (hm k)]
+  calc ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k * Real.exp k) *
+      μ {ω | τ k ω ≤ n}
+  _ ≤ ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k * Real.exp k) *
+      ENNReal.ofReal (Real.exp (-k)) := by
+    gcongr
+    exact (measure_mono (Set.ofPred_subset_ofPred.2 fun ω (hω : τ k ω ≤ n) ↦
+      hω.trans_lt (WithTop.coe_lt_top n))).trans
+      ((hτ k).measure_lt_top_le μ hμ)
+  _ = ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k) := by
+    have hε' : 0 ≤ 1 - Real.exp (-ε) := sub_nonneg.2 (Real.exp_le_one_iff.2 (by linarith))
+    rw [← ENNReal.ofReal_mul (by positivity), mul_assoc _ (Real.exp k), ← Real.exp_add,
+      add_neg_cancel, Real.exp_zero, mul_one]
+
+/-- For every `c > 0` with `c d < 1`, where `d` is the bipolar rate, tests `τ k` of level
+`exp (-k)` make at least `c k` observations for all large `k`, almost surely under the i.i.d. law
+of `Q₁`. -/
+private lemma ae_eventually_ofReal_mul_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    (hτ : ∀ k, IsLevelStoppingTime (τ k) Filtration.piLT (iidNull S₁)
+      (ENNReal.ofReal (Real.exp (-k)))) {c D : ℝ} (hc : 0 < c) (hD0 : 0 ≤ D)
+    (hD : bipolarRate Q₁ S₁ = D) (hcD : c * D < 1) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+      ∀ᶠ k : ℕ in atTop, ENNReal.ofReal (c * k) ≤ ENat.toENNReal (τ k ω) := by
+  -- a rate `L > D` with `c L < 1`, and the weights `exp (-ε k)` with `c L = 1 - 2 ε`
+  set L := (D + 1 / c) / 2 with hL
+  have hcL : c * L = (c * D + 1) / 2 := by
+    rw [hL]
+    field_simp
+  have hDL : D < L := by
+    have : D < 1 / c := by
+      rw [lt_div_iff₀ hc]
+      linarith
+    linarith
+  set ε := (1 - c * L) / 2 with hε
+  have hε0 : 0 < ε := by linarith
+  have hpos : 0 < 1 - Real.exp (-ε) := sub_pos.2 (Real.exp_lt_one_iff.2 (by linarith))
+  filter_upwards [ae_limsup_log_div_le_bipolarRate_of_adapted Q₁ hS₁
+    (adapted_levelMixture (fun k ↦ (hτ k).isStoppingTime) ε) (isEVar_levelMixture hτ hε0)]
+    with ω hω
+  rw [hD] at hω
+  -- the mixture eventually stays below `exp (n L)`
+  have hlt : ∀ᶠ n : ℕ in atTop, levelMixture τ ε n ω < ENNReal.ofReal (Real.exp (n * L)) := by
+    filter_upwards [eventually_lt_of_limsup_lt (hω.trans_lt (EReal.coe_lt_coe_iff.2 hDL)),
+      eventually_ge_atTop 1] with n hn hn1
+    rw [EReal.div_lt_iff (by exact_mod_cast hn1) (EReal.natCast_ne_top n), mul_comm,
+      ← EReal.coe_natCast, ← EReal.coe_mul] at hn
+    rwa [← ENNReal.log_lt_log_iff, ENNReal.log_ofReal_exp]
+  -- a test `τ k` that stops before `c k` makes the mixture at time `⌈c k⌉` exceed `exp (⌈c k⌉ L)`
+  by_contra h
+  rw [not_eventually] at h
+  obtain ⟨K, hK⟩ := exists_nat_gt ((L - Real.log (1 - Real.exp (-ε))) / ε)
+  have htend : Tendsto (fun k : ℕ ↦ ⌈c * k⌉₊) atTop atTop :=
+    tendsto_nat_ceil_atTop.comp (tendsto_natCast_atTop_atTop.const_mul_atTop hc)
+  obtain ⟨k, hk, hkK, hkn⟩ :=
+    (h.and_eventually ((eventually_ge_atTop K).and (htend.eventually hlt))).exists
+  rw [not_le] at hk
+  have hτn : τ k ω ≤ (⌈c * k⌉₊ : WithTop ℕ) := by
+    refine ENat.toENNReal_le.1
+      (hk.le.trans ((ENNReal.ofReal_le_ofReal (Nat.le_ceil _)).trans_eq ?_))
+    rw [ENNReal.ofReal_natCast]
+    exact (ENat.toENNReal_coe _).symm
+  have hge : ENNReal.ofReal ((1 - Real.exp (-ε)) * Real.exp (-ε) ^ k * Real.exp k) ≤
+      levelMixture τ ε ⌈c * k⌉₊ ω := by
+    refine le_of_eq_of_le ?_ (le_tsum _ k)
+    rw [Set.indicator_of_mem hτn, Pi.one_apply, mul_one]
+  have hreal : Real.exp (⌈c * k⌉₊ * L) ≤
+      (1 - Real.exp (-ε)) * Real.exp (-ε) ^ k * Real.exp k := by
+    rw [← Real.exp_natCast_mul, ← Real.exp_log hpos, ← Real.exp_add, ← Real.exp_add]
+    refine Real.exp_le_exp.2 ?_
+    have hceil : (⌈c * k⌉₊ : ℝ) < c * k + 1 := Nat.ceil_lt_add_one (by positivity)
+    have hkK' : (K : ℝ) ≤ k := by exact_mod_cast hkK
+    rw [div_lt_iff₀ hε0] at hK
+    nlinarith
+  exact absurd ((ENNReal.ofReal_le_ofReal hreal).trans hge) (not_le.2 hkn)
+
+/-- Almost surely, for every `r < 1 / d`, where `d` is the bipolar rate, tests `τ k` of level
+`exp (-k)` make at least `r k` observations for all large `k`. -/
+private lemma ae_forall_lt_eventually_mul_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    (hτ : ∀ k, IsLevelStoppingTime (τ k) Filtration.piLT (iidNull S₁)
+      (ENNReal.ofReal (Real.exp (-k)))) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ r < (bipolarRate Q₁ S₁).toENNReal⁻¹,
+      ∀ᶠ k : ℕ in atTop, r * k ≤ ENat.toENNReal (τ k ω) := by
+  by_cases hd : bipolarRate Q₁ S₁ = ⊤
+  · simp [hd]
+  have hS₁' : ∀ P ∈ S₁, P Set.univ ≤ 1 := fun P hP ↦ (hS₁ P hP).measure_univ.le
+  set D := (bipolarRate Q₁ S₁).toReal
+  have hD0 : 0 ≤ D := EReal.toReal_nonneg (bipolarRate_nonneg Q₁ hS₁')
+  -- the bound for every rational `q > 0` with `q D < 1`
+  have hrat : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ q : ℚ, 0 < (q : ℝ) →
+      (q : ℝ) * D < 1 → ∀ᶠ k : ℕ in atTop, ENNReal.ofReal (q * k) ≤ ENat.toENNReal (τ k ω) := by
+    refine ae_all_iff.2 fun q ↦ ?_
+    by_cases hq : 0 < (q : ℝ) ∧ (q : ℝ) * D < 1
+    · filter_upwards [ae_eventually_ofReal_mul_le Q₁ hS₁ hτ hq.1 hD0
+        (coe_toReal_bipolarRate hS₁' hd).symm hq.2] with ω hω _ _
+      exact hω
+    · exact ae_of_all _ fun ω h1 h2 ↦ absurd ⟨h1, h2⟩ hq
+  filter_upwards [hrat] with ω hω r hr
+  rw [EReal.toENNReal_of_ne_top hd] at hr
+  -- a rational `q` with `r < q < 1 / D`
+  obtain ⟨q, -, hrq, hqD⟩ := ENNReal.lt_iff_exists_rat_btwn.1 hr
+  have hq : 0 < (q : ℝ) := by simpa using pos_of_gt hrq
+  have hqD' := ENNReal.mul_lt_of_lt_div (a := ENNReal.ofReal q) (b := 1) (by rwa [one_div])
+  rw [← ENNReal.ofReal_mul hq.le, ENNReal.ofReal_lt_one] at hqD'
+  filter_upwards [hω q hq hqD'] with k hk
+  rw [ENNReal.ofReal_mul hq.le, ENNReal.ofReal_natCast] at hk
+  exact (mul_le_mul_left hrq.le _).trans hk
+
+/-- **Tests of small levels stop late, almost surely.** Let `τ k` be a sequential test of level
+`exp (-k)` for the i.i.d. laws of the members of `S₁`, for every `k`: a stopping time of the
+filtration `Filtration.piLT` with `P^ℕ (τ k < ∞) ≤ exp (-k)` for every `P ∈ S₁`. Almost surely
+under the i.i.d. law of `Q₁`, `liminf_k τ k / k ≥ 1 / d`, where `d` is the bipolar rate of `Q₁`
+against `S₁`. The tests at different levels need not be related. If `d = 0`, the tests make, almost
+surely, more than `c k` observations for all large `k`, for every `c`. [ARR26, Theorem 3.1] states
+the bound with `KL_inf(Q₁, S₁)`, which is at least `d`
+(`ProbabilityTheory.ae_inv_toENNReal_klInf_le_liminf_div`). -/
+theorem ae_inv_toENNReal_bipolarRate_le_liminf_div (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    (hτ : ∀ k : ℕ, IsLevelStoppingTime (τ k) Filtration.piLT (iidNull S₁)
+      (ENNReal.ofReal (Real.exp (-k)))) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+      (bipolarRate Q₁ S₁).toENNReal⁻¹ ≤ liminf (fun k : ℕ ↦ ENat.toENNReal (τ k ω) / k) atTop := by
+  filter_upwards [ae_forall_lt_eventually_mul_le Q₁ hS₁ hτ] with ω hω
+  refine le_of_forall_lt_imp_le_of_dense fun r hr ↦ le_liminf_of_le (by isBoundedDefault) ?_
+  filter_upwards [hω r hr, eventually_ge_atTop 1] with k hk hk1
+  rwa [ENNReal.le_div_iff_mul_le (.inl (by exact_mod_cast (Nat.one_le_iff_ne_zero.1 hk1)))
+    (.inl (ENNReal.natCast_ne_top k))]
+
+/-- **Tests of small levels stop late, almost surely**, with the smallest relative entropy
+`KL_inf(Q₁, S₁)` from `Q₁` to the null: `liminf_k τ k / k ≥ 1 / KL_inf(Q₁, S₁)` for sequential tests
+`τ k` of level `exp (-k)` [ARR26, Theorem 3.1]. The bipolar rate is at most `KL_inf(Q₁, S₁)`
+(`bipolarRate_le_klInf`), so `ae_inv_toENNReal_bipolarRate_le_liminf_div` is stronger. -/
+theorem ae_inv_toENNReal_klInf_le_liminf_div (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    (hτ : ∀ k : ℕ, IsLevelStoppingTime (τ k) Filtration.piLT (iidNull S₁)
+      (ENNReal.ofReal (Real.exp (-k)))) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+      (klInf Q₁ S₁).toENNReal⁻¹ ≤ liminf (fun k : ℕ ↦ ENat.toENNReal (τ k ω) / k) atTop := by
+  filter_upwards [ae_inv_toENNReal_bipolarRate_le_liminf_div Q₁ hS₁ hτ] with ω hω
+  exact (ENNReal.inv_le_inv.2 (EReal.toENNReal_le_toENNReal (bipolarRate_le_klInf Q₁ hS₁))).trans hω
+
+/-- A level `α < exp (-N)` lies below a grid point `exp (-m)` with `N ≤ m` and
+`log (1/α) < m + 1`. -/
+private lemma exists_le_ofReal_exp_neg {α : ℝ≥0∞} {N : ℕ} (hα0 : 0 < α)
+    (hαN : α < ENNReal.ofReal (Real.exp (-N))) :
+    ∃ m : ℕ, N ≤ m ∧ α ≤ ENNReal.ofReal (Real.exp (-m)) ∧
+      ∃ b : ℝ, 0 < b ∧ b < m + 1 ∧ (ENNReal.log α⁻¹).toENNReal = ENNReal.ofReal b := by
+  have hα1 : α < 1 := hαN.trans_le (ENNReal.ofReal_le_one.2 (Real.exp_le_one_iff.2
+    (neg_nonpos.2 (Nat.cast_nonneg _))))
+  have hlog_top : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
+  have hlog_bot : ENNReal.log α⁻¹ ≠ ⊥ := by simpa using hα1.ne_top
+  set b := (ENNReal.log α⁻¹).toReal
+  have hb : ENNReal.log α = ((-b : ℝ) : EReal) := by
+    rw [EReal.coe_neg, EReal.coe_toReal hlog_top hlog_bot, ENNReal.log_inv, neg_neg]
+  have hb0 : 0 < b := by
+    rw [← EReal.coe_lt_coe_iff, EReal.coe_toReal hlog_top hlog_bot, EReal.coe_zero,
+      ENNReal.zero_lt_log_iff]
+    exact ENNReal.one_lt_inv.2 hα1
+  refine ⟨⌊b⌋₊, Nat.le_floor ?_, ?_, b, hb0, Nat.lt_floor_add_one b,
+    EReal.toENNReal_of_ne_top hlog_top⟩
+  · have h := ENNReal.log_lt_log hαN
+    rw [hb, ENNReal.log_ofReal_exp, EReal.coe_lt_coe_iff] at h
+    linarith
+  · rw [← ENNReal.log_le_log_iff, hb, ENNReal.log_ofReal_exp, EReal.coe_le_coe_iff,
+      neg_le_neg_iff]
+    exact Nat.floor_le hb0.le
+
+/-- **Nested tests of small levels stop late, almost surely.** Let `τ α` be a sequential test of
+level `α` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT`, for
+every `α ∈ (0, a)`, and let the tests be nested: `τ α ≤ τ α'` for `α' ≤ α` in `(0, a)`. Almost
+surely under the i.i.d. law of `Q₁`, `liminf_{α → 0} τ α / log (1/α) ≥ 1 / d`, where `d` is the
+bipolar rate of `Q₁` against `S₁`. [ARR26, Theorem 3.1] states the bound with `KL_inf(Q₁, S₁)`,
+which is at least `d`, and `a = 1/2`. -/
+theorem ae_inv_toENNReal_bipolarRate_le_liminf_div_log (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ} {a : ℝ≥0∞}
+    (ha : 0 < a) (hτ : ∀ α ∈ Set.Ioo 0 a, IsLevelStoppingTime (τ α) Filtration.piLT (iidNull S₁) α)
+    (hτa : ∀ ω, AntitoneOn (τ · ω) (Set.Ioo 0 a)) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), (bipolarRate Q₁ S₁).toENNReal⁻¹ ≤
+      liminf (fun α ↦ ENat.toENNReal (τ α ω) / (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) := by
+  -- the tests on the grid `exp (-(k + k₀))`, inside `(0, a)`
+  set g : ℕ → ℝ≥0∞ := fun k ↦ ENNReal.ofReal (Real.exp (-k))
+  have hg0 (k : ℕ) : 0 < g k := ENNReal.ofReal_pos.2 (Real.exp_pos _)
+  have hg (k j : ℕ) (h : k ≤ j) : g j ≤ g k :=
+    ENNReal.ofReal_le_ofReal (Real.exp_le_exp.2 (by simpa using h))
+  have hlog (k : ℕ) : ENNReal.log (g k) = ((-k : ℝ) : EReal) := ENNReal.log_ofReal_exp _
+  have hgtend : Tendsto g atTop (𝓝 0) := by
+    simpa using ENNReal.tendsto_ofReal (Real.tendsto_exp_atBot.comp
+      (tendsto_neg_atTop_atBot.comp tendsto_natCast_atTop_atTop))
+  obtain ⟨k₀, hk₀⟩ := eventually_atTop.1 (hgtend.eventually (eventually_lt_nhds ha))
+  have hσ (k : ℕ) : IsLevelStoppingTime (τ (g (k + k₀))) Filtration.piLT (iidNull S₁) (g k) :=
+    (hτ _ ⟨hg0 _, hk₀ _ (by omega)⟩).mono (hg _ _ (by omega))
+  filter_upwards [ae_forall_lt_eventually_mul_le Q₁ hS₁ hσ] with ω hω
+  refine le_of_forall_lt_imp_le_of_dense fun r hr ↦ le_liminf_of_le (by isBoundedDefault) ?_
+  -- a rate `s` with `r < s < 1 / d`, and the grid index `J` after which it applies
+  obtain ⟨s, hrs, hsd⟩ := exists_between hr
+  have hs_top : s ≠ ⊤ := (hsd.trans_le le_top).ne
+  have hrs' : r.toReal < s.toReal := ENNReal.toReal_strict_mono hs_top hrs
+  obtain ⟨J, hJ⟩ := eventually_atTop.1 (hω s hsd)
+  obtain ⟨J', hJ'⟩ := exists_nat_gt (r.toReal * (k₀ + 1) / (s.toReal - r.toReal))
+  rw [div_lt_iff₀ (sub_pos.2 hrs')] at hJ'
+  -- for `α < exp (-(max J J' + k₀))`, the test `τ α` stops after the test of the grid point
+  -- `exp (-m) ≥ α`, with `log (1/α) < m + 1`
+  filter_upwards [Ioo_mem_nhdsGT (hg0 (max J J' + k₀))] with α ⟨hα0, hαN⟩
+  obtain ⟨m, hNm, hαm, b, hb0, hbm, hB⟩ := exists_le_ofReal_exp_neg hα0 hαN
+  have hτα : s * (m - k₀ : ℕ) ≤ ENat.toENNReal (τ α ω) := by
+    refine (hJ (m - k₀) (by omega)).trans (ENat.toENNReal_le.2 ?_)
+    rw [Nat.sub_add_cancel (by omega)]
+    exact hτa ω ⟨hα0, hαm.trans_lt (hk₀ m (by omega))⟩ ⟨hg0 m, hk₀ m (by omega)⟩ hαm
+  rw [hB, ENNReal.le_div_iff_mul_le (.inl (ENNReal.ofReal_pos.2 hb0).ne')
+    (.inl ENNReal.ofReal_ne_top)]
+  refine le_trans ?_ hτα
+  rw [← ENNReal.ofReal_toReal (hrs.trans_le le_top).ne, ← ENNReal.ofReal_toReal hs_top,
+    ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul ENNReal.toReal_nonneg,
+    ← ENNReal.ofReal_mul ENNReal.toReal_nonneg]
+  refine ENNReal.ofReal_le_ofReal ?_
+  have hmk : ((m - k₀ : ℕ) : ℝ) = m - k₀ := Nat.cast_sub (by omega)
+  have hJ'm : (J' : ℝ) ≤ m - k₀ := by
+    rw [← hmk]
+    exact_mod_cast (by omega : J' ≤ m - k₀)
+  rw [hmk]
+  nlinarith [ENNReal.toReal_nonneg (a := r)]
+
+end Test
 
 end ProbabilityTheory
