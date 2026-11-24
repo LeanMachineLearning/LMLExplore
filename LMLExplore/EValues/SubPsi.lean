@@ -12,6 +12,8 @@ public import LMLExplore.Probability.Martingale.ExactVille
 public import LMLExplore.Probability.Martingale.Freedman
 public import LMLExplore.Probability.Martingale.MGFBound
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
+import LMLExplore.MeasureTheory.Constructions.BorelSpace.Order
+import LMLExplore.MeasureTheory.Function.SimpleFuncDense
 import LMLExplore.Analysis.SpecialFunctions.Log.ERealExp
 import LMLExplore.Data.EReal.Basic
 
@@ -207,23 +209,14 @@ theorem isCondEVar_exp_mul_sub_condEVarNull {k : ℕ} {θ : Ω → ℝ}
     (hθΛ : ∀ ω, θ ω ∈ Λ) :
     IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (θ ω * X k ω - ψ (θ ω)))) (ℱ k)
       (condEVarNull (subPsiBets ψ Λ) X ℱ) := by
-  have hψθ : Measurable[ℱ k] fun ω ↦ ψ (θ ω) :=
-    (upperSemicontinuousOn_iff_restrict.2 hψ).measurable.comp (hθ.subtype_mk (h := hθΛ))
-  rcases Λ.eq_empty_or_nonempty with rfl | ⟨y₀, h₀⟩
-  · have : IsEmpty Ω := ⟨fun ω ↦ hθΛ ω⟩
-    exact ⟨Subsingleton.measurable, fun P _ s _ ↦ by simp [Set.eq_empty_of_isEmpty s]⟩
+  have hψθ : Measurable[ℱ k] fun ω ↦ ψ (θ ω) := hψ.measurable_comp hθ hθΛ
   -- `θ` is the limit of `ℱ k`-measurable parameters `θn n` with finitely many values in `Λ`; by
   -- the semicontinuity of `ψ`, the bet at `θ` is at most the `liminf` of the bets at `θn n`, which
   -- are conditional e-variables, and Fatou's lemma concludes
   obtain ⟨θn, hθn_meas, hθn_fin, hθn_Λ, hθn_lim⟩ : ∃ θn : ℕ → Ω → ℝ,
       (∀ n, Measurable[ℱ k] (θn n)) ∧ (∀ n, (range (θn n)).Finite) ∧ (∀ n ω, θn n ω ∈ Λ) ∧
       ∀ ω, Tendsto (fun n ↦ θn n ω) atTop (𝓝 (θ ω)) :=
-    ⟨fun n ↦ @SimpleFunc.approxOn ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ n,
-      fun n ↦ @SimpleFunc.measurable Ω ℝ (ℱ k) _ _,
-      fun n ↦ @SimpleFunc.finite_range Ω ℝ (ℱ k) _,
-      fun n ω ↦ @SimpleFunc.approxOn_mem ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ n ω,
-      fun ω ↦ @SimpleFunc.tendsto_approxOn ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ ω
-        (subset_closure (hθΛ ω))⟩
+    hθ.exists_seq_finite_range_tendsto hθΛ
   have hθn (n : ℕ) := isCondEVar_exp_mul_sub_condEVarNull_of_countable (ψ := ψ) (ℱ := ℱ) hX
     (hθn_meas n) (hθn_Λ n) (hθn_fin n).countable
   refine ⟨(((hθ.mono (ℱ.le k) le_rfl).mul hX).sub (hψθ.mono (ℱ.le k) le_rfl)).exp.ennreal_ofReal,
@@ -267,8 +260,7 @@ theorem isTestSupermartingale_exp_mul_sum_sub_sum_condEVarNull (hψ : UpperSemic
       - ∑ k ∈ range n, ψ (t * w k ω)))) ℱ (condEVarNull (subPsiBets ψ Λ) X ℱ) := by
   refine ⟨LMLExplore.isENNSupermartingale_exp_mul_sum_sub_sum hX hw (fun k ↦ ?_) fun k ↦ ?_,
     fun P hP ↦ ?_⟩
-  · exact (upperSemicontinuousOn_iff_restrict.2 hψ).measurable.comp
-      (((hw k).const_mul t).subtype_mk (h := htw k))
+  · exact hψ.measurable_comp ((hw k).const_mul t) (htw k)
   · exact isCondEVar_exp_mul_sub_condEVarNull hψ ((hX k).mono (ℱ.le _) le_rfl)
       ((hw k).const_mul t) (htw k)
   · have := isProbabilityMeasure_of_mem_condEVarNull hP
