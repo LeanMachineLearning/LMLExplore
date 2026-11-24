@@ -16,9 +16,12 @@ P-values `p : ι → Ω → ℝ≥0∞` are positively regression dependent on a
 (`ProbabilityTheory.IsPRDS`) when, for every `i ∈ N` and every measurable upper set `D` of vectors
 of p-values, the conditional probability `P (p ∈ D ∣ p i ≤ s)` is nondecreasing in `s` [Goe26,
 (11)]. This is the weak form of the condition of [BY01], conditioning on `p i ≤ s` rather than on
-`p i = s`; the sets `D` are upper sets, so that `{x | f x ≤ t}` qualifies for every coordinatewise
-nonincreasing `f`. P-values that are all nondecreasing functions of one statistic are PRDS on every
-set of hypotheses (`ProbabilityTheory.isPRDS_of_monotone`).
+`p i = s`. The sets `D` are upper sets, as in [BY01; BR08], so that `{x | f x ≤ t}` qualifies for
+every coordinatewise nonincreasing `f`; [Goe26, (11)] in v2 writes "decreasing sets" instead, a
+condition with which the lemma of Blanchard and Roquain cannot be proved. P-values that are all
+nondecreasing functions of one statistic are PRDS on every set of hypotheses
+(`ProbabilityTheory.isPRDS_of_monotone`), and PRDS passes to subsets of hypotheses
+(`ProbabilityTheory.IsPRDS.mono`).
 
 Under PRDS, a p-variable `p i` with `i ∈ N` earns an e-value against every coordinatewise
 nonincreasing threshold `f`: `𝔼[𝟙{p i ≤ f p} / f p] ≤ 1`, the lemma of Blanchard and Roquain
@@ -27,9 +30,10 @@ two-variable form (`ProbabilityTheory.IsPVar.lintegral_indicator_le_inv_le_one`)
 p-variable `U` and a variable `V` only that `P (V ≤ t ∣ U ≤ s)` be nondecreasing in `s`.
 
 Two consequences follow. Averaging these e-values over a set `S` of hypotheses, against thresholds
-`a #S p` that depend on the size of `S`, gives an e-collection
-(`ProbabilityTheory.thresholdECollection`, `ProbabilityTheory.isECollection_thresholdECollection`)
-[Goe26, Theorem 8, for any thresholds], whose e-closure controls the false discovery rate by the
+`a #S p` that depend on the size of `S`, gives the threshold statistics
+(`ProbabilityTheory.thresholdECollection`), which form an e-collection when the thresholds are
+measurable and nonincreasing (`ProbabilityTheory.isECollection_thresholdECollection`) [Goe26,
+Theorem 8, for any such thresholds], whose e-closure controls the false discovery rate by the
 e-Closure Principle; this is the construction of closed BH, which picks particular thresholds.
 And the Benjamini–Hochberg procedure, e-BH applied to `p⁻¹`, has false discovery rate at most
 `α * #N / K` when the p-values are PRDS on the true nulls `N` [BY01, Theorem 1.2]
@@ -39,7 +43,8 @@ with `R` the rejection set, that the condition of [Goe26, Remark 9] isolates.
 ## Main definitions
 
 * `ProbabilityTheory.IsPRDS p P N`: the p-values `p` are PRDS on the hypotheses `N` under `P`.
-* `ProbabilityTheory.thresholdECollection p a`: the e-collection of the thresholds `a`.
+* `ProbabilityTheory.thresholdECollection p a`: the threshold statistics of the thresholds `a`,
+  the candidate e-collection of [Goe26, (9)].
 
 ## Main statements
 
@@ -48,8 +53,10 @@ with `R` the rejection set, that the condition of [Goe26, Remark 9] isolates.
 * `ProbabilityTheory.isPRDS_of_monotone`: nondecreasing functions of one statistic are PRDS.
 * `ProbabilityTheory.IsPRDS.lintegral_indicator_le_inv_le_one`: the lemma of Blanchard and
   Roquain [Goe26, Theorem 5].
-* `ProbabilityTheory.isECollection_thresholdECollection`: under PRDS, the e-collection of
-  nonincreasing thresholds is an e-collection [Goe26, Theorem 8].
+* `ProbabilityTheory.IsPRDS.sum_lintegral_indicator_le_inv_le_card`: summed over the hypotheses
+  of `N`, these e-values have expectations summing to at most `#N`.
+* `ProbabilityTheory.isECollection_thresholdECollection`: under PRDS, the threshold statistics of
+  measurable nonincreasing thresholds form an e-collection [Goe26, Theorem 8].
 * `ProbabilityTheory.IsPRDS.lintegral_fdp_eBH_inv_le`: the false discovery rate of BH under PRDS
   is at most `α * #N / K` [BY01, Theorem 1.2].
 
@@ -150,6 +157,31 @@ private lemma measure_diff_inter_le (hU : Measurable U) (hV : Measurable V)
     condRatio_mul hb]
   exact tsub_le_tsub_left (condRatio_mul_le ha hUV) _
 
+/-- On the geometric grid of ratio `ρ`, the event where `V` lies in `(ρ ^ j, ρ ^ (j + 1)]` and `U`
+below `ρ ^ (j + 1)`, weighted by `1 / ρ ^ j`, has mass at most `ρ` times the increment of the
+ratio between `ρ ^ j` and `ρ ^ (j + 1)`, when `U` is a p-variable. -/
+private lemma inv_zpow_mul_measure_le (hU : IsPVar U {P}) (hV : Measurable V) {ρ : ℝ≥0∞}
+    (hρ : 1 < ρ) (hρ' : ρ ≠ ∞) (j : ℤ)
+    (hUV : P ({ω | V ω ≤ ρ ^ j} ∩ {ω | U ω ≤ ρ ^ j}) * P {ω | U ω ≤ ρ ^ (j + 1)} ≤
+      P ({ω | V ω ≤ ρ ^ j} ∩ {ω | U ω ≤ ρ ^ (j + 1)}) * P {ω | U ω ≤ ρ ^ j}) :
+    (ρ ^ j)⁻¹ * P (({ω | V ω ≤ ρ ^ (j + 1)} \ {ω | V ω ≤ ρ ^ j}) ∩ {ω | U ω ≤ ρ ^ (j + 1)}) ≤
+      (condRatio P U V (ρ ^ (j + 1)) - condRatio P U V (ρ ^ j)) * ρ := by
+  have hρ0 : ρ ≠ 0 := (zero_lt_one.trans hρ).ne'
+  have hwtop (k : ℤ) : ρ ^ k ≠ ∞ := ENNReal.zpow_ne_top hρ0 hρ' k
+  have hq (k : ℤ) : P {ω | U ω ≤ ρ ^ k} ≠ ∞ :=
+    ne_top_of_le_ne_top (hwtop k) (hU.measure_le_le P rfl _)
+  calc (ρ ^ j)⁻¹ * P (({ω | V ω ≤ ρ ^ (j + 1)} \ {ω | V ω ≤ ρ ^ j}) ∩ {ω | U ω ≤ ρ ^ (j + 1)})
+      ≤ (ρ ^ j)⁻¹ * ((condRatio P U V (ρ ^ (j + 1)) - condRatio P U V (ρ ^ j)) * ρ ^ (j + 1)) := by
+        gcongr
+        exact (measure_diff_inter_le hU.measurable hV (hq j) (hq (j + 1))
+          (ENNReal.zpow_le_of_le hρ.le (by omega)) hUV).trans
+          (by gcongr; exact hU.measure_le_le P rfl _)
+    _ = (condRatio P U V (ρ ^ (j + 1)) - condRatio P U V (ρ ^ j)) * ρ * ((ρ ^ j)⁻¹ * ρ ^ j) := by
+        rw [ENNReal.zpow_add hρ0 hρ', zpow_one]
+        ring
+    _ = (condRatio P U V (ρ ^ (j + 1)) - condRatio P U V (ρ ^ j)) * ρ := by
+        rw [ENNReal.inv_mul_cancel (ENNReal.zpow_pos hρ0 hρ' j).ne' (hwtop j), mul_one]
+
 /-- Where `U ≠ 0`, the e-value `𝟙{U ≤ V} / V` is at most the sum over `j : ℤ` of `1 / ρ ^ j` on
 the events where `V` lies in `(ρ ^ j, ρ ^ (j + 1)]` and `U` below `ρ ^ (j + 1)`. -/
 private lemma indicator_le_inv_le_tsum {ρ : ℝ≥0∞} (hρ : 1 < ρ) {ω : Ω} (hω : U ω ≠ 0) :
@@ -185,7 +217,6 @@ theorem IsPVar.lintegral_indicator_le_inv_le_one (hU : IsPVar U {P}) (hV : Measu
     exact ENNReal.lt_add_right ENNReal.one_ne_top (by simpa using hε.ne')
   intro ρ hρ hρ'
   have hρ0 : ρ ≠ 0 := (zero_lt_one.trans hρ).ne'
-  have hw0 (j : ℤ) : ρ ^ j ≠ 0 := (ENNReal.zpow_pos hρ0 hρ' j).ne'
   have hwtop (j : ℤ) : ρ ^ j ≠ ∞ := ENNReal.zpow_ne_top hρ0 hρ' j
   have hq (j : ℤ) : P {ω | U ω ≤ ρ ^ j} ≠ ∞ :=
     ne_top_of_le_ne_top (hwtop j) (hU.measure_le_le P rfl _)
@@ -213,17 +244,8 @@ theorem IsPVar.lintegral_indicator_le_inv_le_one (hU : IsPVar U {P}) (hV : Measu
     _ = ∑' j, (ρ ^ j)⁻¹ * P (A j) := by
         rw [lintegral_tsum fun j ↦ (aemeasurable_const.indicator (hA j))]
         exact tsum_congr fun j ↦ lintegral_indicator_const (hA j) _
-    _ ≤ ∑' j, (c (j + 1) - c j) * ρ := by
-        refine tsum_le_tsum fun j ↦ ?_
-        calc (ρ ^ j)⁻¹ * P (A j)
-            ≤ (ρ ^ j)⁻¹ * ((c (j + 1) - c j) * ρ ^ (j + 1)) := by
-              gcongr
-              exact (measure_diff_inter_le hU.measurable hV (hq j) (hq (j + 1)) (hstep j)
-                (hUV _ (hstep j))).trans (by gcongr; exact hU.measure_le_le P rfl _)
-          _ = (c (j + 1) - c j) * ρ * ((ρ ^ j)⁻¹ * ρ ^ j) := by
-              rw [ENNReal.zpow_add hρ0 hρ', zpow_one]
-              ring
-          _ = (c (j + 1) - c j) * ρ := by rw [ENNReal.inv_mul_cancel (hw0 j) (hwtop j), mul_one]
+    _ ≤ ∑' j, (c (j + 1) - c j) * ρ := tsum_le_tsum fun j ↦
+        inv_zpow_mul_measure_le hU hV hρ hρ' j (hUV _ (hstep j))
     _ = (∑' j, (c (j + 1) - c j)) * ρ := ENNReal.tsum_mul_right
     _ ≤ 1 * ρ := by
         gcongr
@@ -239,7 +261,9 @@ variable {p : ι → Ω → ℝ≥0∞} {N : Set ι} {i : ι}
 /-- **Positive regression dependence on a subset** (PRDS), in its weak form [Goe26, (11)]: for
 every `i ∈ N` and every measurable upper set `D` of vectors of p-values, the conditional
 probability `P (p ∈ D ∣ p i ≤ s)` is nondecreasing in `s`. It is stated without division, as
-`P (p ∈ D, p i ≤ s) * P (p i ≤ t) ≤ P (p ∈ D, p i ≤ t) * P (p i ≤ s)` for `s ≤ t`. -/
+`P (p ∈ D, p i ≤ s) * P (p i ≤ t) ≤ P (p ∈ D, p i ≤ t) * P (p i ≤ s)` for `s ≤ t`. The sets `D`
+are upper sets, as in [BY01; BR08]; [Goe26, (11)] in v2 writes "decreasing sets", with which the
+lemma of Blanchard and Roquain cannot be proved. -/
 def IsPRDS (p : ι → Ω → ℝ≥0∞) (P : Measure Ω) (N : Set ι) : Prop :=
   ∀ i ∈ N, ∀ D : Set (ι → ℝ≥0∞), MeasurableSet D → IsUpperSet D → ∀ ⦃s t : ℝ≥0∞⦄, s ≤ t →
     P ({ω | (p · ω) ∈ D} ∩ {ω | p i ω ≤ s}) * P {ω | p i ω ≤ t} ≤
@@ -250,6 +274,15 @@ theorem isPRDS_iff : IsPRDS p P N ↔
       P ({ω | (p · ω) ∈ D} ∩ {ω | p i ω ≤ s}) * P {ω | p i ω ≤ t} ≤
         P ({ω | (p · ω) ∈ D} ∩ {ω | p i ω ≤ t}) * P {ω | p i ω ≤ s} :=
   Iff.rfl
+
+/-- PRDS on a set of hypotheses passes to its subsets. -/
+theorem IsPRDS.mono {N' : Set ι} (h : IsPRDS p P N) (hN : N' ⊆ N) : IsPRDS p P N' :=
+  fun i hi ↦ h i (hN hi)
+
+/-- Every family of p-values is PRDS on the empty set of hypotheses. -/
+@[simp]
+theorem isPRDS_empty : IsPRDS p P ∅ :=
+  fun _ hi ↦ absurd hi (Set.notMem_empty _)
 
 /-- **Nondecreasing functions of one statistic are PRDS**: p-values `p j = g j ∘ X` that are all
 nondecreasing functions of one statistic `X` with values in a linear order are PRDS on every set
@@ -299,6 +332,18 @@ theorem IsPRDS.lintegral_indicator_le_inv_le_one (h : IsPRDS p P N) (hi : i ∈ 
     h i hi {x | f x ≤ t} (measurableSet_le hfm measurable_const)
       (fun _ _ hxy hx ↦ (hf hxy).trans hx) hss'
 
+/-- **The e-values of Blanchard and Roquain sum to at most the number of hypotheses**: if the
+p-values `p` are PRDS on a finite set `S` of hypotheses whose p-values are p-variables for `P`,
+then for every measurable coordinatewise nonincreasing threshold `f`,
+`∑ i ∈ S, 𝔼[𝟙{p i ≤ f p} / f p] ≤ #S`. -/
+theorem IsPRDS.sum_lintegral_indicator_le_inv_le_card {S : Finset ι} (h : IsPRDS p P S)
+    (hpS : ∀ i ∈ S, IsPVar (p i) {P}) (hp : ∀ j, Measurable (p j)) {f : (ι → ℝ≥0∞) → ℝ≥0∞}
+    (hf : Antitone f) (hfm : Measurable f) :
+    ∑ i ∈ S, ∫⁻ ω, {ω | p i ω ≤ f (p · ω)}.indicator (fun ω ↦ (f (p · ω))⁻¹) ω ∂P ≤ #S :=
+  (sum_le_card_nsmul _ _ 1 fun i hi ↦
+    h.lintegral_indicator_le_inv_le_one (Finset.mem_coe.2 hi) (hpS i hi) hp hf hfm).trans_eq
+    (by simp)
+
 end PRDS
 
 /-- The e-value `𝟙{p i ≤ f p} / f p` of a p-value against a threshold is measurable. -/
@@ -312,10 +357,12 @@ section ECollection
 
 variable {p : ι → Ω → ℝ≥0∞} {a : ℕ → (ι → ℝ≥0∞) → ℝ≥0∞}
 
-/-- The **e-collection of the thresholds** `a`, of the form of [Goe26, (9)]: for a set `S` of
-hypotheses, the average over `i ∈ S` of the e-values `𝟙{p i ≤ a #S p} / a #S p` that each p-value
-earns against the threshold `a #S p`, which depends on the size of `S` and on all the p-values,
-with `1 / 0 = ∞`. The statistic of the empty set is `0`. -/
+/-- The **threshold statistics** of the thresholds `a`, the candidate e-collection of the form of
+[Goe26, (9)]: for a set `S` of hypotheses, the average over `i ∈ S` of the statistics
+`𝟙{p i ≤ a #S p} / a #S p` of the p-values against the threshold `a #S p`, which depends on the
+size of `S` and on all the p-values, with `1 / 0 = ∞`. The statistic of the empty set is `0`.
+They form an e-collection under the hypotheses of
+`ProbabilityTheory.isECollection_thresholdECollection`. -/
 noncomputable def thresholdECollection (p : ι → Ω → ℝ≥0∞) (a : ℕ → (ι → ℝ≥0∞) → ℝ≥0∞)
     (S : Finset ι) (ω : Ω) : ℝ≥0∞ :=
   (#S : ℝ≥0∞)⁻¹ * ∑ i ∈ S, {ω | p i ω ≤ a #S (p · ω)}.indicator (fun ω ↦ (a #S (p · ω))⁻¹) ω
@@ -336,9 +383,9 @@ theorem measurable_thresholdECollection (hp : ∀ j, Measurable (p j))
     (ha : ∀ s, Measurable (a s)) (S : Finset ι) : Measurable (thresholdECollection p a S) :=
   measurable_const.mul (Finset.measurable_sum _ fun i _ ↦ measurable_indicator_le_inv hp (ha _) i)
 
-/-- **The e-collection of nonincreasing thresholds is an e-collection under PRDS** [Goe26,
-Theorem 8]: if each `p i` is a p-variable for `H i`, the p-values are PRDS on the true nulls under
-every probability measure, and each threshold `a s` is measurable and coordinatewise
+/-- **The threshold statistics of nonincreasing thresholds form an e-collection under PRDS**
+[Goe26, Theorem 8]: if each `p i` is a p-variable for `H i`, the p-values are PRDS on the true
+nulls under every probability measure, and each threshold `a s` is measurable and coordinatewise
 nonincreasing, then `thresholdECollection p a` is an e-collection. -/
 theorem isECollection_thresholdECollection [Fintype ι] {H : ι → Set (Measure Ω)}
     (hp : ∀ i, IsPVar (p i) (H i)) (ha : ∀ s, Antitone (a s)) (ham : ∀ s, Measurable (a s))
@@ -355,12 +402,12 @@ theorem isECollection_thresholdECollection [Fintype ι] {H : ι → Set (Measure
           simp_rw [thresholdECollection_def]
           rw [lintegral_const_mul _ (Finset.measurable_sum _ fun i _ ↦ hg i),
             lintegral_finsetSum _ fun i _ ↦ hg i]
-      _ ≤ (#N : ℝ≥0∞)⁻¹ * ∑ _ ∈ N, 1 := by
-          gcongr with i hi
-          exact (hPRDS P).lintegral_indicator_le_inv_le_one (Finset.mem_coe.2 hi)
-            ((hp i).anti_set (Set.singleton_subset_iff.2 (mem_trueNulls.1 hi)))
+      _ ≤ (#N : ℝ≥0∞)⁻¹ * #N := by
+          gcongr
+          exact (hPRDS P).sum_lintegral_indicator_le_inv_le_card
+            (fun i hi ↦ (hp i).anti_set (Set.singleton_subset_iff.2 (mem_trueNulls.1 hi)))
             (fun j ↦ (hp j).measurable) (ha _) (ham _)
-      _ ≤ 1 := by simp
+      _ ≤ 1 := ENNReal.inv_mul_le_one _
 
 end ECollection
 
@@ -384,35 +431,27 @@ private lemma measurable_bhThreshold (α : ℝ≥0∞) : Measurable (bhThreshold
   (measurable_const.mul ((measurable_card_eBH α).comp
     (measurable_pi_iff.2 fun i ↦ (measurable_pi_apply i).inv))).div_const _
 
-variable [DecidableEq ι]
-
-/-- Each true null that BH rejects contributes `1 / #R = (α / K) / f x` to the false discovery
-proportion, with `f` the BH threshold, and its p-value is at most `f x`. -/
-private lemma fdp_eBH_inv_le_sum_indicator (hα₀ : α ≠ 0) (hα : α ≠ ∞) (N : Finset ι)
+/-- BH is self-consistent for the e-values `𝟙{p i ≤ f p} / f p` of the p-values against the BH
+threshold `f`: each rejected p-value is at most `f p`, and `α * #R / f p = K`. -/
+private lemma isSelfConsistent_indicator_bhThreshold (hα₀ : α ≠ 0) (hα : α ≠ ∞)
     (x : ι → ℝ≥0∞) :
-    fdp N (eBH (fun i ↦ (x i)⁻¹) α) ≤ α / Fintype.card ι *
-      ∑ i ∈ N, {y : ι → ℝ≥0∞ | y i ≤ bhThreshold α y}.indicator
-        (fun y ↦ (bhThreshold α y)⁻¹) x := by
-  set R := eBH (fun i ↦ (x i)⁻¹) α
-  set K : ℝ≥0∞ := (Fintype.card ι : ℝ≥0∞)
-  rw [fdp_eq_sum_inv_card, mul_sum]
-  refine (sum_le_sum fun i hi ↦ ?_).trans (sum_le_sum_of_subset inter_subset_right)
-  have hiR := (mem_inter.1 hi).1
+    IsSelfConsistent (fun i ↦ {y : ι → ℝ≥0∞ | y i ≤ bhThreshold α y}.indicator
+      (fun y ↦ (bhThreshold α y)⁻¹) x) α (eBH (fun i ↦ (x i)⁻¹) α) := by
+  refine isSelfConsistent_iff.2 fun i hiR ↦ ?_
   have : Nonempty ι := ⟨i⟩
-  have hK0 : K ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
-  have hKtop : K ≠ ∞ := ENNReal.natCast_ne_top _
-  have hR0 : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hiR)
+  have hK0 : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
+  have hR0 : α * #(eBH (fun i ↦ (x i)⁻¹) α) ≠ 0 :=
+    mul_ne_zero hα₀ (Nat.cast_ne_zero.2 (card_ne_zero_of_mem hiR))
   have hle : x i ≤ bhThreshold α x := by
-    rw [bhThreshold, ENNReal.le_div_iff_mul_le (Or.inl hK0) (Or.inl hKtop), mul_comm]
+    rw [bhThreshold, ENNReal.le_div_iff_mul_le (Or.inl hK0) (Or.inl (ENNReal.natCast_ne_top _)),
+      mul_comm]
     exact isSelfConsistent_eBH.card_mul_le hiR
-  rw [Set.indicator_of_mem (s := {y : ι → ℝ≥0∞ | y i ≤ bhThreshold α y}) hle, bhThreshold]
-  simp only [div_eq_mul_inv]
-  rw [ENNReal.mul_inv (Or.inl (mul_ne_zero hα₀ hR0)) (Or.inl (ENNReal.mul_ne_top hα
-    (ENNReal.natCast_ne_top _))), ENNReal.mul_inv (Or.inl hα₀) (Or.inl hα), inv_inv]
-  refine le_of_eq ?_
-  calc (#R : ℝ≥0∞)⁻¹ = (α * α⁻¹) * (K⁻¹ * K) * (#R : ℝ≥0∞)⁻¹ := by
-        rw [ENNReal.mul_inv_cancel hα₀ hα, ENNReal.inv_mul_cancel hK0 hKtop, one_mul, one_mul]
-    _ = α * K⁻¹ * (α⁻¹ * (#R : ℝ≥0∞)⁻¹ * K) := by ring
+  -- The rejected e-value is `K / (α * #R)`, exactly the self-consistency threshold.
+  rw [Set.indicator_of_mem (s := {y : ι → ℝ≥0∞ | y i ≤ bhThreshold α y}) hle, bhThreshold,
+    ENNReal.inv_div (Or.inl (ENNReal.natCast_ne_top _)) (Or.inr hR0),
+    ENNReal.mul_div_cancel hR0 (ENNReal.mul_ne_top hα (ENNReal.natCast_ne_top _))]
+
+variable [DecidableEq ι]
 
 /-- **The Benjamini–Hochberg procedure under PRDS** [BY01, Theorem 1.2; Goe26, Remark 9]: if the
 p-values are PRDS on a set `N` of hypotheses whose p-values are p-variables for `P`, then the
@@ -428,21 +467,12 @@ theorem IsPRDS.lintegral_fdp_eBH_inv_le (h : IsPRDS p P N) (hpN : ∀ i ∈ N, I
   rcases eq_or_ne α ∞ with rfl | hα
   · have : (#N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 hN.card_pos.ne'
     simp [ENNReal.top_mul this, ENNReal.top_div]
-  have hg := measurable_indicator_le_inv hp (measurable_bhThreshold α)
-  calc ∫⁻ ω, fdp N (eBH (fun i ↦ (p i ω)⁻¹) α) ∂P
-      ≤ ∫⁻ ω, α / Fintype.card ι * ∑ i ∈ N, {ω | p i ω ≤ bhThreshold α (p · ω)}.indicator
-          (fun ω ↦ (bhThreshold α (p · ω))⁻¹) ω ∂P :=
-        lintegral_mono fun ω ↦ fdp_eBH_inv_le_sum_indicator hα₀ hα N (p · ω)
-    _ = α / Fintype.card ι * ∑ i ∈ N, ∫⁻ ω, {ω | p i ω ≤ bhThreshold α (p · ω)}.indicator
-          (fun ω ↦ (bhThreshold α (p · ω))⁻¹) ω ∂P := by
-        rw [lintegral_const_mul _ (Finset.measurable_sum _ fun i _ ↦ hg i),
-          lintegral_finsetSum _ fun i _ ↦ hg i]
-    _ ≤ α / Fintype.card ι * ∑ _ ∈ N, 1 := by
-        gcongr with i hi
-        exact h.lintegral_indicator_le_inv_le_one (Finset.mem_coe.2 hi) (hpN i hi) hp
-          (antitone_bhThreshold α) (measurable_bhThreshold α)
-    _ = α * #N / Fintype.card ι := by
-        rw [sum_const, nsmul_eq_mul, mul_one, div_eq_mul_inv, div_eq_mul_inv, mul_right_comm]
+  refine (lintegral_fdp_le_of_isSelfConsistent
+    (fun i ↦ (measurable_indicator_le_inv hp (measurable_bhThreshold α) i).aemeasurable)
+    (fun ω ↦ isSelfConsistent_indicator_bhThreshold hα₀ hα (p · ω)) N).trans ?_
+  gcongr
+  exact h.sum_lintegral_indicator_le_inv_le_card hpN hp (antitone_bhThreshold α)
+    (measurable_bhThreshold α)
 
 end BH
 
