@@ -23,7 +23,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import Mathlib.MeasureTheory.Integral.Lebesgue.Add
 
 /-!
-# Upper bounds on the stopping times of tests that threshold a growing process
+# The time for a growing process to reach a level
 
 Let `E : ℕ → Ω → ℝ≥0∞` be a process, for instance an e-process, and let `τ α` be the first time
 `E` reaches `α⁻¹`, the sequential test of level `α` obtained by thresholding an e-process

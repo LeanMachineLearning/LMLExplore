@@ -9,7 +9,7 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.LevelStoppingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.EValues.BipolarRate.StoppingTime
-import LMLExplore.EValues.EProcess.ExpectedStoppingTime
+import LMLExplore.Probability.Process.LevelCrossing
 import Mathlib.Probability.Independence.InfinitePi
 import TauCeti.Probability.Independence.InfinitePi
 
@@ -37,17 +37,17 @@ from the elementary renewal theorem for first passage times. No moment of `log X
 For a null `S₁` of probability measures, every sequential test of level `α` for the i.i.d. laws
 of the members of `S₁` makes at least `log (1/α) / d` observations in expectation, with
 `d = bipolarRate Q₁ S₁` (`ProbabilityTheory.toENNReal_log_inv_div_bipolarRate_le_lintegral`), and
-`D ≤ d ≤ KL_inf(Q₁, S₁)`. When the rate `D` of the numeraires is `KL_inf(Q₁, S₁)`, as for a
-simple null, the three rates agree, and the test of the product of the numeraires attains the
-lower bound to first order.
+`D ≤ d ≤ KL_inf(Q₁, S₁)`. When the rate `D` of the numeraires is the bipolar rate `d`, for
+instance when `D = KL_inf(Q₁, S₁)`, as for a simple null, the test of the product of the
+numeraires attains the lower bound to first order.
 
 ## Main statements
 
 * `ProbabilityTheory.tendsto_lintegral_hittingAfter_prod_numeraire_div_log`: for `D > 0`,
   `𝔼_Q[τ α] / log (1/α) → 1 / D` as `α → 0`.
-* `ProbabilityTheory.toENNReal_log_inv_div_maxEPower_le_lintegral`: if
-  `KL_inf(Q₁, S₁) ≤ D`, every sequential test of level `α` makes at least `log (1/α) / D`
-  observations in expectation.
+* `ProbabilityTheory.toENNReal_log_inv_div_maxEPower_le_lintegral`: if the bipolar rate is at
+  most `D`, for instance if `KL_inf(Q₁, S₁) ≤ D`, every sequential test of level `α` makes at
+  least `log (1/α) / D` observations in expectation.
 
 ## References
 
@@ -92,23 +92,23 @@ theorem tendsto_lintegral_hittingAfter_prod_numeraire_div_log (Q₁ : Measure �
     (fun j ↦ (Measure.identDistrib_eval_infinitePi Q₁ j 0).comp hXm) (hD ▸ hpos)
   rwa [hD] at h
 
-/-- **The lower bound on expected stopping times at the rate of the numeraire.** If the smallest
-relative entropy from `Q₁` to a null `S₁` of probability measures is at most the expected
-logarithm `D = maxEPower Q₁ S₁` of the numeraire, every sequential test of level `α` for the
-i.i.d. laws of the members of `S₁` makes at least `log (1/α) / D` observations in expectation
-under the i.i.d. law of `Q₁`. Then `D` is also the bipolar rate and `KL_inf(Q₁, S₁)`, and with
-`tendsto_lintegral_hittingAfter_prod_numeraire_div_log` the test of the product of the numeraires
-attains this bound to first order as `α → 0`. -/
+/-- **The lower bound on expected stopping times at the rate of the numeraire.** If the bipolar
+rate of `Q₁` against a null `S₁` of probability measures is at most the expected logarithm
+`D = maxEPower Q₁ S₁` of the numeraire, every sequential test of level `α` for the i.i.d. laws of
+the members of `S₁` makes at least `log (1/α) / D` observations in expectation under the i.i.d.
+law of `Q₁`. The hypothesis holds when `KL_inf(Q₁, S₁) ≤ D`, as for a simple null, since the
+bipolar rate is at most `KL_inf(Q₁, S₁)` (`bipolarRate_le_klInf`). Then `D` is the bipolar rate,
+and with `tendsto_lintegral_hittingAfter_prod_numeraire_div_log` the test of the product of the
+numeraires attains this bound to first order as `α → 0`. -/
 theorem toENNReal_log_inv_div_maxEPower_le_lintegral (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hKL : klInf Q₁ S₁ ≤ maxEPower Q₁ S₁)
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (h : bipolarRate Q₁ S₁ ≤ maxEPower Q₁ S₁)
     {τ : (ℕ → 𝓧) → WithTop ℕ} {α : ℝ≥0∞}
     (hτ : IsLevelStoppingTime τ Filtration.piLT (iidNull S₁) α) :
     (ENNReal.log α⁻¹).toENNReal / (maxEPower Q₁ S₁).toENNReal ≤
       ∫⁻ ω, ENat.toENNReal (τ ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
-  -- `D ≤ d ≤ KL_inf ≤ D`
+  -- `D ≤ d ≤ D`
   have hd : bipolarRate Q₁ S₁ = maxEPower Q₁ S₁ :=
-    le_antisymm ((bipolarRate_le_klInf Q₁ hS₁).trans hKL)
-      (maxLogGrowth_one Q₁ S₁ ▸ maxLogGrowth_one_le_bipolarRate Q₁ S₁)
+    le_antisymm h (maxLogGrowth_one Q₁ S₁ ▸ maxLogGrowth_one_le_bipolarRate Q₁ S₁)
   exact hd ▸ toENNReal_log_inv_div_bipolarRate_le_lintegral Q₁ hS₁ hτ
 
 end ProbabilityTheory

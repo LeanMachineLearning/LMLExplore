@@ -12,8 +12,10 @@ public import Mathlib.Basic.ENNReal.BigOperators
 /-!
 # Comparing reals with extended nonnegative reals in `EReal`
 
-The bounds of a large deviation principle compare real exponents `r` with values of a rate
-function in `ℝ≥0∞`, both cast to `EReal`. This file collects two such comparisons.
+Real numbers and values in `ℝ≥0∞` are compared in `EReal`: the bounds of a large deviation
+principle compare real exponents `r` with values of a rate function in `ℝ≥0∞`, and a bound on the
+time to reach a level compares real rates with an extended real rate. This file collects three
+such comparisons.
 
 * A real `r` below a finite sum `∑ a ∈ s, f a` of values in `ℝ≥0∞` splits into reals `g a` below
   each `f a` with `r < ∑ a ∈ s, g a`, and symmetrically above. This divides an exponent of a
