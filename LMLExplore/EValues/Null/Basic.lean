@@ -223,6 +223,14 @@ theorem forall_mem_sampleNull {p : Measure (Fin n → 𝓧) → Prop} :
     (∀ μ ∈ sampleNull S₁ n, p μ) ↔ ∀ P ∈ S₁, p (Measure.pi fun _ : Fin n ↦ P) :=
   forall_mem_image
 
+/-- If a map `φ` carries the `n`-sample law of `f i` to `g i` for every `i ∈ I`, then the image
+by `φ` of the samples of the null `f '' I` is the null `g '' I`. -/
+theorem mapNull_sampleNull_image {ι : Type*} {f : ι → Measure 𝓧} {g : ι → Measure Ω'} {I : Set ι}
+    {φ : (Fin n → 𝓧) → Ω'} (h : ∀ i ∈ I, (Measure.pi fun _ : Fin n ↦ f i).map φ = g i) :
+    mapNull φ (sampleNull (f '' I) n) = g '' I := by
+  simp only [mapNull, sampleNull_def, image_image]
+  exact image_congr h
+
 @[gcongr]
 theorem sampleNull_mono (hST : S₁ ⊆ T₁) (n : ℕ) : sampleNull S₁ n ⊆ sampleNull T₁ n :=
   image_mono hST

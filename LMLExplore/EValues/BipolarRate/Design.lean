@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
+import LMLExplore.Data.EReal.Inv
 import Mathlib.Probability.Independence.InfinitePi
 import TauCeti.Data.EReal.Operations
 
@@ -36,11 +37,16 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
 * `ProbabilityTheory.designRate μ Λ`: the rate of the designs,
   `⨆ n, designValue μ Λ n / ∑ a, n a`.
 
+* `ProbabilityTheory.designBlockEquiv r m`: `m` tables of the design `r`, as one table of the
+  design `m • r`.
+
 ## Main statements
 
 * `ProbabilityTheory.designValue_mono`: the value of a design is monotone in the design.
 * `ProbabilityTheory.designValue_le_iInf_sum_mul_klDiv`: the entropy bound
   `designValue μ Λ n ≤ ⨅ ν ∈ Λ, ∑ a, n a * klDiv (μ a) (ν a)`.
+* `ProbabilityTheory.measurePreserving_designBlockEquiv`: `m` independent tables of the design `r`
+  have the law of the table of the design `m • r`.
 * `ProbabilityTheory.maxLogGrowth_designLaw`: `m` independent tables of the design `r` are the
   table of the design `m • r`, so the value of `m • r` is the largest expected logarithm of an
   `m`-sample e-variable for the i.i.d. null of the laws `designLaw ν r`, `ν ∈ Λ`.
@@ -49,10 +55,15 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
 * `ProbabilityTheory.designRate_unique`: with one source, the rate of the designs is the bipolar
   rate of the law of the source against the laws of the source in `Λ`.
 
+## Implementation notes
+
+The definitions and proofs are adapted from the draft `notes/lean-wip/SeveralArmsAux.lean` of the
+paper project `RemyDegenne/evalues_research`, changed to `maxEPower` and `maxLogGrowth`.
+
 ## References
 
 * [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 41,
-  `results/41-several-arms-bipolar-rate.md`, Section 1.
+  `results/41-several-arms-bipolar-rate.md`, Sections 1 and 2.
 -/
 
 public section
@@ -94,6 +105,7 @@ lemma designLaw_univ_le_one (hν : ∀ a, ν a Set.univ ≤ 1) (n : α → ℕ) 
 lemma designLaw_zero (ν : α → Measure 𝓧) :
     designLaw ν 0 = Measure.dirac fun p : Σ a, Fin ((0 : α → ℕ) a) ↦ p.2.elim0 := by
   have : IsEmpty (Σ a, Fin ((0 : α → ℕ) a)) := ⟨fun p ↦ p.2.elim0⟩
+  rw [designLaw_def]
   exact Measure.pi_of_empty _ _
 
 /-- The first `n a` observations of each source `a`, read in the table of a larger design `n'`,
@@ -179,8 +191,7 @@ lemma designValue_div_le_designRate (μ : α → Measure 𝓧) (Λ : Set (α →
 of the designs. -/
 lemma designValue_le_mul_designRate (μ : α → Measure 𝓧) (Λ : Set (α → Measure 𝓧))
     (hn : n ≠ 0) : designValue μ Λ n ≤ ((∑ a, n a : ℕ) : EReal) * designRate μ Λ :=
-  (EReal.div_le_iff_le_mul (by exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 hn))
-    (EReal.natCast_ne_top _)).1
+  (EReal.div_natCast_le_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hn))).1
     (designValue_div_le_designRate μ Λ n)
 
 /-- The rate of the designs is at most `c ≥ 0` if and only if the value of every design that is
@@ -192,8 +203,7 @@ lemma designRate_le_iff {c : EReal} (hc : 0 ≤ c) :
     (mul_le_mul_of_nonneg_left h (by positivity)), fun h ↦ iSup_le fun n ↦ ?_⟩
   rcases eq_or_ne n 0 with rfl | hn
   · simpa using hc
-  exact (EReal.div_le_iff_le_mul (by exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 hn))
-    (EReal.natCast_ne_top _)).2 (h n hn)
+  exact (EReal.div_natCast_le_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hn))).2 (h n hn)
 
 /-- The rate of the designs is antitone in the set of instances. -/
 @[gcongr]
@@ -232,32 +242,34 @@ theorem designValue_le_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
 
 /-- The entries of `m` tables of the design `r` are the entries of the table of the design
 `m • r`: the entry `⟨a, i⟩` of the table number `k` is the entry `⟨a, (k, i)⟩`. -/
-private def blockIndexEquiv (r : α → ℕ) (m : ℕ) :
-    Fin m × (Σ a, Fin (r a)) ≃ Σ a, Fin (m * r a) :=
+def designBlockIndexEquiv (r : α → ℕ) (m : ℕ) :
+    Fin m × (Σ a, Fin (r a)) ≃ Σ a, Fin ((m • r) a) :=
   (Equiv.prodComm _ _).trans ((Equiv.sigmaProdDistrib _ _).trans
     (Equiv.sigmaCongrRight fun _ ↦ (Equiv.prodComm _ _).trans finProdFinEquiv))
 
-/-- `m` tables of the design `r`, as one table of the design `m • r`. -/
-private def blockEquiv (r : α → ℕ) (m : ℕ) :
-    (Fin m → (Σ a, Fin (r a)) → 𝓧) ≃ᵐ ((Σ a, Fin (m * r a)) → 𝓧) :=
+/-- `m` tables of the design `r`, as one table of the design `m • r`, through
+`designBlockIndexEquiv`. -/
+def designBlockEquiv (r : α → ℕ) (m : ℕ) :
+    (Fin m → (Σ a, Fin (r a)) → 𝓧) ≃ᵐ ((Σ a, Fin ((m • r) a)) → 𝓧) :=
   (MeasurableEquiv.curry (Fin m) (Σ a, Fin (r a)) 𝓧).symm.trans
-    (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) (blockIndexEquiv r m))
+    (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) (designBlockIndexEquiv r m))
 
 /-- `m` independent tables of the design `r` have the law of the table of the design `m • r`. -/
-private lemma map_pi_designLaw_blockEquiv (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
+theorem measurePreserving_designBlockEquiv (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
     (r : α → ℕ) (m : ℕ) :
-    (Measure.pi fun _ : Fin m ↦ designLaw μ r).map (blockEquiv (m𝓧 := m𝓧) r m) =
-      designLaw μ fun a ↦ m * r a := by
+    MeasurePreserving (designBlockEquiv (m𝓧 := m𝓧) r m)
+      (Measure.pi fun _ : Fin m ↦ designLaw μ r) (designLaw μ (m • r)) := by
+  refine ⟨(designBlockEquiv r m).measurable, ?_⟩
   have h_pi : (Measure.pi fun _ : Fin m ↦ designLaw μ r) =
       Measure.infinitePi fun _ : Fin m ↦ Measure.infinitePi fun p : Σ a, Fin (r a) ↦ μ p.1 := by
     simp_rw [designLaw_def, Measure.infinitePi_eq_pi]
-  unfold blockEquiv
+  unfold designBlockEquiv
   rw [h_pi, MeasurableEquiv.coe_trans, ← Measure.map_map (MeasurableEquiv.measurable _)
     (MeasurableEquiv.measurable _),
     Measure.infinitePi_map_curry_symm (fun (_ : Fin m) (p : Σ a, Fin (r a)) ↦ μ p.1),
     designLaw_def, ← Measure.infinitePi_eq_pi]
-  exact Measure.infinitePi_map_piCongrLeft (fun p : Σ a, Fin (m * r a) ↦ μ p.1)
-    (blockIndexEquiv r m)
+  exact Measure.infinitePi_map_piCongrLeft (fun p : Σ a, Fin ((m • r) a) ↦ μ p.1)
+    (designBlockIndexEquiv r m)
 
 /-- **Blocks.** The table of the design `m • r` is made of `m` independent tables of the design
 `r`, so its value is the largest expected logarithm of an `m`-sample e-variable for the i.i.d.
@@ -265,17 +277,10 @@ null of the laws `designLaw ν r` of the tables of `r`, `ν ∈ Λ` [EVR26, Note
 theorem maxLogGrowth_designLaw (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (r : α → ℕ) (m : ℕ) :
     maxLogGrowth (designLaw μ r) ((fun ν ↦ designLaw ν r) '' Λ) m = designValue μ Λ (m • r) := by
-  have hmr : m • r = fun a ↦ m * r a := by
-    ext a
-    simp
-  rw [hmr, maxLogGrowth_def, designValue_def, ← map_pi_designLaw_blockEquiv μ r m,
-    ← (blockEquiv (m𝓧 := m𝓧) r m).maxEPower_map_eq]
-  congr 1
-  ext P
-  simp only [mem_mapNull, mem_sampleNull, Set.mem_image, exists_exists_and_eq_and]
-  refine exists_congr fun ν ↦ and_congr_right fun hν ↦ ?_
-  have := hΛ ν hν
-  rw [map_pi_designLaw_blockEquiv ν]
+  rw [maxLogGrowth_def, designValue_def, ← (measurePreserving_designBlockEquiv μ r m).map_eq,
+    ← (designBlockEquiv (m𝓧 := m𝓧) r m).maxEPower_map_eq,
+    mapNull_sampleNull_image fun ν hν ↦ have := hΛ ν hν
+      (measurePreserving_designBlockEquiv ν r m).map_eq]
 
 /-- The bipolar rate of the tables of a design `r` that is not empty is at most the number of
 observations of `r` times the rate of the designs [EVR26, Note 41, Section 1]. -/
@@ -303,8 +308,7 @@ theorem designRate_eq_iSup_bipolarRate (μ : α → Measure 𝓧) [∀ a, IsProb
     exact maxLogGrowth_one_le_bipolarRate _ _
   · rcases eq_or_ne r 0 with rfl | hr
     · simpa using designRate_nonneg μ Λ
-    exact (EReal.div_le_iff_le_mul (by exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 hr))
-      (EReal.natCast_ne_top _)).2
+    exact (EReal.div_natCast_le_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hr))).2
       (bipolarRate_designLaw_le μ hΛ hr)
 
 /-! ### One source -/
@@ -320,13 +324,8 @@ theorem designValue_unique [Unique α] (μ : α → Measure 𝓧) [∀ a, SigmaF
       (Measure.pi fun _ : Fin (n default) ↦ ν default).map e = designLaw ν n :=
     (measurePreserving_piCongrLeft (fun p : Σ a, Fin (n a) ↦ ν p.1)
       (Equiv.uniqueSigma fun a ↦ Fin (n a)).symm).map_eq
-  rw [maxLogGrowth_def, designValue_def, ← h_map μ, ← e.maxEPower_map_eq]
-  congr 1
-  ext P
-  simp only [mem_mapNull, mem_sampleNull, Set.mem_image, exists_exists_and_eq_and]
-  refine exists_congr fun ν ↦ and_congr_right fun hν ↦ ?_
-  have := hΛ ν hν
-  rw [h_map ν]
+  rw [maxLogGrowth_def, designValue_def, ← h_map μ, ← e.maxEPower_map_eq,
+    mapNull_sampleNull_image fun ν hν ↦ have := hΛ ν hν; h_map ν]
 
 /-- **One source.** With one source, the rate of the designs is the bipolar rate of the law of the
 source against the laws of the source in `Λ` [EVR26, Note 41, Section 1]. -/
