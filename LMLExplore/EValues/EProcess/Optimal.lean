@@ -51,11 +51,11 @@ has no atom.
 * `ProbabilityTheory.isEVar_stoppedNull_range_dirac_iff`,
   `ProbabilityTheory.isEProcess_range_dirac_iff`,
   `ProbabilityTheory.maxEPower_stoppedNull_range_dirac`: the e-variables of the stopped null and
-  the e-processes of the null of all Dirac masses are the functions at most one, and the largest
-  e-power vanishes.
+  the e-processes of the null of all Dirac masses are the progressive functions, respectively the
+  adapted processes, at most one, and the largest e-power vanishes.
 * `ProbabilityTheory.iInf_klIntegral_sigmaConvexHull_stoppedNull_range_dirac`,
   `ProbabilityTheory.maxEPower_stoppedNull_range_dirac_lt_iInf_klIntegral_sigmaConvexHull`,
-  `maxEPower_stoppedNull_range_dirac_lt_iInf_klIntegral_sigmaConvexHull_infinitePi`:
+`ProbabilityTheory.maxEPower_stoppedNull_range_dirac_lt_iInf_klIntegral_sigmaConvexHull_infinitePi`:
   **the identity fails without domination**, with countable mixtures and hence with finite ones
   [EVR26, Note 40, Example 4].
 
@@ -203,6 +203,7 @@ theorem isEProcess_range_dirac_iff {E : ℕ → Ω → ℝ≥0∞} :
 
 /-- The largest e-power of the stopped null of the Dirac masses vanishes under every measure on the
 stopped paths: its e-variables are at most one, and the constant `1` is one of them. -/
+@[simp]
 theorem maxEPower_stoppedNull_range_dirac (R : @Measure (ℕ × Ω) ℱ.progressive) :
     maxEPower R (stoppedNull ℱ (range Measure.dirac)) = 0 := by
   refine le_antisymm (maxEPower_le_iff.2 fun X hX ↦ eintegral_nonpos fun x ↦ ?_)
@@ -222,8 +223,8 @@ let `Q` be a nonzero measure under which the first observation has no atom. At a
 stopped law of `Q` at the constant time `n` is not absolutely continuous with respect to any
 countable mixture of stopped laws of Dirac masses: such a mixture is carried, at time `n`, by the
 paths whose first observation is in a countable set, which `Q` does not charge. -/
-theorem not_stoppedLaw_absolutelyContinuous_of_mem_sigmaConvexHull [NeZero Q]
-    (hQ : ∀ x, Q {ω | ω 0 = x} = 0) (hn : n ≠ 0)
+theorem not_stoppedLaw_absolutelyContinuous_of_mem_sigmaConvexHull_stoppedNull_range_dirac
+    [NeZero Q] (hQ : ∀ x, Q {ω | ω 0 = x} = 0) (hn : n ≠ 0)
     {m : @Measure (ℕ × (ℕ → 𝓧)) (Filtration.piLT (X := fun _ ↦ 𝓧)).progressive}
     (hm : m ∈ sigmaConvexHull
       (stoppedNull (Filtration.piLT (X := fun _ ↦ 𝓧)) (range Measure.dirac))) :
@@ -272,7 +273,8 @@ theorem iInf_klIntegral_sigmaConvexHull_stoppedNull_range_dirac [NeZero Q]
     ⨅ m ∈ sigmaConvexHull (stoppedNull (Filtration.piLT (X := fun _ ↦ 𝓧)) (range Measure.dirac)),
       klIntegral (stoppedLaw (Filtration.piLT (X := fun _ ↦ 𝓧)) Q fun _ ↦ n) m = ⊤ :=
   iInf₂_eq_top.2 fun _ hm ↦
-    klIntegral_of_not_ac (not_stoppedLaw_absolutelyContinuous_of_mem_sigmaConvexHull hQ hn hm)
+    klIntegral_of_not_ac
+      (not_stoppedLaw_absolutelyContinuous_of_mem_sigmaConvexHull_stoppedNull_range_dirac hQ hn hm)
 
 /-- **The identity of Koolen and Grünwald fails with countable mixtures without domination**
 [EVR26, Note 40, Example 4]. For the null of all Dirac masses on the canonical space `ℕ → 𝓧`, with
