@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.StoppedLaw
+import LMLExplore.EValues.EffectiveSet.TotalVariation
 
 /-!
 # E-processes are the e-variables of the stopped null
@@ -147,21 +148,18 @@ theorem isEProcess_iff_isEVar_stoppedNull :
 
 /-- **The e-variables of the stopped null of the Dirac masses** are the progressive functions of
 the stopped paths that are at most one everywhere: the stopped law of the Dirac mass at `ω` at the
-constant time `n` evaluates a function at `(n, ω)`. -/
+constant time `n` is the Dirac mass at `(n, ω)`. -/
 theorem isEVar_stoppedNull_range_dirac_iff {X : ℕ × Ω → ℝ≥0∞} :
     IsEVar X (stoppedNull ℱ (range Measure.dirac)) ↔
       Measurable[ℱ.progressive] X ∧ ∀ x, X x ≤ 1 := by
-  refine ⟨fun hX ↦ ⟨hX.measurable, fun ⟨n, ω⟩ ↦ ?_⟩, fun ⟨hX, hX1⟩ ↦ ⟨hX, fun μ hμ ↦ ?_⟩⟩
-  · have h := hX.lintegral_le_one (stoppedLaw_mem_stoppedNull (mem_range_self ω)
-      (isStoppingTime_natCast (ℱ := ℱ) n) fun _ ↦ WithTop.natCast_ne_top n)
-    simp only [WithTop.untopA_natCast] at h
-    rwa [lintegral_stoppedLaw measurable_const hX.measurable, lintegral_dirac' ω
-      (f := fun ω' ↦ X (n, ω'))
-      (hX.measurable.comp (Filtration.measurable_prodMk_progressive measurable_const))] at h
-  · calc ∫⁻ x, X x ∂μ ≤ ∫⁻ _, 1 ∂μ := lintegral_mono hX1
-      _ = μ univ := lintegral_one
-      _ ≤ 1 := measure_univ_le_one_of_mem_stoppedNull
-        (forall_mem_range.2 fun _ ↦ prob_le_one) hμ
+  refine isEVar_iff_of_forall_exists_etvDist_dirac_lt
+    (fun _ ↦ measure_univ_le_one_of_mem_stoppedNull (forall_mem_range.2 fun _ ↦ prob_le_one))
+    fun ⟨n, ω⟩ ε hε ↦ ⟨_, stoppedLaw_mem_stoppedNull (mem_range_self ω)
+      (isStoppingTime_natCast (ℱ := ℱ) n) fun _ ↦ WithTop.natCast_ne_top n, ?_⟩
+  -- `Measure.map_dirac'` with the progressive σ-algebra on the stopped paths, passed explicitly.
+  rw [WithTop.untopA_natCast, stoppedLaw_def, @Measure.map_dirac' Ω (ℕ × Ω) mΩ ℱ.progressive _
+    (Filtration.measurable_prodMk_progressive measurable_const) ω, etvDist_self]
+  exact hε
 
 /-- **The e-processes of the null of all Dirac masses** are the adapted processes that are at most
 one everywhere. -/
