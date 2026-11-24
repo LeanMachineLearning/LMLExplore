@@ -26,8 +26,9 @@ The second equality holds for every finite measure `Q`. The first holds as soon 
 to satisfy the constraints strictly, the null may be empty, and both sides may be infinite.
 
 The formulas of Honda and Takemura for one mean constraint on the laws on `[0, 1]` and on
-`(-∞, 1]` [HT15] are cases of it, which this file does not derive. The statements and the proof
-follow [EVR26, Note 20], whose Lean library EValuesResearch proves them; the proofs here are
+`(-∞, 1]` [HT15] are cases of it; `LMLExplore.EValues.ConstraintNull.UnitInterval` derives the
+first. The statements and the proof follow [EVR26, Note 20], whose Lean library EValuesResearch
+proves them; the proofs here are
 adapted from it. The proof does not go through
 Lagrange duality, which needs Slater's condition. It compares both sides with the largest expected
 logarithm of an e-variable, which Statlib's numeraire [LRR25] attains, and splits along
