@@ -13,8 +13,8 @@ public import Mathlib.Data.Int.Interval
 
 A finite set of integers whose elements are pairwise less than `d` apart lies in an interval
 `[a, a + d)`, so it has at most `d` elements. The cycle lemma in
-`LMLExplore.EValues.MultipleTesting.RunningMaxima.LowerBound` uses it to count the shifts of a
-walk whose values are pairwise close.
+`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.LowerBound` uses it to count the shifts
+of a walk whose values are pairwise close.
 
 ## Main statements
 
