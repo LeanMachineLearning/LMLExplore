@@ -40,11 +40,6 @@ epoch; its value `(r_k + ψ t_k v) / t_k` at every `v` of the epoch is at most `
 
 ## Main statements
 
-* `ProbabilityTheory.IsSubPsiProcess.measure_exists_exists_le_mul_sub_mul_le`: the union bound
-  over countably many parameters, `P(∃ n i, r i ≤ t i S n - ψ (t i) V n) ≤ l₀ ∑ i, exp (-r i)`.
-* `ProbabilityTheory.IsSubPsiProcess.measure_exists_mem_and_le_le`: a boundary above, at each
-  intrinsic time of a set `A`, one of countably many lines is crossed in `A` with probability at
-  most `l₀ ∑ i, exp (-r i)`.
 * `ProbabilityTheory.IsSubPsiProcess.measure_exists_stitching_le_le` [HRMS21, Theorem 1]: the
   stitched boundary `v ↦ 𝒮(max v m)` is crossed with probability at most `α`.
 * `ProbabilityTheory.IsSubPsiProcess.measure_exists_le_and_stitching_le_le` [HRMS21, Theorem 1,
@@ -80,46 +75,6 @@ namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {𝒩 : Set (Measure Ω)}
   {P : Measure Ω} {S V : ℕ → Ω → ℝ} {ψ : ℝ → ℝ} {Λ : Set ℝ}
-
-/-! ### Union bounds over lines -/
-
-namespace IsSubPsiProcess
-
-/-- **The union bound over countably many parameters.** For a probability measure `P` of the null,
-an `l₀`-sub-ψ process, parameters `t i ∈ Λ` and real levels `r i`, the probability that
-`r i ≤ t i S n - ψ (t i) V n` at some time `n` for some `i` is at most `l₀ ∑ i, exp (-r i)`. -/
-theorem measure_exists_exists_le_mul_sub_mul_le {l₀ : ℝ≥0∞} {ι : Type*} [Countable ι]
-    (hS : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩) (hP : P ∈ 𝒩) [IsProbabilityMeasure P] {t r : ι → ℝ}
-    (ht : ∀ i, t i ∈ Λ) :
-    P {ω | ∃ n i, r i ≤ t i * S n ω - ψ (t i) * V n ω} ≤
-      l₀ * ∑' i, ENNReal.ofReal (exp (-r i)) := by
-  have hU : {ω | ∃ n i, r i ≤ t i * S n ω - ψ (t i) * V n ω} =
-      ⋃ i, {ω | ∃ n, r i ≤ t i * S n ω - ψ (t i) * V n ω} := by
-    ext ω
-    simp only [mem_ofPred_eq, mem_iUnion]
-    exact exists_comm
-  rw [hU, ← ENNReal.tsum_mul_left]
-  refine (measure_iUnion_le _).trans (tsum_le_tsum fun i ↦ ?_)
-  simpa using hS.measure_inter_exists_le_mul_sub_mul_le hP (ht i) (r i) MeasurableSet.univ
-
-/-- **Crossing a boundary above countably many lines.** For a probability measure `P` of the null
-and an `l₀`-sub-ψ process, let `u` be a boundary that lies, at every intrinsic time `v` of a set
-`A`, above one of the lines `v ↦ (r i + ψ (t i) v) / t i`, with `t i ∈ Λ` positive. Then the
-probability that `S n ≥ u (V n)` at some time `n` with `V n ∈ A` is at most
-`l₀ ∑ i, exp (-r i)`. -/
-theorem measure_exists_mem_and_le_le {l₀ : ℝ≥0∞} {ι : Type*} [Countable ι]
-    (hS : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩) (hP : P ∈ 𝒩) [IsProbabilityMeasure P] {t r : ι → ℝ}
-    (ht : ∀ i, t i ∈ Λ) (ht0 : ∀ i, 0 < t i) {A : Set ℝ} {u : ℝ → ℝ}
-    (hu : ∀ v ∈ A, ∃ i, (r i + ψ (t i) * v) / t i ≤ u v) :
-    P {ω | ∃ n, V n ω ∈ A ∧ u (V n ω) ≤ S n ω} ≤ l₀ * ∑' i, ENNReal.ofReal (exp (-r i)) := by
-  refine (measure_mono fun ω hω ↦ ?_).trans (hS.measure_exists_exists_le_mul_sub_mul_le hP ht)
-  obtain ⟨n, hA, hle⟩ := hω
-  obtain ⟨i, hi⟩ := hu _ hA
-  refine ⟨n, i, ?_⟩
-  have := (div_le_iff₀' (ht0 i)).1 (hi.trans hle)
-  linarith
-
-end IsSubPsiProcess
 
 /-! ### The stitching function -/
 
