@@ -19,7 +19,7 @@ the filtration of the information `info t`, so they form a test martingale for t
 of Dirac masses as soon as the weighted sum of `Z` is at most `1`. This gives test martingales
 with any prescribed terminal value of expectation at most `1` on a finite space, as in the
 lower bound for e-BH on running maxima
-(`LMLExplore.EValues.MultipleTesting.RunningMaxima.LowerBound`).
+(`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.LowerBound`).
 
 ## Main definitions
 

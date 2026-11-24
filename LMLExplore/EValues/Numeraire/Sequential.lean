@@ -33,8 +33,8 @@ Grünwald, Vovk and Shafer ask when this process is an e-process for the i.i.d. 
 cases in which the numeraires are products `∏ i, e (x i)` of copies of one function `e`, and
 products of copies of an e-variable form a test supermartingale
 (`ProbabilityTheory.IsEVar.isTestSupermartingale_prod_piLT`). The module
-`LMLExplore.EValues.Numeraire.Sequential.Bernoulli` gives an explicit counterexample, the null
-`{Ber(1/5), Ber(4/5)}` under the alternative `Ber(1/2)`, from the likelihood ratios against
+`LMLExplore.EValues.Examples.Numeraire.Sequential.Bernoulli` gives an explicit counterexample, the
+null `{Ber(1/5), Ber(4/5)}` under the alternative `Ber(1/2)`, from the likelihood ratios against
 mixtures of this file.
 
 These answers are those of the research note [EVR26, Note 23], Theorems (1) to (3). The
