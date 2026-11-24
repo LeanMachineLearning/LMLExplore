@@ -317,7 +317,7 @@ private lemma exists_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure ρ
   · -- its value, by Chebyshev's inequality for the restarted rounds
     refine le_trans (EReal.coe_le_coe_iff.2 ?_) (mul_integral_truncLog_sub_le_designValue ρ μ
       hΛ hσm hσ hVm hV h_null hδ hVδ c m n)
-    have hp := measureReal_not_restartShape_le ρ μ hσm hσ hσK hm hε (n := n) fun a ha ↦ by
+    have hp := measureReal_not_restartShape_snd_le ρ μ hσm hσ hσK hm hε (n := n) fun a ha ↦ by
       simpa [hn_def, x, ha] using Nat.le_ceil _
     have hC0 : 0 ≤ max |Real.log δ| |c| := (abs_nonneg _).trans (le_max_left _ _)
     have h1 : m * max |Real.log δ| |c| * (arrayLaw ρ μ).real {ω | ¬ (restartShape σ m ω).2 ≤ n} ≤

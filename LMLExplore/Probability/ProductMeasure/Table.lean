@@ -35,7 +35,7 @@ Restarting a round that reads the entries below `σ` on the entries that the pre
 not read gives independent rounds with the same law (`ProbabilityTheory.restartShape`,
 `ProbabilityTheory.restartPoint`). When `σ` reads at most `K` observations of each source, the
 numbers of observations read by `m` rounds concentrate around `m` times their mean, by
-Chebyshev's inequality (`ProbabilityTheory.measureReal_not_restartShape_le`).
+Chebyshev's inequality (`ProbabilityTheory.measureReal_not_restartShape_snd_le`).
 
 ## Main definitions
 
@@ -62,7 +62,7 @@ Chebyshev's inequality (`ProbabilityTheory.measureReal_not_restartShape_le`).
   determined by the entries below itself.
 * `ProbabilityTheory.lintegral_prod_restartPoint_le_one`: the product of the payoffs of restarted
   rounds of expectation at most `1` has expectation at most `1`.
-* `ProbabilityTheory.measureReal_not_restartShape_le`: `m` rounds read more than `n a`
+* `ProbabilityTheory.measureReal_not_restartShape_snd_le`: `m` rounds read more than `n a`
   observations of some source `a`, where `n a ≥ m (𝔼[(σ ω).2 a] + ε)`, with probability at most
   `|α| K² / (m ε²)`.
 
@@ -757,7 +757,7 @@ lemma variance_restartShape_snd [Finite α] (ρ : Measure 𝓤) [IsProbabilityMe
 `K` observations of each source, and `x a` of the source `a` in expectation. If the shape `n` has
 `n a ≥ m (x a + ε)` for every source with `x a ≠ 0`, then `m` rounds read more than `n a`
 observations of some source `a` with probability at most `|α| K² / (m ε²)`. -/
-lemma measureReal_not_restartShape_le [Fintype α] (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
+lemma measureReal_not_restartShape_snd_le [Fintype α] (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)] (hσm : Measurable σ)
     (hσ : DependsOnBelow σ σ) {K : ℕ} (hσK : ∀ ω a, (σ ω).2 a ≤ K) {m : ℕ} (hm : 0 < m) {ε : ℝ}
     (hε : 0 < ε) {n : α → ℕ}
