@@ -24,6 +24,8 @@ public import Mathlib.Basic.ENNReal.BigOperators
 * `ENNReal.ofReal_sum_mul_add`: an affine form `∑ x ∈ s, f x * g x + c` with nonnegative real
   coefficients, evaluated at a point with nonnegative real coordinates and mapped to `ℝ≥0∞`, is
   the same affine form of the images in `ℝ≥0∞`.
+* `ENNReal.ofReal_sum_add_sum_ofReal_neg`: finitely many reals with a nonnegative sum have positive
+  parts adding up to that sum plus their negative parts.
 * `ENNReal.one_sub_mul_le_one_sub_add_one_sub`: `1 - a * b ≤ (1 - a) + (1 - b)`, the union
   bound for two independent events.
 * `ENNReal.one_sub_prod_le_sum_one_sub`: `1 - ∏ i ∈ s, m i ≤ ∑ i ∈ s, (1 - m i)`, the union
@@ -71,6 +73,21 @@ lemma ofReal_sum_mul_add {ι : Type*} {s : Finset ι} {f g : ι → ℝ} {c : �
   rw [ofReal_add (Finset.sum_nonneg h) hc, ofReal_sum_of_nonneg h]
   refine congrArg (· + _) (Finset.sum_congr rfl fun x hx ↦ ?_)
   rw [ofReal_mul (hf x hx)]
+
+/-- Finitely many reals `f i` with a nonnegative sum have positive parts adding up to that sum
+plus their negative parts: `(∑ i ∈ s, f i) + ∑ i ∈ s, (f i)⁻ = ∑ i ∈ s, (f i)⁺` in `ℝ≥0∞`. -/
+lemma ofReal_sum_add_sum_ofReal_neg {ι : Type*} {s : Finset ι} {f : ι → ℝ}
+    (hf : 0 ≤ ∑ i ∈ s, f i) :
+    ENNReal.ofReal (∑ i ∈ s, f i) + ∑ i ∈ s, ENNReal.ofReal (-f i) =
+      ∑ i ∈ s, ENNReal.ofReal (f i) := by
+  have hA : ∑ i ∈ s, ENNReal.ofReal (f i) ≠ ∞ := sum_ne_top.2 fun _ _ ↦ ofReal_ne_top
+  have hC : ∑ i ∈ s, ENNReal.ofReal (-f i) ≠ ∞ := sum_ne_top.2 fun _ _ ↦ ofReal_ne_top
+  rw [← ofReal_toReal hC, ← ofReal_add hf toReal_nonneg, ← ofReal_toReal hA,
+    toReal_sum fun _ _ ↦ ofReal_ne_top, toReal_sum fun _ _ ↦ ofReal_ne_top,
+    ← Finset.sum_add_distrib]
+  refine congrArg ENNReal.ofReal (Finset.sum_congr rfl fun i _ ↦ ?_)
+  rw [toReal_ofReal', toReal_ofReal']
+  linarith [max_zero_sub_max_neg_zero_eq_self (f i)]
 
 /-- One minus a product of two extended nonnegative reals is at most the sum of the numbers
 `1 - a` and `1 - b`: the union bound for two independent events of probabilities `1 - a` and

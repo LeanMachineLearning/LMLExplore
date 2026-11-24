@@ -7,11 +7,12 @@ module
 
 public import Mathlib.Analysis.Convex.Hull
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.Basic.ENNReal.Real
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 
 /-!
-# Expectations of finite suprema, of finite sums, of shifts by constants, of positive parts and
-under combinations of measures
+# Expectations of finite suprema, of finite sums, of shifts by constants, of positive parts, of
+truncations from above and under combinations of measures
 
 ## Main statements
 
@@ -30,6 +31,8 @@ under combinations of measures
 * `MeasureTheory.integral_sum_le_add_mul_of_ae_le`: under a probability measure, an almost sure
   bound `∑ i ∈ s, Z i ≤ B + c ∑ i ∈ s, V i` with `c ≥ 0` gives `∫ ∑ i ∈ s, Z i ∂P ≤ B + c C` when
   the expectations of the `V i` sum to at most `C`.
+* `MeasureTheory.integrable_min_const`: under a finite measure, the truncation `min f c` of a real
+  function whose negative part has a finite mean is integrable.
 * `MeasureTheory.tendsto_ofReal_integral_min`: under a finite measure, the means of the
   truncations `min f n` of a real function tend to `𝔼 f⁺ - 𝔼 f⁻` in `ℝ≥0∞`, also when `f⁺` or
   `f⁻` has an infinite mean. Wald's bound on first passage times applies to the truncated
@@ -252,6 +255,23 @@ open scoped ENNReal
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
 
+/-- Under a finite measure, the truncation `min f c` of a real function `f` from above is
+integrable when the negative part of `f` has a finite mean, whether or not its positive part
+does. -/
+theorem integrable_min_const [IsFiniteMeasure μ] {f : Ω → ℝ} (hf : AEMeasurable f μ)
+    (hq : ∫⁻ ω, ENNReal.ofReal (-f ω) ∂μ ≠ ∞) (c : ℝ) :
+    Integrable (fun ω ↦ min (f ω) c) μ := by
+  refine Integrable.mono' ((integrable_const |c|).add
+    (integrable_toReal_of_lintegral_ne_top
+      (ENNReal.measurable_ofReal.comp_aemeasurable hf.neg) hq))
+    (hf.min aemeasurable_const).aestronglyMeasurable (ae_of_all _ fun ω ↦ ?_)
+  simp only [Pi.add_apply, Function.comp_apply, Pi.neg_apply, ENNReal.toReal_ofReal',
+    Real.norm_eq_abs, abs_le]
+  -- `-|c| - (f ω)⁻ ≤ min (f ω) c ≤ |c|`
+  exact ⟨le_min (by linarith [le_max_left (-f ω) 0, abs_nonneg c])
+      (by linarith [neg_abs_le c, le_max_right (-f ω) 0]),
+    by linarith [min_le_right (f ω) c, le_abs_self c, le_max_right (-f ω) 0]⟩
+
 /-- **Monotone convergence for truncations from above.** Under a finite measure, the means of the
 truncations `min f n` of a real function `f` tend to `𝔼 f⁺ - 𝔼 f⁻` in `ℝ≥0∞`, where `f⁺` may have
 an infinite mean. When `f⁻` has an infinite mean, the truncations are not integrable, their
@@ -260,42 +280,24 @@ theorem tendsto_ofReal_integral_min [IsFiniteMeasure μ] {f : Ω → ℝ} (hf : 
     Tendsto (fun n : ℕ ↦ ENNReal.ofReal (∫ ω, min (f ω) n ∂μ)) atTop
       (𝓝 (∫⁻ ω, ENNReal.ofReal (f ω) ∂μ - ∫⁻ ω, ENNReal.ofReal (-f ω) ∂μ)) := by
   set q := ∫⁻ ω, ENNReal.ofReal (-f ω) ∂μ
-  -- truncating at `n` does not change the negative part
-  have hneg (n : ℕ) (x : ℝ) : ENNReal.ofReal (-min x n) = ENNReal.ofReal (-x) := by
-    rcases le_total x n with h | h
-    · rw [min_eq_left h]
-    · rw [min_eq_right h, ENNReal.ofReal_of_nonpos (by linarith),
-        ENNReal.ofReal_of_nonpos (by linarith [n.cast_nonneg (α := ℝ)])]
   by_cases hq : q = ∞
   · rw [hq, ENNReal.sub_top]
     refine tendsto_const_nhds.congr fun n ↦ ?_
     rw [integral_undef fun hint ↦ ?_, ENNReal.ofReal_zero]
     have h := hint.neg.lintegral_lt_top
-    simp only [Pi.neg_apply, hneg] at h
+    -- truncating at `n ≥ 0` does not change the negative part
+    simp only [Pi.neg_apply, ENNReal.ofReal_neg_min_of_nonneg n.cast_nonneg] at h
     exact h.ne hq
   -- the truncation at `n` has mean `𝔼[min f⁺ n] - 𝔼 f⁻`
   have hmean (n : ℕ) :
       ENNReal.ofReal (∫ ω, min (f ω) n ∂μ) = ∫⁻ ω, ENNReal.ofReal (min (f ω) n) ∂μ - q := by
-    have hint : Integrable (fun ω ↦ min (f ω) n) μ := by
-      refine Integrable.mono' ((integrable_const (n : ℝ)).add
-        (integrable_toReal_of_lintegral_ne_top
-          (ENNReal.measurable_ofReal.comp_aemeasurable hf.neg) hq))
-        (hf.min aemeasurable_const).aestronglyMeasurable (ae_of_all _ fun ω ↦ ?_)
-      rw [Real.norm_eq_abs, abs_le]
-      simp only [Pi.add_apply, Function.comp_apply, Pi.neg_apply, ENNReal.toReal_ofReal']
-      have := n.cast_nonneg (α := ℝ)
-      constructor
-      · rcases le_total (f ω) n with h | h
-        · rw [min_eq_left h]; linarith [le_max_left (-f ω) 0, le_max_right (-f ω) 0]
-        · rw [min_eq_right h]; linarith [le_max_right (-f ω) 0]
-      · linarith [min_le_right (f ω) n, le_max_right (-f ω) 0]
     have hn : ∫⁻ _, ENNReal.ofReal n ∂μ < ∞ := by
       rw [lintegral_const]
       exact ENNReal.mul_lt_top ENNReal.ofReal_lt_top (measure_lt_top μ _)
     have hfin : ∫⁻ ω, ENNReal.ofReal (min (f ω) n) ∂μ ≠ ∞ :=
       ((lintegral_mono fun ω ↦ ENNReal.ofReal_le_ofReal (min_le_right _ _)).trans_lt hn).ne
-    rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part hint]
-    simp_rw [hneg]
+    rw [integral_eq_lintegral_pos_part_sub_lintegral_neg_part (integrable_min_const hf hq n)]
+    simp_rw [ENNReal.ofReal_neg_min_of_nonneg n.cast_nonneg]
     rw [ENNReal.ofReal_sub _ ENNReal.toReal_nonneg, ENNReal.ofReal_toReal hfin,
       ENNReal.ofReal_toReal hq]
   simp_rw [hmean]

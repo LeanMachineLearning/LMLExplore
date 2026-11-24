@@ -5,16 +5,16 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Analysis.Asymptotics.AsymptoticEquivalent
 public import Mathlib.Probability.IdentDistrib
 public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Process.HittingTime
+import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Probability.Independence.Wald
+import LMLExplore.Probability.Process.Filtration
 import LMLExplore.Probability.Process.Stopping
-import Mathlib.Probability.Independence.Integration
-import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
+import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 
 /-!
 # The expected first passage time of a random walk with positive drift
@@ -32,7 +32,8 @@ the increments may take both signs, and the walk may go down before it goes up.
 The two bounds come from Wald's argument.
 * **Lower bound.** Wald's identity in `ℝ≥0∞`, for a stopping time `τ` of the filtration of the past
   increments and a measurable `g ≥ 0`, gives `𝔼[∑ j < τ, g (X j)] = 𝔼[g (X 0)] 𝔼[τ]`, with no
-  integrability hypothesis. Applied to `X⁺` and `X⁻` at `τ = N b`, where the walk is at least `b`,
+  integrability hypothesis (`ProbabilityTheory.iIndepFun.lintegral_tsum_indicator_lt_eq_mul`).
+  Applied to `X⁺` and `X⁻` at `τ = N b`, where the walk is at least `b`,
   it gives `b ≤ D 𝔼[N b]`.
 * **Upper bound.** Truncating the increments at a level `c` does not let the walk reach `b` earlier,
   and the truncated increments, bounded above by `c`, reach `b` after at most `(b + c) / D_c` steps
@@ -42,8 +43,6 @@ The two bounds come from Wald's argument.
 
 ## Main statements
 
-* `ProbabilityTheory.iIndepFun.lintegral_tsum_indicator_lt_eq_mul`: Wald's identity in `ℝ≥0∞` at a
-  stopping time of the filtration `Filtration.naturalLT` of the past increments.
 * `ProbabilityTheory.iIndepFun.ofReal_le_mul_lintegral_hittingAfter_sum`: Wald's lower bound
   `b ≤ D 𝔼[N b]`.
 * `ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_lt_top`: `𝔼[N b] < ∞` under a positive
@@ -66,44 +65,7 @@ open scoped ENNReal
 
 namespace ProbabilityTheory
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
-
-section Wald
-
-variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {X : ℕ → Ω → 𝓧}
-
-/-- **Wald's identity in `ℝ≥0∞`.** Let `X j` be independent random variables and `τ` a stopping
-time of the filtration `Filtration.naturalLT` of the past variables, so that the event
-`{j < τ}` is determined by `X 0, …, X (j - 1)`. For a measurable `g ≥ 0` with
-`𝔼[g (X j)] = m` for every `j`, the sum `∑ j < τ, g (X j)` has mean `m 𝔼[τ]`. No integrability
-is needed, and `τ` may be infinite. -/
-theorem iIndepFun.lintegral_tsum_indicator_lt_eq_mul (hX : iIndepFun X μ)
-    (hXm : ∀ j, Measurable (X j)) {τ : Ω → ℕ∞}
-    (hτ : IsStoppingTime (Filtration.naturalLT X hXm) τ) {g : 𝓧 → ℝ≥0∞} (hg : Measurable g)
-    {m : ℝ≥0∞} (hm : ∀ j, ∫⁻ ω, g (X j ω) ∂μ = m) :
-    ∫⁻ ω, ∑' j : ℕ, {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω ∂μ =
-      m * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂μ := by
-  have hA (j : ℕ) : MeasurableSet[Filtration.naturalLT X hXm j] {ω | (j : ℕ∞) < τ ω} :=
-    hτ.measurableSet_natCast_lt j
-  have hA' (j : ℕ) : MeasurableSet {ω | (j : ℕ∞) < τ ω} := Filtration.le _ j _ (hA j)
-  rw [lintegral_tsum (f := fun (j : ℕ) ω ↦ {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω)
-      fun j ↦ ((hg.comp (hXm j)).indicator (hA' j)).aemeasurable,
-    lintegral_enat_eq_tsum μ hA', ← ENNReal.tsum_mul_left]
-  refine tsum_congr fun j ↦ ?_
-  have h : ∀ ω, {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω =
-      {ω | (j : ℕ∞) < τ ω}.indicator 1 ω * g (X j ω) := fun ω ↦ by
-    by_cases hω : ω ∈ {ω | (j : ℕ∞) < τ ω} <;> simp [hω]
-  simp_rw [h]
-  -- the event `{j < τ}` is determined by the past, independent of `X j`
-  rw [lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
-    (f := {ω | (j : ℕ∞) < τ ω}.indicator 1) (g := fun ω ↦ g (X j ω)) (Filtration.le _ j)
-    (hXm j).comap_le (Filtration.indep_naturalLT hXm hX j).symm
-    (measurable_const.indicator (hA j)) (hg.comp (comap_measurable (X j))),
-    lintegral_indicator_one (hA' j), hm j, mul_comm]
-
-end Wald
-
-variable {X : ℕ → Ω → ℝ}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} {X : ℕ → Ω → ℝ}
 
 /-- **Wald's lower bound on the expected first passage time.** Let `X j` be independent real
 random variables whose positive parts have the common mean `p` and whose negative parts have the
@@ -133,39 +95,23 @@ theorem iIndepFun.ofReal_le_mul_lintegral_hittingAfter_sum (hX : iIndepFun X μ)
     simp [h] at hω
   set F : (ℝ → ℝ≥0∞) → Ω → ℝ≥0∞ := fun f ω ↦
     ∑' j : ℕ, {ω | (j : ℕ∞) < N ω}.indicator (fun ω ↦ f (X j ω)) ω
-  have hF (f : ℝ → ℝ≥0∞) (n : ℕ) (ω : Ω) (hn : N ω = n) :
+  have hF (f : ℝ → ℝ≥0∞) (ω : Ω) (n : ℕ) (hn : N ω = n) :
       F f ω = ∑ j ∈ Finset.range n, f (X j ω) := by
-    simp only [F]
-    rw [tsum_eq_sum (s := Finset.range n) fun j hj ↦ ?_]
-    · refine Finset.sum_congr rfl fun j hj ↦ Set.indicator_of_mem ?_ _
-      simpa [hn] using Finset.mem_range.1 hj
-    · refine Set.indicator_of_notMem ?_ _
-      simpa [hn] using Finset.mem_range.not.1 hj
+    simpa only [F, Set.indicator, Set.mem_ofPred_eq, hn, ENat.toNat_natCast] using
+      LMLExplore.tsum_indicator_natCast_lt_eq_sum_range (n := N ω) (by simp [hn])
+        fun j ↦ f (X j ω)
   -- on the event that the walk reaches `b`, its positive steps exceed `b` plus its negative steps
   have hpt : ∀ᵐ ω ∂μ, ENNReal.ofReal b + F (fun x ↦ ENNReal.ofReal (-x)) ω ≤
       F ENNReal.ofReal ω := by
     filter_upwards [hfin] with ω hω
     obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 hω
-    have hSn : b ≤ S n ω := by
+    have hSn : b ≤ ∑ j ∈ Finset.range n, X j ω := by
       have := hittingAfter_mem_set_of_ne_top hω
       simp only [N, ← hn] at this
       simpa using this
-    rw [hF (fun x ↦ ENNReal.ofReal (-x)) n ω hn.symm, hF ENNReal.ofReal n ω hn.symm]
-    set A := ∑ j ∈ Finset.range n, ENNReal.ofReal (X j ω)
-    set C := ∑ j ∈ Finset.range n, ENNReal.ofReal (-X j ω)
-    have hA : A ≠ ∞ := ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.ofReal_ne_top
-    have hC : C ≠ ∞ := ENNReal.sum_ne_top.2 fun _ _ ↦ ENNReal.ofReal_ne_top
-    have hS : S n ω = A.toReal - C.toReal := by
-      simp only [S, A, C]
-      rw [ENNReal.toReal_sum fun _ _ ↦ ENNReal.ofReal_ne_top,
-        ENNReal.toReal_sum fun _ _ ↦ ENNReal.ofReal_ne_top, ← Finset.sum_sub_distrib]
-      refine Finset.sum_congr rfl fun j _ ↦ ?_
-      rw [ENNReal.toReal_ofReal', ENNReal.toReal_ofReal', max_zero_sub_max_neg_zero_eq_self]
-    calc ENNReal.ofReal b + C
-    _ = ENNReal.ofReal (b + C.toReal) := by
-      rw [ENNReal.ofReal_add hb.le ENNReal.toReal_nonneg, ENNReal.ofReal_toReal hC]
-    _ ≤ ENNReal.ofReal A.toReal := ENNReal.ofReal_le_ofReal (by linarith)
-    _ = A := ENNReal.ofReal_toReal hA
+    rw [hF (fun x ↦ ENNReal.ofReal (-x)) ω n hn.symm, hF ENNReal.ofReal ω n hn.symm,
+      ← ENNReal.ofReal_sum_add_sum_ofReal_neg (hb.le.trans hSn)]
+    gcongr
   -- Wald's identity for the positive and the negative parts of the steps
   have hwald (f : ℝ → ℝ≥0∞) (hf : Measurable f) {m : ℝ≥0∞}
       (hm : ∀ j, ∫⁻ ω, f (X j ω) ∂μ = m) :
