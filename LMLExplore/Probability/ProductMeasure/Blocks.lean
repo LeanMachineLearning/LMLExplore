@@ -236,24 +236,20 @@ variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E
 
 /-- **The strong law of large numbers along blocks.** Under the i.i.d. law of `Q`, the averages
 of an integrable function over the first `k` blocks of `m` terms tend almost surely to its
-expectation under the `m`-fold product of `Q`. If `Q` is not a probability measure, its i.i.d.
-law is `0` and the statement holds trivially. -/
-theorem strong_law_ae_seqBlock (Q : Measure 𝓧) {m : ℕ} {g : (Fin m → 𝓧) → E}
-    (hg : Integrable g (Measure.pi fun _ : Fin m ↦ Q)) :
+expectation under the `m`-fold product of `Q`. -/
+theorem strong_law_ae_seqBlock (Q : Measure 𝓧) [IsProbabilityMeasure Q] {m : ℕ}
+    {g : (Fin m → 𝓧) → E} (hg : Integrable g (Measure.pi fun _ : Fin m ↦ Q)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       Tendsto (fun k : ℕ ↦ (k : ℝ)⁻¹ • ∑ j ∈ Finset.range k, g (seqBlock m j ω)) atTop
-        (𝓝 (∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q)) := by
-  by_cases hQ : IsProbabilityMeasure Q
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
-  exact (measurePreserving_seqBlock_infinitePi (fun _ ↦ Q) m).quasiMeasurePreserving.ae
+        (𝓝 (∫ x, g x ∂Measure.pi fun _ : Fin m ↦ Q)) :=
+  (measurePreserving_seqBlock_infinitePi (fun _ ↦ Q) m).quasiMeasurePreserving.ae
     (TauCeti.Probability.strong_law_ae_infinitePi _ hg)
 
 /-- **The strong law of large numbers along blocks, per observation.** Under the i.i.d. law of
 `Q`, the sum of an integrable function over the complete blocks of `m` terms among the first `n`,
 divided by `n`, tends almost surely to its expectation under the `m`-fold product of `Q` divided
 by `m`. For `m = 0` both sides are `0`. -/
-theorem strong_law_ae_seqBlock_nat_div (Q : Measure 𝓧) {m : ℕ}
+theorem strong_law_ae_seqBlock_nat_div (Q : Measure 𝓧) [IsProbabilityMeasure Q] {m : ℕ}
     {g : (Fin m → 𝓧) → E} (hg : Integrable g (Measure.pi fun _ : Fin m ↦ Q)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       Tendsto (fun n : ℕ ↦ (n : ℝ)⁻¹ • ∑ j ∈ Finset.range (n / m), g (seqBlock m j ω)) atTop

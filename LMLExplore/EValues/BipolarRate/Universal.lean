@@ -461,24 +461,21 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
 /-- **One e-process at the bipolar rate for every dominated alternative.** For a countably
 generated space, a null `S₁` of probability measures and an s-finite measure `ρ`, there is one
 e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT` of
-the observations, nondecreasing in time, such that for every `Q₁ ≪ ρ`, almost surely under the
-i.i.d. law of `Q₁`, `(1/n) log (E n)` tends to the bipolar rate `bipolarRate Q₁ S₁`; at time `n`,
-`E n` is a function of the first `n` observations. If `Q₁` is not a probability measure, its
-i.i.d. law is `0` and the convergence holds trivially. This is the theorem of [EVR26, Note 13]. -/
+the observations, nondecreasing in time, such that for every probability measure `Q₁ ≪ ρ`,
+almost surely under the i.i.d. law of `Q₁`, `(1/n) log (E n)` tends to the bipolar rate
+`bipolarRate Q₁ S₁`; at time `n`, `E n` is a function of the first `n` observations. This is the
+theorem of [EVR26, Note 13]. -/
 theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.CountablyGenerated 𝓧]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
     ∃ E : ℕ → (ℕ → 𝓧) → ℝ≥0∞,
       IsEProcess E (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁) ∧ Monotone E ∧
-      ∀ Q₁ : Measure 𝓧, Q₁ ≪ ρ → ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
-        Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
-          (𝓝 (bipolarRate Q₁ S₁)) := by
+      ∀ (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁], Q₁ ≪ ρ →
+        ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+          Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
+            (𝓝 (bipolarRate Q₁ S₁)) := by
   obtain ⟨len, g, hlen, hgm, hgb, hge, hrate⟩ := exists_rateFamily hS₁ ρ
   have hE := isEProcess_blockMixture (S₁ := S₁) hgm hge
-  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ρ ↦ ?_⟩
-  by_cases hQ₁ : IsProbabilityMeasure Q₁
-  swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0)
-      hQ₁]
+  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ hQ₁ρ ↦ ?_⟩
   -- the lower bound, from each member of the family
   have hlow : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ i,
       (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) ≤

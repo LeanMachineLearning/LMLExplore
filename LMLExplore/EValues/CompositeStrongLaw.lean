@@ -116,16 +116,6 @@ private def stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n : ℕ) : Set (�
   {ω | (∃ q : ℚ × ℚ, (q.1 : ℝ) < q.2 ∧ K q ≤ upcrossingsBefore q.1 q.2 sampleMean n ω) ∨
     2 * (L : ℝ) ≤ |sampleMean n ω - ω 0|}
 
-/-- The stopping time of the composite strong law for `Filtration.piLE`: the first time at which
-`stopEvent L K` occurs. -/
-private noncomputable def stopTime (L : ℝ≥0) (K : ℚ × ℚ → ℕ) : (ℕ → ℝ) → WithTop ℕ :=
-  hittingAfter (fun n ↦ (stopEvent L K n).indicator fun _ ↦ (1 : ℝ)) {1} 0
-
-/-- The stopping time stops exactly when some event `stopEvent L K n` occurs. -/
-private lemma stopTime_lt_top_iff {L : ℝ≥0} {K : ℚ × ℚ → ℕ} {ω : ℕ → ℝ} :
-    stopTime L K ω < ⊤ ↔ ∃ n, ω ∈ stopEvent L K n := by
-  simp [stopTime, hittingAfter_indicator_lt_top_iff]
-
 /-- The event `stopEvent L K n` is determined by the first `n + 1` observations. -/
 private lemma measurableSet_stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n : ℕ) :
     MeasurableSet[Filtration.piLE (X := fun _ : ℕ ↦ ℝ) n] (stopEvent L K n) := by
@@ -145,41 +135,33 @@ private lemma measurableSet_stopEvent (L : ℝ≥0) (K : ℚ × ℚ → ℕ) (n 
   · refine (continuous_abs.measurable.comp ?_) (measurableSet_Ici (a := 2 * (L : ℝ)))
     exact (measurable_piLE_sampleMean n).sub (Filtration.measurable_piLE_apply (Nat.zero_le n))
 
-/-- The time `stopTime L K` is a stopping time of the filtration `Filtration.piLE`. -/
-private lemma isStoppingTime_stopTime (L : ℝ≥0) (K : ℚ × ℚ → ℕ) :
-    IsStoppingTime (Filtration.piLE (X := fun _ : ℕ ↦ ℝ)) (stopTime L K) :=
-  Adapted.isStoppingTime_hittingAfter
-    (fun n ↦ measurable_const.indicator (measurableSet_stopEvent L K n))
-    (measurableSet_singleton 1)
-
-/-- A sequence on which the stopping time never stops has convergent sample means. -/
-private lemma stopTime_lt_top_of_not_tendsto {L : ℝ≥0} {K : ℚ × ℚ → ℕ} {ω : ℕ → ℝ}
+/-- A sequence in none of the events `stopEvent L K n` has convergent sample means. -/
+private lemma mem_iUnion_stopEvent_of_not_tendsto {L : ℝ≥0} {K : ℚ × ℚ → ℕ} {ω : ℕ → ℝ}
     (hω : ¬ ∃ l : ℝ, Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)) :
-    stopTime L K ω < ⊤ := by
-  rw [stopTime_lt_top_iff]
+    ω ∈ ⋃ n, stopEvent L K n := by
   by_contra h
-  simp only [stopEvent, Set.mem_ofPred_eq, not_exists, not_or, not_and, not_le] at h
+  simp only [stopEvent, Set.mem_iUnion, Set.mem_ofPred_eq, not_exists, not_or, not_and,
+    not_le] at h
   exact hω (exists_tendsto_of_upcrossingsBefore_lt (L := 2 * L) (K := K) (fun n ↦ (h n).2)
     fun q hq n ↦ (h n).1 q hq)
 
 /-- **The stopping probability under one law.** Let `μ` be an exchangeable probability measure on
 `ℕ → ℝ` whose first coordinate is integrable, with centred first absolute moment at most `C`. If
-`C ≤ (q.2 - q.1) K q ε q` for every rational interval `q` and `C ≤ L η`, then the stopping time
-`stopTime L K` stops with probability at most `∑' q, ε q + η`. -/
-private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabilityMeasure μ]
+`C ≤ (q.2 - q.1) K q ε q` for every rational interval `q` and `C ≤ L η`, then some event
+`stopEvent L K n` occurs with probability at most `∑' q, ε q + η`. -/
+private lemma measure_iUnion_stopEvent_le {μ : Measure (ℕ → ℝ)} [IsProbabilityMeasure μ]
     (hμ : ExchangeableLaw μ) (hint : Integrable (fun ω ↦ ω 0) μ) {C : ℝ≥0}
     (hC : ENNReal.ofReal (∫ ω, |ω 0 - ∫ ω', ω' 0 ∂μ| ∂μ) ≤ C) {L η : ℝ≥0} (hL : L ≠ 0)
     (hLη : C ≤ L * η) {K : ℚ × ℚ → ℕ} (hK0 : ∀ q, K q ≠ 0) {ε : ℚ × ℚ → ℝ≥0}
     (hK : ∀ q : ℚ × ℚ, (q.1 : ℝ) < q.2 → (C : ℝ) ≤ ((q.2 : ℝ) - q.1) * K q * ε q) :
-    μ {ω | stopTime L K ω < ⊤} ≤ ∑' q, (ε q : ℝ≥0∞) + η := by
+    μ (⋃ n, stopEvent L K n) ≤ ∑' q, (ε q : ℝ≥0∞) + η := by
   set m := ∫ ω, ω 0 ∂μ
   -- stopping means many upcrossings of some interval, or a sample mean far from `m`
-  have hsub : {ω | stopTime L K ω < ⊤} ⊆
+  have hsub : ⋃ n, stopEvent L K n ⊆
       (⋃ q : ℚ × ℚ, {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 sampleMean ω}) ∪
         {ω | ∃ n, (L : ℝ) ≤ |sampleMean n ω - m|} := by
     intro ω hω
-    rw [Set.mem_ofPred_eq, stopTime_lt_top_iff] at hω
-    obtain ⟨n, hn⟩ := hω
+    obtain ⟨n, hn⟩ := Set.mem_iUnion.1 hω
     rcases hn with ⟨q, hq, hKq⟩ | hfar
     · refine Or.inl (Set.mem_iUnion.2 ⟨q, hq, ?_⟩)
       exact (Nat.cast_le.2 hKq).trans
@@ -209,7 +191,7 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
     rw [← ENNReal.mul_le_mul_iff_right (ENNReal.coe_ne_zero.2 hL) ENNReal.coe_ne_top]
     exact (mul_measure_exists_le_abs_sampleMean_sub_le hμ hint m L).trans
       (hC.trans (by exact_mod_cast hLη))
-  calc μ {ω | stopTime L K ω < ⊤}
+  calc μ (⋃ n, stopEvent L K n)
       ≤ ∑' q : ℚ × ℚ, μ {ω | (q.1 : ℝ) < q.2 ∧ (K q : ℝ≥0∞) ≤ upcrossings q.1 q.2 sampleMean ω} +
           μ {ω | ∃ n, (L : ℝ) ≤ |sampleMean n ω - m|} :=
         (measure_mono hsub).trans ((measure_union_le _ _).trans
@@ -219,7 +201,8 @@ private lemma measure_stopTime_lt_top_le {μ : Measure (ℕ → ℝ)} [IsProbabi
 /-- The composite strong law of large numbers for the filtration `Filtration.piLE`, in which `n + 1`
 observations have been made at time `n`. -/
 private theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE {S : Set (Measure ℝ)}
-    (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSi : ∀ P ∈ S, Integrable id P) {c : ℝ}
+    (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
     ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ (Filtration.piLE (X := fun _ : ℕ ↦ ℝ))
         (iidNull S) α ∧
@@ -244,20 +227,25 @@ private theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE {S : 
           (div_le_iff₀' hd).1 (Nat.le_ceil _)
       _ ≤ ((q.2 : ℝ) - q.1) * ε q * K q := by gcongr; simp [hK]
       _ = ((q.2 : ℝ) - q.1) * K q * ε q := by ring
-  refine ⟨stopTime L K, ⟨isStoppingTime_stopTime L K, ?_⟩,
-    fun ω hω ↦ stopTime_lt_top_of_not_tendsto hω⟩
+  -- the test is the first time `n` at which `stopEvent L K n` occurs
+  have hτ : {ω | hittingAfter (fun n ↦ (stopEvent L K n).indicator fun _ ↦ (1 : ℝ)) {1} 0 ω < ⊤} =
+      ⋃ n, stopEvent L K n := by
+    ext ω
+    simp [hittingAfter_indicator_lt_top_iff]
+  refine ⟨hittingAfter (fun n ↦ (stopEvent L K n).indicator fun _ ↦ (1 : ℝ)) {1} 0,
+    ⟨Adapted.isStoppingTime_hittingAfter
+      (fun n ↦ measurable_const.indicator (measurableSet_stopEvent L K n))
+      (measurableSet_singleton 1), ?_⟩,
+    fun ω hω ↦ hτ.ge (mem_iUnion_stopEvent_of_not_tendsto hω)⟩
   refine forall_mem_iidNull.2 fun P hPS ↦ ?_
-  by_cases hP₁ : IsProbabilityMeasure P
-  swap
-  · -- the product of copies of `P` is zero
-    simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hP₁]
+  have hP₁ := hS P hPS
   set μ := Measure.infinitePi fun _ : ℕ ↦ P
   set m := ∫ y, y ∂P
   -- the i.i.d. law is exchangeable, and its first coordinate is integrable of law `P`
   have hμ : ExchangeableLaw μ := exchangeableLaw_infinitePi_const ⟨P, hP₁⟩
   have hint : Integrable (fun ω ↦ ω 0) μ :=
     ((measurePreserving_eval_infinitePi (fun _ : ℕ ↦ P) 0).integrable_comp
-      (hS P hPS).aestronglyMeasurable).2 (hS P hPS)
+      (hSi P hPS).aestronglyMeasurable).2 (hSi P hPS)
   have hm : ∫ ω, ω 0 ∂μ = m := integral_comp_eval_infinitePi (μ := fun _ : ℕ ↦ P) (i := 0)
     (f := fun x ↦ x) aestronglyMeasurable_id
   have hc₀ : ENNReal.ofReal (∫ ω, |ω 0 - ∫ ω', ω' 0 ∂μ| ∂μ) ≤ C := by
@@ -270,29 +258,33 @@ private theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE {S : 
   have hL0 : L ≠ 0 := by
     rw [hL]
     positivity
-  calc μ {ω | stopTime L K ω < ⊤} ≤ ∑' q, (ε q : ℝ≥0∞) + ((δ / 2 : ℝ≥0) : ℝ≥0∞) :=
-        measure_stopTime_lt_top_le hμ hint hc₀ hL0
+  rw [hτ]
+  calc μ (⋃ n, stopEvent L K n) ≤ ∑' q, (ε q : ℝ≥0∞) + ((δ / 2 : ℝ≥0) : ℝ≥0∞) :=
+        measure_iUnion_stopEvent_le hμ hint hc₀ hL0
           (show L * (δ / 2) = C by rw [hL]; field_simp).ge (fun q ↦ by simp [hK]) hKC
     _ ≤ ((δ / 2 : ℝ≥0) : ℝ≥0∞) + ((δ / 2 : ℝ≥0) : ℝ≥0∞) := by gcongr
     _ = δ := by rw [← ENNReal.coe_add, add_halves]
     _ ≤ α := hδα.le
 
-/-- **A composite strong law of large numbers.** Let `S` be a set of integrable laws on `ℝ` whose
-centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P` is the mean of `P`.
-For every `α > 0`, some level-`α` sequential test for the i.i.d. laws of the members of `S`, a
-stopping time of the canonical filtration `Filtration.piLT` of `ℕ → ℝ` (where `n` observations
-have been made at time `n`) finite with probability at most `α` under i.i.d. sampling from each
-member of `S`, is finite on every sequence whose sample means do not converge in `ℝ`
+/-- **A composite strong law of large numbers.** Let `S` be a set of integrable probability
+measures on `ℝ` whose centred first absolute moments `∫ |x - m_P| dP` are at most `c`, where `m_P`
+is the mean of `P`. For every `α > 0`, some level-`α` sequential test for the i.i.d. laws of the
+members of `S`, a stopping time of the canonical filtration `Filtration.piLT` of `ℕ → ℝ` (where
+`n` observations have been made at time `n`) finite with probability at most `α` under i.i.d.
+sampling from each member of `S`, is finite on every sequence whose sample means do not converge
+in `ℝ`
 [EVR26, Note 16, Theorem 1]. The set of these sequences has thus inverse capital outer measure
-zero [RLKR23]. (For a member that is not a probability measure, `Measure.infinitePi` is zero.) -/
+zero [RLKR23]. -/
 theorem exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean {S : Set (Measure ℝ)}
-    (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSi : ∀ P ∈ S, Integrable id P) {c : ℝ}
+    (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c)
     {α : ℝ≥0∞} (hα : 0 < α) :
     ∃ τ : (ℕ → ℝ) → WithTop ℕ, IsLevelStoppingTime τ Filtration.piLT (iidNull S) α ∧
       ∀ ω : ℕ → ℝ, (¬ ∃ l : ℝ,
         Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)) → τ ω < ⊤ := by
   -- the test `σ` for `Filtration.piLE`, shifted by one
-  obtain ⟨σ, hσ, hσ_top⟩ := exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE hS hc hα
+  obtain ⟨σ, hσ, hσ_top⟩ := exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean_piLE hS hSi hc
+    hα
   exact ⟨fun ω ↦ σ ω + 1, (isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).2 hσ,
     fun ω hω ↦ WithTop.add_lt_top.2 ⟨hσ_top ω hω, WithTop.one_lt_top⟩⟩
 
@@ -302,10 +294,11 @@ of integrable laws `P` with `∫ |x - m_P| dP ≤ c` for one constant `c`, the s
 whose sample means do not converge in `ℝ` has inverse capital outer measure zero, for the
 filtration `Filtration.piLT`. -/
 theorem inverseCapital_not_tendsto_mean_eq_zero {S : Set (Measure ℝ)}
-    (hS : ∀ P ∈ S, Integrable id P) {c : ℝ} (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c) :
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSi : ∀ P ∈ S, Integrable id P) {c : ℝ}
+    (hc : ∀ P ∈ S, ∫ x, |x - ∫ y, y ∂P| ∂P ≤ c) :
     inverseCapital Filtration.piLT (iidNull S)
       {ω | ¬ ∃ l : ℝ, Tendsto (fun n : ℕ ↦ (∑ i ∈ Finset.range n, ω i) / n) atTop (𝓝 l)} = 0 :=
   inverseCapital_eq_zero_iff_forall_exists_isLevelStoppingTime.2 fun _ hα ↦
-    exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean hS hc (pos_iff_ne_zero.2 hα)
+    exists_isLevelStoppingTime_lt_top_of_not_tendsto_mean hS hSi hc (pos_iff_ne_zero.2 hα)
 
 end ProbabilityTheory

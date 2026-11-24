@@ -7,10 +7,12 @@ module
 
 public import LMLExplore.EValues.Numeraire.Sequential
 public import Mathlib.Probability.Distributions.Bernoulli
+import LMLExplore.EValues.TestSupermartingale.IID
+import LMLExplore.MeasureTheory.Constructions.Pi
+import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.Distributions.Bernoulli
 import LMLExplore.Probability.Process.Filtration
 import Mathlib.Logic.Equiv.Fin.Basic
-import all LMLExplore.EValues.Numeraire.Sequential
 
 /-!
 # The numeraires of the sample sizes need not form an e-process: a Bernoulli counterexample
@@ -30,9 +32,9 @@ a test supermartingale under that law.
 
 This is Theorem (1) of the research note [EVR26, Note 23]. The statements and proofs are adapted
 from its formalization in `EValuesResearch/Results/SequentialNumeraire.lean` (commit `dd4072f`)
-in the paper project `RemyDegenne/evalues_research`. The masses of products and the likelihood
-ratios against mixtures are the private helpers of `LMLExplore.EValues.Numeraire.Sequential`,
-imported with `import all`.
+in the paper project `RemyDegenne/evalues_research`. The numeraires are identified by
+`ProbabilityTheory.IsNumeraire.eq_ofReal_div_mixture`, from
+`LMLExplore.EValues.Numeraire.Sequential`.
 
 ## Main statements
 
@@ -89,8 +91,8 @@ private lemma lintegral_ofReal_comp_fin_two (P : Measure Bool) [IsProbabilityMea
   refine Finset.sum_congr rfl fun b₀ _ ↦ ?_
   rw [ENNReal.ofReal_sum_of_nonneg fun b₁ _ ↦ hnn b₀ b₁]
   refine Finset.sum_congr rfl fun b₁ _ ↦ ?_
-  rw [pi_singleton_eq_ofReal_piMass, ← ENNReal.ofReal_mul (hg _)]
-  simp [piMass, Fin.prod_univ_two]
+  rw [Measure.pi_singleton_eq_ofReal_prod, ← ENNReal.ofReal_mul (hg _)]
+  simp [Fin.prod_univ_two]
 
 /-- **Symmetric pairs.** If a bijection `φ` fixes `q` and exchanges `a` and `b`, the ratio of `q`
 to the equal mixture of `a` and `b` has the same sum against `a` and against `b`, and these sums
@@ -128,24 +130,26 @@ private lemma eq_ofReal_div_mix_half (hQ : ∀ b, Q.real {b} = 1 / 2)
     {Y : (Fin n → Bool) → ℝ≥0∞}
     (hY : IsNumeraire Y (sampleNull {P₁, P₂} n)
       (Measure.pi fun _ ↦ Q)) (x : Fin n → Bool) :
-    Y x = ENNReal.ofReal (piMass Q x / (2⁻¹ * piMass P₁ x + (1 - 2⁻¹) * piMass P₂ x)) := by
+    Y x = ENNReal.ofReal ((∏ i, Q.real {x i}) /
+      (2⁻¹ * (∏ i, P₁.real {x i}) + (1 - 2⁻¹) * ∏ i, P₂.real {x i})) := by
   have hQ0 : ∀ b, Q {b} ≠ 0 := fun b ↦ (measureReal_ne_zero_iff).1 (by rw [hQ]; norm_num)
   have hP₁0 : ∀ b, P₁ {b} ≠ 0 := fun b ↦ (measureReal_ne_zero_iff).1 (by
     rw [hP₁]; split_ifs <;> norm_num)
   set φ : Equiv.Perm (Fin n → Bool) :=
     Function.Involutive.toPerm (fun x i ↦ !x i) fun x ↦ funext fun i ↦ Bool.not_not _
   have hφ : ∀ μ ν : Measure Bool, (∀ b, μ.real {!b} = ν.real {b}) →
-      ∀ x, piMass μ (φ x) = piMass ν x :=
+      ∀ x, ∏ i, μ.real {φ x i} = ∏ i, ν.real {x i} :=
     fun μ ν h x ↦ Finset.prod_congr rfl fun i _ ↦ h (x i)
-  have hm : ∀ x : Fin n → Bool, 0 < 2⁻¹ * piMass P₁ x + (1 - 2⁻¹) * piMass P₂ x := fun x ↦ by
-    have := piMass_pos hP₁0 x
-    have := piMass_nonneg P₂ x
+  have hm : ∀ x : Fin n → Bool,
+      0 < 2⁻¹ * (∏ i, P₁.real {x i}) + (1 - 2⁻¹) * ∏ i, P₂.real {x i} := fun x ↦ by
+    have := prod_measureReal_singleton_pos hP₁0 x
+    have : 0 ≤ ∏ i, P₂.real {x i} := by positivity
     norm_num
     positivity
-  obtain ⟨hE₁, hE₂⟩ := sum_mul_div_mix_half_eq_one hm (sum_piMass_eq_one Q n) φ
+  obtain ⟨hE₁, hE₂⟩ := sum_mul_div_mix_half_eq_one hm (sum_prod_measureReal_singleton_eq_one Q) φ
     (hφ Q Q fun b ↦ by rw [hQ, hQ]) (hφ P₁ P₂ fun b ↦ by cases b <;> simp [hP₁, hP₂])
     (hφ P₂ P₁ fun b ↦ by cases b <;> simp [hP₁, hP₂])
-  exact eq_ofReal_div_mix (fun b ↦ hQ0 b) hY (by norm_num) (by norm_num) hm hE₁.le hE₂.le x
+  exact hY.eq_ofReal_div_mixture (fun b ↦ hQ0 b) (by norm_num) (by norm_num) hm hE₁.le hE₂.le x
 
 /-- The numeraires of one and two observations of the counterexample: `1`, and `25 / 34` or
 `25 / 16` according as the two observations are equal or not. -/
@@ -157,11 +161,10 @@ private lemma numeraire_bernoulli_one_two (hQ : ∀ b, Q.real {b} = 1 / 2)
       X 2 (fun i ↦ ω i) = ENNReal.ofReal (if ω 0 = ω 1 then 25 / 34 else 25 / 16) := by
   refine ⟨?_, ?_⟩
   · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 1)]
-    simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂,
-      Fin.val_zero]
+    simp only [Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂, Fin.val_zero]
     rcases Bool.eq_false_or_eq_true (ω 0) with h | h <;> simp only [h] <;> norm_num
   · rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX 2)]
-    simp only [piMass, Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂]
+    simp only [Fin.prod_univ_succ, Fin.prod_univ_zero, mul_one, hQ, hP₁, hP₂]
     simp only [Fin.val_zero, Fin.succ_zero_eq_one, Fin.val_one]
     rcases Bool.eq_false_or_eq_true (ω 0) with h0 | h0 <;>
       rcases Bool.eq_false_or_eq_true (ω 1) with h1 | h1 <;> simp only [h0, h1] <;> norm_num
@@ -280,14 +283,14 @@ theorem isEProcess_half_numeraires_bernoulli {X : (n : ℕ) → (Fin n → Bool)
   rcases hP with rfl | rfl
   · refine key _ hP₁0 fun n x ↦ ?_
     rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX n), hhalf]
-    exact mul_ofReal_div_mix_le hP₁0 (by norm_num) (by norm_num) x
+    exact ofReal_mul_ofReal_div_mixture_le_prod hP₁0 (by norm_num) (by norm_num) x
   · refine key _ hP₂0 fun n x ↦ ?_
     rw [eq_ofReal_div_mix_half hQ hP₁ hP₂ (hX n), hhalf,
-      show 2⁻¹ * piMass Ber(true, false, ⟨1 / 5, by norm_num⟩) x +
-          (1 - 2⁻¹) * piMass Ber(true, false, ⟨4 / 5, by norm_num⟩) x =
-        2⁻¹ * piMass Ber(true, false, ⟨4 / 5, by norm_num⟩) x +
-          (1 - 2⁻¹) * piMass Ber(true, false, ⟨1 / 5, by norm_num⟩) x by ring]
-    exact mul_ofReal_div_mix_le hP₂0 (by norm_num) (by norm_num) x
+      show 2⁻¹ * (∏ i, Ber(true, false, ⟨1 / 5, by norm_num⟩).real {x i}) +
+          (1 - 2⁻¹) * ∏ i, Ber(true, false, ⟨4 / 5, by norm_num⟩).real {x i} =
+        2⁻¹ * (∏ i, Ber(true, false, ⟨4 / 5, by norm_num⟩).real {x i}) +
+          (1 - 2⁻¹) * ∏ i, Ber(true, false, ⟨1 / 5, by norm_num⟩).real {x i} by ring]
+    exact ofReal_mul_ofReal_div_mixture_le_prod hP₂0 (by norm_num) (by norm_num) x
 
 end Bernoulli
 
