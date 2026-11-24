@@ -59,6 +59,9 @@ time `n`.
   `piLT`.
 * `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `i` of `piLT` only
   depends on the coordinates `j < i`.
+* `Measurable.apply_eq_of_piLT_zero`, `Measurable.apply_update_eq_of_piLT`: a function measurable
+  at time `0` of `piLT` is constant, and one measurable at time `n + 1`, with the term of index `n`
+  replaced, only depends on the first `n` terms.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_lt`: a stopping time of `piLT` is determined, where
   it is finite, by the coordinates before it.
 * `MeasureTheory.Filtration.adapted_piLT_comp_initSeg`,
@@ -228,6 +231,13 @@ lemma isStoppingTime_piLT_comp_initSeg {𝓧 : Type*} [MeasurableSpace 𝓧] {k 
     simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_le]
     exact Nat.cast_lt.2 (lt_of_lt_of_le (by omega) (hTk _))
 
+/-- A function that is measurable at time `0` of the strict past `Filtration.piLT` of the
+coordinates of a sequence is constant: at time `0`, no coordinate has been seen. -/
+lemma _root_.Measurable.apply_eq_of_piLT_zero {Z : Type*} [MeasurableSpace Z]
+    [MeasurableSingletonClass Z] {f : (Π n, X n) → Z} (hf : Measurable[piLT (X := X) 0] f)
+    (ω ω' : Π n, X n) : f ω = f ω' :=
+  hf.dependsOn_of_piLT fun i hi ↦ absurd hi (Nat.not_lt_zero i)
+
 /-- A measurable function of the first `n` terms of a sequence is measurable at time `n` of
 `Filtration.piLT`: the converse of `Measurable.dependsOn_of_piLT`. -/
 lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [MeasurableSpace β]
@@ -249,6 +259,44 @@ lemma _root_.MeasureTheory.IsStoppingTime.eq_of_forall_lt {τ : (Π n, X n) → 
   have hm : MeasurableSet[piLT n] {ω' | τ ω' = n} := by
     simpa using hτ.measurableSet_eq n
   exact (hm.dependsOn_of_piLT h).1 hn
+
+/-- Replacing the term of index `n` of a sequence is measurable from the strict past
+`piLT n` and the new term to the strict past `piLT (n + 1)`. -/
+lemma measurable_update_piLT (n : ℕ) :
+    @Measurable _ _ ((piLT (X := X) n).prod inferInstance) (piLT (X := X) (n + 1))
+      fun p : (Π n, X n) × X n ↦ Function.update p.1 n p.2 := by
+  rw [measurable_iff_comap_le, piLT_apply, MeasurableSpace.comap_iSup]
+  refine iSup_le fun j ↦ ?_
+  rw [MeasurableSpace.comap_iSup]
+  refine iSup_le fun hj ↦ ?_
+  rw [MeasurableSpace.comap_comp]
+  refine Measurable.comap_le ?_
+  rcases eq_or_ne j n with rfl | hjn
+  · simpa [Function.comp_def] using measurable_snd
+  · simp only [Function.comp_def, Function.update_of_ne hjn]
+    exact (measurable_piLT_apply (by omega)).comp measurable_fst
+
+/-- A function that is measurable at time `n + 1` of the strict past `Filtration.piLT`, evaluated
+at a sequence whose term of index `n` is replaced by `y`, only depends on the first `n` terms of the
+sequence. -/
+lemma _root_.Measurable.apply_update_eq_of_piLT {Z : Type*} [MeasurableSpace Z]
+    [MeasurableSingletonClass Z] {f : (Π n, X n) → Z} {n : ℕ}
+    (hf : Measurable[piLT (X := X) (n + 1)] f) {ω ω' : Π n, X n} (h : ∀ i < n, ω i = ω' i)
+    (y : X n) : f (Function.update ω n y) = f (Function.update ω' n y) :=
+  hf.dependsOn_of_piLT fun i hi ↦ by
+    rcases eq_or_ne i n with rfl | hin
+    · simp
+    · simp only [Function.update_of_ne hin]
+      exact h i (by simp only [Set.mem_Iio] at hi; omega)
+
+/-- For a process `M` adapted to `piLT`, the function `(ω, y) ↦ M (n + 1) (update ω n y)`, the
+value at time `n + 1` with the term of index `n` replaced by `y`, is jointly measurable for the
+strict past `piLT n` and the new term. -/
+lemma _root_.MeasureTheory.Adapted.measurable_uncurry_update_piLT {β : Type*}
+    [MeasurableSpace β] {M : ℕ → (Π n, X n) → β} (hM : Adapted piLT M) (n : ℕ) :
+    Measurable[(piLT (X := X) n).prod inferInstance]
+      (Function.uncurry fun ω y ↦ M (n + 1) (Function.update ω n y)) :=
+  (hM (n + 1)).comp (measurable_update_piLT n)
 
 end piLTNat
 
