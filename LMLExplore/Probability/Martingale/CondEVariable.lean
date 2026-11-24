@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.MeasureTheory.Function.ConditionalLExpectation
 public import LMLExplore.MeasureTheory.Measure.WithDensity
+public import Mathlib.MeasureTheory.Function.ConditionalExpectation.LebesgueBochner
 public import Mathlib.MeasureTheory.Function.ConditionalLExpectation
 public import LMLExplore.Probability.QuasiSure
 public import Statlib.EValues.EVariable
@@ -42,6 +43,8 @@ a conditional e-variable.
 * `ProbabilityTheory.isCondEVar_iff_condLExp_le`,
   `ProbabilityTheory.isExactCondEVar_iff_condLExp_eq`: for σ-finite restrictions to `m`, the
   bounds `P⁻[X|m] ≤ 1` and `P⁻[X|m] = 1` on the conditional expectation.
+* `ProbabilityTheory.isCondEVar_ofReal_iff_condExp_le`: the same bound on Mathlib's conditional
+  expectation `P[Z|m]` of real functions, for `ENNReal.ofReal ∘ Z` with `Z` integrable.
 * `ProbabilityTheory.isCondEVar_bot_iff`: for a null of probability measures, the conditional
   e-variables given `⊥` are Statlib's e-variables.
 * `ProbabilityTheory.IsCondEVar.setLIntegral_mul_le`: an `m`-measurable factor can be pulled out.
@@ -192,6 +195,20 @@ theorem isExactCondEVar_iff_condLExp_eq (hm : m ≤ mΩ) (hS : ∀ P ∈ S, Sigm
       simpa using (hX.setLIntegral_eq P hP s hs).symm).symm
   · rw [← setLIntegral_condLExp hm P X hs, lintegral_congr_ae (ae_restrict_of_ae (hX.2 P hP))]
     simp
+
+/-- For finite measures under which a real function `Z` is integrable and almost surely
+nonnegative, `ENNReal.ofReal ∘ Z` is a conditional e-variable given `m` exactly when it is
+measurable and Mathlib's conditional expectation `P[Z|m]` of real functions is almost surely at
+most `1` under every `P ∈ S`. -/
+theorem isCondEVar_ofReal_iff_condExp_le (hm : m ≤ mΩ) (hS : ∀ P ∈ S, IsFiniteMeasure P)
+    {Z : Ω → ℝ} (hZ : ∀ P ∈ S, Integrable Z P) (hZ0 : ∀ P ∈ S, 0 ≤ᵐ[P] Z) :
+    IsCondEVar (fun ω ↦ ENNReal.ofReal (Z ω)) m S ↔
+      Measurable (fun ω ↦ ENNReal.ofReal (Z ω)) ∧ ∀ P ∈ S, P[Z|m] ≤ᵐ[P] 1 := by
+  rw [isCondEVar_iff_condLExp_le hm fun P hP ↦ by have := hS P hP; infer_instance]
+  refine and_congr_right fun _ ↦ forall₂_congr fun P hP ↦ Filter.eventually_congr ?_
+  -- the two conditional expectations agree, and `ENNReal.ofReal x ≤ 1 ↔ x ≤ 1`
+  filter_upwards [condLExp_ofReal m (hZ P hP) (hZ0 P hP)] with ω hω
+  simp [hω]
 
 /-- For a null of probability measures, the conditional e-variables given the trivial σ-algebra
 are exactly the e-variables. -/

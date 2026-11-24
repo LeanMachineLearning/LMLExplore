@@ -44,6 +44,8 @@ confidence sequence at a level `α ≠ ∞` is of the latter form for the e-proc
 * `ProbabilityTheory.isConfSeq_iff_forall_isTimeUniform`: confidence sequences are an instance of
   time-uniform validity (`ProbabilityTheory.IsTimeUniform`), for the events that the set misses a
   parameter [RRLK, §4.3 and Lemma 2].
+* `ProbabilityTheory.IsConfSeq.inter`: the intersection of confidence sequences at levels `α` and
+  `β` is one at level `α + β`.
 * `ProbabilityTheory.isConfSeq_biInter_iff`, `ProbabilityTheory.IsConfSeq.biInter`: the running
   intersection of a confidence sequence is a confidence sequence.
 * `ProbabilityTheory.isConfSeq_iff_exists_isSequentialTest`: the confidence sequences at level `α`
@@ -145,6 +147,24 @@ null `S θ` of the parameter `θ`, form a confidence sequence. -/
 theorem congr (hC : IsConfSeq C ℱ S α) (hD : ∀ θ n, MeasurableSet[ℱ n] {ω | θ ∈ D n ω})
     (hCD : ∀ θ n, ∀ᶠ ω in quasiSure (S θ), θ ∈ C n ω ↔ θ ∈ D n ω) : IsConfSeq D ℱ S α :=
   hC.mono_ae hD fun θ n ↦ (hCD θ n).mono fun _ h ↦ h.1
+
+/-- **Intersections of confidence sequences.** The intersection of a confidence sequence at level
+`α` for the nulls `S` and one at level `β` for the nulls `T` is a confidence sequence at level
+`α + β` for the nulls `S θ ∩ T θ`. With `S = T`, two one-sided confidence sequences give a
+two-sided one. -/
+theorem inter (hC : IsConfSeq C ℱ S α) (hD : IsConfSeq D ℱ T β) :
+    IsConfSeq (fun n ω ↦ C n ω ∩ D n ω) ℱ (fun θ ↦ S θ ∩ T θ) (α + β) := by
+  refine ⟨fun θ n ↦ (hC.measurableSet_mem θ n).inter (hD.measurableSet_mem θ n),
+    fun θ P hP ↦ ?_⟩
+  -- the intersection misses `θ` at some time only if one of the two does
+  calc P {ω | ∃ n, θ ∉ C n ω ∩ D n ω}
+      ≤ P ({ω | ∃ n, θ ∉ C n ω} ∪ {ω | ∃ n, θ ∉ D n ω}) := by
+        refine measure_mono fun ω ⟨n, hn⟩ ↦ ?_
+        by_cases h : θ ∈ C n ω
+        · exact Or.inr ⟨n, fun h' ↦ hn ⟨h, h'⟩⟩
+        · exact Or.inl ⟨n, h⟩
+    _ ≤ α + β := (measure_union_le _ _).trans
+        (add_le_add (hC.measure_exists_notMem_le θ P hP.1) (hD.measure_exists_notMem_le θ P hP.2))
 
 end IsConfSeq
 
