@@ -5,15 +5,22 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Process.HittingTime
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
-import LMLExplore.Probability.Process.Filtration
+import LMLExplore.Probability.Process.HittingTime
+import LMLExplore.Probability.Process.Stopping
 import Mathlib.Probability.Independence.Integration
 import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
 
 /-!
-# Wald's bound on the expected first passage time of a random walk
+# Wald's identity and Wald's bound on the expected first passage time of a random walk
+
+Let `X 0, X 1, …` be independent random variables and `τ` a stopping time of the filtration
+`Filtration.naturalLT` of the past variables. **Wald's identity** in `ℝ≥0∞` states that for a
+measurable `g ≥ 0` with `𝔼[g (X j)] = m` for every `j`, `𝔼[∑ j < τ, g (X j)] = m 𝔼[τ]`, with no
+integrability hypothesis and `τ` possibly infinite.
 
 Let `X 0, X 1, …` be independent real random variables whose means are at least `a > 0` and
 which are bounded above by `C`. The partial sums `∑ j < k, X j` first reach a level `b` after
@@ -26,13 +33,21 @@ hence independent of `X j`. So the expectation of the partial sum stopped at `mi
 most `b + C`, since one step earlier the partial sum was below `b`. Letting `n → ∞` gives the
 bound. The increments need not be identically distributed, nor bounded below.
 
+Increments that are not bounded above can be truncated: the walk of the increments `min (X j) c`
+lies below the walk, so it reaches `b` no earlier, and the bound applies to it with the means of
+the truncated increments.
+
 ## Main statements
 
+* `ProbabilityTheory.iIndepFun.lintegral_tsum_indicator_lt_eq_mul`: Wald's identity in `ℝ≥0∞` at a
+  stopping time of the filtration `Filtration.naturalLT` of the past variables.
 * `ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`: `𝔼[N b] ≤ (b + C) / a`.
+* `ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le_of_le_integral_min`:
+  `𝔼[N b] ≤ (b + c) / a` when the increments truncated at `c` have means at least `a > 0`.
 
 ## Implementation notes
 
-The argument is adapted from `EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in
+Wald's bound is adapted from `EValuesResearch/Results/NumeraireAux.lean` (commit `dd4072f`) in
 the paper project `RemyDegenne/evalues_research`, where it is written for the blocks of an i.i.d.
 sequence, rewritten on Mathlib's `hittingAfter` and the strict past `Filtration.naturalLT` of
 LMLExplore.
@@ -50,7 +65,44 @@ open scoped ENNReal
 
 namespace ProbabilityTheory
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω} {X : ℕ → Ω → ℝ}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
+
+section Wald
+
+variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {X : ℕ → Ω → 𝓧}
+
+/-- **Wald's identity in `ℝ≥0∞`.** Let `X j` be independent random variables and `τ` a stopping
+time of the filtration `Filtration.naturalLT` of the past variables, so that the event
+`{j < τ}` is determined by `X 0, …, X (j - 1)`. For a measurable `g ≥ 0` with
+`𝔼[g (X j)] = m` for every `j`, the sum `∑ j < τ, g (X j)` has mean `m 𝔼[τ]`. No integrability
+is needed, and `τ` may be infinite. -/
+theorem iIndepFun.lintegral_tsum_indicator_lt_eq_mul (hX : iIndepFun X μ)
+    (hXm : ∀ j, Measurable (X j)) {τ : Ω → ℕ∞}
+    (hτ : IsStoppingTime (Filtration.naturalLT X hXm) τ) {g : 𝓧 → ℝ≥0∞} (hg : Measurable g)
+    {m : ℝ≥0∞} (hm : ∀ j, ∫⁻ ω, g (X j ω) ∂μ = m) :
+    ∫⁻ ω, ∑' j : ℕ, {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω ∂μ =
+      m * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂μ := by
+  have hA (j : ℕ) : MeasurableSet[Filtration.naturalLT X hXm j] {ω | (j : ℕ∞) < τ ω} :=
+    hτ.measurableSet_natCast_lt j
+  have hA' (j : ℕ) : MeasurableSet {ω | (j : ℕ∞) < τ ω} := Filtration.le _ j _ (hA j)
+  rw [lintegral_tsum (f := fun (j : ℕ) ω ↦ {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω)
+      fun j ↦ ((hg.comp (hXm j)).indicator (hA' j)).aemeasurable,
+    lintegral_enat_eq_tsum μ hA', ← ENNReal.tsum_mul_left]
+  refine tsum_congr fun j ↦ ?_
+  have h : ∀ ω, {ω | (j : ℕ∞) < τ ω}.indicator (fun ω ↦ g (X j ω)) ω =
+      {ω | (j : ℕ∞) < τ ω}.indicator 1 ω * g (X j ω) := fun ω ↦ by
+    by_cases hω : ω ∈ {ω | (j : ℕ∞) < τ ω} <;> simp [hω]
+  simp_rw [h]
+  -- the event `{j < τ}` is determined by the past, independent of `X j`
+  rw [lintegral_mul_eq_lintegral_mul_lintegral_of_independent_measurableSpace
+    (f := {ω | (j : ℕ∞) < τ ω}.indicator 1) (g := fun ω ↦ g (X j ω)) (Filtration.le _ j)
+    (hXm j).comap_le (Filtration.indep_naturalLT hXm hX j).symm
+    (measurable_const.indicator (hA j)) (hg.comp (comap_measurable (X j))),
+    lintegral_indicator_one (hA' j), hm j, mul_comm]
+
+end Wald
+
+variable {X : ℕ → Ω → ℝ}
 
 /-- **Wald's bound on the expected first passage time.** Let `X j` be independent real random
 variables with means at least `a > 0`, almost surely bounded above by `C`. The first time `N b`
@@ -136,5 +188,24 @@ theorem iIndepFun.lintegral_hittingAfter_sum_le (hX : iIndepFun X μ)
     exact Finset.sum_congr rfl fun j _ ↦ (ofReal_measureReal).symm
   _ ≤ ENNReal.ofReal ((b + C) / a) :=
     ENNReal.ofReal_le_ofReal ((le_div_iff₀ ha).2 (hsum n))
+
+/-- **Wald's upper bound on the expected first passage time, by truncation.** Let `X j` be
+independent real random variables whose truncations `min (X j) c` at a level `c` have means at
+least `a > 0`. The first time `N b` at which the partial sums `∑ j < k, X j` reach `b` has
+expectation at most `(b + c) / a`. The increments need not be bounded above or identically
+distributed. -/
+theorem iIndepFun.lintegral_hittingAfter_sum_le_of_le_integral_min (hX : iIndepFun X μ)
+    (hXm : ∀ j, Measurable (X j)) {a c : ℝ} (ha : 0 < a)
+    (haX : ∀ j, a ≤ ∫ ω, min (X j ω) c ∂μ) (b : ℝ) :
+    ∫⁻ ω, ENat.toENNReal
+        (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, X j ω) (Set.Ici b) 0 ω) ∂μ ≤
+      ENNReal.ofReal ((b + c) / a) := by
+  refine (lintegral_mono fun ω ↦ ?_).trans
+    (iIndepFun.lintegral_hittingAfter_sum_le (X := fun j ω ↦ min (X j ω) c)
+      (hX.comp (fun _ x ↦ min x c) fun _ ↦ measurable_id.min measurable_const)
+      (fun j ↦ (hXm j).min measurable_const) ha haX
+      (fun _ ↦ ae_of_all _ fun _ ↦ min_le_right _ _) b)
+  refine ENat.toENNReal_le.2 (hittingAfter_apply_le_of_forall_mem fun k _ hk ↦ ?_)
+  exact le_trans hk (Finset.sum_le_sum fun j _ ↦ min_le_left _ _)
 
 end ProbabilityTheory
