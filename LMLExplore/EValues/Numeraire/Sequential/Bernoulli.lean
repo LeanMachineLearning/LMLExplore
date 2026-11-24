@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.Numeraire.Sequential
 public import Mathlib.Probability.Distributions.Bernoulli
 import LMLExplore.EValues.TestSupermartingale.IID
+import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.Distributions.Bernoulli
 import LMLExplore.Probability.Process.Filtration
@@ -90,9 +91,8 @@ private lemma lintegral_ofReal_comp_fin_two (P : Measure Bool) [IsProbabilityMea
   refine Finset.sum_congr rfl fun b₀ _ ↦ ?_
   rw [ENNReal.ofReal_sum_of_nonneg fun b₁ _ ↦ hnn b₀ b₁]
   refine Finset.sum_congr rfl fun b₁ _ ↦ ?_
-  rw [Measure.pi_singleton, Fin.prod_univ_two, ← ofReal_measureReal, ← ofReal_measureReal,
-    ← ENNReal.ofReal_mul measureReal_nonneg, ← ENNReal.ofReal_mul (hg _)]
-  simp
+  rw [Measure.pi_singleton_eq_ofReal_prod, ← ENNReal.ofReal_mul (hg _)]
+  simp [Fin.prod_univ_two]
 
 /-- **Symmetric pairs.** If a bijection `φ` fixes `q` and exchanges `a` and `b`, the ratio of `q`
 to the equal mixture of `a` and `b` has the same sum against `a` and against `b`, and these sums
@@ -142,14 +142,11 @@ private lemma eq_ofReal_div_mix_half (hQ : ∀ b, Q.real {b} = 1 / 2)
     fun μ ν h x ↦ Finset.prod_congr rfl fun i _ ↦ h (x i)
   have hm : ∀ x : Fin n → Bool,
       0 < 2⁻¹ * (∏ i, P₁.real {x i}) + (1 - 2⁻¹) * ∏ i, P₂.real {x i} := fun x ↦ by
-    have : 0 < ∏ i, P₁.real {x i} :=
-      Finset.prod_pos fun _ _ ↦ measureReal_pos_of_ne_zero (hP₁0 _)
+    have := prod_measureReal_singleton_pos hP₁0 x
     have : 0 ≤ ∏ i, P₂.real {x i} := by positivity
     norm_num
     positivity
-  have hQ1 : ∑ x : Fin n → Bool, ∏ i, Q.real {x i} = 1 := by
-    rw [← Fintype.sum_pow (fun b ↦ Q.real {b}), sum_measureReal_singleton_eq_one, one_pow]
-  obtain ⟨hE₁, hE₂⟩ := sum_mul_div_mix_half_eq_one hm hQ1 φ
+  obtain ⟨hE₁, hE₂⟩ := sum_mul_div_mix_half_eq_one hm (sum_prod_measureReal_singleton_eq_one Q) φ
     (hφ Q Q fun b ↦ by rw [hQ, hQ]) (hφ P₁ P₂ fun b ↦ by cases b <;> simp [hP₁, hP₂])
     (hφ P₂ P₁ fun b ↦ by cases b <;> simp [hP₁, hP₂])
   exact hY.eq_ofReal_div_mixture (fun b ↦ hQ0 b) (by norm_num) (by norm_num) hm hE₁.le hE₂.le x

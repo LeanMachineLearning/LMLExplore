@@ -16,8 +16,10 @@ events `s i`, `i : ι` with `ι` finite, has probability at most `δ / card ι`,
 at least `1 - δ` none of them happens. The events need not be measurable. It also records the
 intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a`
 and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`. Finally, it records that a set of
-nonzero finite mass has positive real mass, that the real masses of the points of a finite
-space sum to `1` under a probability measure, and that the real mass is monotone under
+nonzero finite mass has positive real mass, so that the products of the real masses of points
+under a finite measure that charges every point are positive, that the real masses of the points
+of a finite space sum to `1` under a probability measure, as do the products of the real masses
+of the coordinates of the samples `x : ι → α`, and that the real mass is monotone under
 almost-everywhere inclusion.
 
 ## Main statements
@@ -27,8 +29,12 @@ almost-everywhere inclusion.
 * `LMLExplore.one_sub_sub_le_measureReal_inter`: two events of probabilities at least `1 - a` and
   `1 - b` both happen with probability at least `1 - a - b`.
 * `MeasureTheory.measureReal_pos_of_ne_zero`: a set of nonzero finite mass has positive real mass.
+* `MeasureTheory.prod_measureReal_singleton_pos`: `0 < ∏ i, μ.real {x i}` for a finite measure `μ`
+  that charges every point.
 * `MeasureTheory.sum_measureReal_singleton_eq_one`: the real masses of the points of a finite
   space sum to `1` under a probability measure.
+* `MeasureTheory.sum_prod_measureReal_singleton_eq_one`: `∑ x : ι → α, ∏ i, μ.real {x i} = 1` for
+  a probability measure `μ` on a finite space.
 * `MeasureTheory.measureReal_mono_ae`: the real mass is monotone under almost-everywhere
   inclusion.
 -/
@@ -80,11 +86,25 @@ lemma measureReal_pos_of_ne_zero (h₀ : μ s ≠ 0) (h : μ s ≠ ∞ := by fin
     0 < μ.real s :=
   ENNReal.toReal_pos h₀ h
 
+/-- The finite products of the real masses of points under a finite measure that charges every
+point are positive. -/
+lemma prod_measureReal_singleton_pos {ι : Type*} [Fintype ι] [IsFiniteMeasure μ]
+    (hμ : ∀ x, μ {x} ≠ 0) (x : ι → α) : 0 < ∏ i, μ.real {x i} :=
+  Finset.prod_pos fun _ _ ↦ measureReal_pos_of_ne_zero (hμ _)
+
 /-- The real masses of the points of a finite space sum to `1` under a probability measure. -/
 lemma sum_measureReal_singleton_eq_one [MeasurableSingletonClass α] [Fintype α]
     (μ : Measure α) [IsProbabilityMeasure μ] :
     ∑ y, μ.real {y} = 1 := by
   rw [sum_measureReal_singleton, Finset.coe_univ, probReal_univ]
+
+/-- Under a probability measure on a finite space, the products of the real masses of the
+coordinates of the samples `x : ι → α` sum to `1`. -/
+lemma sum_prod_measureReal_singleton_eq_one [MeasurableSingletonClass α] [Fintype α]
+    {ι : Type*} [Fintype ι] [DecidableEq ι] (μ : Measure α) [IsProbabilityMeasure μ] :
+    ∑ x : ι → α, ∏ i, μ.real {x i} = 1 := by
+  rw [← Fintype.prod_sum fun (_ : ι) y ↦ μ.real {y}, sum_measureReal_singleton_eq_one,
+    Finset.prod_const_one]
 
 /-- The real mass is monotone under almost-everywhere inclusion of sets of finite mass. -/
 lemma measureReal_mono_ae (h : s ≤ᵐ[μ] t) (h₂ : μ t ≠ ∞ := by finiteness) :

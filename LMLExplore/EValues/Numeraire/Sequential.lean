@@ -13,6 +13,7 @@ public import Statlib.EValues.Numeraire
 import LMLExplore.Algebra.Polynomial.Roots
 import LMLExplore.EValues.Numeraire
 import LMLExplore.EValues.TestSupermartingale.IID
+import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.ProductMeasure
 import Mathlib.Topology.Order.IntermediateValue
@@ -97,27 +98,6 @@ variable {α : Type*} [MeasurableSpace α] [MeasurableSingletonClass α] [Fintyp
   {Q P₁ P₂ : Measure α} [IsProbabilityMeasure Q] [IsProbabilityMeasure P₁]
   [IsProbabilityMeasure P₂]
 
-omit [MeasurableSingletonClass α] [Fintype α] in
-/-- The products of the real masses under a finite measure that charges every point are
-positive. -/
-private lemma prod_measureReal_singleton_pos {μ : Measure α} [IsFiniteMeasure μ]
-    (hμ : ∀ x, μ {x} ≠ 0) {n : ℕ} (x : Fin n → α) : 0 < ∏ i, μ.real {x i} :=
-  Finset.prod_pos fun _ _ ↦ measureReal_pos_of_ne_zero (hμ _)
-
-omit [MeasurableSingletonClass α] [Fintype α] in
-/-- The mass of a point under the product of copies of a finite measure, as a product of real
-masses. -/
-private lemma pi_singleton_eq_ofReal_prod (μ : Measure α) [IsFiniteMeasure μ] {n : ℕ}
-    (x : Fin n → α) : (Measure.pi fun _ : Fin n ↦ μ) {x} = ENNReal.ofReal (∏ i, μ.real {x i}) := by
-  rw [Measure.pi_singleton, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ measureReal_nonneg]
-  simp
-
-/-- The products of the real masses of the samples of size `n` under a probability measure sum
-to `1`. -/
-private lemma sum_prod_measureReal_singleton_eq_one (μ : Measure α) [IsProbabilityMeasure μ]
-    (n : ℕ) : ∑ x : Fin n → α, ∏ i, μ.real {x i} = 1 := by
-  rw [← Fintype.sum_pow (fun y ↦ μ.real {y}), sum_measureReal_singleton_eq_one, one_pow]
-
 /-- The expectation `E_Q[p₂ / p₁]`, as a real number. -/
 private lemma lintegral_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) :
     ∫⁻ x, P₂ {x} / P₁ {x} ∂Q =
@@ -141,9 +121,11 @@ private lemma sum_prod_measureReal_mul_div (n : ℕ) :
   refine Finset.sum_congr rfl fun x _ ↦ ?_
   rw [← Finset.prod_div_distrib, ← Finset.prod_mul_distrib]
 
-omit [MeasurableSingletonClass α] [Fintype α] in
-/-- A product of ratios of masses, as a real number. -/
-private lemma prod_div_eq_ofReal (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} (x : Fin n → α) :
+omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure Q]
+  [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
+/-- A product of ratios of masses of finite measures, as a real number. -/
+private lemma prod_div_eq_ofReal [IsFiniteMeasure Q] [IsFiniteMeasure P₁] (hP₁ : ∀ x, P₁ {x} ≠ 0)
+    {n : ℕ} (x : Fin n → α) :
     ∏ i, Q {x i} / P₁ {x i} = ENNReal.ofReal ((∏ i, Q.real {x i}) / ∏ i, P₁.real {x i}) := by
   rw [← Finset.prod_div_distrib,
     ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ by positivity]
@@ -159,11 +141,13 @@ private lemma prod_measureReal_singleton_snoc (μ : Measure α) {k : ℕ} (x : F
   rw [Fin.prod_univ_castSucc]
   simp only [Fin.snoc_castSucc, Fin.snoc_last]
 
-omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure P₂] in
-/-- A mixture, with a positive weight on the products of a law `P₁` that charges every point, of
-the masses of products of `P₁` and of `P₂` is positive. -/
-private lemma mix_pos (hP₁ : ∀ x, P₁ {x} ≠ 0) {w : ℝ} (hw0 : 0 < w) (hw1 : w ≤ 1) {n : ℕ}
-    (x : Fin n → α) : 0 < w * (∏ i, P₁.real {x i}) + (1 - w) * ∏ i, P₂.real {x i} :=
+omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure P₁]
+  [IsProbabilityMeasure P₂] in
+/-- A mixture, with a positive weight on the products of a finite measure `P₁` that charges every
+point, of the masses of products of `P₁` and of `P₂` is positive. -/
+private lemma mix_pos [IsFiniteMeasure P₁] (hP₁ : ∀ x, P₁ {x} ≠ 0) {w : ℝ} (hw0 : 0 < w)
+    (hw1 : w ≤ 1) {n : ℕ} (x : Fin n → α) :
+    0 < w * (∏ i, P₁.real {x i}) + (1 - w) * ∏ i, P₂.real {x i} :=
   add_pos_of_pos_of_nonneg (mul_pos hw0 (prod_measureReal_singleton_pos hP₁ x))
     (mul_nonneg (by linarith) (by positivity))
 
@@ -262,11 +246,11 @@ theorem IsNumeraire.eq_ofReal_div_mixture (hQ : ∀ x, Q {x} ≠ 0) {n : ℕ} {X
   have hN := isNumeraire_ofReal_div_mix (Q := Measure.pi fun _ : Fin n ↦ Q)
     (P₁ := Measure.pi fun _ : Fin n ↦ P₁) (P₂ := Measure.pi fun _ : Fin n ↦ P₂)
     (prod_measureReal_singleton_pos hQ) (fun _ ↦ by positivity) (fun _ ↦ by positivity)
-    (pi_singleton_eq_ofReal_prod Q) (pi_singleton_eq_ofReal_prod P₁)
-    (pi_singleton_eq_ofReal_prod P₂) hw0 hw1 hm hE₁ hE₂
+    (Measure.pi_singleton_eq_ofReal_prod fun _ ↦ Q) (Measure.pi_singleton_eq_ofReal_prod fun _ ↦ P₁)
+    (Measure.pi_singleton_eq_ofReal_prod fun _ ↦ P₂) hw0 hw1 hm hE₁ hE₂
   rw [sampleNull_insert, sampleNull_singleton] at hX
   refine congrFun (hX.eq_of_countable hN fun y ↦ ?_) x
-  rw [pi_singleton_eq_ofReal_prod]
+  rw [Measure.pi_singleton_eq_ofReal_prod]
   exact (ENNReal.ofReal_pos.2 (prod_measureReal_singleton_pos hQ y)).ne'
 
 /-- **The projection weight `1`.** If `E_Q[p₂ / p₁] ≤ 1`, a numeraire of `n` observations for the
@@ -285,7 +269,7 @@ private lemma eq_ofReal_div_of_le (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x, P₁
   · rwa [h1] at h
   · simp_rw [h1]
     rw [Finset.sum_congr rfl fun y _ ↦ mul_div_cancel₀ _ (prod_measureReal_singleton_pos hP₁ y).ne',
-      sum_prod_measureReal_singleton_eq_one _ _]
+      sum_prod_measureReal_singleton_eq_one _]
   · simp_rw [h1]
     rw [sum_prod_measureReal_mul_div]
     exact pow_le_one₀ (Finset.sum_nonneg fun y _ ↦ by positivity) hρ
@@ -311,12 +295,14 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
   · rw [lintegral_div_eq_ofReal hP₁, ENNReal.ofReal_le_one] at h
     rw [eq_ofReal_div_of_le hQ hP₁ h (hX n) x, prod_div_eq_ofReal hP₁]
 
-omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure P₂] in
-/-- For a weight `0 < w ≤ 1`, `w` times the likelihood ratio of `Q ^ n` against the mixture
-`w P₁ ^ n + (1 - w) P₂ ^ n` is at most the likelihood ratio of `Q ^ n` against `P₁ ^ n`, the
-product of copies of the likelihood ratio of `Q` against `P₁`, when `P₁` charges every point. -/
-theorem ofReal_mul_ofReal_div_mixture_le_prod (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} {w : ℝ} (hw0 : 0 < w)
-    (hw1 : w ≤ 1) (x : Fin n → α) :
+omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure Q]
+  [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
+/-- For finite measures `Q`, `P₁` and `P₂` and a weight `0 < w ≤ 1`, `w` times the likelihood ratio
+of `Q ^ n` against the mixture `w P₁ ^ n + (1 - w) P₂ ^ n` is at most the likelihood ratio of
+`Q ^ n` against `P₁ ^ n`, the product of copies of the likelihood ratio of `Q` against `P₁`, when
+`P₁` charges every point. -/
+theorem ofReal_mul_ofReal_div_mixture_le_prod [IsFiniteMeasure Q] [IsFiniteMeasure P₁]
+    (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} {w : ℝ} (hw0 : 0 < w) (hw1 : w ≤ 1) (x : Fin n → α) :
     ENNReal.ofReal w *
         ENNReal.ofReal ((∏ i, Q.real {x i}) /
           (w * (∏ i, P₁.real {x i}) + (1 - w) * ∏ i, P₂.real {x i})) ≤
@@ -361,12 +347,12 @@ private lemma exists_weight_interior (hP₁ : ∀ x, P₁ {x} ≠ 0) (hP₂ : �
     simp only [hg, one_mul, sub_self, add_zero, sub_mul, Finset.sum_sub_distrib]
     rw [← sum_prod_measureReal_mul_div, Finset.sum_congr rfl fun x _ ↦
       mul_div_cancel₀ _ (prod_measureReal_singleton_pos hP₁ x).ne',
-      sum_prod_measureReal_singleton_eq_one _ _]
+      sum_prod_measureReal_singleton_eq_one _]
   have hg0 : g 0 = (∑ y, P₁.real {y} * (Q.real {y} / P₂.real {y})) ^ n - 1 := by
     simp only [hg, zero_mul, sub_zero, one_mul, zero_add, sub_mul, Finset.sum_sub_distrib]
     rw [← sum_prod_measureReal_mul_div, Finset.sum_congr rfl fun x _ ↦
       mul_div_cancel₀ _ (prod_measureReal_singleton_pos hP₂ x).ne',
-      sum_prod_measureReal_singleton_eq_one _ _]
+      sum_prod_measureReal_singleton_eq_one _]
   have hg1' : g 1 < 0 := by rw [hg1]; linarith [one_lt_pow₀ h₁ hn]
   have hg0' : 0 < g 0 := by rw [hg0]; linarith [one_lt_pow₀ h₂ hn]
   obtain ⟨w, ⟨hw0, hw1⟩, hgw⟩ :=
@@ -384,7 +370,7 @@ private lemma exists_weight_interior (hP₁ : ∀ x, P₁ {x} ≠ 0) (hP₂ : �
     simp only [E₁, E₂, ← Finset.sum_sub_distrib, sub_mul]
   have hmean : w * E₁ + (1 - w) * E₂ = 1 := by
     simp only [E₁, E₂, Finset.mul_sum, ← Finset.sum_add_distrib]
-    conv_rhs => rw [← sum_prod_measureReal_singleton_eq_one Q n]
+    conv_rhs => rw [← sum_prod_measureReal_singleton_eq_one (ι := Fin n) Q]
     refine Finset.sum_congr rfl fun x _ ↦ ?_
     have := hmix w ⟨hw0, hw1⟩ x
     field_simp
@@ -602,7 +588,7 @@ private lemma ratio_mix_le_sum_of_isEProcess {X : (n : ℕ) → (Fin n → α) �
       ENNReal.ofReal_sum_of_nonneg fun z _ ↦ mul_nonneg (by positivity)
         (div_nonneg (by positivity) (hm' z).le)]
     refine Finset.sum_congr rfl fun z _ ↦ ?_
-    rw [hN₂, pi_singleton_eq_ofReal_prod,
+    rw [hN₂, Measure.pi_singleton_eq_ofReal_prod,
       ← ENNReal.ofReal_mul (div_nonneg (by positivity) (hm' z).le), mul_comm]
   have h := le_sum_of_lintegral_stop_le_one hP (E := fun n ω ↦ X n fun i ↦ ω i)
     (fun _ ↦ rfl) (fun _ ↦ rfl) hF₂ x₀ hle
@@ -687,7 +673,7 @@ private lemma not_isEProcess_of_one_lt (hQ : ∀ x, Q {x} ≠ 0) (hP₁ : ∀ x,
           (w' * (∏ i, P₁.real {x₀ i}) + (1 - w') * ∏ i, P₂.real {x₀ i})) = 0 := by
       rw [Finset.sum_sub_distrib, Finset.sum_add_distrib, Finset.sum_add_distrib,
         ← Finset.mul_sum, ← Finset.mul_sum, ← Finset.mul_sum, ← Finset.mul_sum,
-        sum_prod_measureReal_singleton_eq_one _ _, sum_prod_measureReal_singleton_eq_one _ _]
+        sum_prod_measureReal_singleton_eq_one _, sum_prod_measureReal_singleton_eq_one _]
       ring
     intro x₀
     have := (Finset.sum_eq_zero_iff_of_nonneg fun x _ ↦ sub_nonneg.2 (hstep x).1).1 hsum x₀
