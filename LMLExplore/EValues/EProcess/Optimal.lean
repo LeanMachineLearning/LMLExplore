@@ -48,11 +48,9 @@ has no atom.
   `ProbabilityTheory.isGreatest_eintegral_log_isEProcess_sigmaConvexHull`: **the identity of
   Koolen and Grünwald for a dominated null**, with the countable mixtures of stopped laws on the
   dual side [KG22, Theorem 5].
-* `ProbabilityTheory.isEVar_stoppedNull_range_dirac_iff`,
-  `ProbabilityTheory.isEProcess_range_dirac_iff`,
-  `ProbabilityTheory.maxEPower_stoppedNull_range_dirac`: the e-variables of the stopped null and
-  the e-processes of the null of all Dirac masses are the progressive functions, respectively the
-  adapted processes, at most one, and the largest e-power vanishes.
+* `ProbabilityTheory.maxEPower_stoppedNull_range_dirac`: the largest e-power of the stopped null
+  of the null of all Dirac masses vanishes, its e-variables being at most one
+  (`ProbabilityTheory.isEVar_stoppedNull_range_dirac_iff`).
 * `ProbabilityTheory.iInf_klIntegral_sigmaConvexHull_stoppedNull_range_dirac`,
   `ProbabilityTheory.maxEPower_stoppedNull_range_dirac_lt_iInf_klIntegral_sigmaConvexHull`,
 `ProbabilityTheory.maxEPower_stoppedNull_range_dirac_lt_iInf_klIntegral_sigmaConvexHull_infinitePi`:
@@ -174,32 +172,6 @@ theorem isGreatest_eintegral_log_isEProcess_sigmaConvexHull {μ : Measure Ω} [S
   exact isGreatest_eintegral_log_isEProcess hS R
 
 /-! ### The null of all Dirac masses -/
-
-/-- **The e-variables of the stopped null of the Dirac masses** are the progressive functions of
-the stopped paths that are at most one everywhere: the stopped law of the Dirac mass at `ω` at the
-constant time `n` evaluates a function at `(n, ω)`. -/
-theorem isEVar_stoppedNull_range_dirac_iff {X : ℕ × Ω → ℝ≥0∞} :
-    IsEVar X (stoppedNull ℱ (range Measure.dirac)) ↔
-      Measurable[ℱ.progressive] X ∧ ∀ x, X x ≤ 1 := by
-  refine ⟨fun hX ↦ ⟨hX.measurable, fun ⟨n, ω⟩ ↦ ?_⟩, fun ⟨hX, hX1⟩ ↦ ⟨hX, fun μ hμ ↦ ?_⟩⟩
-  · have h := hX.lintegral_le_one (stoppedLaw_mem_stoppedNull (mem_range_self ω)
-      (isStoppingTime_natCast (ℱ := ℱ) n) fun _ ↦ WithTop.natCast_ne_top n)
-    simp only [WithTop.untopA_natCast] at h
-    rwa [lintegral_stoppedLaw measurable_const hX.measurable, lintegral_dirac' ω
-      (f := fun ω' ↦ X (n, ω'))
-      (hX.measurable.comp (Filtration.measurable_prodMk_progressive measurable_const))] at h
-  · calc ∫⁻ x, X x ∂μ ≤ ∫⁻ _, 1 ∂μ := lintegral_mono hX1
-      _ = μ univ := lintegral_one
-      _ ≤ 1 := measure_univ_le_one_of_mem_stoppedNull
-        (forall_mem_range.2 fun _ ↦ prob_le_one) hμ
-
-/-- **The e-processes of the null of all Dirac masses** are the adapted processes that are at most
-one everywhere. -/
-theorem isEProcess_range_dirac_iff {E : ℕ → Ω → ℝ≥0∞} :
-    IsEProcess E ℱ (range Measure.dirac) ↔ Adapted ℱ E ∧ ∀ n ω, E n ω ≤ 1 := by
-  rw [isEProcess_iff_isEVar_stoppedNull, isEVar_stoppedNull_range_dirac_iff,
-    Filtration.measurable_uncurry_progressive_iff, Prod.forall]
-  simp only [Function.uncurry_apply_pair]
 
 /-- The largest e-power of the stopped null of the Dirac masses vanishes under every measure on the
 stopped paths: its e-variables are at most one, and the constant `1` is one of them. -/

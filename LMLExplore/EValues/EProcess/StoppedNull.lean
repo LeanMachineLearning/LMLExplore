@@ -32,6 +32,10 @@ stopped null is read time by time.
 
 * `ProbabilityTheory.isEProcess_iff_isEVar_stoppedNull`: an adapted process is an e-process
   exactly when it is an e-variable on the space of stopped paths for the stopped null.
+* `ProbabilityTheory.isEVar_stoppedNull_range_dirac_iff`,
+  `ProbabilityTheory.isEProcess_range_dirac_iff`: the e-variables of the stopped null and the
+  e-processes of the null of all Dirac masses are the progressive functions, respectively the
+  adapted processes, at most one.
 * `ProbabilityTheory.eventually_quasiSure_stoppedNull_iff`: a progressive property holds
   quasi-surely for the stopped null exactly when it holds quasi-surely for the null at every time.
 * `ProbabilityTheory.isEProcess_liminf`: the time-wise `liminf` of a sequence of e-processes is an
@@ -140,6 +144,32 @@ theorem isEProcess_iff_isEVar_stoppedNull :
     have h := hE.lintegral_le_one (stoppedLaw_mem_stoppedNull hP hτ
       fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω))
     rwa [lintegral_stoppedLaw hτ.measurable'.untopA hE.measurable] at h
+
+/-- **The e-variables of the stopped null of the Dirac masses** are the progressive functions of
+the stopped paths that are at most one everywhere: the stopped law of the Dirac mass at `ω` at the
+constant time `n` evaluates a function at `(n, ω)`. -/
+theorem isEVar_stoppedNull_range_dirac_iff {X : ℕ × Ω → ℝ≥0∞} :
+    IsEVar X (stoppedNull ℱ (range Measure.dirac)) ↔
+      Measurable[ℱ.progressive] X ∧ ∀ x, X x ≤ 1 := by
+  refine ⟨fun hX ↦ ⟨hX.measurable, fun ⟨n, ω⟩ ↦ ?_⟩, fun ⟨hX, hX1⟩ ↦ ⟨hX, fun μ hμ ↦ ?_⟩⟩
+  · have h := hX.lintegral_le_one (stoppedLaw_mem_stoppedNull (mem_range_self ω)
+      (isStoppingTime_natCast (ℱ := ℱ) n) fun _ ↦ WithTop.natCast_ne_top n)
+    simp only [WithTop.untopA_natCast] at h
+    rwa [lintegral_stoppedLaw measurable_const hX.measurable, lintegral_dirac' ω
+      (f := fun ω' ↦ X (n, ω'))
+      (hX.measurable.comp (Filtration.measurable_prodMk_progressive measurable_const))] at h
+  · calc ∫⁻ x, X x ∂μ ≤ ∫⁻ _, 1 ∂μ := lintegral_mono hX1
+      _ = μ univ := lintegral_one
+      _ ≤ 1 := measure_univ_le_one_of_mem_stoppedNull
+        (forall_mem_range.2 fun _ ↦ prob_le_one) hμ
+
+/-- **The e-processes of the null of all Dirac masses** are the adapted processes that are at most
+one everywhere. -/
+theorem isEProcess_range_dirac_iff :
+    IsEProcess E ℱ (range Measure.dirac) ↔ Adapted ℱ E ∧ ∀ n ω, E n ω ≤ 1 := by
+  rw [isEProcess_iff_isEVar_stoppedNull, isEVar_stoppedNull_range_dirac_iff,
+    Filtration.measurable_uncurry_progressive_iff, Prod.forall]
+  simp only [Function.uncurry_apply_pair]
 
 /-- **The quasi-sure filter of the stopped null.** A property of stopped paths given by a
 progressive set holds quasi-surely for the stopped null exactly when, at every time `n`, it holds
