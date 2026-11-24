@@ -486,7 +486,7 @@ lemma map_shiftArray_of_dependsOnBelow (ρ : Measure 𝓤) [IsProbabilityMeasure
     measurable_const (dependsOnBelow_const R 1) (measurable_one.indicator hB)
   simp only [one_mul, lintegral_const, measure_univ] at h
   rw [← h]
-  exact lintegral_congr fun ω ↦ rfl
+  exact lintegral_congr fun ω ↦ Set.indicator_comp_right (g := 1) (s := B) _
 
 /-- Under `arrayLaw ρ ν`, a function of the entries below a random shape `R` determined by the
 entries below itself is independent of every function of the seeds and the table after `R`. -/
@@ -507,13 +507,13 @@ lemma indepFun_comp_shiftArray_of_dependsOnBelow {β γ : Type*} {mβ : Measurab
     (measurable_one.indicator (hg hB))
   rw [lintegral_indicator_one (hf hA), lintegral_indicator_one (hg hB)] at h
   have hB' : (fun ω ↦ g (shiftArray (R ω) ω)) ⁻¹' B =
-      (fun ω ↦ shiftArray (R ω) ω) ⁻¹' (g ⁻¹' B) := rfl
+      (fun ω ↦ shiftArray (R ω) ω) ⁻¹' (g ⁻¹' B) := Set.preimage_comp
   rw [hB', ← Measure.map_apply hΘ (hg hB) (μ := arrayLaw ρ ν),
     map_shiftArray_of_dependsOnBelow ρ ν hRm hR, ← h,
     ← lintegral_indicator_one ((hf hA).inter (hΘ (hg hB)))]
   refine lintegral_congr fun ω ↦ ?_
   rw [Set.inter_indicator_one]
-  rfl
+  simp only [Pi.mul_apply, Set.indicator_apply, Set.mem_preimage, Pi.one_apply]
 
 end Restart
 

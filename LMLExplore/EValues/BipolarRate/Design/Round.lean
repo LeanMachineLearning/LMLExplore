@@ -98,17 +98,12 @@ theorem eintegral_log_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure �
       Measure.map_id, designLaw_def]
   -- `Z` is a function of the table of the design `n` and of the seeds
   let ext : ((Σ a, Fin (n a)) → 𝓧) × (ℕ → 𝓤) → (ℕ → 𝓤) × (ℕ → α → 𝓧) :=
-    fun q ↦ (q.2, fun i a ↦ if h : i < n a then q.1 ⟨a, ⟨i, h⟩⟩ else x₀ i a)
-  have hext : Measurable ext := by
-    refine measurable_snd.prodMk (measurable_pi_iff.2 fun i ↦ measurable_pi_iff.2 fun a ↦ ?_)
-    by_cases h : i < n a
-    · simp only [h, ↓reduceDIte]
-      exact (measurable_pi_apply _).comp measurable_fst
-    · simp only [h, ↓reduceDIte]
-      exact measurable_const
+    fun q ↦ (q.2, arrayOfTable n x₀ q.1)
+  have hext : Measurable ext :=
+    measurable_snd.prodMk ((measurable_arrayOfTable n x₀).comp measurable_fst)
   have hZ' : Measurable (Z ∘ ext) := hZ.comp hext
   have hZ_eq (ω : (ℕ → 𝓤) × (ℕ → α → 𝓧)) : Z ω = (Z ∘ ext) (π ω) :=
-    hZn _ _ rfl fun a i hi ↦ by simp [ext, π, tableOfArray_apply, hi]
+    hZn _ _ rfl fun a i hi ↦ (arrayOfTable_tableOfArray_of_lt n x₀ ω.2 hi).symm
   -- it is an e-variable for the laws of the table of `n` and of the seeds
   have hS : ∀ P ∈ (fun ν ↦ designLaw ν n) '' Λ, P Set.univ ≤ 1 := by
     rintro _ ⟨ν, hν, rfl⟩
@@ -150,8 +145,7 @@ private lemma eintegral_log_restartBet_le_designValue (ρ : Measure 𝓤) [IsPro
       designValue μ Λ n := by
   set fit : Set ((ℕ → 𝓤) × (ℕ → α → 𝓧)) := {ω | (restartShape σ m ω).2 ≤ n} with hfit_def
   set W : (ℕ → 𝓤) × (ℕ → α → 𝓧) → ℝ≥0∞ := fun ω ↦ ∏ i ∈ Finset.range m, V (restartPoint σ i ω)
-  have hfit : MeasurableSet fit :=
-    (measurable_restartShape hσm m).snd (Set.to_countable {r : α → ℕ | r ≤ n}).measurableSet
+  have hfit : MeasurableSet fit := measurableSet_restartShape_snd_le hσm m n
   have hWm : Measurable (fit.indicator W) :=
     (Finset.measurable_fun_prod _ fun i _ ↦ hVm.comp (measurable_restartPoint hσm i)).indicator
       hfit
@@ -203,14 +197,12 @@ private lemma mul_integral_truncLog_sub_le_designValue (ρ : Measure 𝓤) [IsPr
   set Ls : (ℕ → 𝓤) × (ℕ → α → 𝓧) → ℝ := fun ω ↦
     ∑ i ∈ Finset.range m, truncLog c (V (restartPoint σ i ω))
   set fit : Set ((ℕ → 𝓤) × (ℕ → α → 𝓧)) := {ω | (restartShape σ m ω).2 ≤ n} with hfit_def
-  have hfit : MeasurableSet fit :=
-    (measurable_restartShape hσm m).snd (Set.to_countable {r : α → ℕ | r ≤ n}).measurableSet
+  have hfit : MeasurableSet fit := measurableSet_restartShape_snd_le hσm m n
   -- the sum of the truncated logarithms of the payoffs of the `m` rounds: it is bounded by
   -- `m * C`, and its expectation is `m` times that of one round
   have hTm : Measurable fun ω ↦ truncLog c (V ω) := (ENNReal.measurable_truncLog c).comp hVm
   have hLi (i : ℕ) : Integrable (fun ω ↦ truncLog c (V (restartPoint σ i ω))) (arrayLaw ρ μ) :=
-    Integrable.of_bound (hTm.comp (measurable_restartPoint hσm i)).aestronglyMeasurable C
-      (ae_of_all _ fun ω ↦ ENNReal.abs_truncLog_le hδ (hVδ _))
+    ENNReal.integrable_truncLog_comp hδ (hVm.comp (measurable_restartPoint hσm i)) fun _ ↦ hVδ _
   have hLsC (ω : (ℕ → 𝓤) × (ℕ → α → 𝓧)) : ‖Ls ω‖ ≤ m * C := by
     calc ‖Ls ω‖ ≤ ∑ i ∈ Finset.range m, ‖truncLog c (V (restartPoint σ i ω))‖ := norm_sum_le _ _
     _ ≤ ∑ _i ∈ Finset.range m, C :=
@@ -352,8 +344,7 @@ theorem integral_truncLog_le_designRate_mul (ρ : Measure 𝓤) [IsProbabilityMe
     ((∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ : ℝ) : EReal) ≤
       designRate μ Λ * ((∫ ω, ∑ a, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ : ℝ) : EReal) := by
   have hN (a : α) : Integrable (fun ω ↦ ((σ ω).2 a : ℝ)) (arrayLaw ρ μ) :=
-    Integrable.of_bound (measurable_from_top.comp ((measurable_pi_apply a).comp hσm.snd)
-      |>.aestronglyMeasurable) K (ae_of_all _ fun ω ↦ by simpa using hσK ω a)
+    integrable_shape_snd_apply hσm fun ω ↦ hσK ω a
   rw [integral_finsetSum _ fun a _ ↦ hN a]
   have key := fun (m : ℕ) (hm : 0 < m) (ε : ℝ) (hε : 0 < ε) ↦
     exists_le_designValue ρ μ hΛ hσm hσ hVm hV hσK h_null hδ hVδ c hm hε
