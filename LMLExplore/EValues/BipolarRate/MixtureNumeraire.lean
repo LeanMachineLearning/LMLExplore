@@ -12,7 +12,7 @@ public import Mathlib.MeasureTheory.Measure.GiryMonad
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.BipolarRate.EProcess
-import LMLExplore.EValues.BipolarRate.Numeraire
+import LMLExplore.EValues.BipolarRate.Numeraire.Basic
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.Probability.ProductMeasure.MixtureDomination
 

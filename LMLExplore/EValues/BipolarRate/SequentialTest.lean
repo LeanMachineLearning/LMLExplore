@@ -304,53 +304,28 @@ private theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE (Q�
       ((measure_exists_le_seqBlockProd_le P hVm (hvP P hP this) α⁻¹).trans_eq (inv_inv α))
     obtain ⟨n, -, hn⟩ := hittingAfter_lt_top_iff.1 hω
     exact ⟨_, hn⟩
-  -- the expected number of observations, for `α ∈ (0, 1)`
-  set B : ℝ≥0∞ → ℝ≥0∞ := fun α ↦ (ENNReal.log α⁻¹).toENNReal
-  have hbound : ∀ᶠ α in 𝓝[>] (0 : ℝ≥0∞),
-      (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) / B α ≤
-        ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α) := by
-    filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with α ⟨hα0, hα1⟩
-    have hlog_top : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
+  -- the expected number of observations, for `α ∈ (0, 1)`, is at most
+  -- `m * (b + C) / a = m * C / a + log (1/α) * (m / a)`
+  refine (ENNReal.limsup_div_toENNReal_log_inv_le (K := ENNReal.ofReal (m * C / a))
+    (r := ENNReal.ofReal (m / a)) ENNReal.ofReal_ne_top fun α hα0 hα1 ↦ ?_).trans
+    (ENNReal.ofReal_le_ofReal ?_)
+  · have hlog_top : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
     have hlog_bot : ENNReal.log α⁻¹ ≠ ⊥ := by simpa using hα1.ne_top
     set b := (ENNReal.log α⁻¹).toReal
     have hb : (b : EReal) = ENNReal.log α⁻¹ := EReal.coe_toReal hlog_top hlog_bot
     have hb0 : 0 < b := by
       rw [← EReal.coe_lt_coe_iff, hb, EReal.coe_zero, ENNReal.zero_lt_log_iff]
       exact ENNReal.one_lt_inv.2 hα1
-    have hBb : B α = ENNReal.ofReal b := EReal.toENNReal_of_ne_top hlog_top
-    have hexp := lintegral_hittingAfter_add_one_le Q₁ hm hv hvC ha (ENNReal.one_lt_inv.2 hα1)
-      hb.symm
-    have hB0 : B α ≠ 0 := by rw [hBb]; exact (ENNReal.ofReal_pos.2 hb0).ne'
-    have hBtop : B α ≠ ⊤ := by rw [hBb]; exact ENNReal.ofReal_ne_top
-    calc (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) / B α
-    _ ≤ m * ENNReal.ofReal ((b + C) / a) / B α := by gcongr
-    _ = ENNReal.ofReal (m / a) * (B α + ENNReal.ofReal C) / B α := by
-      rw [hBb, ← ENNReal.ofReal_add hb0.le (le_max_right _ _), ← ENNReal.ofReal_natCast,
-        ← ENNReal.ofReal_mul (Nat.cast_nonneg _), ← ENNReal.ofReal_mul (by positivity)]
-      congr 2
+    calc ∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ
+    _ ≤ m * ENNReal.ofReal ((b + C) / a) :=
+      lintegral_hittingAfter_add_one_le Q₁ hm hv hvC ha (ENNReal.one_lt_inv.2 hα1) hb.symm
+    _ = ENNReal.ofReal (m * C / a) + (ENNReal.log α⁻¹).toENNReal * ENNReal.ofReal (m / a) := by
+      rw [EReal.toENNReal_of_ne_top hlog_top, ← ENNReal.ofReal_natCast,
+        ← ENNReal.ofReal_mul (Nat.cast_nonneg _), ← ENNReal.ofReal_mul hb0.le,
+        ← ENNReal.ofReal_add (by positivity) (by positivity)]
+      congr 1
       ring
-    _ = ENNReal.ofReal (m / a) * ((B α + ENNReal.ofReal C) / B α) := mul_div_assoc _ _ _
-    _ = ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α) := by
-      rw [ENNReal.add_div, ENNReal.div_self hB0 hBtop]
-  -- the bound tends to `m / a` as `α → 0`
-  have hB : Tendsto B (𝓝[>] 0) (𝓝 ⊤) := by
-    have h : Continuous B :=
-      EReal.continuous_toENNReal.comp (ENNReal.continuous_log.comp continuous_inv)
-    simpa [B] using (h.tendsto 0).mono_left nhdsWithin_le_nhds
-  have hlim : Tendsto (fun α ↦ ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α)) (𝓝[>] 0)
-      (𝓝 (ENNReal.ofReal (m / a))) := by
-    have h := ENNReal.Tendsto.const_mul (tendsto_const_nhds.add
-      (ENNReal.Tendsto.const_mul (tendsto_inv_iff.2 hB) (.inr ENNReal.ofReal_ne_top)))
-      (.inr ENNReal.ofReal_ne_top) (a := ENNReal.ofReal (m / a)) (b := 1 + ENNReal.ofReal C * ⊤⁻¹)
-    simpa [div_eq_mul_inv] using h
-  calc limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) /
-      B α) (𝓝[>] 0)
-  _ ≤ limsup (fun α ↦ ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α)) (𝓝[>] 0) :=
-    limsup_le_limsup hbound
-  _ = ENNReal.ofReal (m / a) := hlim.limsup_eq
-  _ ≤ ENNReal.ofReal d'⁻¹ := by
-    refine ENNReal.ofReal_le_ofReal ?_
-    rw [div_le_iff₀ ha, ← div_eq_inv_mul, le_div_iff₀ hd']
+  · rw [div_le_iff₀ ha, ← div_eq_inv_mul, le_div_iff₀ hd']
     linarith
 
 /-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
