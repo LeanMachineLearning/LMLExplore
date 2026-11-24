@@ -9,6 +9,7 @@ public import LMLExplore.EValues.ConstraintNull.Admissible
 public import LMLExplore.EValues.ConstraintNull.KLInf
 public import Mathlib.Topology.UnitInterval
 import LMLExplore.Analysis.SpecialFunctions.Integrability.PosLog
+import LMLExplore.MeasureTheory.Constructions.UnitInterval
 
 /-!
 # The mean-constraint nulls on `[0, 1]`
@@ -137,17 +138,12 @@ private theorem coe_toNNReal_sub_coe_toNNReal_neg (l : ℝ) :
 
 /-! ### Membership -/
 
-/-- The identity of `[0, 1]` is integrable under every finite measure. -/
-private theorem integrable_coe (μ : Measure I) [IsFiniteMeasure μ] :
-    Integrable (fun x : I ↦ (x : ℝ)) μ :=
-  Integrable.of_mem_Icc 0 1 measurable_subtypeVal.aemeasurable (ae_of_all _ fun x : I ↦ x.property)
-
 /-- The laws on `[0, 1]` with mean at most `m` are the probability measures whose mean is at
 most `m`. -/
 theorem mem_meanLeNull_iff : μ ∈ meanLeNull m ↔ IsProbabilityMeasure μ ∧ ∫ x, (x : ℝ) ∂μ ≤ m := by
   rw [meanLeNull_def, mem_constraintNull_iff]
   refine and_congr_right fun hμ ↦ ?_
-  have hx := integrable_coe μ
+  have hx := unitInterval.integrable_subtypeVal μ
   have hxm : Integrable (fun x : I ↦ (x : ℝ) - m) μ := hx.sub (integrable_const m)
   simp [integral_sub hx (integrable_const m), hxm]
 
@@ -156,7 +152,7 @@ least `m`. -/
 theorem mem_meanGeNull_iff : μ ∈ meanGeNull m ↔ IsProbabilityMeasure μ ∧ m ≤ ∫ x, (x : ℝ) ∂μ := by
   rw [meanGeNull_def, mem_constraintNull_iff]
   refine and_congr_right fun hμ ↦ ?_
-  have hx := integrable_coe μ
+  have hx := unitInterval.integrable_subtypeVal μ
   have hmx : Integrable (fun x : I ↦ m - (x : ℝ)) μ := (integrable_const m).sub hx
   simp [integral_sub (integrable_const m) hx, hmx]
 
@@ -370,7 +366,7 @@ theorem klInf_meanLeNull (hm : 0 < m) (Q : Measure I) [IsProbabilityMeasure Q] :
       ⨆ l ∈ Icc 0 m⁻¹, ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * ((x : ℝ) - m))) ∂Q := by
   rw [meanLeNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
     (fun _ ↦ by fun_prop) Q
-    fun _ ↦ by exact ((integrable_coe Q).sub (integrable_const m)).posLog,
+    fun _ ↦ by exact ((unitInterval.integrable_subtypeVal Q).sub (integrable_const m)).posLog,
     ← image_constraintBets_meanLe hm, iSup_image]
   simp only [Finset.univ_unique, Finset.sum_singleton, PUnit.default_eq_unit]
 
@@ -383,7 +379,7 @@ theorem klInf_meanGeNull (hm : m < 1) (Q : Measure I) [IsProbabilityMeasure Q] :
       ⨆ l ∈ Icc 0 (1 - m)⁻¹, ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * (m - (x : ℝ)))) ∂Q := by
   rw [meanGeNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
     (fun _ ↦ by fun_prop) Q
-    fun _ ↦ by exact ((integrable_const m).sub (integrable_coe Q)).posLog,
+    fun _ ↦ by exact ((integrable_const m).sub (unitInterval.integrable_subtypeVal Q)).posLog,
     ← image_constraintBets_meanGe hm, iSup_image]
   simp only [Finset.univ_unique, Finset.sum_singleton, PUnit.default_eq_unit]
 
@@ -396,8 +392,8 @@ theorem klInf_meanEqNull (hm₀ : 0 < m) (hm₁ : m < 1) (Q : Measure I) [IsProb
         ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * ((x : ℝ) - m))) ∂Q := by
   rw [meanEqNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
     (measurable_meanEq m) Q (Fin.forall_fin_two.2
-      ⟨((integrable_coe Q).sub (integrable_const m)).posLog,
-        ((integrable_const m).sub (integrable_coe Q)).posLog⟩),
+      ⟨((unitInterval.integrable_subtypeVal Q).sub (integrable_const m)).posLog,
+        ((integrable_const m).sub (unitInterval.integrable_subtypeVal Q)).posLog⟩),
     ← image_constraintBets_meanEq hm₀ hm₁, iSup_image]
   simp only [sum_mul_meanEq]
 
