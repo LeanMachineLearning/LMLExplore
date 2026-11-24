@@ -47,6 +47,9 @@ a conditional e-variable.
 * `ProbabilityTheory.IsCondEVar.setLIntegral_mul_le`: an `m`-measurable factor can be pulled out.
 * `ProbabilityTheory.isCondEVar_sum_mul`, `ProbabilityTheory.isExactCondEVar_sum_mul`:
   portfolios of conditional e-variables.
+* `ProbabilityTheory.lintegral_prod_le_of_isCondEVar`,
+  `ProbabilityTheory.lintegral_prod_eq_of_isExactCondEVar`: the expectation of a finite product of
+  sequential (exact) conditional e-variables is at most (equal to) the mass.
 
 ## References
 
@@ -285,5 +288,50 @@ theorem isExactCondEVar_sum_mul [Fintype ι] (hm : m ≤ mΩ) {E : ι → Ω →
     _ = ∫⁻ ω in s, ∑ i, w ω i ∂P := 
         (lintegral_finsetSum (f := fun i ω ↦ w ω i) _ fun i _ ↦ hwm i).symm
     _ = P s := by simp [hw_sum]
+
+/-! ### Finite products -/
+
+/-- The product of the first `n` factors `X j` is measurable for `m ⟨n, _⟩` when every earlier
+factor is: the measurability step of the induction over the number of factors. -/
+private lemma measurable_prod_castLE {K n : ℕ} (hn : n + 1 ≤ K) {m : Fin K → MeasurableSpace Ω}
+    {X : Fin K → Ω → ℝ≥0∞} (hXm : ∀ j k, j < k → Measurable[m k] (X j)) :
+    Measurable[m (Fin.castLE hn (Fin.last n))] fun ω ↦ ∏ k : Fin n, X (Fin.castLE (by omega) k) ω :=
+  Finset.measurable_fun_prod _ fun k _ ↦ hXm _ _ (Fin.lt_def.2 k.isLt)
+
+/-- **Products of sequential conditional e-variables.** For `X k`, `k : Fin K`, a conditional
+e-variable given `m k` such that every earlier factor `X j`, `j < k`, is `m k`-measurable, the
+expectation of the product `∏ k, X k` under each member of the null is at most its mass. -/
+theorem lintegral_prod_le_of_isCondEVar {K : ℕ} {m : Fin K → MeasurableSpace Ω}
+    (hm : ∀ k, m k ≤ mΩ) {X : Fin K → Ω → ℝ≥0∞} (hX : ∀ k, IsCondEVar (X k) (m k) S)
+    (hXm : ∀ j k, j < k → Measurable[m k] (X j)) (hP : P ∈ S) :
+    ∫⁻ ω, ∏ k, X k ω ∂P ≤ P univ := by
+  -- induction on the number `n` of factors already multiplied, the factors `k < n`
+  suffices h : ∀ n (hn : n ≤ K), ∫⁻ ω, ∏ k : Fin n, X (Fin.castLE hn k) ω ∂P ≤ P univ by
+    simpa using h K le_rfl
+  intro n
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    intro hn
+    simp_rw [Fin.prod_univ_castSucc, Fin.castLE_castSucc]
+    exact ((hX _).lintegral_mul_le (hm _) hP (measurable_prod_castLE hn hXm)).trans (ih _)
+
+/-- **Products of sequential exact conditional e-variables.** For `X k`, `k : Fin K`, an exact
+conditional e-variable given `m k` such that every earlier factor `X j`, `j < k`, is
+`m k`-measurable, the expectation of the product `∏ k, X k` under each member of the null is its
+mass. -/
+theorem lintegral_prod_eq_of_isExactCondEVar {K : ℕ} {m : Fin K → MeasurableSpace Ω}
+    (hm : ∀ k, m k ≤ mΩ) {X : Fin K → Ω → ℝ≥0∞} (hX : ∀ k, IsExactCondEVar (X k) (m k) S)
+    (hXm : ∀ j k, j < k → Measurable[m k] (X j)) (hP : P ∈ S) :
+    ∫⁻ ω, ∏ k, X k ω ∂P = P univ := by
+  suffices h : ∀ n (hn : n ≤ K), ∫⁻ ω, ∏ k : Fin n, X (Fin.castLE hn k) ω ∂P = P univ by
+    simpa using h K le_rfl
+  intro n
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    intro hn
+    simp_rw [Fin.prod_univ_castSucc, Fin.castLE_castSucc]
+    exact ((hX _).lintegral_mul_eq (hm _) hP (measurable_prod_castLE hn hXm)).trans (ih _)
 
 end ProbabilityTheory
