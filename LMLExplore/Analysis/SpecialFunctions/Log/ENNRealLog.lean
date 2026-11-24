@@ -6,6 +6,9 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLog
+public import Mathlib.Order.Filter.AtTopBot.Defs
+public import Mathlib.Topology.Instances.ENNReal.Lemmas
+import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import Mathlib.Analysis.MeanInequalities
 import LMLExplore.Data.EReal.Inv
 
@@ -25,6 +28,13 @@ import LMLExplore.Data.EReal.Inv
 * `ENNReal.toENNReal_log_pow`: the positive part of `log (x ^ n)` is `n` times that of `log x`.
 * `ENNReal.mul_log_add_mul_log_le_log`: the concavity of the logarithm on `ℝ≥0∞`,
   `s log x + t log y ≤ log (s x + t y)` for weights `s, t : ℝ≥0` of sum `1`.
+* `ENNReal.le_prod_iff_toReal_log_le_sum`: for positive finite `c` and factors `x i`,
+  `c ≤ ∏ i ∈ s, x i` if and only if `log c ≤ ∑ i ∈ s, log (x i)`, in `ℝ`. It turns the first time
+  a product reaches a level into the first passage time of a random walk.
+* `ENNReal.tendsto_toReal_log_inv_nhdsGT_zero`: the level `log (1/α)` tends to `∞` as `α → 0`.
+* `ENNReal.limsup_div_toENNReal_log_inv_le`: a function bounded by `K + log (1/α) * r`, with `K`
+  finite, has `limsup_{α → 0} f α / log (1/α) ≤ r`. This is the form of the bounds on the expected
+  number of observations of a sequential test of level `α`.
 
 ## Implementation notes
 
@@ -35,6 +45,7 @@ import LMLExplore.Data.EReal.Inv
 
 public section
 
+open Filter Topology
 open scoped ENNReal NNReal
 
 namespace ENNReal
@@ -116,5 +127,60 @@ lemma mul_log_add_mul_log_le_log {s t : ℝ≥0} (hst : s + t = 1) (x y : ℝ≥
     ((s : ℝ) : EReal) * log x + ((t : ℝ) : EReal) * log y ≤ log (s * x + t * y) := by
   rw [← log_rpow, ← log_rpow, ← log_mul_add]
   exact log_monotone (geom_mean_le_arith_mean2_weighted s t x y hst)
+
+/-- For a positive finite `c` and positive finite factors `x i`, `c ≤ ∏ i ∈ s, x i` if and only if
+`log c ≤ ∑ i ∈ s, log (x i)`, with the logarithms taken in `ℝ`. -/
+lemma le_prod_iff_toReal_log_le_sum {ι : Type*} {s : Finset ι} {x : ι → ℝ≥0∞}
+    (hx : ∀ i ∈ s, x i ≠ 0 ∧ x i ≠ ∞) {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) :
+    c ≤ ∏ i ∈ s, x i ↔ (log c).toReal ≤ ∑ i ∈ s, (log (x i)).toReal := by
+  -- a positive finite `y` is `exp (log y)`, with the logarithm in `ℝ`
+  have hexp {y : ℝ≥0∞} (h0 : y ≠ 0) (htop : y ≠ ∞) :
+      y = ENNReal.ofReal (Real.exp (log y).toReal) := by
+    rw [← log_eq_iff, log_ofReal_exp, EReal.coe_toReal (by simpa using htop) (by simpa using h0)]
+  conv_lhs => rw [Finset.prod_congr rfl fun i hi ↦ hexp (hx i hi).1 (hx i hi).2, hexp hc0 hc]
+  rw [← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
+    ENNReal.ofReal_le_ofReal_iff (Real.exp_pos _).le, Real.exp_le_exp]
+
+/-- The level `log (1/α)`, in `ℝ`, tends to `∞` as `α` tends to `0` from above. -/
+lemma tendsto_toReal_log_inv_nhdsGT_zero :
+    Tendsto (fun α : ℝ≥0∞ ↦ (log α⁻¹).toReal) (𝓝[>] 0) atTop := by
+  refine tendsto_atTop.2 fun M ↦ ?_
+  have hM : (0 : ℝ≥0∞) < (ENNReal.ofReal (Real.exp M))⁻¹ := ENNReal.inv_pos.2 ENNReal.ofReal_ne_top
+  filter_upwards [nhdsWithin_le_nhds (eventually_lt_nhds hM), self_mem_nhdsWithin]
+    with α hα (hα0 : 0 < α)
+  -- `exp M ≤ α⁻¹`, so `M ≤ log α⁻¹`
+  have hle : (M : EReal) ≤ log α⁻¹ := by
+    rw [← log_ofReal_exp M, log_le_log_iff, ENNReal.le_inv_iff_le_inv]
+    exact hα.le
+  rw [← EReal.coe_le_coe_iff, EReal.coe_toReal (by simpa using hα0.ne')
+    (ne_bot_of_le_ne_bot (EReal.coe_ne_bot M) hle)]
+  exact hle
+
+/-- A function bounded by `K + log (1/α) * r` on `(0, 1)`, with `K` finite, has
+`limsup_{α → 0} f α / log (1/α) ≤ r`: the constant `K` is negligible against the level
+`log (1/α)`, which tends to `∞`. -/
+lemma limsup_div_toENNReal_log_inv_le {f : ℝ≥0∞ → ℝ≥0∞} {K r : ℝ≥0∞} (hK : K ≠ ∞)
+    (hf : ∀ α, 0 < α → α < 1 → f α ≤ K + (log α⁻¹).toENNReal * r) :
+    limsup (fun α ↦ f α / (log α⁻¹).toENNReal) (𝓝[>] 0) ≤ r := by
+  set B : ℝ≥0∞ → ℝ≥0∞ := fun α ↦ (log α⁻¹).toENNReal
+  have hB : Tendsto B (𝓝[>] 0) (𝓝 ⊤) := by
+    have h : Continuous B :=
+      EReal.continuous_toENNReal.comp (continuous_log.comp continuous_inv)
+    simpa [B] using (h.tendsto 0).mono_left nhdsWithin_le_nhds
+  have hlim : Tendsto (fun α ↦ K / B α + r) (𝓝[>] 0) (𝓝 r) := by
+    have h := (ENNReal.Tendsto.const_mul (tendsto_inv_iff.2 hB) (.inr hK)).add_const r
+    simpa [div_eq_mul_inv] using h
+  have hbound : ∀ᶠ α in 𝓝[>] (0 : ℝ≥0∞), f α / B α ≤ K / B α + r := by
+    filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with α ⟨hα0, hα1⟩
+    have hB0 : B α ≠ 0 :=
+      EReal.toENNReal_ne_zero_iff.2 (zero_lt_log_iff.2 (ENNReal.one_lt_inv.2 hα1))
+    have hBtop : B α ≠ ⊤ := by simpa [B] using hα0.ne'
+    calc f α / B α
+    _ ≤ (K + B α * r) / B α := by gcongr; exact hf α hα0 hα1
+    _ = K / B α + r := by
+      rw [ENNReal.add_div, mul_comm, ENNReal.mul_div_cancel_right hB0 hBtop]
+  calc limsup (fun α ↦ f α / B α) (𝓝[>] 0)
+  _ ≤ limsup (fun α ↦ K / B α + r) (𝓝[>] 0) := limsup_le_limsup hbound
+  _ = r := hlim.limsup_eq
 
 end ENNReal

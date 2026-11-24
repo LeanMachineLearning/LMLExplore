@@ -20,6 +20,9 @@ function in `ℝ≥0∞`, both cast to `EReal`. This file collects two such comp
   product of measures between its factors.
 * A real `r` is below `w * c`, for `w > 0` and `c : ℝ≥0∞`, if and only if `r / w` is below `c`,
   and similarly above. This rescales an exponent when the speed of a principle changes.
+* The inverse `L.toENNReal⁻¹` of an extended real `L` is the infimum of the inverses `c⁻¹` of the
+  reals `0 < c < L`. A bound `1 / c` on a time to reach a level, proved for every rate `c` below
+  `L`, gives the bound `1 / L`.
 
 ## Main statements
 
@@ -31,6 +34,8 @@ function in `ℝ≥0∞`, both cast to `EReal`. This file collects two such comp
 * `EReal.coe_ennreal_ofReal_mul`: `ofReal w * c = w * c` in `EReal`, for `w ≥ 0` and `c : ℝ≥0∞`.
 * `EReal.coe_lt_coe_ennreal_ofReal_mul_iff`: `r < w * c ↔ r / w < c` for `w > 0`.
 * `EReal.coe_ennreal_ofReal_mul_lt_coe_iff`: `w * c < r ↔ c < r / w` for `w > 0`.
+* `EReal.le_inv_toENNReal_iff`: `x ≤ L.toENNReal⁻¹` if and only if `x ≤ c⁻¹` for every real
+  `0 < c < L`.
 -/
 
 public section
@@ -129,5 +134,29 @@ lemma coe_ennreal_ofReal_mul_lt_coe_iff {w : ℝ} (hw : 0 < w) {c : ℝ≥0∞} 
   | coe c =>
     rw [coe_ennreal_ofReal_mul_coe hw.le, coe_nnreal_eq_coe_real, EReal.coe_lt_coe_iff,
       EReal.coe_lt_coe_iff, lt_div_iff₀' hw]
+
+/-- An element `x` of `ℝ≥0∞` is at most the inverse of `L.toENNReal`, for an extended real `L`, if
+and only if it is at most `c⁻¹` for every real `c` with `0 < c < L`. For `L ≤ 0` both sides hold
+for every `x`, and for `L = ⊤` they say that `x = 0`. -/
+lemma le_inv_toENNReal_iff {x : ℝ≥0∞} {L : EReal} :
+    x ≤ L.toENNReal⁻¹ ↔ ∀ c : ℝ, 0 < c → (c : EReal) < L → x ≤ ENNReal.ofReal c⁻¹ := by
+  refine ⟨fun h c hc hcL ↦ h.trans ?_, fun h ↦ ?_⟩
+  · rw [ENNReal.ofReal_inv_of_pos hc, ENNReal.inv_le_inv]
+    simpa using (toENNReal_lt_toENNReal (by exact_mod_cast hc.le) hcL).le
+  by_contra hx
+  push Not at hx
+  -- a real `c` with `x⁻¹ < c < L.toENNReal` contradicts the bound `x ≤ c⁻¹`
+  obtain ⟨c, -, hxc, hcL⟩ := ENNReal.lt_iff_exists_real_btwn.1 (ENNReal.inv_lt_iff_inv_lt.1 hx)
+  have hc : 0 < c := ENNReal.ofReal_pos.1 (zero_le.trans_lt hxc)
+  have hL : 0 ≤ L := by
+    by_contra hL
+    rw [toENNReal_of_nonpos (not_le.1 hL).le] at hcL
+    exact not_lt_zero hcL
+  have hcL' : (c : EReal) < L := by
+    have h' := EReal.coe_ennreal_lt_coe_ennreal_iff.2 hcL
+    rwa [coe_toENNReal hL, EReal.coe_ennreal_ofReal, max_eq_left hc.le] at h'
+  refine (h c hc hcL').not_gt ?_
+  rw [ENNReal.ofReal_inv_of_pos hc]
+  exact ENNReal.inv_lt_iff_inv_lt.1 hxc
 
 end EReal
