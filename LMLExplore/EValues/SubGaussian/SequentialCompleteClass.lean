@@ -11,6 +11,7 @@ public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.Constructions.BorelSpace.Real
 import LMLExplore.Analysis.SpecialFunctions.Exp
+import LMLExplore.EValues.ConstraintNull.Polar
 import LMLExplore.LinearAlgebra.Pi
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.Lebesgue.Countable
@@ -155,29 +156,13 @@ to it when every exponential `exp (l x - l ^ 2 / 2)`, `l ≥ 0`, has mean at mos
 theorem mem_oneSidedSubgaussianNull_iff {μ : Measure ℝ} :
     μ ∈ oneSidedSubgaussianNull ↔ IsProbabilityMeasure μ ∧ ∀ l : ℝ, 0 ≤ l →
       ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂μ ≤ 1 := by
-  rw [oneSidedSubgaussianNull, mem_constraintNull_range_iff, Subtype.forall]
-  refine and_congr_right fun hμ ↦ forall₂_congr fun l _ ↦ ?_
-  have h0 : 0 ≤ᵐ[μ] fun x ↦ Real.exp (l * x - l ^ 2 / 2) :=
-    ae_of_all _ fun _ ↦ (Real.exp_pos _).le
-  have hint : Integrable (fun x ↦ Real.exp (l * x - l ^ 2 / 2) - 1) μ ↔
-      Integrable (fun x ↦ Real.exp (l * x - l ^ 2 / 2)) μ := by
-    simp_rw [sub_eq_add_neg]
-    exact integrable_add_const_iff
-  rw [hint]
-  constructor
-  · rintro ⟨hi, hle⟩
-    rw [integral_sub hi (integrable_const 1), integral_const, probReal_univ, one_smul,
-      sub_nonpos] at hle
-    rw [← ofReal_integral_eq_lintegral_ofReal hi h0, ← ENNReal.ofReal_one]
-    exact ENNReal.ofReal_le_ofReal hle
-  · intro hle
-    have hi : Integrable (fun x ↦ Real.exp (l * x - l ^ 2 / 2)) μ :=
-      ⟨by fun_prop, (hasFiniteIntegral_iff_ofReal h0).2 (hle.trans_lt ENNReal.one_lt_top)⟩
-    refine ⟨hi, ?_⟩
-    rw [← ofReal_integral_eq_lintegral_ofReal hi h0, ENNReal.ofReal_le_one] at hle
-    rw [integral_sub hi (integrable_const 1), integral_const, probReal_univ, one_smul,
-      sub_nonpos]
-    exact hle
+  -- the constraints are `Y l - 1` for the finite bets `Y l x = exp (l x - l ^ 2 / 2)`
+  have h := constraintNull_range_toReal_sub_one
+    (Y := fun (l : Ici (0 : ℝ)) x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)))
+    (fun _ ↦ by fun_prop) fun _ _ ↦ ENNReal.ofReal_ne_top
+  simp_rw [ENNReal.toReal_ofReal (Real.exp_pos _).le] at h
+  rw [oneSidedSubgaussianNull, h]
+  simp [mem_polarNull_iff, and_comm]
 
 /-- **Rational exponents suffice.** A probability measure on the line belongs to the one-sided
 `1`-sub-Gaussian null as soon as every exponential `exp (q x - q ^ 2 / 2)` with a rational
