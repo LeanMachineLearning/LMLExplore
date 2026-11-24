@@ -181,11 +181,12 @@ theorem oneSidedCondSubgaussianNull_eq_sequentialNull :
         · exact (hl q hq).mono fun _ h _ ↦ h
         · exact .of_forall fun _ h ↦ absurd h hq
     filter_upwards [hq] with ω hω using
-      mem_oneSidedSubgaussianNull_of_forall_rat (by simpa using hω)
+      mem_oneSidedSubgaussianNull_of_forall_rat fun q hq ↦ by
+        simpa only [NNReal.coe_one, one_mul] using hω q hq
   · exact (isCondEVar_comp_sequentialNull
       (r := fun _ x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2))) (measurable_pi_apply k)
-      ((hg l).comp measurable_snd) fun _ ↦ ⟨hg l, fun μ hμ ↦ by
-        simpa using (mem_oneSidedSubgaussianNull_iff.1 hμ).2 l hl⟩).setLIntegral_le P
+      ((hg l).comp measurable_snd) fun _ ↦ ⟨hg l, fun μ hμ ↦
+        (mem_oneSidedSubgaussianNull_one_iff.1 hμ).2 l hl⟩).setLIntegral_le P
       (mem_sequentialNull_iff.2 ⟨hP, h⟩) s hs
 
 /-- The completion step: a finitely supported measure with exponential means below `1` becomes a
@@ -310,8 +311,7 @@ private lemma exists_mem_oneSidedSubgaussianNull_of_lt_one {α : Type*} [Fintype
     rw [Fintype.sum_option, add_comm]
     rfl
   refine ⟨z, ?_, by simp⟩
-  rw [hP, oneSidedSubgaussianNull_def, NNReal.coe_one]
-  simp_rw [one_mul]
+  rw [hP, oneSidedSubgaussianNull_one_eq]
   rw [sum_smul_dirac_mem_constraintNull_iff hΦ hw', Fintype.sum_option]
   refine ⟨by simp only [Option.elim_none, Option.elim_some, hsum]; ring, ?_⟩
   rintro _ ⟨⟨l, hl⟩, rfl⟩
@@ -778,7 +778,7 @@ private lemma isStrategy_graft {k : ℕ} {ω : ℕ → ℝ} {P : Measure ℝ}
                 by rw [h]), lintegral_const, measure_univ, mul_one, mul_comm]
           _ = ∫⁻ x, ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)) ∂P :=
               (lintegral_eq_sum_of_measure_compl_eq_zero hS _).symm
-          _ ≤ 1 := by simpa using (mem_oneSidedSubgaussianNull_iff.1 hP).2 l hl
+          _ ≤ 1 := (mem_oneSidedSubgaussianNull_one_iff.1 hP).2 l hl
       · exact le_rfl
   · dsimp only [graftTime]
     split_ifs
