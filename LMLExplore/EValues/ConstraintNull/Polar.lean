@@ -91,8 +91,8 @@ theorem constraintNull_image_toReal_sub_one (hm : ∀ Y ∈ 𝓔₀, Measurable 
   -- `Y = ofReal (Y.toReal)` with `Y.toReal = (Y.toReal - 1) + 1` integrable, of integral `≤ 1`
   have hint' : Integrable (fun x ↦ (Y x).toReal) μ :=
     (hint.add (integrable_const 1)).congr (ae_of_all _ fun _ ↦ sub_add_cancel _ _)
-  rw [integral_sub hint' (integrable_const 1), integral_const, probReal_univ, one_smul,
-    sub_nonpos] at hle
+  rw [integral_sub hint' (integrable_const 1)] at hle
+  simp only [integral_const, probReal_univ, one_smul, sub_nonpos] at hle
   calc ∫⁻ x, Y x ∂μ = ∫⁻ x, ENNReal.ofReal (Y x).toReal ∂μ := by
         simp_rw [ENNReal.ofReal_toReal (hfin Y hY _)]
     _ = ENNReal.ofReal (∫ x, (Y x).toReal ∂μ) :=

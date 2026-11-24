@@ -161,9 +161,8 @@ theorem mem_oneSidedSubgaussianNull_iff {μ : Measure ℝ} :
     (Y := fun (l : Ici (0 : ℝ)) x ↦ ENNReal.ofReal (Real.exp (l * x - l ^ 2 / 2)))
     (fun _ ↦ by fun_prop) fun _ _ ↦ ENNReal.ofReal_ne_top
   simp_rw [ENNReal.toReal_ofReal (Real.exp_pos _).le] at h
-  rw [oneSidedSubgaussianNull, h, mem_inter_iff, mem_polarNull_iff, forall_mem_range,
-    Subtype.forall, mem_ofPred_eq, and_comm]
-  simp only [mem_Ici]
+  rw [oneSidedSubgaussianNull, h]
+  simp [mem_polarNull_iff, and_comm]
 
 /-- **Rational exponents suffice.** A probability measure on the line belongs to the one-sided
 `1`-sub-Gaussian null as soon as every exponential `exp (q x - q ^ 2 / 2)` with a rational
