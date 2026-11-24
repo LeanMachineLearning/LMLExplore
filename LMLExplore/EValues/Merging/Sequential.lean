@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.Merging.Independent
 public import LMLExplore.Probability.Martingale.CondEVariable
 public import LMLExplore.Probability.Process.Filtration
+import LMLExplore.Order.Filter.Basic
 import LMLExplore.Probability.Distributions.Bernoulli
 
 /-!
@@ -36,8 +37,9 @@ of `readValues π` under a product of laws with expectation at most `1` is a seq
 se-merging function of the values read is a merging function for independent e-values, and the
 generalized martingale merging functions of [VW24, Section 6], the mixtures of martingale merging
 functions of the values read by reading strategies, are merging functions for independent
-e-values [VW24, Theorem 3]. They are moreover precise: their integral against a product of laws
-with expectation `1` is `1`, so they are admissible merging functions for independent e-values.
+e-values [VW24, Theorem 3]. When the initial capital is `1`, a mixture against a probability
+measure, they are moreover precise: their integral against a product of laws with expectation `1`
+is `1`, so they are admissible merging functions for independent e-values.
 
 Martingale merging functions are also admissible se-merging functions: the quasi-sure filter of the
 merging null of the sequential laws is, as for the product laws, the principal filter of the points
@@ -80,8 +82,10 @@ here.
   precise when the initial capital is `1`.
 * `ProbabilityTheory.isAdmissibleSEMerging_martingaleMerging`,
   `ProbabilityTheory.isAdmissibleIEMerging_martingaleMerging`: martingale merging functions are
-  admissible se-merging functions [VW24, Corollary 1] and admissible merging functions for
-  independent e-values.
+  admissible se-merging functions (one direction of [VW24, Corollary 1]) and admissible merging
+  functions for independent e-values.
+* `ProbabilityTheory.IsAdmissibleSEMerging.eq_of_le`: an se-merging function dominating an
+  admissible one at finite arguments equals it there.
 
 ## Implementation notes
 
@@ -90,8 +94,9 @@ functions, the values at infinite arguments are irrelevant (`ProbabilityTheory.I
 A gambling system of [VW24] is a function of the e-values read before; here the bet `b k` is a
 function on `Fin K → ℝ≥0∞` that is measurable for `Filtration.piLT k`, which is the same by the
 Doob–Dynkin lemma. The generalized martingale merging functions are stated for any family of
-gambling systems and reading strategies parametrized by a measurable space with a probability
-measure, such that the mixture is jointly measurable.
+gambling systems and reading strategies parametrized by a measurable space with a measure of mass
+at most `1` (a probability measure for precision), such that the mixture is jointly
+measurable.
 
 ## References
 
@@ -242,9 +247,23 @@ theorem measurable_martingaleMerging (hb : ∀ k, Measurable (b k)) :
   Finset.measurable_fun_prod _ fun k _ ↦
     ((hb k).const_sub 1).add ((hb k).mul (measurable_pi_apply k))
 
+/-- The factor of round `k` of a martingale merging function is the portfolio of `1` and of `e k`
+with the weights `1 - b k e` and `b k e`. -/
+private lemma factor_eq_sum_mul (k : Fin K) :
+    (fun e ↦ 1 - b k e + b k e * e k) = fun e ↦
+      ∑ i, ![1 - b k e, b k e] i * (![1, fun e ↦ e k] : Fin 2 → (Fin K → ℝ≥0∞) → ℝ≥0∞) i e := by
+  funext e
+  simp [Fin.sum_univ_two]
+
 variable (hb : ∀ k, Measurable[piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k] (b k))
   (hb1 : ∀ k e, b k e ≤ 1)
 include hb
+
+/-- The weights `1 - b k e` and `b k e` of the portfolio of round `k` are measurable for the strict
+past `piLT k`. -/
+private lemma measurable_piLT_weight (k : Fin K) (i : Fin 2) :
+    Measurable[piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k] fun e ↦ ![1 - b k e, b k e] i := by
+  fin_cases i <;> simp [(hb k).const_sub, hb k]
 
 /-- The factor of round `j` of a martingale merging function is measurable for the strict past at
 every later round `k`. -/
@@ -262,12 +281,10 @@ theorem lintegral_martingaleMerging_le (hμ : μ ∈ sequentialLaws K) :
   refine lintegral_prod_le_of_isCondEVar (piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le (fun k ↦ ?_)
     (fun j k hjk ↦ measurable_piLT_factor hb hjk) (Set.mem_singleton μ)
   -- the factor of round `k` is a portfolio of `1` and of `e k`
-  have := isCondEVar_sum_mul (S := {μ}) ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k)
-    (E := ![1, fun e ↦ e k]) (w := fun e ↦ ![1 - b k e, b k e])
-    (fun i ↦ by fin_cases i <;> simp [hμ k])
-    (fun i ↦ by fin_cases i <;> simp [(hb k).const_sub, hb k])
-    (fun e ↦ by simp [tsub_add_cancel_of_le (hb1 k e)])
-  simpa [Fin.sum_univ_two] using this
+  rw [factor_eq_sum_mul]
+  exact isCondEVar_sum_mul ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k)
+    (fun i ↦ by fin_cases i <;> simp [hμ k]) (measurable_piLT_weight hb k)
+    fun e ↦ by simp [tsub_add_cancel_of_le (hb1 k e)]
 
 /-- **Martingale merging functions are exact under exact sequential laws**: under a law under which
 each coordinate has conditional expectation `1` given the previous ones, the expectation of a
@@ -277,12 +294,10 @@ theorem lintegral_martingaleMerging_eq
     ∫⁻ e, martingaleMerging b e ∂μ = μ univ := by
   refine lintegral_prod_eq_of_isExactCondEVar (piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le (fun k ↦ ?_)
     (fun j k hjk ↦ measurable_piLT_factor hb hjk) (Set.mem_singleton μ)
-  have := isExactCondEVar_sum_mul (S := {μ}) ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k)
-    (E := ![1, fun e ↦ e k]) (w := fun e ↦ ![1 - b k e, b k e])
-    (fun i ↦ by fin_cases i <;> simp [hμ k])
-    (fun i ↦ by fin_cases i <;> simp [(hb k).const_sub, hb k])
-    (fun e ↦ by simp [tsub_add_cancel_of_le (hb1 k e)])
-  simpa [Fin.sum_univ_two] using this
+  rw [factor_eq_sum_mul]
+  exact isExactCondEVar_sum_mul ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k)
+    (fun i ↦ by fin_cases i <;> simp [hμ k]) (measurable_piLT_weight hb k)
+    fun e ↦ by simp [tsub_add_cancel_of_le (hb1 k e)]
 
 /-- **Martingale merging functions are se-merging** [VW24, Lemma 2]: for bets `b k` at most `1`
 that are measurable for the strict past `piLT k`. -/
@@ -336,11 +351,17 @@ theorem readIndex_eq (π : (k : Fin K) → (Fin k → ℝ≥0∞) → Fin K) (e 
 theorem isReadingStrategy_self : IsReadingStrategy fun (k : Fin K) (_ : Fin k → ℝ≥0∞) ↦ k :=
   ⟨fun _ ↦ measurable_const, fun _ _ hik _ ↦ hik.ne⟩
 
+/-- Reading the e-values in their order reads the e-value `k` at step `k`. -/
+@[simp]
+theorem readIndex_self (e : Fin K → ℝ≥0∞) (k : Fin K) :
+    readIndex (fun (k : Fin K) (_ : Fin k → ℝ≥0∞) ↦ k) e k = k :=
+  readIndex_eq _ _ _
+
 /-- Reading the e-values in their order gives back the e-values. -/
 @[simp]
 theorem readValues_self : readValues (fun (k : Fin K) (_ : Fin k → ℝ≥0∞) ↦ k) = id := by
   funext e k
-  rw [readValues_apply, readIndex_eq, id]
+  rw [readValues_apply, readIndex_self, id]
 
 /-- An e-value is never read twice: the indices read at different steps differ. -/
 theorem IsReadingStrategy.readIndex_ne (hπ : IsReadingStrategy π) {i k : Fin K} (hik : i < k)
@@ -351,21 +372,16 @@ theorem IsReadingStrategy.readIndex_ne (hπ : IsReadingStrategy π) {i k : Fin K
 /-- The index read at step `k` is measurable. -/
 theorem IsReadingStrategy.measurable_readIndex (hπ : IsReadingStrategy π) (k : Fin K) :
     Measurable fun e ↦ readIndex π e k := by
-  have h (j : Fin k) : Measurable fun e ↦ readValues π e (Fin.castLT j (j.isLt.trans k.isLt)) :=
-    (measurable_from_prod_countable_left fun i ↦ measurable_pi_apply i :
-      Measurable fun p : (Fin K → ℝ≥0∞) × Fin K ↦ p.fst p.snd).comp
-      (measurable_id.prodMk (hπ.measurable_readIndex (Fin.castLT j (j.isLt.trans k.isLt))))
-  simp_rw [readIndex_eq π _ k]
-  exact (hπ.measurable k).comp (Measurable.of_eval h)
+  simp_rw [readIndex_eq π _ k, readValues_apply]
+  exact (hπ.measurable k).comp (Measurable.of_eval fun j ↦
+    measurable_id.eval_index (hπ.measurable_readIndex (Fin.castLT j (j.isLt.trans k.isLt))))
 termination_by k.val
 decreasing_by exact j.isLt
 
 /-- The values read by a reading strategy are measurable. -/
 theorem IsReadingStrategy.measurable_readValues (hπ : IsReadingStrategy π) :
     Measurable (readValues π) :=
-  Measurable.of_eval fun k ↦ (measurable_from_prod_countable_left fun i ↦
-    measurable_pi_apply i : Measurable fun p : (Fin K → ℝ≥0∞) × Fin K ↦ p.fst p.snd).comp
-      (measurable_id.prodMk (hπ.measurable_readIndex k))
+  Measurable.of_eval fun k ↦ measurable_id.eval_index (hπ.measurable_readIndex k)
 
 /-- Changing an e-value that is not read before step `k` does not change the index read at
 step `k`. -/
@@ -424,24 +440,28 @@ private lemma measurableSet_iSup_compl_readIndex {k j : Fin K} {s : Set (Fin K �
   have hupd : Measurable[⨆ i ∈ ({j}ᶜ : Set (Fin K)),
       MeasurableSpace.comap (fun e : Fin K → ℝ≥0∞ ↦ e i) inferInstance]
       fun e : Fin K → ℝ≥0∞ ↦ Function.update e j 0 := by
-    refine @Measurable.of_eval _ _ _ (_) _ _ fun i ↦ ?_
+    -- as in `measurable_pi_iff`, whose source σ-algebra is an instance: coordinatewise
+    refine measurable_iff_comap_le.2 ?_
+    simp only [MeasurableSpace.pi, MeasurableSpace.comap_iSup, MeasurableSpace.comap_comp]
+    refine iSup_le fun i ↦ measurable_iff_comap_le.1 ?_
     by_cases hi : i = j
     · subst hi
-      simp
-    · simp only [Function.update_of_ne hi]
-      exact Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ ({j}ᶜ : Set (Fin K))) ↦
-        MeasurableSpace.comap (fun e : Fin K → ℝ≥0∞ ↦ e i) inferInstance) i hi)
+      simp [Function.comp_def]
+    · simp only [Function.comp_def, Function.update_of_ne hi]
+      exact measurable_biSup_comap (fun i (e : Fin K → ℝ≥0∞) ↦ e i) hi
   have := hupd ht
   rwa [ht_eq] at this
 
-/-- Under a product of laws, the set integral of the value read at step `k` over the event that
-the values read before form a point of a set `s` of the strict past is the sum, over the indices
-`j`, of the probability that `j` is read at step `k` on this event times the mean of `ν j`. -/
-private lemma setLIntegral_readValues_pi {k : Fin K} {s : Set (Fin K → ℝ≥0∞)}
+/-- Under the law of the values read from a product of laws, the set integral of the value read at
+step `k` over a set `s` of the strict past is the sum, over the indices `j`, of the probability that
+`j` is read at step `k` while the values read lie in `s`, times the mean of `ν j`. -/
+private lemma setLIntegral_map_readValues_pi {k : Fin K} {s : Set (Fin K → ℝ≥0∞)}
     (hs : MeasurableSet[piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k] s) :
-    ∫⁻ e in readValues π ⁻¹' s, readValues π e k ∂Measure.pi ν =
+    ∫⁻ e in s, e k ∂(Measure.pi ν).map (readValues π) =
       ∑ j, Measure.pi ν ((fun e ↦ readIndex π e k) ⁻¹' {j} ∩ readValues π ⁻¹' s) *
         ∫⁻ x, x ∂ν j := by
+  rw [setLIntegral_map ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k s hs) (measurable_pi_apply k)
+    hπ.measurable_readValues]
   have hB (j : Fin K) : MeasurableSet ((fun e ↦ readIndex π e k) ⁻¹' {j}) :=
     hπ.measurable_readIndex k (measurableSet_singleton j)
   -- the value read at step `k` is the coordinate `j` on the event that `j` is read at step `k`
@@ -463,8 +483,7 @@ private lemma setLIntegral_readValues_pi {k : Fin K} {s : Set (Fin K → ℝ≥0
       fun _ ↦ aemeasurable_id)) (disjoint_compl_left (a := ({j} : Set (Fin K))))
   have hj : Measurable[⨆ i ∈ ({j} : Set (Fin K)),
       MeasurableSpace.comap (fun e : Fin K → ℝ≥0∞ ↦ e i) inferInstance] fun e ↦ e j :=
-    Measurable.of_comap_le (le_iSup₂ (f := fun i (_ : i ∈ ({j} : Set (Fin K))) ↦
-      MeasurableSpace.comap (fun e : Fin K → ℝ≥0∞ ↦ e i) inferInstance) j rfl)
+    measurable_biSup_comap (fun i (e : Fin K → ℝ≥0∞) ↦ e i) rfl
   calc ∫⁻ e in t, e j ∂Measure.pi ν = ∫⁻ e, t.indicator (fun _ ↦ 1) e * e j ∂Measure.pi ν := by
         rw [← lintegral_indicator ht]
         refine lintegral_congr fun e ↦ ?_
@@ -477,12 +496,13 @@ private lemma setLIntegral_readValues_pi {k : Fin K} {s : Set (Fin K → ℝ≥0
           lintegral_indicator_const ht, one_mul,
           (measurePreserving_eval ν j).lintegral_comp measurable_id']
 
-/-- The mass of an event is the sum, over the indices `j`, of its intersections with the events
-that `j` is read at step `k`. -/
-private lemma measure_eq_sum_readIndex (k : Fin K) (μ : Measure (Fin K → ℝ≥0∞))
-    (A : Set (Fin K → ℝ≥0∞)) :
-    μ A = ∑ j, μ ((fun e ↦ readIndex π e k) ⁻¹' {j} ∩ A) := by
-  have := sum_measure_preimage_singleton (μ := μ.restrict A) Finset.univ
+/-- The mass of a measurable set `s` under the law of the values read is the sum, over the indices
+`j`, of the masses of the events that `j` is read at step `k` while the values read lie in `s`. -/
+private lemma map_readValues_apply_eq_sum (k : Fin K) (μ : Measure (Fin K → ℝ≥0∞))
+    {s : Set (Fin K → ℝ≥0∞)} (hs : MeasurableSet s) :
+    μ.map (readValues π) s = ∑ j, μ ((fun e ↦ readIndex π e k) ⁻¹' {j} ∩ readValues π ⁻¹' s) := by
+  rw [Measure.map_apply hπ.measurable_readValues hs]
+  have := sum_measure_preimage_singleton (μ := μ.restrict (readValues π ⁻¹' s)) Finset.univ
     (f := fun e ↦ readIndex π e k) fun j _ ↦ hπ.measurable_readIndex k (measurableSet_singleton j)
   simp only [Finset.coe_univ, preimage_univ, Measure.restrict_apply_univ] at this
   rw [← this]
@@ -495,12 +515,8 @@ strategy is a sequential law. -/
 theorem map_readValues_pi_mem_sequentialLaws (hν : ∀ i, ∫⁻ x, x ∂ν i ≤ 1) :
     (Measure.pi ν).map (readValues π) ∈ sequentialLaws K := by
   refine fun k ↦ ⟨measurable_pi_apply k, fun μ hμ s hs ↦ ?_⟩
-  rw [Set.mem_singleton_iff] at hμ
-  subst hμ
-  have hs' : MeasurableSet s := (piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k s hs
-  rw [setLIntegral_map hs' (measurable_pi_apply k) hπ.measurable_readValues,
-    Measure.map_apply hπ.measurable_readValues hs', setLIntegral_readValues_pi hπ ν hs,
-    measure_eq_sum_readIndex hπ k]
+  rw [Set.mem_singleton_iff.1 hμ, setLIntegral_map_readValues_pi hπ ν hs,
+    map_readValues_apply_eq_sum hπ k _ ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k s hs)]
   exact Finset.sum_le_sum fun j _ ↦ mul_le_of_le_one_right' (hν j)
 
 /-- **Independent e-values with expectation `1` read by a reading strategy are exact sequential
@@ -510,12 +526,8 @@ theorem isExactCondEVar_map_readValues_pi (hν : ∀ i, ∫⁻ x, x ∂ν i = 1)
     IsExactCondEVar (fun e ↦ e k) (piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k)
       {(Measure.pi ν).map (readValues π)} := by
   refine ⟨measurable_pi_apply k, fun μ hμ s hs ↦ ?_⟩
-  rw [Set.mem_singleton_iff] at hμ
-  subst hμ
-  have hs' : MeasurableSet s := (piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k s hs
-  rw [setLIntegral_map hs' (measurable_pi_apply k) hπ.measurable_readValues,
-    Measure.map_apply hπ.measurable_readValues hs', setLIntegral_readValues_pi hπ ν hs,
-    measure_eq_sum_readIndex hπ k]
+  rw [Set.mem_singleton_iff.1 hμ, setLIntegral_map_readValues_pi hπ ν hs,
+    map_readValues_apply_eq_sum hπ k _ ((piLT (X := fun _ : Fin K ↦ ℝ≥0∞)).le k s hs)]
   simp [hν]
 
 omit [∀ i, IsProbabilityMeasure (ν i)] in
@@ -570,7 +582,7 @@ measurable space of parameters, of martingale merging functions of the values re
 strategies, with bets `b a` and reading strategies `π a` depending on the parameter `a`, is a
 merging function for independent e-values when it is jointly measurable. -/
 theorem isIEMerging_lintegral_martingaleMerging_readValues {A : Type*}
-    {mA : MeasurableSpace A} {ρ : Measure A} [SFinite ρ] (hρ : ρ univ ≤ 1)
+    {mA : MeasurableSpace A} {ρ : Measure A} (hρ : ρ univ ≤ 1)
     {b : A → Fin K → (Fin K → ℝ≥0∞) → ℝ≥0∞} {π : A → (k : Fin K) → (Fin k → ℝ≥0∞) → Fin K}
     (hb : ∀ a k, Measurable[piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k] (b a k))
     (hb1 : ∀ a k e, b a k e ≤ 1) (hπ : ∀ a, IsReadingStrategy (π a))
@@ -619,7 +631,7 @@ sequential laws, whose e-variables are the se-merging functions
 (`isSEMerging_iff_isEVar_mergingNull`). Its quasi-sure filter is the principal filter of the
 points with finite coordinates (`quasiSure_mergingNull_sequentialLaws_eq_principal`), so `F` is
 admissible when every se-merging function dominating it at finite arguments equals it there
-(`isAdmissibleSEMerging_iff_isAdmissible`). -/
+(`isAdmissibleSEMerging_iff_isAdmissible`, `ProbabilityTheory.IsAdmissibleSEMerging.eq_of_le`). -/
 abbrev IsAdmissibleSEMerging (F : (Fin K → ℝ≥0∞) → ℝ≥0∞) : Prop :=
   IsAdmissibleEVar F (mergingNull (sequentialLaws K))
 
@@ -637,6 +649,15 @@ theorem isAdmissibleSEMerging_iff_isAdmissible :
   simp only [IsAdmissibleSEMerging, IsAdmissibleEVar,
     quasiSure_mergingNull_sequentialLaws_eq_principal, ← isSEMerging_iff_isEVar_mergingNull]
 
+/-- An se-merging function dominating an admissible se-merging function at finite arguments equals
+it there. -/
+theorem IsAdmissibleSEMerging.eq_of_le (hF : IsAdmissibleSEMerging F) (hG : IsSEMerging G)
+    (hFG : ∀ e : Fin K → ℝ≥0, F (fun i ↦ e i) ≤ G (fun i ↦ e i)) (e : Fin K → ℝ≥0) :
+    G (fun i ↦ e i) = F (fun i ↦ e i) :=
+  (Filter.eventuallyLE_principal_range_iff.1
+    ((isAdmissibleSEMerging_iff_isAdmissible.1 hF).eventuallyLE hG
+      (Filter.eventuallyLE_principal_range_iff.2 hFG)) e).antisymm (hFG e)
+
 /-- **An se-merging function that is admissible among the merging functions for independent
 e-values is an admissible se-merging function**: an se-merging function dominating it is a merging
 function for independent e-values. -/
@@ -653,7 +674,8 @@ theorem isAdmissibleIEMerging_martingaleMerging {b : Fin K → (Fin K → ℝ≥
     IsAdmissibleIEMerging (martingaleMerging b) :=
   (isPreciseIEMerging_martingaleMerging hb hb1).isAdmissibleIEMerging
 
-/-- **Martingale merging functions are admissible se-merging functions** [VW24, Corollary 1]. -/
+/-- **Martingale merging functions are admissible se-merging functions**: one direction of
+[VW24, Corollary 1]. -/
 theorem isAdmissibleSEMerging_martingaleMerging {b : Fin K → (Fin K → ℝ≥0∞) → ℝ≥0∞}
     (hb : ∀ k, Measurable[piLT (X := fun _ : Fin K ↦ ℝ≥0∞) k] (b k)) (hb1 : ∀ k e, b k e ≤ 1) :
     IsAdmissibleSEMerging (martingaleMerging b) :=

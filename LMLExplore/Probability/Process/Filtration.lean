@@ -94,8 +94,7 @@ lemma naturalLT_apply (hu : ∀ i, Measurable (u i)) (i : ι) :
 /-- For `j < i`, the variable `u j` is measurable for the strict past `naturalLT u hu i`. -/
 theorem measurable_naturalLT (hu : ∀ i, Measurable (u i)) {i j : ι} (hji : j < i) :
     Measurable[naturalLT u hu i] (u j) :=
-  Measurable.of_comap_le (le_iSup₂ (f := fun k (_ : k < i) ↦
-    MeasurableSpace.comap (u k) inferInstance) j hji)
+  measurable_biSup_comap u hji
 
 /-- If the variables `u i` are independent, each `u i` is independent of its strict past
 `naturalLT u hu i`. -/

@@ -291,6 +291,13 @@ theorem isExactCondEVar_sum_mul [Fintype ι] (hm : m ≤ mΩ) {E : ι → Ω →
 
 /-! ### Finite products -/
 
+/-- The product of the first `n` factors `X j` is measurable for `m ⟨n, _⟩` when every earlier
+factor is: the measurability step of the induction over the number of factors. -/
+private lemma measurable_prod_castLE {K n : ℕ} (hn : n + 1 ≤ K) {m : Fin K → MeasurableSpace Ω}
+    {X : Fin K → Ω → ℝ≥0∞} (hXm : ∀ j k, j < k → Measurable[m k] (X j)) :
+    Measurable[m (Fin.castLE hn (Fin.last n))] fun ω ↦ ∏ k : Fin n, X (Fin.castLE (by omega) k) ω :=
+  Finset.measurable_fun_prod _ fun k _ ↦ hXm _ _ (Fin.lt_def.2 k.isLt)
+
 /-- **Products of sequential conditional e-variables.** For `X k`, `k : Fin K`, a conditional
 e-variable given `m k` such that every earlier factor `X j`, `j < k`, is `m k`-measurable, the
 expectation of the product `∏ k, X k` under each member of the null is at most its mass. -/
@@ -299,25 +306,15 @@ theorem lintegral_prod_le_of_isCondEVar {K : ℕ} {m : Fin K → MeasurableSpace
     (hXm : ∀ j k, j < k → Measurable[m k] (X j)) (hP : P ∈ S) :
     ∫⁻ ω, ∏ k, X k ω ∂P ≤ P univ := by
   -- induction on the number `n` of factors already multiplied, the factors `k < n`
-  suffices h : ∀ n ≤ K, ∫⁻ ω, ∏ k ∈ Finset.univ.filter (fun k : Fin K ↦ (k : ℕ) < n), X k ω ∂P ≤
-      P univ by
+  suffices h : ∀ n (hn : n ≤ K), ∫⁻ ω, ∏ k : Fin n, X (Fin.castLE hn k) ω ∂P ≤ P univ by
     simpa using h K le_rfl
   intro n
   induction n with
   | zero => simp
   | succ n ih =>
     intro hn
-    have hfilter : Finset.univ.filter (fun k : Fin K ↦ (k : ℕ) < n + 1) =
-        insert ⟨n, hn⟩ (Finset.univ.filter fun k : Fin K ↦ (k : ℕ) < n) := by
-      ext k
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_insert, Fin.ext_iff]
-      omega
-    have hQ : Measurable[m ⟨n, hn⟩] fun ω ↦ ∏ k ∈ Finset.univ.filter
-        (fun k : Fin K ↦ (k : ℕ) < n), X k ω :=
-      Finset.measurable_fun_prod _ fun k hk ↦ hXm k _ (by simpa [Fin.lt_def] using hk)
-    have hnot : (⟨n, hn⟩ : Fin K) ∉ Finset.univ.filter fun k : Fin K ↦ (k : ℕ) < n := by simp
-    simp_rw [hfilter, Finset.prod_insert hnot, mul_comm (X ⟨n, hn⟩ _)]
-    exact ((hX _).lintegral_mul_le (hm _) hP hQ).trans (ih (by omega))
+    simp_rw [Fin.prod_univ_castSucc, Fin.castLE_castSucc]
+    exact ((hX _).lintegral_mul_le (hm _) hP (measurable_prod_castLE hn hXm)).trans (ih _)
 
 /-- **Products of sequential exact conditional e-variables.** For `X k`, `k : Fin K`, an exact
 conditional e-variable given `m k` such that every earlier factor `X j`, `j < k`, is
@@ -327,24 +324,14 @@ theorem lintegral_prod_eq_of_isExactCondEVar {K : ℕ} {m : Fin K → Measurable
     (hm : ∀ k, m k ≤ mΩ) {X : Fin K → Ω → ℝ≥0∞} (hX : ∀ k, IsExactCondEVar (X k) (m k) S)
     (hXm : ∀ j k, j < k → Measurable[m k] (X j)) (hP : P ∈ S) :
     ∫⁻ ω, ∏ k, X k ω ∂P = P univ := by
-  suffices h : ∀ n ≤ K, ∫⁻ ω, ∏ k ∈ Finset.univ.filter (fun k : Fin K ↦ (k : ℕ) < n), X k ω ∂P =
-      P univ by
+  suffices h : ∀ n (hn : n ≤ K), ∫⁻ ω, ∏ k : Fin n, X (Fin.castLE hn k) ω ∂P = P univ by
     simpa using h K le_rfl
   intro n
   induction n with
   | zero => simp
   | succ n ih =>
     intro hn
-    have hfilter : Finset.univ.filter (fun k : Fin K ↦ (k : ℕ) < n + 1) =
-        insert ⟨n, hn⟩ (Finset.univ.filter fun k : Fin K ↦ (k : ℕ) < n) := by
-      ext k
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_insert, Fin.ext_iff]
-      omega
-    have hQ : Measurable[m ⟨n, hn⟩] fun ω ↦ ∏ k ∈ Finset.univ.filter
-        (fun k : Fin K ↦ (k : ℕ) < n), X k ω :=
-      Finset.measurable_fun_prod _ fun k hk ↦ hXm k _ (by simpa [Fin.lt_def] using hk)
-    have hnot : (⟨n, hn⟩ : Fin K) ∉ Finset.univ.filter fun k : Fin K ↦ (k : ℕ) < n := by simp
-    simp_rw [hfilter, Finset.prod_insert hnot, mul_comm (X ⟨n, hn⟩ _)]
-    exact ((hX _).lintegral_mul_eq (hm _) hP hQ).trans (ih (by omega))
+    simp_rw [Fin.prod_univ_castSucc, Fin.castLE_castSucc]
+    exact ((hX _).lintegral_mul_eq (hm _) hP (measurable_prod_castLE hn hXm)).trans (ih _)
 
 end ProbabilityTheory

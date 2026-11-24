@@ -393,12 +393,14 @@ theorem isPreciseIEMerging_tsum_mul (hw : ∑' j, w j = 1) (hF : ∀ j, IsPrecis
   rw [lintegral_tsum fun j ↦ ((hF j).measurable.const_mul _).aemeasurable]
   simp_rw [lintegral_const_mul _ (hF _).measurable, (hF _).lintegral_eq_one μ hμ, mul_one, hw]
 
-/-- A mixture `∫⁻ a, G a e ∂ρ`, against an s-finite measure `ρ` of mass at most `1`, of a jointly
-measurable family of merging functions for independent e-values is one. -/
-theorem isIEMerging_lintegral {A : Type*} {mA : MeasurableSpace A} {ρ : Measure A} [SFinite ρ]
+/-- A mixture `∫⁻ a, G a e ∂ρ`, against a measure `ρ` of mass at most `1`, of a jointly measurable
+family of merging functions for independent e-values is one. -/
+theorem isIEMerging_lintegral {A : Type*} {mA : MeasurableSpace A} {ρ : Measure A}
     (hρ : ρ Set.univ ≤ 1) {G : A → (ι → ℝ≥0∞) → ℝ≥0∞} (hGm : Measurable (Function.uncurry G))
     (hG : ∀ a, IsIEMerging (G a)) :
     IsIEMerging fun e ↦ ∫⁻ a, G a e ∂ρ := by
+  -- a measure of mass at most `1` is finite, hence s-finite, so the integrals can be swapped
+  have : IsFiniteMeasure ρ := ⟨hρ.trans_lt ENNReal.one_lt_top⟩
   refine ⟨hGm.lintegral_prod_left', fun μ _ hμ ↦ ?_⟩
   rw [lintegral_lintegral_swap (f := fun e a ↦ G a e) (hGm.comp measurable_swap).aemeasurable]
   calc ∫⁻ a, ∫⁻ e, G a e ∂Measure.pi μ ∂ρ ≤ ∫⁻ _, 1 ∂ρ :=
