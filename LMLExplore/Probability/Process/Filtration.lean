@@ -255,6 +255,31 @@ lemma _root_.MeasureTheory.IsStoppingTime.eq_of_forall_lt {τ : (Π n, X n) → 
     simpa using hτ.measurableSet_eq n
   exact (hm.dependsOn_of_piLT h).1 hn
 
+/-- Replacing the term of index `n` of a sequence is measurable from the strict past
+`piLT n` and the new term to the strict past `piLT (n + 1)`. -/
+lemma measurable_update_piLT (n : ℕ) :
+    @Measurable _ _ ((piLT (X := X) n).prod inferInstance) (piLT (X := X) (n + 1))
+      fun p : (Π n, X n) × X n ↦ Function.update p.1 n p.2 := by
+  rw [measurable_iff_comap_le, piLT_apply, MeasurableSpace.comap_iSup]
+  refine iSup_le fun j ↦ ?_
+  rw [MeasurableSpace.comap_iSup]
+  refine iSup_le fun hj ↦ ?_
+  rw [MeasurableSpace.comap_comp]
+  refine Measurable.comap_le ?_
+  rcases eq_or_ne j n with rfl | hjn
+  · simpa [Function.comp_def] using measurable_snd
+  · simp only [Function.comp_def, Function.update_of_ne hjn]
+    exact (measurable_piLT_apply (by omega)).comp measurable_fst
+
+/-- For a process `M` adapted to `piLT`, the function `(ω, y) ↦ M (n + 1) (update ω n y)`, the
+value at time `n + 1` with the term of index `n` replaced by `y`, is jointly measurable for the
+strict past `piLT n` and the new term. -/
+lemma _root_.MeasureTheory.Adapted.measurable_uncurry_update_piLT {β : Type*}
+    [MeasurableSpace β] {M : ℕ → (Π n, X n) → β} (hM : Adapted piLT M) (n : ℕ) :
+    Measurable[(piLT (X := X) n).prod inferInstance]
+      (Function.uncurry fun ω y ↦ M (n + 1) (Function.update ω n y)) :=
+  (hM (n + 1)).comp (measurable_update_piLT n)
+
 end piLTNat
 
 /-! ### The filtration of the first coordinates -/
