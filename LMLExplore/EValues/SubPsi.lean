@@ -10,7 +10,7 @@ public import LMLExplore.EValues.SubGaussian.SequentialCompleteClass
 public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Martingale.ExactVille
 public import LMLExplore.Probability.Martingale.Freedman
-public import LMLExplore.Probability.Moments.MGF.Bound
+public import LMLExplore.Probability.Martingale.MGFBound
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import LMLExplore.Analysis.SpecialFunctions.Log.ERealExp
 import LMLExplore.Data.EReal.Basic
@@ -32,12 +32,18 @@ cumulant generating function is at most `ψ` on `Λ`, and under every member of 
 `condEVarNull (subPsiBets ψ Λ) X ℱ` of laws under which each of them, at the next observation, is
 a conditional e-variable given the past, the process `exp (t ∑ k < n, X k - n ψ t)` is a test
 supermartingale. So the partial sums, with the intrinsic time `n`, are `1`-sub-ψ for that null.
-The laws with a conditional bound on the moment generating function (LMLExplore's
-`HasCondMGFBound`) are members of it, and the one-sided conditionally `1`-sub-Gaussian null is the
-case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Under a fixed finite measure `μ` (the null `{μ}`), Freedman's
-exponential supermartingale makes the partial sums of supermartingale differences, square
-integrable and bounded above by some `b > 0`, sub-Poisson, `ψ t = (exp (t b) - 1 - t b) / b ^ 2`,
-with the sum of the conditional second moments as intrinsic time.
+The parameter may also be chosen from the past: under every member of the null, the bet
+`exp (θ x - ψ θ)` at an `ℱ k`-measurable parameter `θ` with values in `Λ` is a conditional
+e-variable given `ℱ k` when `θ` has countably many values, or when `ψ` is upper semicontinuous on
+`Λ`. For an upper semicontinuous `ψ` and adapted weights `w` with `t w k ∈ Λ`, the process
+`exp (t ∑ k < n, w k X k - ∑ k < n, ψ (t w k))` is then a test supermartingale for the null, on any
+measurable space. The laws with a conditional bound on the moment generating function
+(LMLExplore's `HasCondMGFBound`) are members of the null, and the one-sided conditionally
+`1`-sub-Gaussian null is the case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Under a fixed finite measure
+`μ` (the null `{μ}`), Freedman's exponential supermartingale makes the partial sums of
+supermartingale differences, square integrable and bounded above by some `b > 0`, sub-Poisson,
+`ψ t = (exp (t b) - 1 - t b) / b ^ 2`, with the sum of the conditional second moments as intrinsic
+time.
 
 Ville's inequality applied to the supermartingales `L` gives the bounds of [HRMS20, Theorem 1(a)],
 conditionally on `ℱ 0`: for a nonnegative intrinsic time, the probability that `S` ever crosses
@@ -61,6 +67,13 @@ line `a + b n`.
   `exp (t ∑ k < n, X k - n ψ t)` is a test supermartingale for the null of the sub-ψ bets.
 * `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_hasCondMGFBound`: a law with conditional
   moment generating functions bounded by `exp ψ` on `Λ` belongs to that null.
+* `ProbabilityTheory.isCondEVar_exp_mul_sub_condEVarNull_of_countable`,
+  `ProbabilityTheory.isCondEVar_exp_mul_sub_condEVarNull`: under that null, the bets at a
+  predictable parameter with countably many values, or with an upper semicontinuous `ψ`, are
+  conditional e-variables.
+* `ProbabilityTheory.isTestSupermartingale_exp_mul_sum_sub_sum_condEVarNull`: the exponential
+  process `exp (t ∑ k < n, w k X k - ∑ k < n, ψ (t w k))` with predictable weights is a test
+  supermartingale for that null.
 * `ProbabilityTheory.oneSidedCondSubgaussianNull_eq_condEVarNull`: the one-sided conditionally
   `1`-sub-Gaussian null is the null of the sub-Gaussian bets.
 * `ProbabilityTheory.isSubPsiProcess_sum_condEVarNull`,
@@ -92,7 +105,7 @@ adapted processes and a null of probability measures.
 
 public section
 
-open MeasureTheory Set Finset Real
+open MeasureTheory Set Finset Real Filter Topology
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -149,23 +162,117 @@ theorem mem_condEVarNull_subPsiBets_of_hasCondMGFBound [StandardBorelSpace Ω]
     P ∈ condEVarNull (subPsiBets ψ Λ) X ℱ := by
   refine mem_condEVarNull_iff.2 ⟨inferInstance, fun k e he ↦ ?_⟩
   obtain ⟨t, ht, rfl⟩ := he
-  refine ⟨by fun_prop, ?_⟩
-  rintro Q rfl s hs
-  -- with `g = 𝟙_s exp (-ψ t)`, the conditional bound reads `∫⁻ g exp (t X k) ≤ ∫⁻ g exp (ψ t)`
-  set g : Ω → ℝ≥0∞ := s.indicator fun _ ↦ ENNReal.ofReal (exp (-ψ t))
-  have h := (hψ k).lintegral_mul_exp_le (hX k) (s := fun _ ↦ t) measurable_const
-    (ae_of_all _ fun _ ↦ ht) (g := g) (measurable_const.indicator hs)
-  have hl : ∀ ω, s.indicator (fun ω ↦ ENNReal.ofReal (exp (t * X k ω - ψ t))) ω =
-      g ω * ENNReal.ofReal (exp (t * X k ω)) := fun ω ↦ by
-    by_cases hω : ω ∈ s <;>
-      simp [g, hω, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add, sub_eq_neg_add]
-  have hr : ∀ ω, g ω * ENNReal.ofReal (exp (ψ t)) = s.indicator 1 ω := fun ω ↦ by
-    by_cases hω : ω ∈ s <;> simp [g, hω, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
-  rw [← lintegral_indicator (ℱ.le k _ hs)]
-  simp_rw [hl]
-  refine h.trans_eq ?_
-  simp_rw [hr]
-  exact lintegral_indicator_one (ℱ.le k _ hs)
+  exact (hψ k).isCondEVar_exp_mul_sub (hX k) measurable_const (ae_of_all _ fun _ ↦ ht)
+    measurable_const
+
+/-! ### Bets at a predictable parameter -/
+
+/-- **Bets at a predictable parameter with countably many values.** Under every member of the
+null of the sub-ψ bets, for an `ℱ k`-measurable parameter `θ` with countably many values, all in
+`Λ`, the bet `exp (θ X k - ψ θ)` at the next observation is a conditional e-variable given
+`ℱ k`: on each event `{θ = c}`, which is known given `ℱ k`, it is the bet at the parameter `c`. -/
+theorem isCondEVar_exp_mul_sub_condEVarNull_of_countable {k : ℕ} {θ : Ω → ℝ}
+    (hX : Measurable (X k)) (hθ : Measurable[ℱ k] θ) (hθΛ : ∀ ω, θ ω ∈ Λ)
+    (hθc : (range θ).Countable) :
+    IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (θ ω * X k ω - ψ (θ ω)))) (ℱ k)
+      (condEVarNull (subPsiBets ψ Λ) X ℱ) := by
+  have : Countable (range θ) := hθc.to_subtype
+  have hψθ : Measurable[ℱ k] fun ω ↦ ψ (θ ω) :=
+    (Measurable.of_discrete (f := fun c : range θ ↦ ψ c)).comp
+      (hθ.subtype_mk (h := mem_range_self))
+  refine ⟨(((hθ.mono (ℱ.le k) le_rfl).mul hX).sub (hψθ.mono (ℱ.le k) le_rfl)).exp.ennreal_ofReal,
+    fun P hP s hs ↦ ?_⟩
+  -- split `s` along the values of `θ`
+  set A : range θ → Set Ω := fun c ↦ s ∩ θ ⁻¹' {(c : ℝ)}
+  have hA (c : range θ) : MeasurableSet[ℱ k] (A c) := hs.inter (hθ (measurableSet_singleton _))
+  have hdisj : Pairwise (Function.onFun Disjoint A) := fun c d hcd ↦
+    Set.disjoint_left.2 fun ω h₁ h₂ ↦ hcd (Subtype.ext (h₁.2.symm.trans h₂.2))
+  have hsA : s = ⋃ c, A c := by
+    ext ω
+    exact ⟨fun h ↦ mem_iUnion.2 ⟨⟨θ ω, mem_range_self ω⟩, h, rfl⟩,
+      fun h ↦ (mem_iUnion.1 h).choose_spec.1⟩
+  rw [hsA, lintegral_iUnion (fun c ↦ ℱ.le k _ (hA c)) hdisj,
+    measure_iUnion hdisj fun c ↦ ℱ.le k _ (hA c)]
+  refine tsum_le_tsum fun c ↦ ?_
+  obtain ⟨ω₀, hω₀⟩ := c.property
+  rw [setLIntegral_congr_fun (ℱ.le k _ (hA c)) fun ω hω ↦ by rw [show θ ω = c from hω.2]]
+  exact (isCondEVar_comp_condEVarNull (exp_mem_subPsiBets (hω₀ ▸ hθΛ ω₀)) (by fun_prop))
+    |>.setLIntegral_le P hP _ (hA c)
+
+/-- **Bets at a predictable parameter.** Let `ψ` be upper semicontinuous on `Λ`. Under every
+member of the null of the sub-ψ bets, for an `ℱ k`-measurable parameter `θ` with values in `Λ`,
+the bet `exp (θ X k - ψ θ)` at the next observation is a conditional e-variable given `ℱ k`. -/
+theorem isCondEVar_exp_mul_sub_condEVarNull {k : ℕ} {θ : Ω → ℝ}
+    (hψ : UpperSemicontinuousOn ψ Λ) (hX : Measurable (X k)) (hθ : Measurable[ℱ k] θ)
+    (hθΛ : ∀ ω, θ ω ∈ Λ) :
+    IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (θ ω * X k ω - ψ (θ ω)))) (ℱ k)
+      (condEVarNull (subPsiBets ψ Λ) X ℱ) := by
+  have hψθ : Measurable[ℱ k] fun ω ↦ ψ (θ ω) :=
+    (upperSemicontinuousOn_iff_restrict.2 hψ).measurable.comp (hθ.subtype_mk (h := hθΛ))
+  rcases Λ.eq_empty_or_nonempty with rfl | ⟨y₀, h₀⟩
+  · have : IsEmpty Ω := ⟨fun ω ↦ hθΛ ω⟩
+    exact ⟨Subsingleton.measurable, fun P _ s _ ↦ by simp [Set.eq_empty_of_isEmpty s]⟩
+  -- `θ` is the limit of `ℱ k`-measurable parameters `θn n` with finitely many values in `Λ`; by
+  -- the semicontinuity of `ψ`, the bet at `θ` is at most the `liminf` of the bets at `θn n`, which
+  -- are conditional e-variables, and Fatou's lemma concludes
+  obtain ⟨θn, hθn_meas, hθn_fin, hθn_Λ, hθn_lim⟩ : ∃ θn : ℕ → Ω → ℝ,
+      (∀ n, Measurable[ℱ k] (θn n)) ∧ (∀ n, (range (θn n)).Finite) ∧ (∀ n ω, θn n ω ∈ Λ) ∧
+      ∀ ω, Tendsto (fun n ↦ θn n ω) atTop (𝓝 (θ ω)) :=
+    ⟨fun n ↦ @SimpleFunc.approxOn ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ n,
+      fun n ↦ @SimpleFunc.measurable Ω ℝ (ℱ k) _ _,
+      fun n ↦ @SimpleFunc.finite_range Ω ℝ (ℱ k) _,
+      fun n ω ↦ @SimpleFunc.approxOn_mem ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ n ω,
+      fun ω ↦ @SimpleFunc.tendsto_approxOn ℝ Ω _ _ _ (ℱ k) θ hθ Λ y₀ h₀ _ ω
+        (subset_closure (hθΛ ω))⟩
+  have hθn (n : ℕ) := isCondEVar_exp_mul_sub_condEVarNull_of_countable (ψ := ψ) (ℱ := ℱ) hX
+    (hθn_meas n) (hθn_Λ n) (hθn_fin n).countable
+  refine ⟨(((hθ.mono (ℱ.le k) le_rfl).mul hX).sub (hψθ.mono (ℱ.le k) le_rfl)).exp.ennreal_ofReal,
+    fun P hP s hs ↦ ?_⟩
+  -- the bet at `θ` is below the `liminf` of the bets at the approximations
+  have hle (ω : Ω) : ENNReal.ofReal (exp (θ ω * X k ω - ψ (θ ω))) ≤
+      liminf (fun n ↦ ENNReal.ofReal (exp (θn n ω * X k ω - ψ (θn n ω)))) atTop := by
+    have h₁ : LowerSemicontinuousWithinAt (fun u ↦ u * X k ω) Λ (θ ω) :=
+      (continuous_id.mul continuous_const).continuousAt.continuousWithinAt
+        |>.lowerSemicontinuousWithinAt
+    have h₂ : LowerSemicontinuousWithinAt (fun u ↦ -ψ u) Λ (θ ω) :=
+      continuous_neg.continuousAt.comp_upperSemicontinuousWithinAt_antitone (hψ _ (hθΛ ω))
+        fun _ _ h ↦ neg_le_neg h
+    have h := h₁.add h₂
+    simp_rw [← sub_eq_add_neg] at h
+    have hlsc : LowerSemicontinuousWithinAt (fun u ↦ ENNReal.ofReal (exp (u * X k ω - ψ u))) Λ
+        (θ ω) :=
+      (ENNReal.continuous_ofReal.comp continuous_exp).continuousAt.comp_lowerSemicontinuousWithinAt
+        h fun _ _ h ↦ ENNReal.ofReal_le_ofReal (exp_le_exp.2 h)
+    have htend : Tendsto (fun n ↦ θn n ω) atTop (𝓝[Λ] (θ ω)) :=
+      tendsto_nhdsWithin_iff.2 ⟨hθn_lim ω, Eventually.of_forall fun n ↦ hθn_Λ n ω⟩
+    exact le_of_forall_lt_imp_le_of_dense fun y hy ↦
+      le_liminf_of_le (h := (htend.eventually (hlsc y hy)).mono fun _ hn ↦ hn.le)
+  calc ∫⁻ ω in s, ENNReal.ofReal (exp (θ ω * X k ω - ψ (θ ω))) ∂P
+      ≤ ∫⁻ ω in s, liminf (fun n ↦ ENNReal.ofReal (exp (θn n ω * X k ω - ψ (θn n ω)))) atTop ∂P :=
+        lintegral_mono hle
+    _ ≤ liminf (fun n ↦ ∫⁻ ω in s, ENNReal.ofReal (exp (θn n ω * X k ω - ψ (θn n ω))) ∂P) atTop :=
+        lintegral_liminf_le fun n ↦ (hθn n).measurable
+    _ ≤ P s := liminf_le_of_frequently_le' (Frequently.of_forall fun n ↦
+        (hθn n).setLIntegral_le P hP s hs)
+
+/-- **The exponential supermartingale of the sub-ψ null with predictable weights**
+[HRMS20, §2.1]. Let `ψ` be upper semicontinuous on `Λ`, each observation `X k`
+`ℱ (k + 1)`-measurable and the weights `w` adapted, with `t * w k ∈ Λ`. The process
+`exp (t ∑ k < n, w k X k - ∑ k < n, ψ (t w k))` is a test supermartingale for the null of the laws
+under which every sub-ψ bet at the next observation is a conditional e-variable given the past. -/
+theorem isTestSupermartingale_exp_mul_sum_sub_sum_condEVarNull (hψ : UpperSemicontinuousOn ψ Λ)
+    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) {w : ℕ → Ω → ℝ} (hw : Adapted ℱ w)
+    (htw : ∀ k ω, t * w k ω ∈ Λ) :
+    IsTestSupermartingale (fun n ω ↦ ENNReal.ofReal (exp (t * ∑ k ∈ range n, w k ω * X k ω
+      - ∑ k ∈ range n, ψ (t * w k ω)))) ℱ (condEVarNull (subPsiBets ψ Λ) X ℱ) := by
+  refine ⟨LMLExplore.isENNSupermartingale_exp_mul_sum_sub_sum hX hw (fun k ↦ ?_) fun k ↦ ?_,
+    fun P hP ↦ ?_⟩
+  · exact (upperSemicontinuousOn_iff_restrict.2 hψ).measurable.comp
+      (((hw k).const_mul t).subtype_mk (h := htw k))
+  · exact isCondEVar_exp_mul_sub_condEVarNull hψ ((hX k).mono (ℱ.le _) le_rfl)
+      ((hw k).const_mul t) (htw k)
+  · have := isProbabilityMeasure_of_mem_condEVarNull hP
+    simp
 
 /-- **The one-sided conditionally sub-Gaussian null is a null of conditional bets**: it is the
 null of the sub-Gaussian bets `x ↦ exp (t x - t ^ 2 / 2)`, `t ≥ 0`, for the coordinates of

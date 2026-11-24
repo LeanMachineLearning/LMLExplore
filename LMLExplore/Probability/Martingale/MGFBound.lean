@@ -5,20 +5,28 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Probability.Martingale.Basic
+public import LMLExplore.Probability.Martingale.TestSupermartingale
 public import LMLExplore.Probability.Martingale.Ville
 public import LMLExplore.Probability.Moments.MGF.Bound
 
 /-!
 # Exponential supermartingales under conditional bounds on the moment generating function
 
-Let `ℱ` be a filtration on a standard Borel space and `X` a real process with `X n`
-`ℱ (n + 1)`-measurable and with moment generating function conditionally bounded by `exp ψ` on a
-set of parameters `Λ` given `ℱ n` (`LMLExplore.HasCondMGFBound`). For a process of weights `w`
-adapted to `ℱ` (so that `w n` is known when `X n` is drawn) and a parameter `t` with `t * w n ∈ Λ`,
-the process
+Let `ℱ` be a filtration and `X` a real process with `X n` `ℱ (n + 1)`-measurable. For a process of
+weights `w` adapted to `ℱ` (so that `w n` is known when `X n` is drawn), a parameter `t` and a
+function `ψ`, the *bets* `exp (t * w n * X n - ψ (t * w n))` have a parameter `t * w n` chosen
+from the past. On any measurable space, if under every member of a set of measures each bet is a
+conditional e-variable given `ℱ n`, the process
 `exp (t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k))`
-is a nonnegative supermartingale with initial value `1`, and Ville's inequality gives
+is an `ℝ≥0∞`-valued supermartingale under each of them: it is the wealth of the gambler who
+reinvests everything in these bets. This is the set-integral form of the exponential
+supermartingale of [HRMS20, §2.1], with no regularity of the conditional laws.
+
+On a standard Borel space, a bound on the conditional moment generating function by `exp ψ` on a
+set of parameters `Λ` given `ℱ n` (`LMLExplore.HasCondMGFBound`) makes every bet at an
+`ℱ n`-measurable parameter with values in `Λ` a conditional e-variable. With `t * w n ∈ Λ`, the
+process above is then a real nonnegative supermartingale with initial value `1`, and Ville's
+inequality gives
 `P(∃ n, x ≤ t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k)) ≤ exp (-x)`.
 
 With `ψ t = c t ^ 2 / 2` on `ℝ` this is the exponential supermartingale of conditionally
@@ -30,8 +38,13 @@ of any sampling rule, with `ψ` the cumulant generating function of a law domina
 
 ## Main statements
 
+* `LMLExplore.isENNSupermartingale_exp_mul_sum_sub_sum`: on any measurable space, the exponential
+  process of bets that are conditional e-variables is an `ℝ≥0∞`-valued supermartingale.
+* `LMLExplore.HasCondMGFBound.isCondEVar_exp_mul_sub`: a conditional bound on the moment
+  generating function makes the bet `exp (s * X - ψ s)` at a known parameter `s` a conditional
+  e-variable.
 * `LMLExplore.supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound`: the exponential
-  supermartingale.
+  supermartingale under a conditional bound on the moment generating function.
 * `LMLExplore.measure_exists_le_mul_sum_sub_sum_of_hasCondMGFBound`: its time-uniform bound
   `P(∃ n, x ≤ t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k)) ≤ exp (-x)`.
 * `LMLExplore.measure_exists_le_mul_sum_sub_sum_mul_of_hasCondMGFBound`: the bound for weights in
@@ -39,11 +52,11 @@ of any sampling rule, with `ψ` the cumulant generating function of a law domina
 
 ## References
 
-* S. R. Howard, A. Ramdas, J. McAuliffe and J. Sekhon, *Time-uniform Chernoff bounds via
+* [HRMS20] S. R. Howard, A. Ramdas, J. McAuliffe and J. Sekhon, *Time-uniform Chernoff bounds via
   nonnegative supermartingales*, Probability Surveys 17 (2020), 257–317, Section 2 (the
   exponential process of a sub-`ψ` process is a supermartingale) and Lemma 1 (Ville's inequality).
-* The proof of `supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound` generalizes the
-  sub-Gaussian case adapted from the formalization in the LMLPapers project
+* The exponential supermartingale under a conditional bound on the moment generating function
+  generalizes the sub-Gaussian case adapted from the formalization in the LMLPapers project
   (`LMLPapers/LeanMachineLearning/ForMathlib/Probability/Martingale/SubgaussianSum.lean`).
 -/
 
@@ -54,46 +67,82 @@ open scoped ENNReal
 
 namespace LMLExplore
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} [StandardBorelSpace Ω] {μ : Measure Ω}
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {μ : Measure Ω}
   {ℱ : Filtration ℕ mΩ} {X w : ℕ → Ω → ℝ} {ψ : ℝ → ℝ} {Λ : Set ℝ} {t : ℝ}
+
+/-- **Exponential supermartingale of conditional bets.** On any measurable space, let `X n` be
+`ℱ (n + 1)`-measurable, the weights `w` adapted and `ψ (t * w n)` `ℱ n`-measurable. If, under
+every member of a set of measures `𝒩`, each bet `exp (t * w n * X n - ψ (t * w n))` is a
+conditional e-variable given `ℱ n`, then
+`n ↦ exp (t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k))` is an `ℝ≥0∞`-valued supermartingale under
+every member of `𝒩`. -/
+theorem isENNSupermartingale_exp_mul_sum_sub_sum {𝒩 : Set (Measure Ω)}
+    (hX : ∀ n, Measurable[ℱ (n + 1)] (X n)) (hw : Adapted ℱ w)
+    (hψw : ∀ n, Measurable[ℱ n] fun ω ↦ ψ (t * w n ω))
+    (h : ∀ n, IsCondEVar
+      (fun ω ↦ ENNReal.ofReal (exp (t * w n ω * X n ω - ψ (t * w n ω)))) (ℱ n) 𝒩) :
+    IsENNSupermartingale (fun n ω ↦ ENNReal.ofReal (exp (t * ∑ k ∈ range n, w k ω * X k ω
+      - ∑ k ∈ range n, ψ (t * w k ω)))) ℱ 𝒩 := by
+  -- the process is the product of the bets of the rounds before `n`
+  have h_eq : (fun n ω ↦ ENNReal.ofReal (exp (t * ∑ k ∈ range n, w k ω * X k ω
+      - ∑ k ∈ range n, ψ (t * w k ω)))) = fun n ω ↦
+      1 * ∏ k ∈ range n, ENNReal.ofReal (exp (t * w k ω * X k ω - ψ (t * w k ω))) := by
+    ext n ω
+    rw [one_mul, ← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (exp_pos _).le, ← exp_sum,
+      sum_sub_distrib]
+    simp only [mul_sum, mul_assoc]
+  rw [h_eq]
+  refine isENNSupermartingale_mul_prod measurable_const (fun n ↦ ?_) h
+  have hw' : Measurable[ℱ (n + 1)] (w n) := hw.measurable_le (by omega)
+  exact (((hw'.const_mul t).mul (hX n)).sub
+    ((hψw n).mono (ℱ.mono (by omega)) le_rfl)).exp.ennreal_ofReal
+
+/-- **Conditional bounds on the moment generating function give conditional bets.** If `X` is
+measurable with moment generating function conditionally bounded by `exp ψ` on `Λ` given `m`,
+then for every `m`-measurable parameter `s` with values in `Λ` almost surely and `ψ ∘ s`
+`m`-measurable, the bet `exp (s * X - ψ s)` is a conditional e-variable given `m`. -/
+theorem HasCondMGFBound.isCondEVar_exp_mul_sub [StandardBorelSpace Ω] [IsFiniteMeasure μ]
+    {m : MeasurableSpace Ω} {hm : m ≤ mΩ} {X : Ω → ℝ} (h : HasCondMGFBound m hm X ψ Λ μ)
+    (hX : Measurable[mΩ] X) {s : Ω → ℝ} (hs : Measurable[m] s) (hsΛ : ∀ᵐ ω ∂μ, s ω ∈ Λ)
+    (hψs : Measurable[m] fun ω ↦ ψ (s ω)) :
+    IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (s ω * X ω - ψ (s ω)))) m {μ} := by
+  refine ⟨((hs.mono hm le_rfl).mul hX).sub (hψs.mono hm le_rfl) |>.exp.ennreal_ofReal, ?_⟩
+  rintro _ rfl A hA
+  -- with `g = 𝟙_A exp (-ψ ∘ s)`, the conditional bound reads `∫⁻ g exp (s X) ≤ ∫⁻ g exp (ψ ∘ s)`
+  set g : Ω → ℝ≥0∞ := A.indicator fun ω ↦ ENNReal.ofReal (exp (-ψ (s ω)))
+  have hl (ω : Ω) : A.indicator (fun ω ↦ ENNReal.ofReal (exp (s ω * X ω - ψ (s ω)))) ω =
+      g ω * ENNReal.ofReal (exp (s ω * X ω)) := by
+    by_cases hω : ω ∈ A <;>
+      simp [g, hω, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add, sub_eq_neg_add]
+  have hr (ω : Ω) : g ω * ENNReal.ofReal (exp (ψ (s ω))) = A.indicator 1 ω := by
+    by_cases hω : ω ∈ A <;> simp [g, hω, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
+  rw [← lintegral_indicator (hm _ hA)]
+  simp_rw [hl]
+  refine (h.lintegral_mul_exp_le hX hs hsΛ (g := g)
+    (hψs.neg.exp.ennreal_ofReal.indicator hA)).trans_eq ?_
+  simp_rw [hr]
+  exact lintegral_indicator_one (hm _ hA)
 
 /-- **Exponential supermartingale.** If `X n` is `ℱ (n + 1)`-measurable with moment generating
 function conditionally bounded by `exp ψ` on `Λ` given `ℱ n`, the weights `w` are adapted, and
 `t * w n ∈ Λ` almost surely with `ψ (t * w n)` `ℱ n`-measurable, then
 `n ↦ exp (t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k))` is a supermartingale. -/
-theorem supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound [IsFiniteMeasure μ]
-    (hX : ∀ n, Measurable[ℱ (n + 1)] (X n))
+theorem supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound [StandardBorelSpace Ω]
+    [IsFiniteMeasure μ] (hX : ∀ n, Measurable[ℱ (n + 1)] (X n))
     (hψ : ∀ n, HasCondMGFBound (ℱ n) (ℱ.le n) (X n) ψ Λ μ) (hw : Adapted ℱ w)
     (htw : ∀ n, ∀ᵐ ω ∂μ, t * w n ω ∈ Λ) (hψw : ∀ n, Measurable[ℱ n] fun ω ↦ ψ (t * w n ω)) :
     Supermartingale (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * X k ω
       - ∑ k ∈ range n, ψ (t * w k ω))) ℱ μ := by
-  -- the sum of the rounds `Z k = t * w k * X k - ψ (t * w k)`
-  have h_eq : (fun n ω ↦ exp (t * ∑ k ∈ range n, w k ω * X k ω
-      - ∑ k ∈ range n, ψ (t * w k ω))) = fun n ω ↦
-      exp (∑ k ∈ range n, (t * w k ω * X k ω - ψ (t * w k ω))) := by
-    ext n ω
-    simp only [sum_sub_distrib, mul_sum, mul_assoc]
-  rw [h_eq]
-  refine supermartingale_exp_sum_of_lintegral_mul_exp_le (fun n ↦ ?_) fun n g hg ↦ ?_
-  · have hw' : Measurable[ℱ (n + 1)] (w n) := hw.measurable_le (by omega)
-    exact ((hw'.const_mul t).mul (hX n)).sub ((hψw n).mono (ℱ.mono (by omega)) le_rfl)
-  -- `g * exp (Z n) = g * exp (-ψ (t * w n)) * exp (t * w n * X n)`
-  have hs : Measurable[ℱ n] (fun ω ↦ t * w n ω) := (hw n).const_mul t
-  set G : Ω → ℝ≥0∞ := fun ω ↦ g ω * ENNReal.ofReal (exp (-ψ (t * w n ω))) with hG_def
-  have hG : Measurable[ℱ n] G := hg.mul (hψw n).neg.exp.ennreal_ofReal
-  calc ∫⁻ ω, g ω * ENNReal.ofReal (exp (t * w n ω * X n ω - ψ (t * w n ω))) ∂μ
-      = ∫⁻ ω, G ω * ENNReal.ofReal (exp (t * w n ω * X n ω)) ∂μ := by
-        simp only [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add,
-          neg_add_eq_sub]
-    _ ≤ ∫⁻ ω, G ω * ENNReal.ofReal (exp (ψ (t * w n ω))) ∂μ :=
-        (hψ n).lintegral_mul_exp_le ((hX n).mono (ℱ.le _) le_rfl) hs (htw n) hG
-    _ = ∫⁻ ω, g ω ∂μ := by
-        simp [hG_def, mul_assoc, ← ENNReal.ofReal_mul (exp_pos _).le, ← exp_add]
+  have h := (isENNSupermartingale_exp_mul_sum_sub_sum hX hw hψw fun n ↦
+    (hψ n).isCondEVar_exp_mul_sub ((hX n).mono (ℱ.le _) le_rfl) ((hw n).const_mul t) (htw n)
+      (hψw n)).supermartingale_toReal (Set.mem_singleton μ) (by simp)
+  simpa only [ENNReal.toReal_ofReal (exp_pos _).le] using h
 
 /-- **Time-uniform Chernoff bound.** Under the hypotheses of
 `supermartingale_exp_mul_sum_sub_sum_of_hasCondMGFBound`, for every `x : ℝ`, the probability that
 `x ≤ t * ∑ k < n, w k * X k - ∑ k < n, ψ (t * w k)` for some `n` is at most `exp (-x)`. -/
-theorem measure_exists_le_mul_sum_sub_sum_of_hasCondMGFBound [IsProbabilityMeasure μ]
+theorem measure_exists_le_mul_sum_sub_sum_of_hasCondMGFBound [StandardBorelSpace Ω]
+    [IsProbabilityMeasure μ]
     (hX : ∀ n, Measurable[ℱ (n + 1)] (X n))
     (hψ : ∀ n, HasCondMGFBound (ℱ n) (ℱ.le n) (X n) ψ Λ μ) (hw : Adapted ℱ w)
     (htw : ∀ n, ∀ᵐ ω ∂μ, t * w n ω ∈ Λ) (hψw : ∀ n, Measurable[ℱ n] fun ω ↦ ψ (t * w n ω))
@@ -109,7 +158,8 @@ with moment generating function conditionally bounded by `exp ψ` on `Λ` given 
 `ψ 0 = 0` and `0, t ∈ Λ`, and the weights `w` are adapted with values in `{0, 1}`, then for every
 `x : ℝ`, the probability that `x ≤ t * ∑ k < n, w k * X k - (∑ k < n, w k) * ψ t` for some `n` is
 at most `exp (-x)`. -/
-theorem measure_exists_le_mul_sum_sub_sum_mul_of_hasCondMGFBound [IsProbabilityMeasure μ]
+theorem measure_exists_le_mul_sum_sub_sum_mul_of_hasCondMGFBound [StandardBorelSpace Ω]
+    [IsProbabilityMeasure μ]
     (hX : ∀ n, Measurable[ℱ (n + 1)] (X n))
     (hψ : ∀ n, HasCondMGFBound (ℱ n) (ℱ.le n) (X n) ψ Λ μ) (hw : Adapted ℱ w)
     (hw01 : ∀ n ω, w n ω = 0 ∨ w n ω = 1) (hψ0 : ψ 0 = 0) (h0 : 0 ∈ Λ) (ht : t ∈ Λ) (x : ℝ) :
