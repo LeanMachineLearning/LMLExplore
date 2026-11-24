@@ -318,12 +318,10 @@ theorem lintegral_biSup_isMeanConsistent_fdp_le {P : Measure Ω}
     (hE : ∀ i, AEMeasurable (E i) P) (N : Finset ι) :
     ∫⁻ ω, ⨆ (R) (_ : IsMeanConsistent (E · ω) α R), fdp N R ∂P ≤
       α * ((∑ i ∈ N, ∫⁻ ω, E i ω ∂P) / #N) := by
-  calc ∫⁻ ω, ⨆ (R) (_ : IsMeanConsistent (E · ω) α R), fdp N R ∂P
-      ≤ ∫⁻ ω, α * ((∑ i ∈ N, E i ω) / #N) ∂P := lintegral_mono fun _ ↦ iSup₂_le fun _ hR ↦ hR N
-    _ = α * ((∑ i ∈ N, ∫⁻ ω, E i ω ∂P) / #N) := by
-      rw [lintegral_const_mul'' _ ((Finset.aemeasurable_fun_sum N fun i _ ↦ hE i).div_const _),
-        ← lintegral_finsetSum_div fun i _ ↦ hE i]
-      simp_rw [ENNReal.sum_div]
+  simp_rw [← mem_eClosure_meanECollection_iff]
+  refine (lintegral_biSup_eClosure_le_mul_lintegral fdp α
+    ((Finset.aemeasurable_fun_sum N fun i _ ↦ hE i).div_const _)).trans_eq ?_
+  simp_rw [meanECollection_def, ← lintegral_finsetSum_div fun i _ ↦ hE i, ENNReal.sum_div]
 
 /-- **Closed e-BH controls the false discovery rate at level `α` simultaneously** for
 e-variables, under arbitrary dependence [XSF+26, Theorem 14]: for every measure `P`, the

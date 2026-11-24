@@ -59,6 +59,9 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 
 * `ProbabilityTheory.isECollection_iff`: an e-collection is a family of e-variables indexed by
   the truth.
+* `ProbabilityTheory.lintegral_biSup_eClosure_le_mul_lintegral`: the e-closure of any statistics
+  controls the loss at `α` times the expectation of the statistic of the true nulls [Goe26,
+  Theorem 13].
 * `ProbabilityTheory.mem_eClosure_of_forall_le`: for a loss depending only on the numbers of true
   nulls, of rejections and of rejected true nulls, and statistics nondecreasing in the values of
   the hypotheses, a member of an e-closure may be replaced by any set of the same size of largest
@@ -87,6 +90,8 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 * [XSF+26] Z. Xu, A. Solari, L. Fischer, R. de Heide, A. Ramdas and J. Goeman, *Bringing closure
   to false discovery rate control: a general principle for multiple testing*,
   arXiv:2509.02517v3.
+* [Goe26] J. Goeman, *A uniform improvement of the Benjamini–Hochberg procedure via e-Closure*,
+  arXiv:2606.01854v2.
 * [MPG76] R. Marcus, E. Peritz and K. R. Gabriel, *On closed testing procedures with special
   reference to ordered analysis of variance*, Biometrika 63 (1976).
 -/
@@ -209,6 +214,18 @@ theorem measurable_eClosure [Countable ι] (he : ∀ S, Measurable (e S)) :
     Measurable (eClosure f α e) :=
   measurable_set_iff.2 fun _ ↦ Measurable.forall fun S ↦
     measurableSet_setOfPred.1 (measurableSet_le measurable_const ((he S).const_mul α))
+
+/-- **The e-closure of any statistics**, the argument of [Goe26, Theorem 13]: for every set `N`
+of hypotheses and every measure `P`, the largest loss `f N R` over the members `R` of the
+e-closure of `e` has expectation at most `α` times the expectation of `e N`. When `e N` has
+expectation at most `γ` for the true nulls `N` of `P`, as for an e-collection with `γ = 1`, the
+e-closure controls the loss simultaneously at level `γ * α`. -/
+theorem lintegral_biSup_eClosure_le_mul_lintegral (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞)
+    {N : Finset ι} {P : Measure Ω} (he : AEMeasurable (e N) P) :
+    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f N R ∂P ≤ α * ∫⁻ ω, e N ω ∂P :=
+  calc ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f N R ∂P ≤ ∫⁻ ω, α * e N ω ∂P :=
+        lintegral_mono fun _ ↦ iSup₂_le fun _ hR ↦ hR N
+    _ = α * ∫⁻ ω, e N ω ∂P := lintegral_const_mul'' α he
 
 /-- The e-closure grows with the level `α` and the statistics `e`, and as the loss `f`
 decreases. -/
@@ -416,12 +433,9 @@ theorem exists_isECollection_of_lintegral_iSup_div_le_one [Countable κ]
 controls the loss simultaneously at level `α`, for every level `α`. -/
 theorem IsECollection.lintegral_biSup_eClosure_le (he : IsECollection e H)
     (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞) (P : Measure Ω) [IsProbabilityMeasure P] :
-    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P ≤ α := by
-  calc ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P
-      ≤ ∫⁻ ω, α * e (trueNulls H P) ω ∂P :=
-        lintegral_mono fun _ ↦ iSup₂_le fun _ hR ↦ hR _
-    _ = α * ∫⁻ ω, e (trueNulls H P) ω ∂P := lintegral_const_mul α (he.measurable _)
-    _ ≤ α := mul_le_of_le_one_right' (he.lintegral_le_one P)
+    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P ≤ α :=
+  (lintegral_biSup_eClosure_le_mul_lintegral f α (he.measurable _).aemeasurable).trans
+    (mul_le_of_le_one_right' (he.lintegral_le_one P))
 
 /-- **The e-Closure Principle** [XSF+26, Theorem 6]: for a loss vanishing when there are no true
 nulls and a level `α ∉ {0, ∞}`, a measurable candidate family controls the loss simultaneously at
