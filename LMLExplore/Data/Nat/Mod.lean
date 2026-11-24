@@ -13,8 +13,8 @@ import Mathlib.Tactic.SplitIfs
 
 For residues `h` and `x` modulo `K` and a shift `u ≤ K`, the shift `(h + u) % K` is `x` exactly
 when `h` is the shift `(x + K - u) % K` of `x` by `-u`. The cycle lemma of the lower bound for
-e-BH on running maxima (`LMLExplore.EValues.MultipleTesting.RunningMaxima.LowerBound`) uses it to
-count shifted heights.
+e-BH on running maxima (`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.LowerBound`)
+uses it to count shifted heights.
 
 ## Main statements
 

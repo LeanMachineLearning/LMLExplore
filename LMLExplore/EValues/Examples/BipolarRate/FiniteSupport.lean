@@ -27,8 +27,8 @@ null is `log (1 / ε)`. The bipolar rate is at most the smallest relative entrop
 positive for `ε < 1`.
 
 For Lebesgue measure on the circle, this null has the same smallest relative entropy as the null
-of `LMLExplore.EValues.BipolarRate.Circle`, which it contains, but bipolar rate `0` instead of
-`log (1 / ε)`.
+of `LMLExplore.EValues.Examples.BipolarRate.Circle`, which it contains, but bipolar rate `0`
+instead of `log (1 / ε)`.
 
 ## Main statements
 

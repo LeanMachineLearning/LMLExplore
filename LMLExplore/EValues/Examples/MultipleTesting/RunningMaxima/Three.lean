@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.MultipleTesting.RunningMaxima
+public import LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima
 
 /-!
 # E-BH on the running maxima of three test supermartingales
@@ -15,7 +15,7 @@ filtration, and let every hypothesis be true under `P`. This file proves that e-
 [WR22] applied to the running maxima `⨆ n, M i n` makes a rejection with probability at most
 `3 * α / 2` [EVR26, Note 18, Theorem B], by the potential argument
 `ProbabilityTheory.measure_eBH_nonempty_le_of_key` of
-`LMLExplore.EValues.MultipleTesting.RunningMaxima`.
+`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima`.
 
 ## Main statements
 

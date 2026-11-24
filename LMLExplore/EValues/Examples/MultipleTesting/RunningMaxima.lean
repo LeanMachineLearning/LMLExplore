@@ -20,9 +20,10 @@ self-consistent: `K ≤ α * #R * ⨆ n, M i n ω` for every `i ∈ R`
 (`ProbabilityTheory.eBH_nonempty_iff`). Since every hypothesis is true, the false discovery rate
 of the procedure is the probability of this event.
 The running maxima are not e-variables, and the procedure does not control the false discovery
-rate at level `α` [TGdH25]. This file and `LMLExplore.EValues.MultipleTesting.RunningMaxima.Three`
-bound the inflation: the probability of a rejection is at most `4 * α / 3` for two hypotheses and
-at most `3 * α / 2` for three [EVR26, Notes 10 and 18].
+rate at level `α` [TGdH25]. This file and
+`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.Three` bound the inflation: the
+probability of a rejection is at most `4 * α / 3` for two hypotheses and at most `3 * α / 2` for
+three [EVR26, Notes 10 and 18].
 
 ## Main statements
 
@@ -34,7 +35,7 @@ at most `3 * α / 2` for three [EVR26, Notes 10 and 18].
 
 The bound `3 * α / 2` for three hypotheses,
 `ProbabilityTheory.measure_eBH_iSup_nonempty_le_of_card_eq_three`, is in
-`LMLExplore.EValues.MultipleTesting.RunningMaxima.Three`.
+`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.Three`.
 
 ## Implementation notes
 
@@ -54,7 +55,7 @@ some nonempty set `R` is self-consistent, `K ≤ α * #R * E i` for every `i ∈
 `E i = ⨆ n, M i n ω`.
 
 The potential argument, the bound for two hypotheses and the bound for three in
-`LMLExplore.EValues.MultipleTesting.RunningMaxima.Three` are adapted from
+`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.Three` are adapted from
 `EValuesResearch/Results/RunningMaxima.lean` and `EValuesResearch/Results/RunningMaximaAux.lean`
 (commit `ffba78a`) in the paper project `RemyDegenne/evalues_research`, which formalizes the
 notes [EVR26, Notes 10 and 18].
