@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.EValues.TestSupermartingale.SequentialNull
+import LMLExplore.MeasureTheory.Measure.Bool
 import LMLExplore.MeasureTheory.Measure.Convex
 import LMLExplore.MeasureTheory.Measure.Typeclasses.Probability
 
@@ -304,19 +305,6 @@ theorem IsTestSupermartingale.le_one_of_iidNull (hconv : Convex ℝ≥0∞ S₁)
 
 /-! ### An e-process for the i.i.d. coins -/
 
-/-- For a probability measure `μ` on `Bool`, `4 * μ {false} * μ {true} ≤ 1`. -/
-private lemma four_mul_measure_false_mul_measure_true_le_one (μ : Measure Bool)
-    [IsProbabilityMeasure μ] : 4 * (μ {false} * μ {true}) ≤ 1 := by
-  have hsum : μ {false} + μ {true} = 1 := by
-    rw [← measure_univ (μ := μ), ← Finset.coe_univ, ← sum_measure_singleton, Fintype.sum_bool,
-      add_comm]
-  rw [← ENNReal.coe_toNNReal (measure_ne_top μ {false}),
-    ← ENNReal.coe_toNNReal (measure_ne_top μ {true})] at hsum ⊢
-  have hsum' : (μ {false}).toNNReal + (μ {true}).toNNReal = 1 := by exact_mod_cast hsum
-  have h := four_mul_le_sq_add (μ {false}).toNNReal (μ {true}).toNNReal
-  rw [hsum', one_pow, mul_assoc] at h
-  exact_mod_cast h
-
 /-- **The e-process of the i.i.d. coins** [EVR26, Note 31, Theorem 5 (3)]: on binary sequences,
 the process equal to `1` at time `0`, to `𝟙{ω 0 = false}` at time `1` and to
 `4 • 𝟙{ω 0 = false, ω 1 = true}` from time `2` on. -/
@@ -435,7 +423,7 @@ theorem isEProcess_coinEProcess :
   rcases stoppedValue_coinEProcess_le hτ hτN with h | h
   · exact (lintegral_mono h).trans (by simp)
   · exact (lintegral_mono h).trans ((lintegral_coinEProcess_two μ).trans_le
-      (four_mul_measure_false_mul_measure_true_le_one μ))
+      (Measure.four_mul_prob_false_mul_prob_true_le_one μ))
 
 /-- **The e-process of the i.i.d. coins is not a supermartingale** [EVR26, Note 31,
 Theorem 5 (3)]: `coinEProcess` is not a supermartingale for `Filtration.piLT` under the i.i.d.
