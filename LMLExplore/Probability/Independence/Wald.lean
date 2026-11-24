@@ -9,6 +9,7 @@ public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Process.HittingTime
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import LMLExplore.Probability.Process.Filtration
+import LMLExplore.Probability.Process.HittingTime
 import Mathlib.Probability.Independence.Integration
 import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
 
@@ -26,9 +27,15 @@ hence independent of `X j`. So the expectation of the partial sum stopped at `mi
 most `b + C`, since one step earlier the partial sum was below `b`. Letting `n → ∞` gives the
 bound. The increments need not be identically distributed, nor bounded below.
 
+Increments that are not bounded above can be truncated: the walk of the increments `min (X j) c`
+lies below the walk, so it reaches `b` no earlier, and the bound applies to it with the means of
+the truncated increments.
+
 ## Main statements
 
 * `ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`: `𝔼[N b] ≤ (b + C) / a`.
+* `ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le_of_le_integral_min`:
+  `𝔼[N b] ≤ (b + c) / a` when the increments truncated at `c` have means at least `a > 0`.
 
 ## Implementation notes
 
@@ -136,5 +143,25 @@ theorem iIndepFun.lintegral_hittingAfter_sum_le (hX : iIndepFun X μ)
     exact Finset.sum_congr rfl fun j _ ↦ (ofReal_measureReal).symm
   _ ≤ ENNReal.ofReal ((b + C) / a) :=
     ENNReal.ofReal_le_ofReal ((le_div_iff₀ ha).2 (hsum n))
+
+/-- **Wald's upper bound on the expected first passage time, by truncation.** Let `X j` be
+independent real random variables whose truncations `min (X j) c` at a level `c` have means at
+least `a > 0`. The first time `N b` at which the partial sums `∑ j < k, X j` reach `b` has
+expectation at most `(b + c) / a`. The increments need not be bounded above: the truncated walk is
+below the walk, so it reaches `b` no earlier, and
+`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le` bounds its first passage time. -/
+theorem iIndepFun.lintegral_hittingAfter_sum_le_of_le_integral_min (hX : iIndepFun X μ)
+    (hXm : ∀ j, Measurable (X j)) {a c : ℝ} (ha : 0 < a)
+    (haX : ∀ j, a ≤ ∫ ω, min (X j ω) c ∂μ) (b : ℝ) :
+    ∫⁻ ω, ENat.toENNReal
+        (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, X j ω) (Set.Ici b) 0 ω) ∂μ ≤
+      ENNReal.ofReal ((b + c) / a) := by
+  refine (lintegral_mono fun ω ↦ ?_).trans
+    (iIndepFun.lintegral_hittingAfter_sum_le (X := fun j ω ↦ min (X j ω) c)
+      (hX.comp (fun _ x ↦ min x c) fun _ ↦ measurable_id.min measurable_const)
+      (fun j ↦ (hXm j).min measurable_const) ha haX
+      (fun _ ↦ ae_of_all _ fun _ ↦ min_le_right _ _) b)
+  refine ENat.toENNReal_le.2 (hittingAfter_apply_le_of_forall_mem fun k _ hk ↦ ?_)
+  exact le_trans hk (Finset.sum_le_sum fun j _ ↦ min_le_left _ _)
 
 end ProbabilityTheory
