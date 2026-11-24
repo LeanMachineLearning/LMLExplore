@@ -59,6 +59,10 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 
 * `ProbabilityTheory.isECollection_iff`: an e-collection is a family of e-variables indexed by
   the truth.
+* `ProbabilityTheory.mem_eClosure_of_forall_le`: for a loss depending only on the numbers of true
+  nulls, of rejections and of rejected true nulls, and statistics nondecreasing in the values of
+  the hypotheses, a member of an e-closure may be replaced by any set of the same size of largest
+  values [XSF+26, Lemma 52].
 * `ProbabilityTheory.IsECollection.lintegral_iSup_div_le_one`,
   `ProbabilityTheory.exists_isECollection_of_lintegral_iSup_div_le_one`: the post-hoc
   e-Closure Principle [XSF+26, Theorem 48].
@@ -131,6 +135,13 @@ theorem fdp_le_one (N R : Finset ι) : fdp N R ≤ 1 := by
   refine ENNReal.div_le_of_le_mul ?_
   rw [one_mul]
   exact (Nat.cast_le.2 (card_le_card inter_subset_left)).trans (le_max_left _ _)
+
+/-- The false discovery proportion depends only on the number of rejections and on the number of
+rejected true nulls, and grows with the latter. -/
+theorem fdp_le_fdp {N' R' : Finset ι} (hR : #R = #R') (h : #(N ∩ R) ≤ #(N' ∩ R')) :
+    fdp N R ≤ fdp N' R' := by
+  rw [fdp_def, fdp_def, inter_comm R, inter_comm R', hR]
+  gcongr
 
 /-- The loss of the family-wise error: `1` when the rejection set `R` contains a true null of `N`,
 and `0` otherwise. -/
@@ -205,6 +216,100 @@ theorem eClosure_mono {f' : Finset ι → Finset ι → ℝ≥0∞} {α' : ℝ�
     (hf : ∀ S R, f' S R ≤ f S R) (hα : α ≤ α') (he : ∀ S, e S ω ≤ e' S ω) :
     eClosure f α e ω ⊆ eClosure f' α' e' ω :=
   fun R hR S ↦ (hf S R).trans ((hR S).trans (mul_le_mul' hα (he S)))
+
+/-! ### Ordered members of an e-closure -/
+
+section Ordering
+
+variable [DecidableEq ι] {β : Type*} [LinearOrder β] {x : ι → β} {T : Finset ι}
+
+/-- One exchange: replacing a rejected hypothesis `i` by an unrejected `j` with a larger value
+keeps a set in the e-closure, for a loss that depends only on the numbers of true nulls, of
+rejections and of rejected true nulls, nondecreasing in the last, and statistics that grow when an
+element of a set is replaced by one with a larger value. -/
+private lemma insert_erase_mem_eClosure
+    (hf : ∀ N R N' R', #N = #N' → #R = #R' → #(N ∩ R) ≤ #(N' ∩ R') → f N R ≤ f N' R')
+    (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
+    (hR : R ∈ eClosure f α e ω) {i j : ι} (hi : i ∈ R) (hj : j ∉ R) (hij : x i ≤ x j) :
+    insert j (R.erase i) ∈ eClosure f α e ω := by
+  have hR' : #(insert j (R.erase i)) = #R := by
+    rw [card_insert_of_notMem fun h ↦ hj (mem_of_mem_erase h), card_erase_add_one hi]
+  refine mem_eClosure.2 fun S ↦ ?_
+  by_cases hjS : j ∈ S
+  · by_cases hiS : i ∈ S
+    · -- `S` contains both: it meets the two sets in as many hypotheses.
+      refine (hf _ _ _ _ rfl hR' ?_).trans (mem_eClosure.1 hR S)
+      calc #(S ∩ insert j (R.erase i)) ≤ #(insert j ((S ∩ R).erase i)) :=
+            card_le_card fun k hk ↦ by
+              simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+              tauto
+        _ ≤ #((S ∩ R).erase i) + 1 := card_insert_le _ _
+        _ = #(S ∩ R) := card_erase_add_one (mem_inter.2 ⟨hiS, hi⟩)
+    · -- `S` contains `j` and not `i`: compare with `S'`, which has `i` in place of `j`.
+      have hiS' : i ∉ S.erase j := fun h ↦ hiS (mem_of_mem_erase h)
+      have hS' : #S = #(insert i (S.erase j)) := by
+        rw [card_insert_of_notMem hiS', card_erase_add_one hjS]
+      calc f S (insert j (R.erase i)) ≤ f (insert i (S.erase j)) R := by
+            refine hf _ _ _ _ hS' hR' ?_
+            calc #(S ∩ insert j (R.erase i)) ≤ #(insert j (S ∩ R)) :=
+                  card_le_card fun k hk ↦ by
+                    simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+                    tauto
+              _ ≤ #(S ∩ R) + 1 := card_insert_le _ _
+              _ = #(insert i (S ∩ R)) :=
+                  (card_insert_of_notMem fun h ↦ hiS (mem_inter.1 h).1).symm
+              _ ≤ #(insert i (S.erase j) ∩ R) := card_le_card fun k hk ↦ by
+                  simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+                  rcases hk with rfl | ⟨hkS, hkR⟩
+                  · exact ⟨Or.inl rfl, hi⟩
+                  · exact ⟨Or.inr ⟨fun h ↦ hj (h ▸ hkR), hkS⟩, hkR⟩
+        _ ≤ α * e (insert i (S.erase j)) ω := mem_eClosure.1 hR _
+        _ ≤ α * e (insert j (S.erase j)) ω := by
+            gcongr
+            exact he _ _ _ hiS' (notMem_erase j S) hij
+        _ = α * e S ω := by rw [insert_erase hjS]
+  · -- `S` does not contain `j`: it meets the new set in fewer hypotheses.
+    refine (hf _ _ _ _ rfl hR' (card_le_card fun k hk ↦ ?_)).trans (mem_eClosure.1 hR S)
+    simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+    rcases hk with ⟨hkS, rfl | ⟨-, hkR⟩⟩
+    · exact absurd hkS hjS
+    · exact ⟨hkS, hkR⟩
+
+/-- **Ordered members of an e-closure** [XSF+26, Lemma 52]. Let the loss `f N R` depend only on
+`#N`, `#R` and `#(N ∩ R)`, nondecreasingly in `#(N ∩ R)`, and let the statistics grow when an
+element of a set is replaced by one with a larger value `x`, as symmetric statistics
+nondecreasing in the values do. If some set `R` belongs to the e-closure, then so does every set
+`T` of the same size made of hypotheses with the largest values, whatever the order among ties.
+For p-values, take for `x` the p-values in the order dual. -/
+theorem mem_eClosure_of_forall_le
+    (hf : ∀ N R N' R', #N = #N' → #R = #R' → #(N ∩ R) ≤ #(N' ∩ R') → f N R ≤ f N' R')
+    (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
+    (hR : R ∈ eClosure f α e ω) (hT : #T = #R) (hTx : ∀ i ∈ T, ∀ j ∉ T, x j ≤ x i) :
+    T ∈ eClosure f α e ω := by
+  -- Induction on the number of members of `R` outside `T`, exchanging one of them for a member
+  -- of `T` outside `R`.
+  induction hn : #(R \ T) generalizing R with
+  | zero =>
+    rwa [eq_of_subset_of_card_le (sdiff_eq_empty_iff_subset.1 (card_eq_zero.1 hn)) hT.le] at hR
+  | succ n ih =>
+    obtain ⟨i, hi⟩ : (R \ T).Nonempty := card_pos.1 (by omega)
+    obtain ⟨j, hj⟩ : (T \ R).Nonempty := card_pos.1 (by rw [card_sdiff_comm hT]; omega)
+    rw [mem_sdiff] at hi hj
+    refine ih (insert_erase_mem_eClosure hf he hR hi.1 hj.2 (hTx j hj.1 i hi.2))
+      (by rw [hT, card_insert_of_notMem fun h ↦ hj.2 (mem_of_mem_erase h), card_erase_add_one hi.1])
+      ?_
+    have hset : insert j (R.erase i) \ T = (R \ T).erase i := by
+      ext k
+      simp only [mem_sdiff, mem_insert, mem_erase]
+      constructor
+      · rintro ⟨rfl | ⟨hki, hkR⟩, hkT⟩
+        · exact absurd hj.1 hkT
+        · exact ⟨hki, hkR, hkT⟩
+      · rintro ⟨hki, hkR, hkT⟩
+        exact ⟨Or.inr ⟨hki, hkR⟩, hkT⟩
+    rw [hset, card_erase_of_mem (mem_sdiff.2 hi), hn, Nat.add_sub_cancel]
+
+end Ordering
 
 variable [Fintype ι] {H : ι → Set (Measure Ω)} {P : Measure Ω}
 
