@@ -18,8 +18,9 @@ randomization of an algorithm that reads them. A point is a pair `ω = (u, x)` o
 table of observations, with the law `ProbabilityTheory.arrayLaw ρ ν` under the instance
 `ν : α → Measure 𝓧`. A *round* is a random shape `σ`, the numbers of seeds and of observations of
 each source that it reads, and a payoff `V : Ω → ℝ≥0∞`, both determined by the entries read
-(`ProbabilityTheory.IsReadBy σ σ` and `ProbabilityTheory.IsReadBy σ V`): what an algorithm reads
-when it chooses adaptively which source to observe and stops, and a function of what it has read.
+(`ProbabilityTheory.DependsOnBelow σ σ` and `ProbabilityTheory.DependsOnBelow σ V`): what an
+algorithm reads when it chooses adaptively which source to observe and stops, and a function of
+what it has read.
 
 The Wald inequality with a design [EVR26, Note 41]: if the payoff has expectation at most `1` under
 every instance of `Λ`, then its expected logarithm under `μ`, truncated above at `c`, is at most
@@ -141,8 +142,8 @@ function of the seeds and of the table of `n` with expectation at most `1` under
 `Λ`, so its expected logarithm under `μ` is at most the value of `n`. -/
 private lemma eintegral_log_restartBet_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
-    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : IsReadBy σ σ)
-    (hVm : Measurable V) (hV : IsReadBy σ V) (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1)
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : DependsOnBelow σ σ)
+    (hVm : Measurable V) (hV : DependsOnBelow σ V) (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1)
     (m : ℕ) (n : α → ℕ) :
     ∫ᵉ ω, ENNReal.log (2⁻¹ + 2⁻¹ * {ω | (restartShape σ m ω).2 ≤ n}.indicator
         (fun ω ↦ ∏ i ∈ Finset.range m, V (restartPoint σ i ω)) ω) ∂arrayLaw ρ μ ≤
@@ -162,8 +163,8 @@ private lemma eintegral_log_restartBet_le_designValue (ρ : Measure 𝓤) [IsPro
         (h2 : ∀ a, ∀ i < n a, ω.2 i a = ω'.2 i a) (hω : ω ∈ fit) : ω' ∈ fit ∧ W ω' = W ω := by
       have hag : AgreeBelow (restartShape σ m ω) ω ω' :=
         agreeBelow_iff.2 ⟨fun i _ ↦ by rw [h1], fun a i hi ↦ h2 a i (hi.trans_le (hω a))⟩
-      refine ⟨?_, (isReadBy_prod_restartPoint hσ hV m).eq_of_agreeBelow hag⟩
-      rw [hfit_def, Set.mem_ofPred_eq, (isReadBy_restartShape hσ m).eq_of_agreeBelow hag]
+      refine ⟨?_, (dependsOnBelow_prod_restartPoint hσ hV m).eq_of_agreeBelow hag⟩
+      rw [hfit_def, Set.mem_ofPred_eq, (dependsOnBelow_restartShape hσ m).eq_of_agreeBelow hag]
       exact hω
     intro ω ω' h1 h2
     by_cases hω : ω ∈ fit
@@ -190,8 +191,8 @@ have expectation at most `1` under the instances of `Λ`. The value of the desig
 the event that `m` restarted rounds do not fit in the table of `n`. -/
 private lemma mul_integral_truncLog_sub_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
-    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : IsReadBy σ σ)
-    (hVm : Measurable V) (hV : IsReadBy σ V)
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : DependsOnBelow σ σ)
+    (hVm : Measurable V) (hV : DependsOnBelow σ V)
     (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ} (hδ : 0 < δ)
     (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) (m : ℕ) (n : α → ℕ) :
     ((m * ∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ - Real.log 2 -
@@ -293,8 +294,8 @@ constant `C` that does not depend on `m`: the `m` restarted rounds fit in its ta
 probability at least `1 - |α| K² / (m ε²)`. -/
 private lemma exists_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
-    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : IsReadBy σ σ)
-    (hVm : Measurable V) (hV : IsReadBy σ V) {K : ℕ} (hσK : ∀ ω a, (σ ω).2 a ≤ K)
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : DependsOnBelow σ σ)
+    (hVm : Measurable V) (hV : DependsOnBelow σ V) {K : ℕ} (hσK : ∀ ω a, (σ ω).2 a ≤ K)
     (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ} (hδ : 0 < δ)
     (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) {m : ℕ} (hm : 0 < m) {ε : ℝ} (hε : 0 < ε) :
     ∃ n : α → ℕ, (∀ a, ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ = 0 → n a = 0) ∧
@@ -344,9 +345,10 @@ designs times the expected number of observations that the round reads. The prod
 theorem integral_truncLog_le_designRate_mul (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hΛne : Λ.Nonempty)
-    (hσm : Measurable σ) (hσ : IsReadBy σ σ) (hVm : Measurable V) (hV : IsReadBy σ V) {K : ℕ}
-    (hσK : ∀ ω a, (σ ω).2 a ≤ K) (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ}
-    (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) :
+    (hσm : Measurable σ) (hσ : DependsOnBelow σ σ) (hVm : Measurable V)
+    (hV : DependsOnBelow σ V) {K : ℕ} (hσK : ∀ ω a, (σ ω).2 a ≤ K)
+    (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ} (hδ : 0 < δ)
+    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) :
     ((∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ : ℝ) : EReal) ≤
       designRate μ Λ * ((∫ ω, ∑ a, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ : ℝ) : EReal) := by
   have hN (a : α) : Integrable (fun ω ↦ ((σ ω).2 a : ℝ)) (arrayLaw ρ μ) :=
