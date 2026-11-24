@@ -241,11 +241,28 @@ theorem designValue_le_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
 /-! ### Blocks of observations and the bipolar rate -/
 
 /-- The entries of `m` tables of the design `r` are the entries of the table of the design
-`m • r`: the entry `⟨a, i⟩` of the table number `k` is the entry `⟨a, (k, i)⟩`. -/
+`m • r`: the entry `⟨a, i⟩` of the table number `k` is the entry `⟨a, finProdFinEquiv (k, i)⟩`.
+-/
 def designBlockIndexEquiv (r : α → ℕ) (m : ℕ) :
     Fin m × (Σ a, Fin (r a)) ≃ Σ a, Fin ((m • r) a) :=
   (Equiv.prodComm _ _).trans ((Equiv.sigmaProdDistrib _ _).trans
     (Equiv.sigmaCongrRight fun _ ↦ (Equiv.prodComm _ _).trans finProdFinEquiv))
+
+omit [Fintype α] in
+/-- The entry `p` of the table number `k` is the entry `⟨p.1, finProdFinEquiv (k, p.2)⟩`. -/
+@[simp]
+lemma designBlockIndexEquiv_apply (r : α → ℕ) (m : ℕ) (k : Fin m) (p : Σ a, Fin (r a)) :
+    designBlockIndexEquiv r m (k, p) = ⟨p.1, finProdFinEquiv (k, p.2)⟩ :=
+  (rfl)
+
+omit [Fintype α] in
+/-- The entry `q` of the table of `m • r` is an entry of the table number
+`(finProdFinEquiv.symm q.2).1`. -/
+@[simp]
+lemma designBlockIndexEquiv_symm_apply (r : α → ℕ) (m : ℕ) (q : Σ a, Fin ((m • r) a)) :
+    (designBlockIndexEquiv r m).symm q =
+      ((finProdFinEquiv.symm q.2).1, ⟨q.1, (finProdFinEquiv.symm q.2).2⟩) :=
+  (rfl)
 
 /-- `m` tables of the design `r`, as one table of the design `m • r`, through
 `designBlockIndexEquiv`. -/
@@ -253,6 +270,25 @@ def designBlockEquiv (r : α → ℕ) (m : ℕ) :
     (Fin m → (Σ a, Fin (r a)) → 𝓧) ≃ᵐ ((Σ a, Fin ((m • r) a)) → 𝓧) :=
   (MeasurableEquiv.curry (Fin m) (Σ a, Fin (r a)) 𝓧).symm.trans
     (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) (designBlockIndexEquiv r m))
+
+omit [Fintype α] in
+/-- The entry `q` of the table of `m • r` built from `m` tables `x` of `r`. -/
+@[simp]
+lemma designBlockEquiv_apply (r : α → ℕ) (m : ℕ) (x : Fin m → (Σ a, Fin (r a)) → 𝓧)
+    (q : Σ a, Fin ((m • r) a)) :
+    designBlockEquiv (m𝓧 := m𝓧) r m x q =
+      x (finProdFinEquiv.symm q.2).1 ⟨q.1, (finProdFinEquiv.symm q.2).2⟩ := by
+  rw [designBlockEquiv, MeasurableEquiv.trans_apply, MeasurableEquiv.coe_piCongrLeft,
+    Equiv.piCongrLeft_apply_eq_cast, cast_eq, designBlockIndexEquiv_symm_apply,
+    MeasurableEquiv.coe_curry_symm, Function.uncurry_apply_pair]
+
+omit [Fintype α] in
+/-- The entry `p` of the table number `k` read in a table `y` of `m • r`. -/
+@[simp]
+lemma designBlockEquiv_symm_apply (r : α → ℕ) (m : ℕ) (y : (Σ a, Fin ((m • r) a)) → 𝓧)
+    (k : Fin m) (p : Σ a, Fin (r a)) :
+    (designBlockEquiv (m𝓧 := m𝓧) r m).symm y k p = y ⟨p.1, finProdFinEquiv (k, p.2)⟩ :=
+  (rfl)
 
 /-- `m` independent tables of the design `r` have the law of the table of the design `m • r`. -/
 theorem measurePreserving_designBlockEquiv (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
