@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.MultipleTesting.PRDS
 import LMLExplore.Data.Finset.Card
+import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 import LMLExplore.EValues.MultipleTesting.Simes
 
 /-!
@@ -30,8 +31,8 @@ smallest p-values, with ties broken in any way, lies in the e-closure of this e-
 false discovery proportion [Goe26, Lemmas 10 and 11], which bounds its false discovery rate by
 `α` under PRDS [Goe26, Theorem 12], and by `α` times the expectation of the statistic of the true
 nulls in general [Goe26, Theorem 13]. When the horizons satisfy `r k s * (m - k) ≤ k * s` above
-the antidiagonal, as those of closed BH do, the method rejects every hypothesis that BH rejects
-[Goe26, Proposition 16].
+the antidiagonal and before the last step `s < m`, as those of closed BH do, the method rejects
+every hypothesis that BH rejects [Goe26, Proposition 16].
 
 ## Main definitions
 
@@ -247,10 +248,10 @@ theorem bhLikeRatio_mono (hkl : k ≤ l) (hl : l ≤ m) (hs : 1 ≤ s) (hsm : s 
   | base => exact le_rfl
   | succ l hkl ih => exact (ih (by omega)).trans (hr.bhLikeRatio_le_succ (by omega) hs hsm)
 
-/-- **The horizon inequality** [Goe26, Lemma 10], in the arithmetic form of its proof: if `t`
-of the `k` hypotheses with the smallest p-values lie in a set `S` of `s` hypotheses, so that
-`k + s ≤ m + t`, then for every `j` between `k` and the horizon `r k s`, at most `t + j - k` of the
-`j` smallest lie in `S`, and `(t + j - k) * s * a k s ≤ α * t * j`. -/
+/-- **The horizon inequality** [Goe26, Lemma 10], in arithmetic form: if `k + s ≤ m + t` and
+`k ≤ j ≤ r k s`, then `(t + j - k) * s * bhLikeRatio m r k s ≤ t * j`. In
+`mem_eClosure_fdp_bhLikeECollection`, `t` is the number of p-values of a set `S` of `s`
+hypotheses below the threshold `a k s`, and `j` is the number of rejections. -/
 theorem mul_bhLikeRatio_le (hk : k ≤ m) (hs : 1 ≤ s) (hsm : s ≤ m) (hkj : k ≤ j)
     (hj : j ≤ r k s) (hkt : k + s ≤ m + t) :
     ((t : ℝ) + j - k) * s * bhLikeRatio m r k s ≤ t * j := by
@@ -278,10 +279,11 @@ theorem mul_bhLikeRatio_le (hk : k ≤ m) (hs : 1 ≤ s) (hsm : s ≤ m) (hkj : 
     (by linarith : (0 : ℝ) ≤ r k s - j), mul_nonneg (mul_nonneg (by linarith : (0 : ℝ) ≤ j - k)
     (by linarith : (0 : ℝ) ≤ r k s)) (by linarith : (0 : ℝ) ≤ t - (k + s - m))]
 
-/-- **The horizon inequality** [Goe26, Lemma 10], in the form used for the e-closure: under the
-hypotheses of `mul_bhLikeRatio_le`, with `k ≥ 1`, a set of `j` hypotheses meeting `S` in at most
-`t + j - k` of them has a proportion `n / j` of hypotheses in `S` at most `t / (s * a k s / α)`,
-the average over `S` of `t` statistics `1 / (a k s / α)`. -/
+/-- **The horizon inequality** [Goe26, Lemma 10], in quotient form: under the hypotheses of
+`mul_bhLikeRatio_le`, with `k ≥ 1`, if `n + k ≤ t + j` then
+`n / j ≤ t / (s * bhLikeRatio m r k s)`. In `mem_eClosure_fdp_bhLikeECollection`, `n` is the
+number of rejections in a set `S` of `s` hypotheses, so that the left side is the false discovery
+proportion for `S`, and the right side is `α` times the statistic of `S`. -/
 theorem div_le_div_mul_bhLikeRatio (hk₀ : 1 ≤ k) (hk : k ≤ m) (hs : 1 ≤ s) (hsm : s ≤ m)
     (hkj : k ≤ j) (hj : j ≤ r k s) (hkt : k + s ≤ m + t) {n : ℕ} (hn : n + k ≤ t + j) :
     (n : ℝ) / j ≤ t / (s * bhLikeRatio m r k s) := by
@@ -332,17 +334,20 @@ theorem bhLikeCount_le (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → �
   unfold bhLikeCount
   exact Nat.findGreatest_le _
 
+/-- The defining property of `bhLikeCount r α x`, which holds since it holds at `0`. -/
+private lemma bhLikeCount_spec (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → ℝ≥0∞) :
+    ∀ s ∈ Icc 1 (Fintype.card ι), ∃ k' ∈ Iic (bhLikeCount r α x),
+      k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧ bhLikeCount r α x ≤ r k' s :=
+  Nat.findGreatest_spec (P := fun k : ℕ ↦ ∀ s ∈ Icc 1 (Fintype.card ι), ∃ k' ∈ Iic k,
+    k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧ k ≤ r k' s) (m := 0)
+    (Nat.zero_le _) fun _ _ ↦ ⟨0, mem_Iic.2 le_rfl, Nat.zero_le _, Nat.zero_le _⟩
+
 /-- At every step `s`, some `k' ≤ bhLikeCount r α x` below its threshold has a horizon at least
 `bhLikeCount r α x`. -/
 theorem exists_le_bhLikeCount (hs : 1 ≤ s) (hsm : s ≤ Fintype.card ι) :
     ∃ k' ≤ bhLikeCount r α x, k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧
       bhLikeCount r α x ≤ r k' s := by
-  have := Nat.findGreatest_spec (P := fun k : ℕ ↦ ∀ s ∈ Icc 1 (Fintype.card ι), ∃ k' ∈ Iic k,
-    k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧ k ≤ r k' s) (m := 0)
-    (n := Fintype.card ι) (Nat.zero_le _)
-    (fun _ _ ↦ ⟨0, mem_Iic.2 le_rfl, Nat.zero_le _, Nat.zero_le _⟩) s
-    (mem_Icc.2 ⟨hs, hsm⟩)
-  obtain ⟨k', hk', h⟩ := this
+  obtain ⟨k', hk', h⟩ := bhLikeCount_spec r α x s (mem_Icc.2 ⟨hs, hsm⟩)
   exact ⟨k', mem_Iic.1 hk', h⟩
 
 /-- Every `k ≤ m` such that, at every step `s`, some `k' ≤ k` below its threshold has a horizon at
@@ -351,8 +356,8 @@ theorem le_bhLikeCount (hk : k ≤ Fintype.card ι)
     (h : ∀ s, 1 ≤ s → s ≤ Fintype.card ι → ∃ k' ≤ k,
       k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧ k ≤ r k' s) :
     k ≤ bhLikeCount r α x := by
-  refine Nat.le_findGreatest (P := fun k : ℕ ↦ ∀ s ∈ Icc 1 (Fintype.card ι), ∃ k' ∈ Iic k,
-    k' ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k' s} ∧ k ≤ r k' s) hk fun s hs ↦ ?_
+  unfold bhLikeCount
+  refine Nat.le_findGreatest hk fun s hs ↦ ?_
   obtain ⟨k', hk', h⟩ := h s (mem_Icc.1 hs).1 (mem_Icc.1 hs).2
   exact ⟨k', mem_Iic.2 hk', h⟩
 
@@ -363,21 +368,24 @@ theorem bhLikeCount_anti (hxy : x ≤ y) : bhLikeCount r α y ≤ bhLikeCount r 
     exact ⟨k', hk', hk'N.trans (card_le_card (monotone_filter_right _ fun i _ h ↦
       (hxy i).trans h)), hkr⟩) _
 
-theorem bhLikeIndex_le_bhLikeCount (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → ℝ≥0∞) (s : ℕ) :
-    bhLikeIndex r α x s ≤ bhLikeCount r α x := by
-  unfold bhLikeIndex
-  exact (Nat.findGreatest_spec (P := fun k : ℕ ↦ k ≤ bhLikeCount r α x ∧
+/-- The defining property of `bhLikeIndex r α x s`, which holds since it holds at `0`. -/
+private lemma bhLikeIndex_spec (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → ℝ≥0∞) (s : ℕ) :
+    bhLikeIndex r α x s ≤ bhLikeCount r α x ∧
+      bhLikeIndex r α x s ≤
+        #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α (bhLikeIndex r α x s) s} :=
+  Nat.findGreatest_spec (P := fun k : ℕ ↦ k ≤ bhLikeCount r α x ∧
     k ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k s}) (m := 0) (Nat.zero_le _)
-    ⟨Nat.zero_le _, Nat.zero_le _⟩).1
+    ⟨Nat.zero_le _, Nat.zero_le _⟩
+
+theorem bhLikeIndex_le_bhLikeCount (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → ℝ≥0∞) (s : ℕ) :
+    bhLikeIndex r α x s ≤ bhLikeCount r α x :=
+  (bhLikeIndex_spec r α x s).1
 
 /-- The p-value of rank `k_s` is below its threshold. -/
 theorem bhLikeIndex_le_card_filter (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (x : ι → ℝ≥0∞) (s : ℕ) :
     bhLikeIndex r α x s ≤
-      #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α (bhLikeIndex r α x s) s} := by
-  unfold bhLikeIndex
-  exact (Nat.findGreatest_spec (P := fun k : ℕ ↦ k ≤ bhLikeCount r α x ∧
-    k ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k s}) (m := 0) (Nat.zero_le _)
-    ⟨Nat.zero_le _, Nat.zero_le _⟩).2
+      #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α (bhLikeIndex r α x s) s} :=
+  (bhLikeIndex_spec r α x s).2
 
 theorem le_bhLikeIndex (hk : k ≤ bhLikeCount r α x)
     (hkN : k ≤ #{i | x i ≤ bhLikeThreshold (Fintype.card ι) r α k s}) :
@@ -390,33 +398,28 @@ theorem bhLikeIndex_anti (hxy : x ≤ y) (s : ℕ) : bhLikeIndex r α y s ≤ bh
     ⟨hk.1.trans (bhLikeCount_anti hxy),
       hk.2.trans (card_le_card (monotone_filter_right _ fun i _ h ↦ (hxy i).trans h))⟩) _
 
+/-- The number of p-values below a threshold is measurable in the p-values. -/
+private lemma measurable_card_filter_le (a : ℝ≥0∞) :
+    Measurable fun x : ι → ℝ≥0∞ ↦ #{i | x i ≤ a} :=
+  measurable_card_filter fun i ↦ measurableSet_setOfPred.1 (measurable_pi_apply i measurableSet_Iic)
+
 theorem measurable_bhLikeCount (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) :
     Measurable (bhLikeCount (ι := ι) r α) := by
-  -- The number of p-values below a threshold is measurable in the p-values.
-  have hN (a : ℝ≥0∞) : Measurable fun x : ι → ℝ≥0∞ ↦ #{i | x i ≤ a} :=
-    (Measurable.of_discrete (f := fun t : Finset ι ↦ #t)).comp (measurable_finset_iff.2 fun i ↦ by
-      simpa using measurableSet_setOfPred.1 (measurableSet_le (measurable_pi_apply i)
-        measurable_const))
   unfold bhLikeCount
   refine measurable_findGreatest fun _ _ ↦ measurableSet_setOfPred.2 ?_
   refine Measurable.forall fun s ↦ Measurable.imp measurable_const (Measurable.exists fun k' ↦
     measurable_const.and (Measurable.and ?_ measurable_const))
   exact measurableSet_setOfPred.1 (measurableSet_le measurable_const
-    (hN _))
+    (measurable_card_filter_le _))
 
 theorem measurable_bhLikeIndex (r : ℕ → ℕ → ℕ) (α : ℝ≥0∞) (s : ℕ) :
     Measurable fun x : ι → ℝ≥0∞ ↦ bhLikeIndex r α x s := by
-  -- The number of p-values below a threshold is measurable in the p-values.
-  have hN (a : ℝ≥0∞) : Measurable fun x : ι → ℝ≥0∞ ↦ #{i | x i ≤ a} :=
-    (Measurable.of_discrete (f := fun t : Finset ι ↦ #t)).comp (measurable_finset_iff.2 fun i ↦ by
-      simpa using measurableSet_setOfPred.1 (measurableSet_le (measurable_pi_apply i)
-        measurable_const))
   unfold bhLikeIndex
   refine measurable_findGreatest fun k _ ↦ measurableSet_setOfPred.2 (Measurable.and ?_ ?_)
   · exact measurableSet_setOfPred.1 (measurableSet_le measurable_const
       (measurable_bhLikeCount r α))
   · exact measurableSet_setOfPred.1 (measurableSet_le measurable_const
-      (hN _))
+      (measurable_card_filter_le _))
 
 /-- **The number of rejections is at most the horizon of the index** [Goe26, proof of
 Lemma 11]: at every step `s`, `bhLikeIndex r α x s ≤ bhLikeCount r α x ≤ r (bhLikeIndex r α x s) s`,
@@ -539,6 +542,19 @@ theorem IsBHLikeHorizon.isECollection_bhLikeECollection (hr : IsBHLikeHorizon (F
   isECollection_thresholdECollection hp (fun _ hs ↦ hr.antitone_bhLikeThreshold_bhLikeIndex α hs)
     (measurable_bhLikeThreshold_bhLikeIndex r α) hPRDS
 
+/-- The last step of [Goe26, Lemma 11], back in `ℝ≥0∞`: for `α ∉ {0, ∞}`, `θ > 0` and `s ≥ 1`,
+the real quotient `u / (s * θ)` is `α * (s⁻¹ * (u * (α * θ)⁻¹))`. -/
+private lemma ofReal_div_mul_eq_mul_inv_mul {α : ℝ≥0∞} (hα₀ : α ≠ 0) (hα : α ≠ ∞) {θ : ℝ}
+    (hθ : 0 < θ) {s : ℕ} (hs : 1 ≤ s) (u : ℕ) :
+    ENNReal.ofReal (u / (s * θ)) = α * ((s : ℝ≥0∞)⁻¹ * (u * (α * ENNReal.ofReal θ)⁻¹)) := by
+  have hs₀ : (0 : ℝ) < s := by exact_mod_cast hs
+  rw [ENNReal.ofReal_div_of_pos (mul_pos hs₀ hθ), ENNReal.ofReal_mul hs₀.le, ENNReal.ofReal_natCast,
+    ENNReal.ofReal_natCast, ENNReal.mul_inv (Or.inl hα₀) (Or.inl hα), ENNReal.div_eq_inv_mul,
+    ENNReal.mul_inv (Or.inr ENNReal.ofReal_ne_top) (Or.inr (ENNReal.ofReal_pos.2 hθ).ne')]
+  calc _ = α * α⁻¹ * ((s : ℝ≥0∞)⁻¹ * (ENNReal.ofReal θ)⁻¹ * u) := by
+        rw [ENNReal.mul_inv_cancel hα₀ hα, one_mul]
+    _ = _ := by ring
+
 /-- **The rejections of a BH-like method lie in the e-closure of its e-collection** [Goe26,
 Lemma 11]: for a level `α ∉ {0, ∞}`, every set `R` of `bhLikeCount r α (p · ω)` hypotheses with
 the smallest p-values, ties broken in any way, has `fdp S R ≤ α * e S` for every set `S`. -/
@@ -572,25 +588,13 @@ theorem IsBHLikeHorizon.mem_eClosure_fdp_bhLikeECollection [DecidableEq ι]
   have hθ := hr.bhLikeRatio_pos (hr.one_le_bhLikeIndex hs hsm hpos) hkm hs hsm
   have hreal := hr.div_le_div_mul_bhLikeRatio (hr.one_le_bhLikeIndex hs hsm hpos) hkm hs hsm hkc
     (hr.bhLikeCount_le_apply_bhLikeIndex hs hsm) hku hRS
-  have hs₀ : (0 : ℝ) < #S := by exact_mod_cast hs
   have hc₀ : (0 : ℝ) < c := by exact_mod_cast hpos
   -- Back in `ℝ≥0∞`.
-  have hθ' : ENNReal.ofReal θ ≠ 0 := (ENNReal.ofReal_pos.2 hθ).ne'
   calc fdp S R = ENNReal.ofReal (((#(R ∩ S) : ℕ) : ℝ) / c) := by
         rw [fdp_def, hR, max_eq_left (by exact_mod_cast hpos), ENNReal.ofReal_div_of_pos hc₀,
           ENNReal.ofReal_natCast, ENNReal.ofReal_natCast]
     _ ≤ ENNReal.ofReal (u / (#S * θ)) := ENNReal.ofReal_le_ofReal hreal
-    _ = α * ((#S : ℝ≥0∞)⁻¹ * (u * A⁻¹)) := by
-        rw [ENNReal.ofReal_div_of_pos (mul_pos hs₀ hθ), ENNReal.ofReal_mul hs₀.le,
-          ENNReal.ofReal_natCast, ENNReal.ofReal_natCast, ENNReal.div_eq_inv_mul,
-          ENNReal.mul_inv (Or.inr ENNReal.ofReal_ne_top) (Or.inr hθ')]
-        simp only [A, bhLikeThreshold_def]
-        rw [ENNReal.mul_inv (Or.inl hα₀) (Or.inl hα)]
-        calc (#S : ℝ≥0∞)⁻¹ * (ENNReal.ofReal θ)⁻¹ * u
-            = (#S : ℝ≥0∞)⁻¹ * (u * ((α * α⁻¹) * (ENNReal.ofReal θ)⁻¹)) := by
-              rw [ENNReal.mul_inv_cancel hα₀ hα, one_mul]
-              ring
-          _ = α * ((#S : ℝ≥0∞)⁻¹ * (u * (α⁻¹ * (ENNReal.ofReal θ)⁻¹))) := by ring
+    _ = α * ((#S : ℝ≥0∞)⁻¹ * (u * A⁻¹)) := ofReal_div_mul_eq_mul_inv_mul hα₀ hα hθ hs u
     _ = α * bhLikeECollection r α p S ω := by
         rw [bhLikeECollection_apply]
 
@@ -784,28 +788,25 @@ theorem closedBHHorizon_eq_self (hks : k + s ≤ m + 1) (h₁ : k = 1 → s < m)
   | succ k =>
     rw [closedBHHorizon_succ, ite_eq_left hks, ite_eq_right (by omega)]
 
+/-- Above the antidiagonal and before the last step, the horizon of closed BH satisfies both the
+growth bound and the criterion of [Goe26, Proposition 16], since `0` does. -/
+private lemma closedBHHorizon_succ_spec_of_lt (h : m + 1 < k + 1 + s) (hs : s < m) :
+    closedBHHorizon m (k + 1) s * ((k + 1 + s - m) * (m - s) - closedBHHorizon m k s) ≤
+      (m - s) * (k + s - m) * closedBHHorizon m k s ∧
+    closedBHHorizon m (k + 1) s * (m - (k + 1)) ≤ (k + 1) * s := by
+  rw [closedBHHorizon_succ_of_lt h hs]
+  exact Nat.findGreatest_spec (P := fun q ↦
+    q * ((k + 1 + s - m) * (m - s) - closedBHHorizon m k s) ≤
+      (m - s) * (k + s - m) * closedBHHorizon m k s ∧ q * (m - (k + 1)) ≤ (k + 1) * s)
+    (Nat.zero_le _) (by simp)
+
 /-- **The criterion of [Goe26, Proposition 16] for closed BH**: above the antidiagonal and before
 the last step, `r k s * (m - k) ≤ k * s`. -/
 theorem closedBHHorizon_mul_le (h : m + 1 < k + s) (hs : s < m) :
     closedBHHorizon m k s * (m - k) ≤ k * s := by
   cases k with
   | zero => omega
-  | succ k =>
-    rw [closedBHHorizon_succ_of_lt h hs]
-    exact (Nat.findGreatest_spec (P := fun q ↦
-      q * ((k + 1 + s - m) * (m - s) - closedBHHorizon m k s) ≤
-        (m - s) * (k + s - m) * closedBHHorizon m k s ∧ q * (m - (k + 1)) ≤ (k + 1) * s)
-      (Nat.zero_le _) (by simp)).2
-
-/-- The growth bound of closed BH above the antidiagonal and before the last step. -/
-private lemma closedBHHorizon_succ_mul_le_of_lt (h : m + 1 < k + 1 + s) (hs : s < m) :
-    closedBHHorizon m (k + 1) s * ((k + 1 + s - m) * (m - s) - closedBHHorizon m k s) ≤
-      (m - s) * (k + s - m) * closedBHHorizon m k s := by
-  rw [closedBHHorizon_succ_of_lt h hs]
-  exact (Nat.findGreatest_spec (P := fun q ↦
-    q * ((k + 1 + s - m) * (m - s) - closedBHHorizon m k s) ≤
-      (m - s) * (k + s - m) * closedBHHorizon m k s ∧ q * (m - (k + 1)) ≤ (k + 1) * s)
-    (Nat.zero_le _) (by simp)).1
+  | succ k => exact (closedBHHorizon_succ_spec_of_lt h hs).2
 
 /-- [Goe26, Lemma 2]: the value `k + 1` is allowed by the growth bound, when the previous horizon
 is at least `k`. -/
@@ -887,7 +888,7 @@ theorem isBHLikeHorizon_closedBHHorizon (m : ℕ) : IsBHLikeHorizon m (closedBHH
     rcases eq_or_lt_of_le hsm with rfl | hsm₁
     · rw [Nat.sub_self, mul_zero, Nat.zero_sub, mul_zero]
       exact Nat.zero_le _
-    exact closedBHHorizon_succ_mul_le_of_lt h hsm₁
+    exact (closedBHHorizon_succ_spec_of_lt h hsm₁).1
 
 variable {ι : Type*} [Fintype ι] {α : ℝ≥0∞}
 
