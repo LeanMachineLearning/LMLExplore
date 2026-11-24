@@ -63,8 +63,9 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
   finite, then the largest e-power of `{m}` exceeds that of `{ν}` by at most that expected value.
 * `ProbabilityTheory.maxEPower_eq_eintegral_numeraire`: the numeraire attains the largest e-power.
 * `ProbabilityTheory.maxEPower_prod_eq_add`: additivity of `maxEPower` on products of nulls.
-* `ProbabilityTheory.maxEPower_map_le` and `MeasurableEmbedding.maxEPower_map_eq`: data processing
-  for `maxEPower` along a measurable map, with equality along a measurable embedding.
+* `ProbabilityTheory.maxEPower_map_le`, `MeasurableEmbedding.maxEPower_map_eq` and
+  `MeasurableEquiv.maxEPower_map_eq`: data processing for `maxEPower` along a measurable map, with
+  equality along a measurable embedding or a measurable equivalence.
 * `ProbabilityTheory.coe_klDiv_smul_right_self_lt_maxEPower`: `klDiv` cannot replace `klIntegral` in
   the duality.
 
@@ -382,6 +383,17 @@ theorem _root_.MeasurableEmbedding.maxEPower_map_eq [Nonempty Ω] {φ : Ω → �
     (hφ : MeasurableEmbedding φ) (Q : Measure Ω) (S : Set (Measure Ω)) :
     maxEPower (Q.map φ) (mapNull φ S) = maxEPower Q S :=
   mapNull_def φ S ▸ MeasurableEmbedding.maxUtility_map_eq φ hφ Q S
+
+/-- Pushing the measure and the null forward along a measurable equivalence preserves the largest
+e-power. Unlike `MeasurableEmbedding.maxEPower_map_eq`, no point of `Ω` is needed: the inverse
+carries the e-variables back. -/
+theorem _root_.MeasurableEquiv.maxEPower_map_eq (e : Ω ≃ᵐ Ω') (Q : Measure Ω)
+    (S : Set (Measure Ω)) :
+    maxEPower (Q.map e) (mapNull e S) = maxEPower Q S := by
+  refine le_antisymm (maxEPower_map_le Q e.measurable) ?_
+  have h := maxEPower_map_le (Q.map e) (S := mapNull e S) e.symm.measurable
+  rwa [Measure.map_map e.symm.measurable e.measurable, mapNull_mapNull e.symm.measurable
+    e.measurable, e.symm_comp_self, Measure.map_id, mapNull_id] at h
 
 /-! ### `klDiv` cannot replace `klIntegral` -/
 
