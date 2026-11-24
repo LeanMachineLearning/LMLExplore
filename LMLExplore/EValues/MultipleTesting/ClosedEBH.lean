@@ -26,7 +26,8 @@ chosen after seeing the data [XSF+26, Theorem 14].
 
 Closed e-BH improves e-BH uniformly [XSF+26, Theorem 17]: every self-consistent set is
 mean-consistent, in particular the e-BH rejection set, and for two hypotheses or more some
-realization of the e-values makes a hypothesis mean-consistent while e-BH rejects nothing.
+realization of the e-values at any level `α ∉ {0, ∞}` makes a hypothesis mean-consistent while
+e-BH rejects nothing.
 
 The largest mean-consistent sets can be taken among the hypotheses with the largest e-values
 [XSF+26, Lemma 52], through the general exchange argument
@@ -332,9 +333,8 @@ theorem lintegral_biSup_isMeanConsistent_fdp_le_of_isEVar [Fintype ι] {H : ι �
     (hE : ∀ i, IsEVar (E i) (H i)) (α : ℝ≥0∞) (P : Measure Ω) :
     ∫⁻ ω, ⨆ (R) (_ : IsMeanConsistent (E · ω) α R), fdp (trueNulls H P) R ∂P ≤ α := by
   refine (lintegral_biSup_isMeanConsistent_fdp_le (fun i ↦ (hE i).measurable.aemeasurable)
-    _).trans (mul_le_of_le_one_right' (ENNReal.div_le_of_le_mul ?_))
-  rw [one_mul, ← nsmul_one, ← sum_const]
-  exact sum_le_sum fun i hi ↦ (hE i).lintegral_le_one (mem_trueNulls.1 hi)
+    _).trans (mul_le_of_le_one_right' (ENNReal.div_le_of_le_mul
+      (by rw [one_mul]; exact sum_lintegral_le_card_trueNulls hE P)))
 
 end FDR
 

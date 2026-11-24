@@ -63,9 +63,9 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
   controls the loss at `α` times the expectation of the statistic of the true nulls [Goe26,
   Theorem 13].
 * `ProbabilityTheory.mem_eClosure_of_forall_le`: for a loss depending only on the numbers of true
-  nulls, of rejections and of rejected true nulls, and statistics nondecreasing in the values of
-  the hypotheses, a member of an e-closure may be replaced by any set of the same size of largest
-  values [XSF+26, Lemma 52].
+  nulls, of rejections and of rejected true nulls, nondecreasingly in the last, and statistics
+  nondecreasing in the values of the hypotheses, a member of an e-closure may be replaced by any
+  set of the same size of largest values [XSF+26, Lemma 52].
 * `ProbabilityTheory.IsECollection.lintegral_iSup_div_le_one`,
   `ProbabilityTheory.exists_isECollection_of_lintegral_iSup_div_le_one`: the post-hoc
   e-Closure Principle [XSF+26, Theorem 48].
