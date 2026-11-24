@@ -9,7 +9,7 @@ public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.AlmostSure
-import LMLExplore.EValues.BipolarRate.Numeraire
+import LMLExplore.EValues.BipolarRate.Numeraire.Basic
 import LMLExplore.Probability.ProductMeasure
 
 /-!
