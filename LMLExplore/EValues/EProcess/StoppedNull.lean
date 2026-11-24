@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.StoppedLaw
+import LMLExplore.EValues.EffectiveSet.TotalVariation
 
 /-!
 # E-processes are the e-variables of the stopped null
@@ -32,6 +33,10 @@ stopped null is read time by time.
 
 * `ProbabilityTheory.isEProcess_iff_isEVar_stoppedNull`: an adapted process is an e-process
   exactly when it is an e-variable on the space of stopped paths for the stopped null.
+* `ProbabilityTheory.isEVar_stoppedNull_range_dirac_iff`,
+  `ProbabilityTheory.isEProcess_range_dirac_iff`: the e-variables of the stopped null and the
+  e-processes of the null of all Dirac masses are the progressive functions, respectively the
+  adapted processes, at most one.
 * `ProbabilityTheory.eventually_quasiSure_stoppedNull_iff`: a progressive property holds
   quasi-surely for the stopped null exactly when it holds quasi-surely for the null at every time.
 * `ProbabilityTheory.isEProcess_liminf`: the time-wise `liminf` of a sequence of e-processes is an
@@ -140,6 +145,29 @@ theorem isEProcess_iff_isEVar_stoppedNull :
     have h := hE.lintegral_le_one (stoppedLaw_mem_stoppedNull hP hτ
       fun ω ↦ WithTop.ne_top_of_le_natCast (hτN ω))
     rwa [lintegral_stoppedLaw hτ.measurable'.untopA hE.measurable] at h
+
+/-- **The e-variables of the stopped null of the Dirac masses** are the progressive functions of
+the stopped paths that are at most one everywhere: the stopped law of the Dirac mass at `ω` at the
+constant time `n` is the Dirac mass at `(n, ω)`. -/
+theorem isEVar_stoppedNull_range_dirac_iff {X : ℕ × Ω → ℝ≥0∞} :
+    IsEVar X (stoppedNull ℱ (range Measure.dirac)) ↔
+      Measurable[ℱ.progressive] X ∧ ∀ x, X x ≤ 1 := by
+  refine isEVar_iff_of_forall_exists_etvDist_dirac_lt
+    (fun _ ↦ measure_univ_le_one_of_mem_stoppedNull (forall_mem_range.2 fun _ ↦ prob_le_one))
+    fun ⟨n, ω⟩ ε hε ↦ ⟨_, stoppedLaw_mem_stoppedNull (mem_range_self ω)
+      (isStoppingTime_natCast (ℱ := ℱ) n) fun _ ↦ WithTop.natCast_ne_top n, ?_⟩
+  -- `Measure.map_dirac'` with the progressive σ-algebra on the stopped paths, passed explicitly.
+  rw [WithTop.untopA_natCast, stoppedLaw_def, @Measure.map_dirac' Ω (ℕ × Ω) mΩ ℱ.progressive _
+    (Filtration.measurable_prodMk_progressive measurable_const) ω, etvDist_self]
+  exact hε
+
+/-- **The e-processes of the null of all Dirac masses** are the adapted processes that are at most
+one everywhere. -/
+theorem isEProcess_range_dirac_iff :
+    IsEProcess E ℱ (range Measure.dirac) ↔ Adapted ℱ E ∧ ∀ n ω, E n ω ≤ 1 := by
+  rw [isEProcess_iff_isEVar_stoppedNull, isEVar_stoppedNull_range_dirac_iff,
+    Filtration.measurable_uncurry_progressive_iff, Prod.forall]
+  simp only [Function.uncurry_apply_pair]
 
 /-- **The quasi-sure filter of the stopped null.** A property of stopped paths given by a
 progressive set holds quasi-surely for the stopped null exactly when, at every time `n`, it holds

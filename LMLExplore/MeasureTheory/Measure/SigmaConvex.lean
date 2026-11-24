@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Analysis.Convex.Basic
+public import Mathlib.Analysis.Convex.Hull
 public import Mathlib.MeasureTheory.Measure.Sum
 
 /-!
@@ -30,6 +31,7 @@ hypothesis is σ-convex.
 * `MeasureTheory.isSigmaConvex_sigmaConvexHull`,
   `MeasureTheory.IsSigmaConvex.sigmaConvexHull_subset`: the countable mixtures of members of `𝒞`
   form the smallest σ-convex set that contains `𝒞`.
+* `MeasureTheory.convexHull_subset_sigmaConvexHull`: the finite mixtures are countable mixtures.
 
 ## References
 
@@ -129,5 +131,10 @@ theorem IsSigmaConvex.sigmaConvexHull_subset {𝒞 𝒟 : Set (Measure Ω)} (h�
     (h : 𝒞 ⊆ 𝒟) : sigmaConvexHull 𝒞 ⊆ 𝒟 := by
   rintro _ ⟨w, Qs, hw, hQs, rfl⟩
   exact h𝒟.sum_smul_mem hw fun n ↦ h (hQs n)
+
+/-- The finite mixtures of members of `𝒞`, its convex hull, are countable mixtures. -/
+theorem convexHull_subset_sigmaConvexHull {𝒞 : Set (Measure Ω)} :
+    convexHull ℝ≥0∞ 𝒞 ⊆ sigmaConvexHull 𝒞 :=
+  convexHull_min subset_sigmaConvexHull isSigmaConvex_sigmaConvexHull.convex
 
 end MeasureTheory
