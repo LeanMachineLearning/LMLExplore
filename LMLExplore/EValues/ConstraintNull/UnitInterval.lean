@@ -8,6 +8,7 @@ module
 public import LMLExplore.EValues.ConstraintNull.Admissible
 public import LMLExplore.EValues.ConstraintNull.KLInf
 public import Mathlib.Topology.UnitInterval
+import LMLExplore.Analysis.SpecialFunctions.Integrability.PosLog
 
 /-!
 # The mean-constraint nulls on `[0, 1]`
@@ -120,11 +121,11 @@ private theorem measurable_meanEq (m : ℝ) :
     ∀ i, Measurable (![fun x : I ↦ (x : ℝ) - m, fun x : I ↦ m - (x : ℝ)] i) :=
   Fin.forall_fin_two.2 ⟨measurable_subtypeVal.sub_const m, measurable_subtypeVal.const_sub m⟩
 
-/-- The combination with weights `π` of the constraints `x - m` and `m - x` is the linear function
-of slope `π 0 - π 1` in `x - m`. -/
-private theorem sum_mul_meanEq (π : Fin 2 → ℝ≥0) (x : I) :
-    ∑ i, (π i : ℝ) * ![fun x : I ↦ (x : ℝ) - m, fun x : I ↦ m - (x : ℝ)] i x =
-      ((π 0 : ℝ) - π 1) * ((x : ℝ) - m) := by
+/-- The combination with weights `ρ` of the constraints `x - m` and `m - x` is the linear function
+of slope `ρ 0 - ρ 1` in `x - m`. -/
+private theorem sum_mul_meanEq (ρ : Fin 2 → ℝ) (x : I) :
+    ∑ i, ρ i * ![fun x : I ↦ (x : ℝ) - m, fun x : I ↦ m - (x : ℝ)] i x =
+      (ρ 0 - ρ 1) * ((x : ℝ) - m) := by
   simp only [Fin.sum_univ_two, Matrix.cons_val_zero, Matrix.cons_val_one]
   ring
 
@@ -136,13 +137,17 @@ private theorem coe_toNNReal_sub_coe_toNNReal_neg (l : ℝ) :
 
 /-! ### Membership -/
 
+/-- The identity of `[0, 1]` is integrable under every finite measure. -/
+private theorem integrable_coe (μ : Measure I) [IsFiniteMeasure μ] :
+    Integrable (fun x : I ↦ (x : ℝ)) μ :=
+  Integrable.of_mem_Icc 0 1 measurable_subtypeVal.aemeasurable (ae_of_all _ fun x : I ↦ x.property)
+
 /-- The laws on `[0, 1]` with mean at most `m` are the probability measures whose mean is at
 most `m`. -/
 theorem mem_meanLeNull_iff : μ ∈ meanLeNull m ↔ IsProbabilityMeasure μ ∧ ∫ x, (x : ℝ) ∂μ ≤ m := by
   rw [meanLeNull_def, mem_constraintNull_iff]
   refine and_congr_right fun hμ ↦ ?_
-  have hx := Integrable.of_mem_Icc (μ := μ) 0 1 measurable_subtypeVal.aemeasurable
-    (ae_of_all _ fun x : I ↦ x.property)
+  have hx := integrable_coe μ
   have hxm : Integrable (fun x : I ↦ (x : ℝ) - m) μ := hx.sub (integrable_const m)
   simp [integral_sub hx (integrable_const m), hxm]
 
@@ -151,8 +156,7 @@ least `m`. -/
 theorem mem_meanGeNull_iff : μ ∈ meanGeNull m ↔ IsProbabilityMeasure μ ∧ m ≤ ∫ x, (x : ℝ) ∂μ := by
   rw [meanGeNull_def, mem_constraintNull_iff]
   refine and_congr_right fun hμ ↦ ?_
-  have hx := Integrable.of_mem_Icc (μ := μ) 0 1 measurable_subtypeVal.aemeasurable
-    (ae_of_all _ fun x : I ↦ x.property)
+  have hx := integrable_coe μ
   have hmx : Integrable (fun x : I ↦ m - (x : ℝ)) μ := (integrable_const m).sub hx
   simp [integral_sub (integrable_const m) hx, hmx]
 
@@ -166,6 +170,16 @@ theorem mem_meanEqNull_iff : μ ∈ meanEqNull m ↔ IsProbabilityMeasure μ ∧
     exact ⟨⟨hμ, h.le⟩, hμ, h.ge⟩
 
 /-! ### Quasi-sure statements hold everywhere -/
+
+/-- Two linear functions `a * (x - m)` and `b * (x - m)` that are ordered on `[0, 1]`, for
+`0 < m < 1`, have the same slope: they are ordered at `0` and at `1`, where `x - m` has opposite
+signs. -/
+private theorem eq_of_forall_mul_sub_le (hm₀ : 0 < m) (hm₁ : m < 1) {a b : ℝ}
+    (h : ∀ x : I, a * ((x : ℝ) - m) ≤ b * ((x : ℝ) - m)) : a = b := by
+  have h0 := h 0
+  have h1 := h 1
+  simp only [Icc.coe_zero, Icc.coe_one] at h0 h1
+  nlinarith
 
 /-- Every point of `[0, 1]` is charged by a law with mean at most `m`, for `0 < m`: almost surely
 under every such law means everywhere. -/
@@ -186,14 +200,10 @@ under every such law means everywhere. -/
 theorem quasiSure_meanEqNull (hm₀ : 0 < m) (hm₁ : m < 1) : quasiSure (meanEqNull m) = ⊤ := by
   -- a combination that is nonnegative at `0` and at `1` has slope `0`
   have hY : NoArbitrageOn ![fun x : I ↦ (x : ℝ) - m, fun x : I ↦ m - (x : ℝ)] univ := by
-    refine noArbitrageOn_iff.2 fun ρ hρ h x _ ↦ ?_
-    have h0 := h 0 (mem_univ _)
-    have h1 := h 1 (mem_univ _)
-    simp only [Fin.sum_univ_two, Matrix.cons_val_zero, Matrix.cons_val_one, Icc.coe_zero,
-      Icc.coe_one] at h0 h1 ⊢
-    have : ρ 0 = ρ 1 := by nlinarith
-    rw [this]
-    ring
+    refine noArbitrageOn_iff.2 fun ρ _ h x _ ↦ ?_
+    simp only [sum_mul_meanEq] at h ⊢
+    rw [← eq_of_forall_mul_sub_le hm₀ hm₁ (a := 0) (b := ρ 0 - ρ 1)
+      fun x ↦ by simpa using h x (mem_univ _), zero_mul]
   rw [meanEqNull_eq_constraintNull_range, quasiSure_constraintNull_eq_principal
     (measurable_meanEq m) hY (fun _ _ ↦ by simp), Filter.principal_univ]
 
@@ -244,6 +254,45 @@ private theorem mem_constraintBets_meanEq_iff (hm₀ : 0 < m) (hm₁ : m < 1) {�
   simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
     sum_mul_meanEq, forall_one_add_mul_sub_nonneg_iff_mem_Icc hm₀ hm₁]
 
+/-- The slopes of the bets on the constraints `x - m` and `m - x`, for `0 < m < 1`, are the
+`l ∈ [-1 / (1 - m), 1 / m]`. -/
+private theorem image_constraintBets_meanEq (hm₀ : 0 < m) (hm₁ : m < 1) :
+    (fun (π : Fin 2 → ℝ≥0) ↦ (π 0 : ℝ) - π 1) ''
+      constraintBets ![fun x : I ↦ (x : ℝ) - m, fun x : I ↦ m - (x : ℝ)] =
+      Icc (-(1 - m)⁻¹) m⁻¹ := by
+  refine Subset.antisymm (image_subset_iff.2 fun π hπ ↦ (mem_constraintBets_meanEq_iff hm₀ hm₁).1
+    hπ) fun l hl ↦ ⟨![l.toNNReal, (-l).toNNReal], ?_, coe_toNNReal_sub_coe_toNNReal_neg l⟩
+  rwa [mem_constraintBets_meanEq_iff hm₀ hm₁, coe_toNNReal_sub_coe_toNNReal_neg]
+
+/-- The slopes of the bets on one constraint `Y` are the `l ∈ [0, c]`, if quasi-sure statements
+hold everywhere and the nonnegative slopes `l` of the bets `1 + l * Y` are those below `c`. -/
+private theorem image_constraintBets_unit {Y : I → ℝ} {c : ℝ}
+    (hq : quasiSure (constraintNull (range fun _ : Unit ↦ Y)) = ⊤)
+    (hY : ∀ l : ℝ, 0 ≤ l → ((∀ x, 0 ≤ 1 + l * Y x) ↔ l ≤ c)) :
+    (fun (π : Unit → ℝ≥0) ↦ (π () : ℝ)) '' constraintBets (fun _ : Unit ↦ Y) = Icc 0 c := by
+  have h (π : Unit → ℝ≥0) : π ∈ constraintBets (fun _ : Unit ↦ Y) ↔ (π () : ℝ) ≤ c := by
+    simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
+      Finset.univ_unique, Finset.sum_singleton, PUnit.default_eq_unit, hY _ (π ()).coe_nonneg]
+  refine Subset.antisymm (image_subset_iff.2 fun π hπ ↦ ⟨(π ()).coe_nonneg, (h π).1 hπ⟩)
+    fun l hl ↦ ⟨fun _ ↦ l.toNNReal, ?_, Real.coe_toNNReal _ hl.1⟩
+  rw [h, Real.coe_toNNReal _ hl.1]
+  exact hl.2
+
+/-- The slopes of the bets on the constraint `x - m`, for `0 < m`, are the `l ∈ [0, 1 / m]`. -/
+private theorem image_constraintBets_meanLe (hm : 0 < m) :
+    (fun (π : Unit → ℝ≥0) ↦ (π () : ℝ)) '' constraintBets (fun _ : Unit ↦ fun x : I ↦ (x : ℝ) - m) =
+      Icc 0 m⁻¹ :=
+  image_constraintBets_unit (meanLeNull_eq_constraintNull_range m ▸ quasiSure_meanLeNull hm)
+    fun _ ↦ forall_one_add_mul_sub_nonneg_iff_le_inv hm
+
+/-- The slopes of the bets on the constraint `m - x`, for `m < 1`, are the
+`l ∈ [0, 1 / (1 - m)]`. -/
+private theorem image_constraintBets_meanGe (hm : m < 1) :
+    (fun (π : Unit → ℝ≥0) ↦ (π () : ℝ)) '' constraintBets (fun _ : Unit ↦ fun x : I ↦ m - (x : ℝ)) =
+      Icc 0 (1 - m)⁻¹ :=
+  image_constraintBets_unit (meanGeNull_eq_constraintNull_range m ▸ quasiSure_meanGeNull hm)
+    fun _ ↦ forall_one_add_mul_sub_nonneg_iff_le_inv' hm
+
 /-! ### The e-variables and the admissible e-variables -/
 
 /-- **The e-variables for the laws on `[0, 1]` with mean at most `m`**, for `0 < m`: the
@@ -253,15 +302,10 @@ theorem isEVar_meanLeNull_iff (hm : 0 < m) :
       Measurable E ∧ ∃ l ∈ Icc 0 m⁻¹, ∀ x, E x ≤ ENNReal.ofReal (1 + l * ((x : ℝ) - m)) := by
   have hq := quasiSure_meanLeNull hm
   rw [meanLeNull_eq_constraintNull_range] at hq ⊢
-  rw [isEVar_constraintNull_iff fun _ ↦ by fun_prop, hq]
-  simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
-    Finset.univ_unique, Finset.sum_singleton, Filter.EventuallyLE]
-  refine and_congr_right fun _ ↦ ⟨fun ⟨π, hπ, hE⟩ ↦ ⟨π (), ⟨(π ()).coe_nonneg,
-    (forall_one_add_mul_sub_nonneg_iff_le_inv hm (π ()).coe_nonneg).1 hπ⟩, hE⟩,
-    fun ⟨l, hl, hE⟩ ↦ ⟨fun _ ↦ l.toNNReal, ?_, ?_⟩⟩
-  · rw [Real.coe_toNNReal _ hl.1]
-    exact (forall_one_add_mul_sub_nonneg_iff_le_inv hm hl.1).2 hl.2
-  · simpa [Real.coe_toNNReal _ hl.1] using hE
+  rw [isEVar_constraintNull_iff fun _ ↦ by fun_prop, hq, ← image_constraintBets_meanLe hm,
+    exists_mem_image]
+  simp only [Filter.EventuallyLE, Filter.eventually_top, Finset.univ_unique,
+    Finset.sum_singleton, PUnit.default_eq_unit]
 
 /-- **The e-variables for the laws on `[0, 1]` with mean at least `m`**, for `m < 1`: the
 measurable functions below a bet `1 + l * (m - x)` with `l ∈ [0, 1 / (1 - m)]` at every point. -/
@@ -270,15 +314,10 @@ theorem isEVar_meanGeNull_iff (hm : m < 1) :
       Measurable E ∧ ∃ l ∈ Icc 0 (1 - m)⁻¹, ∀ x, E x ≤ ENNReal.ofReal (1 + l * (m - (x : ℝ))) := by
   have hq := quasiSure_meanGeNull hm
   rw [meanGeNull_eq_constraintNull_range] at hq ⊢
-  rw [isEVar_constraintNull_iff fun _ ↦ by fun_prop, hq]
-  simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
-    Finset.univ_unique, Finset.sum_singleton, Filter.EventuallyLE]
-  refine and_congr_right fun _ ↦ ⟨fun ⟨π, hπ, hE⟩ ↦ ⟨π (), ⟨(π ()).coe_nonneg,
-    (forall_one_add_mul_sub_nonneg_iff_le_inv' hm (π ()).coe_nonneg).1 hπ⟩, hE⟩,
-    fun ⟨l, hl, hE⟩ ↦ ⟨fun _ ↦ l.toNNReal, ?_, ?_⟩⟩
-  · rw [Real.coe_toNNReal _ hl.1]
-    exact (forall_one_add_mul_sub_nonneg_iff_le_inv' hm hl.1).2 hl.2
-  · simpa [Real.coe_toNNReal _ hl.1] using hE
+  rw [isEVar_constraintNull_iff fun _ ↦ by fun_prop, hq, ← image_constraintBets_meanGe hm,
+    exists_mem_image]
+  simp only [Filter.EventuallyLE, Filter.eventually_top, Finset.univ_unique,
+    Finset.sum_singleton, PUnit.default_eq_unit]
 
 /-- **The e-variables for the laws on `[0, 1]` with mean `m`** [Cle25, Theorem 1], for
 `0 < m < 1`: the measurable functions below a bet `1 + l * (x - m)` with
@@ -288,12 +327,9 @@ theorem isEVar_meanEqNull_iff (hm₀ : 0 < m) (hm₁ : m < 1) :
       ∃ l ∈ Icc (-(1 - m)⁻¹) m⁻¹, ∀ x, E x ≤ ENNReal.ofReal (1 + l * ((x : ℝ) - m)) := by
   have hq := quasiSure_meanEqNull hm₀ hm₁
   rw [meanEqNull_eq_constraintNull_range] at hq ⊢
-  rw [isEVar_constraintNull_iff (measurable_meanEq m), hq]
+  rw [isEVar_constraintNull_iff (measurable_meanEq m), hq, ← image_constraintBets_meanEq hm₀ hm₁,
+    exists_mem_image]
   simp only [Filter.EventuallyLE, Filter.eventually_top, sum_mul_meanEq]
-  refine and_congr_right fun _ ↦ ⟨fun ⟨π, hπ, hE⟩ ↦ ⟨_, (mem_constraintBets_meanEq_iff hm₀ hm₁).1
-    hπ, hE⟩, fun ⟨l, hl, hE⟩ ↦ ⟨![l.toNNReal, (-l).toNNReal], ?_, ?_⟩⟩
-  · rwa [mem_constraintBets_meanEq_iff hm₀ hm₁, coe_toNNReal_sub_coe_toNNReal_neg]
-  · simpa only [coe_toNNReal_sub_coe_toNNReal_neg] using hE
 
 /-- **The admissible e-variables for the laws on `[0, 1]` with mean `m` are the bets**
 [Cle25, Theorem 1], for `0 < m < 1`: the functions `1 + l * (x - m)` with
@@ -319,25 +355,11 @@ theorem isAdmissibleEVar_meanEqNull_iff (hm₀ : 0 < m) (hm₁ : m < 1) :
       (fun ρ ρ' hρ ↦ ?_) hπ
     · simpa only [sum_mul_meanEq, coe_toNNReal_sub_coe_toNNReal_neg] using h
     · rw [hq, Filter.eventually_top] at hρ ⊢
-      intro x
       simp only [sum_mul_meanEq] at hρ ⊢
-      have h0 := hρ 0
-      have h1 := hρ 1
-      simp only [Icc.coe_zero, Icc.coe_one] at h0 h1
-      have : (ρ 0 : ℝ) - ρ 1 = ρ' 0 - ρ' 1 := by nlinarith
-      rw [this]
+      rw [eq_of_forall_mul_sub_le hm₀ hm₁ hρ]
+      exact fun _ ↦ le_rfl
 
 /-! ### The smallest relative entropies -/
-
-/-- The functions `log⁺ (a * x + b)` on `[0, 1]` are integrable under every finite measure. -/
-private theorem integrable_posLog_mul_coe_add [IsFiniteMeasure Q] (a b : ℝ) :
-    Integrable (fun x : I ↦ Real.posLog (a * (x : ℝ) + b)) Q := by
-  have hx := Integrable.of_mem_Icc (μ := Q) 0 1 measurable_subtypeVal.aemeasurable
-    (ae_of_all _ fun x : I ↦ x.property)
-  refine Integrable.mono' ((hx.const_mul a).add (integrable_const b)).abs (by fun_prop)
-    (ae_of_all _ fun x ↦ ?_)
-  rw [Real.norm_eq_abs, abs_of_nonneg Real.posLog_nonneg]
-  exact Real.posLog_le_abs _
 
 /-- **The formula of Honda and Takemura** for the laws on `[0, 1]` with mean at most `m`
 [HT15], for `0 < m`: the smallest relative entropy from a probability measure `Q`
@@ -346,18 +368,11 @@ on `[0, 1]` to the laws with mean at most `m` is the supremum over `l ∈ [0, 1 
 theorem klInf_meanLeNull (hm : 0 < m) (Q : Measure I) [IsProbabilityMeasure Q] :
     klInf Q (meanLeNull m) =
       ⨆ l ∈ Icc 0 m⁻¹, ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * ((x : ℝ) - m))) ∂Q := by
-  have hq := quasiSure_meanLeNull hm
-  rw [meanLeNull_eq_constraintNull_range] at hq ⊢
-  rw [klInf_constraintNull_eq_iSup_eintegral_log (fun _ ↦ by fun_prop) Q
-    fun _ ↦ by simpa [sub_eq_add_neg] using integrable_posLog_mul_coe_add (Q := Q) 1 (-m)]
-  simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
-    Finset.univ_unique, Finset.sum_singleton]
-  refine le_antisymm (iSup₂_le fun π hπ ↦ le_iSup₂_of_le (π () : ℝ) ⟨(π ()).coe_nonneg,
-    (forall_one_add_mul_sub_nonneg_iff_le_inv hm (π ()).coe_nonneg).1 hπ⟩ le_rfl)
-    (iSup₂_le fun l hl ↦ le_iSup₂_of_le (fun _ ↦ l.toNNReal) ?_ ?_)
-  · rw [Real.coe_toNNReal _ hl.1]
-    exact (forall_one_add_mul_sub_nonneg_iff_le_inv hm hl.1).2 hl.2
-  · rw [Real.coe_toNNReal _ hl.1]
+  rw [meanLeNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
+    (fun _ ↦ by fun_prop) Q
+    fun _ ↦ by exact ((integrable_coe Q).sub (integrable_const m)).posLog,
+    ← image_constraintBets_meanLe hm, iSup_image]
+  simp only [Finset.univ_unique, Finset.sum_singleton, PUnit.default_eq_unit]
 
 /-- **The formula of Honda and Takemura** for the laws on `[0, 1]` with mean at least `m`
 [HT15], for `m < 1`: the smallest relative entropy from a probability measure `Q`
@@ -366,18 +381,11 @@ on `[0, 1]` to the laws with mean at least `m` is the supremum over `l ∈ [0, 1
 theorem klInf_meanGeNull (hm : m < 1) (Q : Measure I) [IsProbabilityMeasure Q] :
     klInf Q (meanGeNull m) =
       ⨆ l ∈ Icc 0 (1 - m)⁻¹, ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * (m - (x : ℝ)))) ∂Q := by
-  have hq := quasiSure_meanGeNull hm
-  rw [meanGeNull_eq_constraintNull_range] at hq ⊢
-  rw [klInf_constraintNull_eq_iSup_eintegral_log (fun _ ↦ by fun_prop) Q
-    fun _ ↦ by simpa [sub_eq_add_neg, add_comm] using integrable_posLog_mul_coe_add (Q := Q) (-1) m]
-  simp only [mem_constraintBets_iff_eventually_quasiSure, hq, Filter.eventually_top,
-    Finset.univ_unique, Finset.sum_singleton]
-  refine le_antisymm (iSup₂_le fun π hπ ↦ le_iSup₂_of_le (π () : ℝ) ⟨(π ()).coe_nonneg,
-    (forall_one_add_mul_sub_nonneg_iff_le_inv' hm (π ()).coe_nonneg).1 hπ⟩ le_rfl)
-    (iSup₂_le fun l hl ↦ le_iSup₂_of_le (fun _ ↦ l.toNNReal) ?_ ?_)
-  · rw [Real.coe_toNNReal _ hl.1]
-    exact (forall_one_add_mul_sub_nonneg_iff_le_inv' hm hl.1).2 hl.2
-  · rw [Real.coe_toNNReal _ hl.1]
+  rw [meanGeNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
+    (fun _ ↦ by fun_prop) Q
+    fun _ ↦ by exact ((integrable_const m).sub (integrable_coe Q)).posLog,
+    ← image_constraintBets_meanGe hm, iSup_image]
+  simp only [Finset.univ_unique, Finset.sum_singleton, PUnit.default_eq_unit]
 
 /-- The smallest relative entropy from a probability measure `Q` on `[0, 1]` to the laws with mean
 `m`, for `0 < m < 1`: the supremum over `l ∈ [-1 / (1 - m), 1 / m]` of
@@ -388,13 +396,9 @@ theorem klInf_meanEqNull (hm₀ : 0 < m) (hm₁ : m < 1) (Q : Measure I) [IsProb
         ∫ᵉ x, ENNReal.log (ENNReal.ofReal (1 + l * ((x : ℝ) - m))) ∂Q := by
   rw [meanEqNull_eq_constraintNull_range, klInf_constraintNull_eq_iSup_eintegral_log
     (measurable_meanEq m) Q (Fin.forall_fin_two.2
-      ⟨by simpa [sub_eq_add_neg] using integrable_posLog_mul_coe_add (Q := Q) 1 (-m),
-        by simpa [sub_eq_add_neg, add_comm] using integrable_posLog_mul_coe_add (Q := Q) (-1) m⟩)]
+      ⟨((integrable_coe Q).sub (integrable_const m)).posLog,
+        ((integrable_const m).sub (integrable_coe Q)).posLog⟩),
+    ← image_constraintBets_meanEq hm₀ hm₁, iSup_image]
   simp only [sum_mul_meanEq]
-  refine le_antisymm (iSup₂_le fun π hπ ↦ le_iSup₂_of_le _
-    ((mem_constraintBets_meanEq_iff hm₀ hm₁).1 hπ) le_rfl)
-    (iSup₂_le fun l hl ↦ le_iSup₂_of_le ![l.toNNReal, (-l).toNNReal] ?_ ?_)
-  · rwa [mem_constraintBets_meanEq_iff hm₀ hm₁, coe_toNNReal_sub_coe_toNNReal_neg]
-  · rw [coe_toNNReal_sub_coe_toNNReal_neg]
 
 end ProbabilityTheory
