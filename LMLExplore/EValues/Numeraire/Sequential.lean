@@ -297,10 +297,10 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
 
 omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure Q]
   [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
-/-- For finite measures `Q`, `P₁` and `P₂` and a weight `0 < w ≤ 1`, `w` times the likelihood ratio
-of `Q ^ n` against the mixture `w P₁ ^ n + (1 - w) P₂ ^ n` is at most the likelihood ratio of
-`Q ^ n` against `P₁ ^ n`, the product of copies of the likelihood ratio of `Q` against `P₁`, when
-`P₁` charges every point. -/
+/-- For finite measures `Q` and `P₁`, any measure `P₂` and a weight `0 < w ≤ 1`, `w` times the
+likelihood ratio of `Q ^ n` against the mixture `w P₁ ^ n + (1 - w) P₂ ^ n` is at most the
+likelihood ratio of `Q ^ n` against `P₁ ^ n`, the product of copies of the likelihood ratio of `Q`
+against `P₁`, when `P₁` charges every point. -/
 theorem ofReal_mul_ofReal_div_mixture_le_prod [IsFiniteMeasure Q] [IsFiniteMeasure P₁]
     (hP₁ : ∀ x, P₁ {x} ≠ 0) {n : ℕ} {w : ℝ} (hw0 : 0 < w) (hw1 : w ≤ 1) (x : Fin n → α) :
     ENNReal.ofReal w *
