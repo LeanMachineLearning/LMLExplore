@@ -142,6 +142,7 @@ theorem fdp_le_one (N R : Finset ι) : fdp N R ≤ 1 := by
   exact (Nat.cast_le.2 (card_le_card inter_subset_left)).trans (le_max_left _ _)
 
 /-- The false discovery proportion grows with the set of true nulls. -/
+@[gcongr]
 theorem fdp_mono_left {N' : Finset ι} (h : N ⊆ N') : fdp N R ≤ fdp N' R := by
   rw [fdp_def, fdp_def]
   gcongr
@@ -180,6 +181,7 @@ theorem fwerLoss_empty_right (N : Finset ι) : fwerLoss N ∅ = 0 :=
   fwerLoss_of_disjoint (disjoint_empty_left N)
 
 /-- The family-wise loss grows with the set of true nulls. -/
+@[gcongr]
 theorem fwerLoss_mono_left {N' : Finset ι} (h : N ⊆ N') : fwerLoss N R ≤ fwerLoss N' R := by
   by_cases hN : Disjoint R N
   · simp [hN]
