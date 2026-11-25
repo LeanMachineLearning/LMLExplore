@@ -52,8 +52,7 @@ gives the bound with `G x` (`ProbabilityTheory.le_designGrowth_of_forall_sub_le`
 `D*` follows from `ProbabilityTheory.designGrowth_le_designRate_mul`.
 
 The proofs are adapted from the draft `notes/lean-wip/SeveralArmsRound.lean` of the paper project
-`RemyDegenne/evalues_research`, which formalizes [EVR26, Note 41]. The one-stream analogue is
-`ProbabilityTheory.integral_truncLog_le_bipolarRate_mul`.
+`RemyDegenne/evalues_research`, which formalizes [EVR26, Note 41].
 
 ## References
 

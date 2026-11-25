@@ -61,7 +61,7 @@ times; the payoffs of the first `j` rounds are known at time `restartTime σ j`.
 The definitions and the restart lemmas are adapted from
 `EValuesResearch/Results/BipolarRateAux.lean` (commit `dd4072f`) in the paper project
 `RemyDegenne/evalues_research`, where they are used to prove the Wald inequality at the bipolar
-rate of [EVR26, Note 01] (`ProbabilityTheory.integral_truncLog_le_bipolarRate_mul`).
+rate of [EVR26, Note 01].
 
 ## References
 
