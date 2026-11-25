@@ -38,7 +38,7 @@ the entropy bound `⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)`.
   `ε > 0`, the value of the design `⌈m (x + ε 𝟙_{supp x})⌉` is at least `m ℓ` up to a constant.
 * `ProbabilityTheory.designGrowth_le_sum_mul_of_forall_designValue_le`: if the value of every
   design `n` is at most `∑ a, n a * w a`, then `G x ≤ ∑ a, x a * w a`.
-* `ProbabilityTheory.designGrowth_le_mul_designRate`: `G x ≤ D* * ∑ a, x a`.
+* `ProbabilityTheory.designGrowth_le_designRate_mul`: `G x ≤ D* * ∑ a, x a`.
 * `ProbabilityTheory.designGrowth_le_iInf_sum_mul_klDiv`: the entropy bound
   `G x ≤ ⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)`.
 
@@ -185,13 +185,15 @@ theorem designGrowth_le_sum_mul_of_forall_designValue_le {w : α → ℝ≥0∞}
 /-- The growth of the designs proportional to `x` is at most the rate of the designs times the
 number `∑ a, x a` of observations per unit of `m`, `G x ≤ D* * ∑ a, x a`, with `⊤ * 0 = 0`
 [EVR26, Note 41, Section 1]. -/
-theorem designGrowth_le_mul_designRate (hΛ : Λ.Nonempty) (x : α → ℝ≥0) :
+theorem designGrowth_le_designRate_mul (hΛ : Λ.Nonempty) (x : α → ℝ≥0) :
     designGrowth μ Λ x ≤ designRate μ Λ * ((∑ a, (x a : ℝ) : ℝ) : EReal) := by
   have hd := EReal.coe_toENNReal (designRate_nonneg μ Λ)
-  have key := designGrowth_le_sum_mul_of_forall_designValue_le (μ := μ) (Λ := Λ)
-    (w := fun _ ↦ (designRate μ Λ).toENNReal) (fun n ↦ ?_) x
-  · rwa [← Finset.sum_mul, EReal.coe_ennreal_mul, hd, ← ENNReal.ofNNReal_finsetSum,
-      EReal.coe_nnreal_eq_coe_real, NNReal.coe_sum, mul_comm] at key
+  -- the bound with constant weights `D*` is `D* * ∑ a, x a`, up to casts
+  have h_eq : ((∑ a, (x a : ℝ≥0∞) * (designRate μ Λ).toENNReal : ℝ≥0∞) : EReal) =
+      designRate μ Λ * ((∑ a, (x a : ℝ) : ℝ) : EReal) := by
+    rw [← Finset.sum_mul, EReal.coe_ennreal_mul, hd, mul_comm]
+    norm_cast
+  refine (designGrowth_le_sum_mul_of_forall_designValue_le (fun n ↦ ?_) x).trans_eq h_eq
   rw [← Finset.sum_mul, EReal.coe_ennreal_mul, hd]
   rcases eq_or_ne n 0 with rfl | hn
   · simp [designValue_zero μ hΛ]

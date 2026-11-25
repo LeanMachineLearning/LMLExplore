@@ -49,7 +49,7 @@ fit with high probability in the table of the design `⌈m (x + ε 𝟙_{supp x}
 (`ProbabilityTheory.proportionalDesign`), on which `1/2 + 1/2 * 𝟙{the rounds fit} * ∏ i < m, V_i`
 is an e-variable. Its expected logarithm is at least `m 𝔼_μ[truncLog c V]` up to a constant, which
 gives the bound with `G x` (`ProbabilityTheory.le_designGrowth_of_forall_sub_le`); the bound with
-`D*` follows from `ProbabilityTheory.designGrowth_le_mul_designRate`.
+`D*` follows from `ProbabilityTheory.designGrowth_le_designRate_mul`.
 
 The proofs are adapted from the draft `notes/lean-wip/SeveralArmsRound.lean` of the paper project
 `RemyDegenne/evalues_research`, which formalizes [EVR26, Note 41]. The one-stream analogue is
@@ -335,7 +335,7 @@ theorem integral_truncLog_le_designRate_mul (ρ : Measure 𝓤) [IsProbabilityMe
       Real.coe_toNNReal _ (integral_nonneg fun ω ↦ Nat.cast_nonneg _)
   rw [← h_sum]
   exact (integral_truncLog_le_designGrowth ρ μ hΛ hσm hσ hVm hV hσK h_null hδ hVδ c).trans
-    (designGrowth_le_mul_designRate hΛne _)
+    (designGrowth_le_designRate_mul hΛne _)
 
 end Wald
 
