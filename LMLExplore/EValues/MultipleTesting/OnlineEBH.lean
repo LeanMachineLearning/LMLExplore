@@ -30,16 +30,18 @@ for the supremum loss, since it does not involve a filtration.
 
 **Online e-BH and e-LOND.** For e-variables `E i` for the hypotheses and weights `γ i` with
 `∑' i, γ i ≤ 1`, the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i` is increasing. A set `R` is
-self-consistent for the weights (`ProbabilityTheory.IsWeightedSelfConsistent`) when
-`1 ≤ α * γ i * #R * E i` for every `i ∈ R`; such a set belongs to the dynamic e-closure, so the
-self-consistent sets control the supremum over time of the false discovery proportion under
-arbitrary dependence [FXR26, Proposition 2.1]. The online e-BH procedure rejects at time `t` the
-largest self-consistent subset of `I t` (`ProbabilityTheory.weightedEBH`); it never retracts a
-rejection, it is e-BH for the weights `1 / K` on `K` hypotheses, and it controls the SupFDR
-[FXR26, Theorem 2.2]. The e-LOND procedure (`ProbabilityTheory.eLOND`) tests the `t`-th hypothesis
-at the level `α * γ t * (#R + 1)` given its earlier rejections `R`; its rejection sets are
-self-consistent, so online e-BH contains them and e-LOND controls the SupFDR [FXR26, §2.2,
-Proposition 2.3; XR24, Theorem 1].
+self-consistent for the weights (`ProbabilityTheory.IsWeightedSelfConsistent`, in
+`LMLExplore.EValues.MultipleTesting.WeightedEBH`) when `1 ≤ α * γ i * #R * E i` for every `i ∈ R`;
+such a set belongs to the dynamic e-closure, so the self-consistent sets control the supremum over
+time of the false discovery proportion under arbitrary dependence [FXR26, Proposition 2.1]. The
+online e-BH procedure rejects at time `t` the largest self-consistent subset of `I t`
+(`ProbabilityTheory.weightedEBH`); it never retracts a rejection
+(`ProbabilityTheory.weightedEBH_mono`), it is e-BH for the weights `1 / K` on `K` hypotheses
+(`ProbabilityTheory.eBH_eq_weightedEBH`), and it controls the SupFDR [FXR26, Theorem 2.2]. The
+e-LOND procedure (`ProbabilityTheory.eLOND`) tests the `t`-th hypothesis at the level
+`α * γ t * (#R + 1)` given its earlier rejections `R`; its rejection sets are self-consistent, so
+online e-BH contains them and e-LOND controls the SupFDR [FXR26, §2.2, Proposition 2.3; XR24,
+Theorem 1].
 
 **Stopped e-BH.** With all hypotheses present from the start and e-processes `M i` for the
 hypotheses in a common filtration, the means `S ↦ ∑ i ∈ S, M i t / #S` form a dynamic intersection
@@ -51,9 +53,6 @@ discovery rate [WDR25, Theorem 2.4, and its remark on closed e-BH].
 
 * `ProbabilityTheory.arrivedECollection e I`: the dynamic collection of a fixed e-collection.
 * `ProbabilityTheory.weightedECollection γ E`: the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i`.
-* `ProbabilityTheory.IsWeightedSelfConsistent γ e α R`: weighted self-consistency.
-* `ProbabilityTheory.weightedEBH γ e α J`: the weighted e-BH procedure on the finite set `J`; online
-  e-BH at time `t` is `weightedEBH γ e α (I t)`.
 * `ProbabilityTheory.eLOND γ e α t`: the rejection set of e-LOND at time `t`.
 
 ## Main statements
@@ -63,12 +62,9 @@ discovery rate [WDR25, Theorem 2.4, and its remark on closed e-BH].
   principle [XFR26, Theorem 1].
 * `ProbabilityTheory.controlsSupLoss_isWeightedSelfConsistent`: SupFDR control by the weighted
   self-consistent sets [FXR26, Proposition 2.1].
-* `ProbabilityTheory.isGreatest_weightedEBH`, `ProbabilityTheory.weightedEBH_mono`,
-  `ProbabilityTheory.eBH_eq_weightedEBH`: online e-BH is the largest self-consistent set, is
-  nested in time, and generalizes e-BH [FXR26, §2].
 * `ProbabilityTheory.controlsSupLoss_weightedEBH`,
-  `ProbabilityTheory.lintegral_iSup_fdp_weightedEBH_le`: online e-BH controls the SupFDR
-  [FXR26, Theorem 2.2].
+  `ProbabilityTheory.lintegral_iSup_fdp_weightedEBH_le`: online e-BH, rejecting
+  `weightedEBH γ e α (I t)` at time `t`, controls the SupFDR [FXR26, Theorem 2.2].
 * `ProbabilityTheory.eLOND_subset_weightedEBH`, `ProbabilityTheory.controlsSupLoss_eLOND`,
   `ProbabilityTheory.lintegral_iSup_fdp_eLOND_le`: online e-BH uniformly improves e-LOND, which
   controls the SupFDR [FXR26, §2.2, Proposition 2.3; XR24, Theorem 1].
@@ -187,12 +183,11 @@ theorem monotone_dynamicEClosure_arrivedECollection (hI : Monotone I) (hf₀ : �
 
 end Arrived
 
-/-! ### Weighted e-collections and weighted self-consistency -/
+/-! ### Weighted e-collections -/
 
 section Weighted
 
-variable {γ γ' : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {e e' : ι → ℝ≥0∞} {α α' : ℝ≥0∞}
-  {R R' S S' : Finset ι}
+variable {γ : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {α : ℝ≥0∞} {R S S' : Finset ι}
 
 /-- The **weighted e-collection** of statistics `E i` with weights `γ i`: the statistic of a set `S`
 of hypotheses is `∑ i ∈ S, γ i * E i`, the e-collection behind [FXR26, Proposition 2.1]. -/
@@ -222,66 +217,6 @@ theorem isEVar_weightedECollection (hγ : ∑' i, γ i ≤ 1) (hE : ∀ i ∈ S,
   exact isEVar_finsetSum_mul S (fun i hi ↦ (hE i hi).anti_set (Set.biInter_subset_of_mem hi))
     ((sum_le_tsum S).trans hγ)
 
-/-- A rejection set `R` is **self-consistent** at level `α` for the e-values `e` and the weights
-`γ` [FXR26, §2.1] when `1 ≤ α * γ i * #R * e i` for every `i ∈ R`. For a level and weights in
-`(0, ∞)`, this says that every rejected e-value is at least `(α * γ i * #R)⁻¹`. -/
-def IsWeightedSelfConsistent (γ e : ι → ℝ≥0∞) (α : ℝ≥0∞) (R : Finset ι) : Prop :=
-  ∀ i ∈ R, 1 ≤ α * γ i * #R * e i
-
-theorem isWeightedSelfConsistent_iff :
-    IsWeightedSelfConsistent γ e α R ↔ ∀ i ∈ R, 1 ≤ α * γ i * #R * e i :=
-  Iff.rfl
-
-@[simp]
-theorem isWeightedSelfConsistent_empty : IsWeightedSelfConsistent γ e α ∅ := by
-  simp [isWeightedSelfConsistent_iff]
-
-/-- Weighted self-consistency is preserved by raising the level, the weights and the e-values. -/
-theorem IsWeightedSelfConsistent.mono (h : IsWeightedSelfConsistent γ e α R) (hα : α ≤ α')
-    (hγ : γ ≤ γ') (he : e ≤ e') : IsWeightedSelfConsistent γ' e' α' R :=
-  fun i hi ↦ (h i hi).trans (by gcongr; exacts [hγ i, he i])
-
-/-- The union of two weighted self-consistent sets is weighted self-consistent. -/
-theorem IsWeightedSelfConsistent.union [DecidableEq ι] (h : IsWeightedSelfConsistent γ e α R)
-    (h' : IsWeightedSelfConsistent γ e α R') : IsWeightedSelfConsistent γ e α (R ∪ R') := by
-  intro i hi
-  rcases mem_union.1 hi with hi | hi
-  · exact (h i hi).trans (by gcongr; exact subset_union_left)
-  · exact (h' i hi).trans (by gcongr; exact subset_union_right)
-
-/-- **The false discovery proportion of a weighted self-consistent set**: for every set `N` of
-hypotheses, `fdp N R ≤ α * ∑ i ∈ N, γ i * e i`. Each rejected hypothesis of `N` contributes
-`1 / #R ≤ α * γ i * e i`. -/
-theorem IsWeightedSelfConsistent.fdp_le [DecidableEq ι] (h : IsWeightedSelfConsistent γ e α R)
-    (N : Finset ι) : fdp N R ≤ α * ∑ i ∈ N, γ i * e i := by
-  rcases R.eq_empty_or_nonempty with rfl | ⟨j, hj⟩
-  · simp
-  have hR0 : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hj)
-  -- Each rejected hypothesis contributes `1 / #R`, at most `α * γ i * e i` by self-consistency.
-  have hi (i : ι) (hi : i ∈ R) : (#R : ℝ≥0∞)⁻¹ ≤ α * (γ i * e i) :=
-    calc (#R : ℝ≥0∞)⁻¹ ≤ (#R : ℝ≥0∞)⁻¹ * (α * γ i * #R * e i) := le_mul_of_one_le_right' (h i hi)
-      _ = (#R : ℝ≥0∞)⁻¹ * #R * (α * (γ i * e i)) := by ring
-      _ = α * (γ i * e i) := by
-          rw [ENNReal.inv_mul_cancel hR0 (ENNReal.natCast_ne_top _), one_mul]
-  calc fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := fdp_eq_sum_inv_card N R
-    _ ≤ ∑ i ∈ R ∩ N, α * (γ i * e i) := sum_le_sum fun i hi' ↦ hi i (mem_inter.1 hi').1
-    _ ≤ ∑ i ∈ N, α * (γ i * e i) := sum_le_sum_of_subset inter_subset_right
-    _ = α * ∑ i ∈ N, γ i * e i := (mul_sum ..).symm
-
-/-- **Self-consistency is weighted self-consistency for the weights `1 / K`**, with `K` the number
-of hypotheses. -/
-theorem isSelfConsistent_iff_isWeightedSelfConsistent [Fintype ι] :
-    IsSelfConsistent e α R ↔
-      IsWeightedSelfConsistent (fun _ ↦ (Fintype.card ι : ℝ≥0∞)⁻¹) e α R := by
-  rw [isSelfConsistent_iff, isWeightedSelfConsistent_iff]
-  refine forall₂_congr fun i _ ↦ ?_
-  have : Nonempty ι := ⟨i⟩
-  have hK : (Fintype.card ι : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 Fintype.card_ne_zero
-  have h : α * (Fintype.card ι : ℝ≥0∞)⁻¹ * #R * e i = (α * #R * e i) / Fintype.card ι := by
-    rw [ENNReal.div_eq_inv_mul]
-    ring
-  rw [h, ENNReal.le_div_iff_mul_le (Or.inl hK) (Or.inl (ENNReal.natCast_ne_top _)), one_mul]
-
 /-- **Weighted self-consistent sets belong to the online e-closure** of the weighted e-collection
 for the false discovery proportion. -/
 theorem IsWeightedSelfConsistent.mem_dynamicEClosure [DecidableEq ι] {ω : Ω} (hRI : R ⊆ I t)
@@ -294,9 +229,7 @@ theorem IsWeightedSelfConsistent.mem_dynamicEClosure [DecidableEq ι] {ω : Ω} 
 /-- **Weighted self-consistent sets control the SupFDR** [FXR26, Proposition 2.1]: for weights of
 sum at most `1` and e-variables `E i` for the hypotheses, with no assumption on their dependence,
 the family of the weighted self-consistent sets of arrived hypotheses controls the supremum over
-time of the false discovery proportion at level `α`. When every hypothesis eventually arrives,
-this bounds the expected supremum of the false discovery proportion over all finite
-self-consistent sets. -/
+time of the false discovery proportion at level `α`. -/
 theorem controlsSupLoss_isWeightedSelfConsistent [DecidableEq ι] (hI : Monotone I)
     (hγ : ∑' i, γ i ≤ 1) (hE : ∀ i, IsEVar (E i) (H i)) :
     ControlsSupLoss fdp α (fun t ω ↦ {R | R ⊆ I t ∧ IsWeightedSelfConsistent γ (E · ω) α R}) H I :=
@@ -312,96 +245,7 @@ end Weighted
 
 section WeightedEBH
 
-variable {γ γ' : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {e e' : ι → ℝ≥0∞} {α α' : ℝ≥0∞}
-  {R J J' : Finset ι} {i : ι}
-
-/-- **The weighted e-BH procedure** on a finite set `J` of hypotheses, at level `α`, for the
-e-values `e` and the weights `γ` [FXR26, §2]: with `k*` the largest `k ≤ #J` such that at least `k`
-hypotheses `j ∈ J` satisfy `1 ≤ α * γ j * k * e j`, it rejects the hypotheses `i ∈ J` with
-`1 ≤ α * γ i * k* * e i`. With `J = I t` the hypotheses arrived at time `t`, this is the rejection
-set of the **online e-BH procedure** at time `t`. It rejects `k*` hypotheses
-(`ProbabilityTheory.card_weightedEBH`) and is the largest weighted self-consistent subset of `J`
-(`ProbabilityTheory.isGreatest_weightedEBH`). -/
-noncomputable def weightedEBH (γ e : ι → ℝ≥0∞) (α : ℝ≥0∞) (J : Finset ι) : Finset ι :=
-  {i ∈ J | 1 ≤ α * γ i *
-    (Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J : ℕ) * e i}
-
-theorem weightedEBH_def (γ e : ι → ℝ≥0∞) (α : ℝ≥0∞) (J : Finset ι) :
-    weightedEBH γ e α J = {i ∈ J | 1 ≤ α * γ i *
-      (Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J : ℕ) * e i} :=
-  (rfl)
-
-/-- Weighted e-BH on `J` rejects only hypotheses of `J`. -/
-theorem weightedEBH_subset : weightedEBH γ e α J ⊆ J := by
-  rw [weightedEBH_def]
-  exact filter_subset _ _
-
-/-- The number `k*` of rejections of weighted e-BH on `J` bounds every weighted self-consistent
-subset `R` of `J`: at least `#R` hypotheses `j ∈ J` satisfy `1 ≤ α * γ j * #R * e j`. -/
-private lemma card_le_findGreatest (hRJ : R ⊆ J) (h : IsWeightedSelfConsistent γ e α R) :
-    #R ≤ Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J :=
-  Nat.le_findGreatest (card_le_card hRJ) (card_le_card fun j hj ↦ mem_filter.2 ⟨hRJ hj, h j hj⟩)
-
-/-- At least `k*` hypotheses `j ∈ J` satisfy `1 ≤ α * γ j * k* * e j`. -/
-private lemma findGreatest_le_card_filter :
-    Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J ≤
-      #{j ∈ J | 1 ≤ α * γ j *
-        (Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J : ℕ) * e j} :=
-  Nat.findGreatest_spec (P := fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j})
-    (Nat.zero_le _) (Nat.zero_le _)
-
-/-- A weighted self-consistent subset of `J` is contained in the weighted e-BH set of `J`. -/
-theorem IsWeightedSelfConsistent.subset_weightedEBH (hRJ : R ⊆ J)
-    (h : IsWeightedSelfConsistent γ e α R) : R ⊆ weightedEBH γ e α J := by
-  intro i hi
-  rw [weightedEBH_def, mem_filter]
-  exact ⟨hRJ hi, (h i hi).trans (by gcongr; exact card_le_findGreatest hRJ h)⟩
-
-/-- The weighted e-BH set is weighted self-consistent. -/
-theorem isWeightedSelfConsistent_weightedEBH :
-    IsWeightedSelfConsistent γ e α (weightedEBH γ e α J) := by
-  intro i hi
-  rw [weightedEBH_def, mem_filter] at hi
-  refine hi.2.trans ?_
-  gcongr
-  exact findGreatest_le_card_filter
-
-/-- **Weighted e-BH is the largest weighted self-consistent subset** of `J` [FXR26, §2.1]. -/
-theorem isGreatest_weightedEBH :
-    IsGreatest {R | R ⊆ J ∧ IsWeightedSelfConsistent γ e α R} (weightedEBH γ e α J) :=
-  ⟨⟨weightedEBH_subset, isWeightedSelfConsistent_weightedEBH⟩, fun _ h ↦ h.2.subset_weightedEBH h.1⟩
-
-/-- **The number of rejections of weighted e-BH** on `J` is `k*`, the largest `k ≤ #J` such that
-at least `k` hypotheses `j ∈ J` satisfy `1 ≤ α * γ j * k * e j`. -/
-theorem card_weightedEBH : #(weightedEBH γ e α J) =
-    Nat.findGreatest (fun k ↦ k ≤ #{j ∈ J | 1 ≤ α * γ j * k * e j}) #J := by
-  refine le_antisymm (card_le_findGreatest weightedEBH_subset
-    isWeightedSelfConsistent_weightedEBH) ?_
-  rw [weightedEBH_def]
-  exact findGreatest_le_card_filter
-
-/-- **The threshold form of weighted e-BH**: it rejects `i` exactly when `i ∈ J` and
-`1 ≤ α * γ i * #(weightedEBH γ e α J) * e i`. -/
-theorem mem_weightedEBH_iff_one_le_mul_card :
-    i ∈ weightedEBH γ e α J ↔ i ∈ J ∧ 1 ≤ α * γ i * #(weightedEBH γ e α J) * e i := by
-  conv_lhs => rw [weightedEBH_def]
-  rw [mem_filter, card_weightedEBH]
-
-/-- **Online e-BH never retracts a rejection** [FXR26, §2]: weighted e-BH is monotone in the set of
-hypotheses, the level, the weights and the e-values. For a nondecreasing family `I t` of arrived
-hypotheses, the online e-BH rejection sets are nested. -/
-theorem weightedEBH_mono (hJ : J ⊆ J') (hα : α ≤ α') (hγ : γ ≤ γ') (he : e ≤ e') :
-    weightedEBH γ e α J ⊆ weightedEBH γ' e' α' J' :=
-  (isWeightedSelfConsistent_weightedEBH.mono hα hγ he).subset_weightedEBH
-    (weightedEBH_subset.trans hJ)
-
-/-- **Online e-BH generalizes e-BH** [FXR26, §2]: e-BH on `K` hypotheses is weighted e-BH on all of
-them with the weights `1 / K`. -/
-theorem eBH_eq_weightedEBH [Fintype ι] :
-    eBH e α = weightedEBH (fun _ ↦ (Fintype.card ι : ℝ≥0∞)⁻¹) e α univ := by
-  refine isGreatest_eBH.unique ?_
-  simpa only [subset_univ, true_and, ← isSelfConsistent_iff_isWeightedSelfConsistent] using
-    isGreatest_weightedEBH (γ := fun _ ↦ (Fintype.card ι : ℝ≥0∞)⁻¹) (e := e) (α := α) (J := univ)
+variable {γ : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {α : ℝ≥0∞}
 
 /-- **Online e-BH controls the SupFDR** [FXR26, Theorem 2.2]: for weights of sum at most `1` and
 e-variables `E i` for the hypotheses, with no assumption on their dependence, the online e-BH
@@ -484,12 +328,11 @@ theorem mem_eLOND_iff :
       rcases Nat.lt_succ_iff_lt_or_eq.1 hi with hi | rfl
       exacts [hi, absurd hc h]
 
-/-- **The rejection sets of e-LOND are weighted self-consistent**: a hypothesis rejected at time
-`i + 1` was tested at a level that counts the `#R + 1 ≤ #(eLOND γ e α t)` rejections of the time
-`i + 1`. -/
+/-- **The rejection sets of e-LOND are weighted self-consistent**: at every time `t`, the
+rejection set `eLOND γ e α t` is weighted self-consistent at level `α` for the weights `γ`. -/
 theorem isWeightedSelfConsistent_eLOND (t : ℕ) :
     IsWeightedSelfConsistent γ e α (eLOND γ e α t) := by
-  intro i hi
+  refine isWeightedSelfConsistent_iff.2 fun i hi ↦ ?_
   obtain ⟨hit, hc⟩ := mem_eLOND_iff.1 hi
   refine hc.trans ?_
   -- The rejection of `i` at time `i + 1` adds `i` to the rejection set of time `i`.
