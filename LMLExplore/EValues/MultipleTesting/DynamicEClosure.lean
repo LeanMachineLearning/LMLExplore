@@ -44,10 +44,11 @@ nondecreasing in time [dH26, Definition 2.7]. Its dynamic e-closure
 The **dynamic e-closure principle** [dH26, Theorems 3.6–3.7 and 3.10–3.12]: for a coherent
 collection, the dynamic e-closure controls the loss at stopping times; for a coherent and
 time-monotone collection, it controls the supremum loss and is setwise persistent; and conversely
-every adapted candidate family process that controls the loss at stopping times, or the supremum
-loss, is contained in the dynamic e-closure of such a collection. The statements hold for every
-loss vanishing when no hypothesis is a true null, with no bound on the loss: monotonicity in the
-true nulls is used only by the converse, and locality in the rejection set only by persistence.
+at a level `α ∉ {0, ∞}`, every adapted candidate family process that controls the loss at
+stopping times, or the supremum loss, is contained in the dynamic e-closure of such a collection.
+The statements hold for every loss vanishing when no hypothesis is a true null, with no bound on
+the loss: monotonicity in the true nulls is used only by the converse, and locality in the
+rejection set only by persistence.
 The false discovery proportion and the family-wise loss have all three properties
 (`ProbabilityTheory.fdp_mono_left`, `ProbabilityTheory.fdp_inter_self`,
 `ProbabilityTheory.fwerLoss_mono_left`, `ProbabilityTheory.fwerLoss_inter_self`).
@@ -513,10 +514,7 @@ theorem ControlsStoppedLoss.isDynamicECollection_lossECollection
       _ ≤ α⁻¹ * α := by
           gcongr
           exact h.lintegral_le P hτ (.of_forall fun ω ↦ WithTop.ne_top_of_le_natCast (hτT ω))
-      _ ≤ 1 := by
-          rcases eq_or_ne α ∞ with rfl | hα
-          · simp
-          · rw [ENNReal.inv_mul_cancel hα₀ hα]
+      _ ≤ 1 := ENNReal.inv_mul_le_one α
 
 /-- The canonical running collection of an adapted candidate family process that controls the
 supremum loss is a dynamic intersection e-process collection, for a loss nondecreasing in the
@@ -543,10 +541,7 @@ theorem ControlsSupLoss.isDynamicECollection_runningLossECollection
       _ ≤ α⁻¹ * α := by
           gcongr
           exact h.lintegral_iSup_le P
-      _ ≤ 1 := by
-          rcases eq_or_ne α ∞ with rfl | hα
-          · simp
-          · rw [ENNReal.inv_mul_cancel hα₀ hα]
+      _ ≤ 1 := ENNReal.inv_mul_le_one α
 
 /-- **The necessary and sufficient dynamic e-closure principle for stopped losses**
 [dH26, Theorems 3.10 and 3.12]: for a loss vanishing when there are no true nulls and
@@ -583,11 +578,11 @@ theorem controlsSupLoss_iff_exists_subset_dynamicEClosure (hI : Monotone I) (hα
       (controlsSupLoss_dynamicEClosure hI hf₀ hE hcoh hmono).mono hCE⟩
 
 /-- **Persistence collapses the error criteria** [dH26, Proposition 3.13]: for a setwise
-persistent adapted candidate family process of sets of arrived hypotheses and a loss that depends
+persistent measurable candidate family process of sets of arrived hypotheses and a loss that depends
 only on the rejected true nulls, control of the loss at every fixed time gives control of the
 supremum loss, hence at stopping times. -/
 theorem controlsSupLoss_of_monotone (hI : Monotone I) (hf : ∀ S R, f S R = f (S ∩ R) R)
-    (hC : Adapted ℱ C) (hCI : ∀ t ω, ∀ R ∈ C t ω, R ⊆ I t) (hCmono : Monotone C)
+    (hC : ∀ t, Measurable (C t)) (hCI : ∀ t ω, ∀ R ∈ C t ω, R ⊆ I t) (hCmono : Monotone C)
     (h : ∀ (P : Measure Ω) [IsProbabilityMeasure P] (t : ℕ),
       ∫⁻ ω, ⨆ R ∈ C t ω, f (activeTrueNulls H I P t) R ∂P ≤ α) :
     ControlsSupLoss f α C H I where
@@ -599,8 +594,7 @@ theorem controlsSupLoss_of_monotone (hI : Monotone I) (hf : ∀ S R, f S R = f (
       refine iSup₂_le fun R hR ↦ le_iSup₂_of_le R (hCmono htu ω hR) (le_of_eq ?_)
       rw [hf, hf (activeTrueNulls H I P u), activeTrueNulls_eq_inter hI htu, inter_right_comm,
         inter_eq_left.2 (inter_subset_right.trans (hCI t ω R hR))]
-    rw [lintegral_iSup (fun t ↦ (Measurable.biSup_of_forall_subset (hC t) (hCI t) _).mono
-      (ℱ.le t) le_rfl) hmono]
+    rw [lintegral_iSup (fun t ↦ Measurable.biSup_of_forall_subset (hC t) (hCI t) _) hmono]
     exact iSup_le (h P)
 
 end Converse
