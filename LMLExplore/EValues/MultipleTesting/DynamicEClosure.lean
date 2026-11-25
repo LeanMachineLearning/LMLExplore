@@ -148,6 +148,12 @@ theorem activeTrueNulls_const_univ [Fintype ι] :
   ext i
   simp
 
+/-- A loss that depends only on the rejected true nulls does not see the true nulls outside a set
+`J` containing the rejected set. -/
+theorem loss_inter_eq_of_subset {β : Type*} [DecidableEq ι] {f : Finset ι → Finset ι → β}
+    (hf : ∀ S R, f S R = f (S ∩ R) R) {S J R : Finset ι} (hR : R ⊆ J) : f (S ∩ J) R = f S R := by
+  rw [hf, hf S R, inter_right_comm, inter_eq_left.2 (inter_subset_right.trans hR)]
+
 /-! ### Dynamic intersection e-process collections -/
 
 /-- A **dynamic intersection e-process collection** for the hypotheses `H` and the filtration `ℱ`
@@ -214,8 +220,7 @@ theorem monotone_dynamicEClosure [DecidableEq ι] (hI : Monotone I) (hf₀ : ∀
   intro t u htu ω R ⟨hRI, hR⟩
   refine ⟨hRI.trans (hI htu), fun S _ hS ↦ ?_⟩
   -- The loss of `S` is the loss of its arrived hypotheses, since `R` has arrived.
-  have hSR : f S R = f (S ∩ I t) R := by
-    rw [hf S R, hf (S ∩ I t) R, inter_right_comm, inter_eq_left.2 (inter_subset_right.trans hRI)]
+  have hSR : f S R = f (S ∩ I t) R := (loss_inter_eq_of_subset hf hRI).symm
   rcases (S ∩ I t).eq_empty_or_nonempty with hB | hB
   · simp [hSR, hB, hf₀]
   calc f S R = f (S ∩ I t) R := hSR
@@ -422,7 +427,7 @@ variable [DecidableEq ι] {f : Finset ι → Finset ι → ℝ≥0∞} {α : ℝ
 
 /-- The **canonical collection** of a candidate family process [dH26, Theorem 7.1]: the evidence of
 `S` at time `t` is the largest loss of the candidates for the arrived hypotheses of `S`, divided by
-the level. -/
+the level, as in the normalized-loss construction of [XSF+26, Theorem 6]. -/
 noncomputable def lossECollection (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞)
     (C : ℕ → Ω → Set (Finset ι)) (I : ℕ → Finset ι) (S : Finset ι) (t : ℕ) (ω : Ω) : ℝ≥0∞ :=
   α⁻¹ * ⨆ R ∈ C t ω, f (S ∩ I t) R
@@ -592,8 +597,7 @@ theorem controlsSupLoss_of_monotone (hI : Monotone I) (hf : ∀ S R, f S R = f (
     have hmono : Monotone fun t ω ↦ ⨆ R ∈ C t ω, f (activeTrueNulls H I P t) R := by
       intro t u htu ω
       refine iSup₂_le fun R hR ↦ le_iSup₂_of_le R (hCmono htu ω hR) (le_of_eq ?_)
-      rw [hf, hf (activeTrueNulls H I P u), activeTrueNulls_eq_inter hI htu, inter_right_comm,
-        inter_eq_left.2 (inter_subset_right.trans (hCI t ω R hR))]
+      rw [activeTrueNulls_eq_inter hI htu, loss_inter_eq_of_subset hf (hCI t ω R hR)]
     rw [lintegral_iSup (fun t ↦ Measurable.biSup_of_forall_subset (hC t) (hCI t) _) hmono]
     exact iSup_le (h P)
 
