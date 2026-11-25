@@ -141,6 +141,17 @@ theorem fdp_le_one (N R : Finset ι) : fdp N R ≤ 1 := by
   rw [one_mul]
   exact (Nat.cast_le.2 (card_le_card inter_subset_left)).trans (le_max_left _ _)
 
+/-- The false discovery proportion grows with the set of true nulls. -/
+@[gcongr]
+theorem fdp_mono_left {N' : Finset ι} (h : N ⊆ N') : fdp N R ≤ fdp N' R := by
+  rw [fdp_def, fdp_def]
+  gcongr
+
+/-- The false discovery proportion depends only on the rejected true nulls. -/
+@[simp]
+theorem fdp_inter_self (N R : Finset ι) : fdp (N ∩ R) R = fdp N R := by
+  rw [fdp_def, fdp_def, inter_comm N R, ← inter_assoc, inter_self]
+
 /-- The false discovery proportion depends only on the number of rejections and on the number of
 rejected true nulls, and grows with the latter. -/
 theorem fdp_le_fdp {N' R' : Finset ι} (hR : #R = #R') (h : #(N ∩ R) ≤ #(N' ∩ R')) :
@@ -168,6 +179,22 @@ theorem fwerLoss_empty_left (R : Finset ι) : fwerLoss ∅ R = 0 :=
 
 theorem fwerLoss_empty_right (N : Finset ι) : fwerLoss N ∅ = 0 :=
   fwerLoss_of_disjoint (disjoint_empty_left N)
+
+/-- The family-wise loss grows with the set of true nulls. -/
+@[gcongr]
+theorem fwerLoss_mono_left {N' : Finset ι} (h : N ⊆ N') : fwerLoss N R ≤ fwerLoss N' R := by
+  by_cases hN : Disjoint R N
+  · simp [hN]
+  · rw [fwerLoss_of_not_disjoint hN,
+      fwerLoss_of_not_disjoint fun hN' ↦ hN (hN'.mono_right h)]
+
+/-- The family-wise loss depends only on the rejected true nulls. -/
+@[simp]
+theorem fwerLoss_inter_self (N R : Finset ι) : fwerLoss (N ∩ R) R = fwerLoss N R := by
+  have h : Disjoint R (N ∩ R) ↔ Disjoint R N := by
+    rw [inter_comm N R, disjoint_iff_inter_eq_empty, disjoint_iff_inter_eq_empty, ← inter_assoc,
+      inter_self]
+  simp only [fwerLoss_def, h]
 
 /-- The expected largest family-wise loss of a measurable candidate family is the probability
 that some candidate contains a true null of `N`. -/
