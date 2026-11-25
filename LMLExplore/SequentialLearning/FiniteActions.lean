@@ -16,6 +16,10 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 
 * `pullCount_eq_zero_iff`, `pullCount_eq_one_iff`: characterisations of an arm pulled zero times
   and exactly once before a given round.
+* `pairwise_disjoint_action_eq_and_pullCount_eq`, `iUnion_action_eq_and_pullCount_eq`: the events
+  that the action of round `n` is `a` and that `a` was pulled `m` times before partition the space;
+  `setLIntegral_eq_tsum_action_eq_and_pullCount_eq` and `measure_eq_tsum_action_eq_and_pullCount_eq`
+  split a set integral and a measure over that partition.
 * `sum_range_ite_action_eq`: a sum over the rounds that play arm `a` of a function of the number
   of previous pulls of `a` is the sum of that function over the pull counts
   `0, …, pullCount A a n - 1`.
@@ -49,7 +53,7 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
 
 public section
 
-open Finset Learning MeasureTheory
+open Finset Function Learning MeasureTheory
 open scoped ENNReal Nat
 
 namespace LMLExplore
@@ -96,6 +100,21 @@ lemma cast_pullCount_add_one {R : Type*} [AddMonoidWithOne R] :
 lemma cast_pullCount_action_add_one {R : Type*} [AddMonoidWithOne R] :
     (pullCount A (A n ω) (n + 1) ω : R) = pullCount A (A n ω) n ω + 1 := by
   rw [pullCount_action_eq_pullCount_add_one, Nat.cast_add_one]
+
+/-- The events that the action of round `n` is `p.1` and that `p.1` was pulled `p.2` times before
+round `n` are pairwise disjoint. -/
+lemma pairwise_disjoint_action_eq_and_pullCount_eq (A : ℕ → Ω → α) (n : ℕ) :
+    Pairwise (Disjoint on fun p : α × ℕ ↦ {ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2}) := by
+  refine fun p q hpq ↦ Set.disjoint_left.2 fun ω hp hq ↦ hpq ?_
+  have h1 : p.1 = q.1 := hp.1.symm.trans hq.1
+  exact Prod.ext h1 (hp.2.symm.trans (h1 ▸ hq.2))
+
+/-- The events that the action of round `n` is `p.1` and that `p.1` was pulled `p.2` times before
+round `n` cover the whole space. -/
+lemma iUnion_action_eq_and_pullCount_eq (A : ℕ → Ω → α) (n : ℕ) :
+    ⋃ p : α × ℕ, {ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} = Set.univ :=
+  Set.eq_univ_of_forall fun ω ↦
+    Set.mem_iUnion.2 ⟨(A n ω, pullCount A (A n ω) n ω), rfl, rfl⟩
 
 /-- The arms of a finite set `S` have been pulled at most `n` times in total before round `n`:
 every round plays at most one of them. -/
@@ -226,6 +245,31 @@ theorem lintegral_pullCount_eq_ofReal_integral [IsFiniteMeasure P] (hA : ∀ t, 
     .of_bound (by fun_prop) n (ae_of_all _ fun ω ↦ by simpa using pullCount_le a n ω)
   rw [ofReal_integral_eq_lintegral_ofReal hint (ae_of_all _ fun _ ↦ Nat.cast_nonneg _)]
   simp
+
+/-- The integral of `f` over a measurable set `B` is the sum of its integrals over the
+intersections of `B` with the events that the action of round `n` is `p.1` and that `p.1` was
+pulled `p.2` times before. -/
+theorem setLIntegral_eq_tsum_action_eq_and_pullCount_eq [Countable α]
+    (hA : ∀ t, Measurable (A t)) (n : ℕ) {B : Set Ω} (hB : MeasurableSet B) (f : Ω → ℝ≥0∞) :
+    ∫⁻ ω in B, f ω ∂P =
+      ∑' p : α × ℕ, ∫⁻ ω in {ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} ∩ B, f ω ∂P := by
+  have hE (p : α × ℕ) :
+      MeasurableSet ({ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} ∩ B) :=
+    (measurableSet_action_eq_and_pullCount_eq hA n p.1 p.2).inter hB
+  have h_disj : Pairwise (Disjoint on
+      fun p : α × ℕ ↦ {ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} ∩ B) :=
+    fun p q hpq ↦ (pairwise_disjoint_action_eq_and_pullCount_eq A n hpq).mono
+      Set.inter_subset_left Set.inter_subset_left
+  rw [← lintegral_iUnion hE h_disj, ← Set.iUnion_inter, iUnion_action_eq_and_pullCount_eq,
+    Set.univ_inter]
+
+/-- The measure of a measurable set `B` is the sum of the measures of its intersections with the
+events that the action of round `n` is `p.1` and that `p.1` was pulled `p.2` times before. -/
+theorem measure_eq_tsum_action_eq_and_pullCount_eq [Countable α] (hA : ∀ t, Measurable (A t))
+    (n : ℕ) {B : Set Ω} (hB : MeasurableSet B) :
+    P B = ∑' p : α × ℕ, P ({ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} ∩ B) := by
+  simpa only [setLIntegral_one] using
+    setLIntegral_eq_tsum_action_eq_and_pullCount_eq (P := P) hA n hB fun _ ↦ 1
 
 variable [Fintype α] [IsProbabilityMeasure P]
 

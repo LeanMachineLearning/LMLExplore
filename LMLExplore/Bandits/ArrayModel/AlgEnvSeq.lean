@@ -6,6 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
+import LMLExplore.SequentialLearning.Algorithm
+import LMLExplore.SequentialLearning.FiniteActions
 
 /-!
 # The array model is a run of the algorithm for observations in any measurable space
@@ -104,24 +106,9 @@ theorem hasCondDistrib_reward_hist_action (n : ℕ) :
     fun p ↦ {ω | action alg n ω = p.1 ∧ pullCount (action alg) p.1 n ω = p.2}
   have hE (p : 𝓐 × ℕ) : MeasurableSet (E p) :=
     measurableSet_action_eq_and_pullCount_eq (measurable_action alg) n p.1 p.2
-  have hE_disj : Pairwise (Disjoint on E) := by
-    refine fun p q hpq ↦ Set.disjoint_left.2 fun ω hp hq ↦ hpq ?_
-    have h1 : p.1 = q.1 := hp.1.symm.trans hq.1
-    exact Prod.ext h1 (hp.2.symm.trans (h1 ▸ hq.2))
-  have hE_union (A : Set (ProbSpace 𝓐 𝓡)) : ⋃ p, E p ∩ A = A := by
-    rw [← Set.iUnion_inter, Set.inter_eq_right]
-    exact fun ω _ ↦ Set.mem_iUnion.2
-      ⟨(action alg n ω, pullCount (action alg) (action alg n ω) n ω), rfl, rfl⟩
-  have hE_disj' (A : Set (ProbSpace 𝓐 𝓡)) : Pairwise (Disjoint on fun p ↦ E p ∩ A) :=
-    fun p q hpq ↦ (hE_disj hpq).mono Set.inter_subset_left Set.inter_subset_left
-  have h_lhs : P (Φ ⁻¹' s ∩ reward alg n ⁻¹' t) =
-      ∑' p, P (E p ∩ (Φ ⁻¹' s ∩ reward alg n ⁻¹' t)) := by
-    rw [← measure_iUnion (hE_disj' _)
-      fun p ↦ (hE p).inter ((hΦ hs).inter (measurable_reward alg n ht)), hE_union]
-  have h_rhs : ∫⁻ ω in Φ ⁻¹' s, ν (action alg n ω) t ∂P =
-      ∑' p, ∫⁻ ω in E p ∩ Φ ⁻¹' s, ν (action alg n ω) t ∂P := by
-    rw [← lintegral_iUnion (fun p ↦ (hE p).inter (hΦ hs)) (hE_disj' _), hE_union]
-  rw [h_lhs, h_rhs]
+  rw [measure_eq_tsum_action_eq_and_pullCount_eq (measurable_action alg) n
+      ((hΦ hs).inter (measurable_reward alg n ht)),
+    setLIntegral_eq_tsum_action_eq_and_pullCount_eq (measurable_action alg) n (hΦ hs)]
   refine tsum_congr fun ⟨a, m⟩ ↦ ?_
   -- on `E (a, m)`, the observation is the entry `ω.2 m a`, independent of `truncRow a m`
   have h_reward : E (a, m) ∩ (Φ ⁻¹' s ∩ reward alg n ⁻¹' t) =
@@ -139,7 +126,7 @@ theorem hasCondDistrib_reward_hist_action (n : ℕ) :
   rw [h_reward, (indepFun_snd_apply_truncRow ν a m).measure_inter_preimage_eq_mul _ _ ht
       ((hE _).inter (hΦ hs)),
     truncRow_preimage_inter, ← Measure.map_apply (by fun_prop) ht, map_snd_apply_arrayMeasure,
-    setLIntegral_congr_fun ((hE _).inter (hΦ hs)) fun ω hω ↦ by rw [hω.1.1],
+    setLIntegral_congr_fun ((hE _).inter (hΦ hs)) fun ω hω ↦ by rw [show (Φ ω).2 = a from hω.1.1],
     setLIntegral_const]
 
 /-- **The array model is a run of the algorithm**, for observations in any measurable space: under
@@ -149,17 +136,9 @@ algorithm–environment sequence for `alg` and the stochastic bandit `Environmen
 observations. -/
 theorem isAlgEnvSeq_bandit :
     IsAlgEnvSeq (noObs _) (action alg) (reward alg) alg (Environment.bandit ν)
-      (arrayMeasure ν) where
-  hasCondDistrib_obs n :=
-    hasCondDistrib_unit (measurable_history (fun _ ↦ measurable_const)
-      (measurable_action alg) (measurable_reward alg) n).aemeasurable _ _
-  hasCondDistrib_action := hasCondDistrib_action alg ν
-  hasCondDistrib_feedback n := by
-    rw [feedback_bandit]
-    have h := hasCondDistrib_reward_hist_action alg ν n
-    simp only [hist_eq_history] at h
-    -- the observation `noObs _ n ω` is `()`, and inserting it does not change the kernel
-    exact h.comp_right (f := fun p : Hist Unit 𝓐 𝓡 n × 𝓐 ↦ ((p.1, ()), p.2)) (hf := by fun_prop)
-      (κ := ν.prodMkLeft (Hist Unit 𝓐 𝓡 n × Unit))
+      (arrayMeasure ν) :=
+  isAlgEnvSeq_bandit_of_hasCondDistrib (measurable_action alg) (measurable_reward alg)
+    (hasCondDistrib_action alg ν) fun n ↦ by
+      simpa only [hist_eq_history] using hasCondDistrib_reward_hist_action alg ν n
 
 end LMLExplore.Bandits.ArrayModel

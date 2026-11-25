@@ -9,6 +9,7 @@ public import LeanMachineLearning.Online.Bandit.ArrayProbSpace
 public import LeanMachineLearning.SequentialLearning.EvaluationEnv
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
+import LMLExplore.SequentialLearning.Algorithm
 
 /-!
 # A stochastic bandit is a mixture of reward tables
@@ -330,25 +331,10 @@ private lemma hasCondDistrib_reward_hist_action (alg : Algorithm Unit 𝓐 𝓡)
 stochastic bandit `Environment.bandit ν`. -/
 theorem isAlgEnvSeq_bandit (alg : Algorithm Unit 𝓐 𝓡) (ν : Kernel 𝓐 𝓡) [IsMarkovKernel ν] :
     IsAlgEnvSeq (noObs _) (action alg) (reward alg) alg (Environment.bandit ν)
-      (ArrayModel.arrayMeasure ν) where
-  hasCondDistrib_obs n :=
-    hasCondDistrib_unit (measurable_history (fun _ ↦ measurable_const)
-      (measurable_action alg) (measurable_reward alg) n).aemeasurable _ _
-  hasCondDistrib_action := hasCondDistrib_action _ alg
-  hasCondDistrib_feedback n := by
-    let e : (Hist Unit 𝓐 𝓡 n × 𝓐) ≃ᵐ ((Hist Unit 𝓐 𝓡 n × Unit) × 𝓐) :=
-      { toFun := fun p ↦ ((p.1, ()), p.2)
-        invFun := fun p ↦ (p.1.1, p.2)
-        left_inv := fun _ ↦ rfl
-        right_inv := fun _ ↦ rfl
-        measurable_toFun := by simp only [Equiv.coe_fn_mk]; fun_prop
-        measurable_invFun := by simp only [Equiv.symm_mk, Equiv.coe_fn_mk]; fun_prop }
-    rw [feedback_bandit]
-    have h := (hasCondDistrib_reward_hist_action alg ν n).measurableEquiv_comp_right e
-    simp only [hist_eq_history] at h
-    -- `h` is the goal up to unfolding `e`: `⇑e ∘ (H, A)` is `((H, noObs _ n), A)` since
-    -- `noObs _ n ω = ()`, and `(ν.prodMkLeft _).comap e.symm` is `ν.prodMkLeft _`.
-    exact h
+      (ArrayModel.arrayMeasure ν) :=
+  isAlgEnvSeq_bandit_of_hasCondDistrib (measurable_action alg) (measurable_reward alg)
+    (hasCondDistrib_action _ alg) fun n ↦ by
+      simpa only [hist_eq_history] using hasCondDistrib_reward_hist_action alg ν n
 
 /-- For a fixed table `x`, the history of the table model `u ↦ (u, x)` is measurable. -/
 private lemma measurable_history_evalSeq (alg : Algorithm Unit 𝓐 𝓡) (x : ℕ → 𝓐 → 𝓡) (n : ℕ) :

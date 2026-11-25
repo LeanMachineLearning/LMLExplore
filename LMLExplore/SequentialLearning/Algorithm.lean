@@ -51,6 +51,10 @@ the whole trajectory.
 
 * `Learning.IsAlgEnvSeq.comp_hasLaw`: algorithm-environment sequences are transported along a
   measurable map `g : Ω → Ω'` carrying `P` to `P'`.
+* `Learning.isAlgEnvSeq_bandit_of_hasCondDistrib`: actions and feedbacks without observations are
+  a run against the stochastic bandit `Environment.bandit ν` when the actions have the conditional
+  laws of the policies and the feedback of round `n` has conditional law `ν (A n)` given the
+  history and the action of round `n`.
 * `Learning.init_history`: the history of the first `n` rounds is the initial segment `Fin.init`
   of the history of the first `n + 1` rounds.
 * `Learning.IsAlgEnvSeq.adapted_sigmaHistory_filtrationAction`: the histories of variable length
@@ -111,6 +115,33 @@ lemma IsAlgEnvSeq.comp_hasLaw (h : IsAlgEnvSeq O X Y alg env P') (hg : HasLaw g 
   hasCondDistrib_obs n := (h.hasCondDistrib_obs n).comp_hasLaw hg
   hasCondDistrib_action n := (h.hasCondDistrib_action n).comp_hasLaw hg
   hasCondDistrib_feedback n := (h.hasCondDistrib_feedback n).comp_hasLaw hg
+
+/-- **A run against a stochastic bandit from its conditional laws.** Measurable actions `A` and
+feedbacks `Y` without observations are a run of `alg` against the stochastic bandit
+`Environment.bandit ν` as soon as the action of each round has the conditional law of the policy
+of `alg`, and the feedback of round `n` has conditional law `ν (A n)` given the history of the
+first `n` rounds and the action `A n`: the trivial observation is left out of the conditioning. -/
+lemma isAlgEnvSeq_bandit_of_hasCondDistrib [SFinite P] {alg : Algorithm Unit 𝓐 𝓨}
+    {ν : Kernel 𝓐 𝓨} [IsMarkovKernel ν] {A : ℕ → Ω → 𝓐} {Y : ℕ → Ω → 𝓨}
+    (hA : ∀ n, Measurable (A n)) (hY : ∀ n, Measurable (Y n))
+    (h_action : ∀ n, HasCondDistrib (A n)
+      (fun ω ↦ (history (noObs Ω) A Y n ω, noObs Ω n ω)) (alg.policy n) P)
+    (h_feedback : ∀ n, HasCondDistrib (Y n)
+      (fun ω ↦ (history (noObs Ω) A Y n ω, A n ω)) (ν.prodMkLeft _) P) :
+    IsAlgEnvSeq (noObs Ω) A Y alg (Environment.bandit ν) P where
+  measurable_action := hA
+  measurable_feedback := hY
+  hasCondDistrib_obs n :=
+    hasCondDistrib_unit (measurable_history (fun _ ↦ measurable_const) hA hY n).aemeasurable _ _
+  hasCondDistrib_action := h_action
+  hasCondDistrib_feedback n := by
+    have hf : Measurable fun p : Hist Unit 𝓐 𝓨 n × 𝓐 ↦ ((p.1, ()), p.2) := by fun_prop
+    -- inserting the trivial observation `noObs Ω n ω = ()` does not change the kernel
+    have h_ker : (ν.prodMkLeft (Hist Unit 𝓐 𝓨 n × Unit)).comap _ hf = ν.prodMkLeft _ := by
+      ext p : 1
+      simp only [Kernel.comap_apply, Kernel.prodMkLeft_apply]
+    rw [feedback_bandit]
+    exact (h_ker ▸ h_feedback n).comp_right (hf := hf)
 
 /-- The history of the first `n` rounds is the initial segment of the history of the first
 `n + 1` rounds. -/
