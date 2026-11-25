@@ -98,6 +98,20 @@ lemma fst_histOutputMeasure :
 lemma snd_histOutputMeasure : (histOutputMeasure A env).snd = A.outputMeasure env :=
   Measure.snd_compProd _ _
 
+variable (A env) in
+/-- The probability that `A` stops and outputs `d` is the expectation, under the law of the
+stopped history `h`, of the probability of `d` under the output rule if `h` is in the stopping rule
+(and `0` otherwise). -/
+lemma lintegral_indicator_output_eq_histOutputMeasure [MeasurableSingletonClass 𝓓] (d : 𝓓) :
+    ∫⁻ h, A.stopSet.indicator (fun h ↦ A.output h {d}) h ∂stoppedHistMeasure A.alg env A.stopSet =
+      histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.2 = d} := by
+  have h_prod : {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.2 = d} =
+      A.stopSet ×ˢ {d} := by
+    ext p
+    simp
+  rw [lintegral_indicator A.measurableSet_stopSet, h_prod, histOutputMeasure_def,
+    Measure.compProd_apply_prod A.measurableSet_stopSet (measurableSet_singleton d)]
+
 end LMLExplore.Identification
 
 namespace Learning.IdentAlg
