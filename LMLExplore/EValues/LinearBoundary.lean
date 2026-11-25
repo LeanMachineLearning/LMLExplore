@@ -20,13 +20,16 @@ intercept, and compare the time-uniform bound with the Cramér–Chernoff bound
 Legendre–Fenchel transform of `ψ` on `Λ`: LMLExplore's `fenchelConjugateOn ψ Λ` at the functional
 `t ↦ t u` (`ContinuousLinearMap.toSpanSingleton ℝ u`).
 
-Each bound comes from Ville's inequality at a single parameter `t ∈ Λ`, `t ≥ 0`. If
+The bounds of (b), (c), the second case of (d) and the Freedman-style form come from Ville's
+inequality at a single parameter `t ∈ Λ`, `t ≥ 0`; the first case of (d) is derived instead from
+(a), through `ProbabilityTheory.decayTransform_eq_of_forall_le_mul`. If
 `S n ≥ x + b (V n - m)`, then `t S n - ψ t V n ≥ t x - m ψ t` as soon as `ψ t = b t`, or as soon as
 `ψ t ≤ b t` and `V n ≥ m`; so the crossing has probability at most `l₀ exp (-(t x - m ψ t))`. If
 `x / m` is a subgradient of `ψ` on `Λ` at `t`, the Fenchel–Young equality makes the exponent
-`t x - m ψ t = m ψ⋆ (x / m)`. For a CGF-like `ψ` [HRMS20, Definition 2], which is convex and
-differentiable on `Λ = [0, λ_max)`, the subgradients are the derivatives. Then `t` is
-`(ψ')⁻¹ (x / m)`, which is also `(ψ⋆)' (x / m)`
+`t x - m ψ t = m ψ⋆ (x / m)`
+(`LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt`). For a
+CGF-like `ψ` [HRMS20, Definition 2], which is convex and differentiable on `Λ = [0, λ_max)`, the
+subgradients are the derivatives. Then `t` is `(ψ')⁻¹ (x / m)`, which is also `(ψ⋆)' (x / m)`
 (`LMLExplore.hasDerivAt_toReal_fenchelConjugateOn_toSpanSingleton`). So `ψ t / t` is the *slope
 transform* `s (x / m) = ψ ((ψ⋆)' (x / m)) / (ψ⋆)' (x / m)` of [HRMS20, (2.6)]. The statements below
 take the point `t` and the slope `ψ t / t` as given. This lets them hold for every `ψ`, not only
@@ -63,7 +66,7 @@ are sub-Poisson, the Freedman-style form is Freedman's inequality in Bennett's f
   `b` with `ψ t = b t`, and after the intrinsic time `m` for a slope `b` with `ψ t ≤ b t`.
 * `ProbabilityTheory.IsSubPsiProcess.measure_exists_add_div_mul_sub_le_le` [HRMS20,
   Theorem 1(b)]: `P(∃ n, x + s (V n - m) ≤ S n) ≤ l₀ exp (-m ψ⋆ (x / m))`.
-* `ProbabilityTheory.IsSubPsiProcess.measure_exists_sub_div_mul_sub_le_div_le` [HRMS20,
+* `ProbabilityTheory.IsSubPsiProcess.measure_exists_pos_and_sub_div_mul_sub_le_div_le` [HRMS20,
   Theorem 1(c)]: `P(∃ n, 0 < V n ∧ x - (x - s) / V n (V n - m) ≤ S n / V n) ≤ l₀ exp (-m ψ⋆ x)`.
 * `ProbabilityTheory.IsSubPsiProcess.measure_exists_le_and_add_mul_sub_le_le_of_div_le`,
   `ProbabilityTheory.IsSubPsiProcess.measure_exists_le_and_add_mul_sub_le_le` [HRMS20,
@@ -96,18 +99,6 @@ namespace ProbabilityTheory
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {𝒩 : Set (Measure Ω)}
   {P : Measure Ω} {S V X : ℕ → Ω → ℝ} {ψ : ℝ → ℝ} {Λ : Set ℝ} {l₀ : ℝ≥0∞} {t b c m x : ℝ}
   {s : Set Ω}
-
-/-- At a subgradient `x / m` of `ψ` on `Λ` at `t ∈ Λ`, with `m ≠ 0`, the Cramér–Chernoff exponent
-`m ψ⋆ (x / m)` is `t x - m ψ t`, by the Fenchel–Young equality. -/
-private lemma exp_neg_mul_fenchelConjugateOn (ht : t ∈ Λ) (hm : m ≠ 0)
-    (hu : HasSubgradientWithinAt ψ (ContinuousLinearMap.toSpanSingleton ℝ (x / m)) Λ t) :
-    EReal.exp (-(m * LMLExplore.fenchelConjugateOn ψ Λ
-      (ContinuousLinearMap.toSpanSingleton ℝ (x / m)))) =
-      ENNReal.ofReal (exp (-(t * x - m * ψ t))) := by
-  rw [(LMLExplore.hasSubgradientWithinAt_iff_fenchelConjugateOn_eq ht).1 hu, ← EReal.coe_mul,
-    ← EReal.coe_neg, EReal.exp_coe, ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
-  congr 3
-  field_simp
 
 namespace IsSubPsiProcess
 
@@ -163,7 +154,8 @@ theorem measure_inter_exists_add_div_mul_sub_le_le (h : IsSubPsiProcess S V ψ �
     P (s ∩ {ω | ∃ n, x + ψ t / t * (V n ω - m) ≤ S n ω}) ≤
       l₀ * EReal.exp (-(m * LMLExplore.fenchelConjugateOn ψ Λ
         (ContinuousLinearMap.toSpanSingleton ℝ (x / m)))) * P s := by
-  rw [exp_neg_mul_fenchelConjugateOn ht hm hu]
+  rw [LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt hu ht hm,
+    ← EReal.coe_neg, EReal.exp_coe]
   exact h.measure_inter_exists_add_mul_sub_le_le_of_mem hP ht ht0.le
     (div_mul_cancel₀ (ψ t) ht0.ne').symm x m hs
 
@@ -185,8 +177,8 @@ on `ℱ 0`. Let `m ≠ 0` and let `x` be a subgradient of `ψ` on `Λ` at a posi
 `t ∈ Λ`, so that `ψ t / t` is the slope transform `s x` for a CGF-like `ψ`. Then the probability
 that `s` holds and, at some time with `V > 0`, `S / V ≥ x - (x - ψ t / t) / V (V - m)` is at most
 `l₀ exp (-m ψ⋆ x) P s`. -/
-theorem measure_inter_exists_sub_div_mul_sub_le_div_le (h : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩)
-    (hP : P ∈ 𝒩) (hm : m ≠ 0) (ht : t ∈ Λ) (ht0 : 0 < t)
+theorem measure_inter_exists_pos_and_sub_div_mul_sub_le_div_le
+    (h : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩) (hP : P ∈ 𝒩) (hm : m ≠ 0) (ht : t ∈ Λ) (ht0 : 0 < t)
     (hu : HasSubgradientWithinAt ψ (ContinuousLinearMap.toSpanSingleton ℝ x) Λ t)
     (hs : MeasurableSet[ℱ 0] s) :
     P (s ∩ {ω | ∃ n, 0 < V n ω ∧ x - (x - ψ t / t) / V n ω * (V n ω - m) ≤ S n ω / V n ω}) ≤
@@ -210,13 +202,15 @@ probability measure `P` of the null, let `m ≠ 0` and let `x` be a subgradient 
 positive parameter `t ∈ Λ`, so that `ψ t / t` is the slope transform `s x` for a CGF-like `ψ`.
 Then the probability that, at some time with `V > 0`, `S / V ≥ x - (x - ψ t / t) / V (V - m)`
 is at most `l₀ exp (-m ψ⋆ x)`. -/
-theorem measure_exists_sub_div_mul_sub_le_div_le (h : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩)
-    (hP : P ∈ 𝒩) [IsProbabilityMeasure P] (hm : m ≠ 0) (ht : t ∈ Λ) (ht0 : 0 < t)
+theorem measure_exists_pos_and_sub_div_mul_sub_le_div_le
+    (h : IsSubPsiProcess S V ψ Λ l₀ ℱ 𝒩) (hP : P ∈ 𝒩) [IsProbabilityMeasure P] (hm : m ≠ 0)
+    (ht : t ∈ Λ) (ht0 : 0 < t)
     (hu : HasSubgradientWithinAt ψ (ContinuousLinearMap.toSpanSingleton ℝ x) Λ t) :
     P {ω | ∃ n, 0 < V n ω ∧ x - (x - ψ t / t) / V n ω * (V n ω - m) ≤ S n ω / V n ω} ≤
       l₀ * EReal.exp (-(m * LMLExplore.fenchelConjugateOn ψ Λ
         (ContinuousLinearMap.toSpanSingleton ℝ x))) := by
-  simpa using h.measure_inter_exists_sub_div_mul_sub_le_div_le hP hm ht ht0 hu MeasurableSet.univ
+  simpa using
+    h.measure_inter_exists_pos_and_sub_div_mul_sub_le_div_le hP hm ht ht0 hu MeasurableSet.univ
 
 /-! ### Lines through a point after the intrinsic time `m` -/
 
@@ -233,7 +227,8 @@ theorem measure_inter_exists_le_and_add_mul_sub_le_le_of_div_le
     P (s ∩ {ω | ∃ n, m ≤ V n ω ∧ x + b * (V n ω - m) ≤ S n ω}) ≤
       l₀ * EReal.exp (-(m * LMLExplore.fenchelConjugateOn ψ Λ
         (ContinuousLinearMap.toSpanSingleton ℝ (x / m)))) * P s := by
-  rw [exp_neg_mul_fenchelConjugateOn ht hm hu]
+  rw [LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt hu ht hm,
+    ← EReal.coe_neg, EReal.exp_coe]
   exact h.measure_inter_exists_le_and_add_mul_sub_le_le_of_mem hP ht ht0.le
     ((div_le_iff₀ ht0).1 hb) x m hs
 
@@ -352,7 +347,8 @@ theorem measure_exists_add_div_mul_sub_le_sum_le_of_mem_oneSidedCondSubgaussianN
     simp only [ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
     nlinarith [sq_nonneg (y - x / m)]
   have h := hsub.measure_exists_add_div_mul_sub_le_le hP hm.ne' (Set.mem_Ici.2 ht0.le) ht0 hu
-  rw [exp_neg_mul_fenchelConjugateOn (Set.mem_Ici.2 ht0.le) hm.ne' hu, one_mul] at h
+  rw [LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt hu
+    (Set.mem_Ici.2 ht0.le) hm.ne', ← EReal.coe_neg, EReal.exp_coe, one_mul] at h
   convert h using 5
   · field_simp
   · field_simp
@@ -394,12 +390,11 @@ theorem measure_exists_sum_condExp_sq_le_and_le_sum_le {μ : Measure Ω} [IsProb
     rw [hexp] at h₁ ⊢
     rw [div_add' _ _ _ (by positivity), div_le_div_iff_of_pos_right (by positivity)]
     nlinarith
-  have hψ : 0 ≤ (exp (t * b) - 1 - t * b) / b ^ 2 := by
-    have := add_one_le_exp (t * b)
-    exact div_nonneg (by linarith) (sq_nonneg b)
+  have hψ := exp_sub_one_sub_id_div_sq_nonneg (t * b) b
   have h := hsub.measure_exists_le_and_le_le (mem_singleton μ) hm.ne' (Set.mem_Ici.2 ht0.le) ht0 hu
     hψ
-  rw [exp_neg_mul_fenchelConjugateOn (Set.mem_Ici.2 ht0.le) hm.ne' hu, one_mul, hexp] at h
+  rw [LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt hu
+    (Set.mem_Ici.2 ht0.le) hm.ne', ← EReal.coe_neg, EReal.exp_coe, one_mul, hexp] at h
   refine h.trans_eq ?_
   rw [ht_def, mul_div_assoc]
   congr 3
