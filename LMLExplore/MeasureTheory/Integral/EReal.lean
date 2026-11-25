@@ -29,6 +29,8 @@ with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most
 * `MeasureTheory.eintegral_min_log_le_integral_truncLog_sub`: under a probability measure, the
   extended integral of `min (log E) k` is at most the integral of the truncated logarithm
   `ENNReal.truncLog k ((1 - ε) E + ε)`, minus `log (1 - ε)`.
+* `EReal.le_of_forall_le_sub_log_one_sub`: a bound `x ≤ D - log (1 - ε)` for every
+  `ε ∈ (0, 1)` gives `x ≤ D`, which removes the cost of the mixing constant.
 * `MeasureTheory.exists_integrable_truncLog_lt_integral`: if the extended integral of `log f`
   exceeds a real `a`, and the negative part of `log f` has a finite mean, then so does the integral
   of the truncated logarithm `ENNReal.truncLog c f` for some level `c`.
@@ -37,6 +39,21 @@ with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most
 public section
 
 open scoped ENNReal
+
+namespace EReal
+
+/-- **Removing the mixing constant.** Mixing with a constant `ε`, as in `(1 - ε) x + ε`, costs
+`- log (1 - ε)`, which tends to `0` with `ε`: a bound `x ≤ D - log (1 - ε)` for every
+`ε ∈ (0, 1)` gives `x ≤ D`. -/
+lemma le_of_forall_le_sub_log_one_sub {x : EReal} {D : ℝ}
+    (h : ∀ ε : ℝ, 0 < ε → ε < 1 → x ≤ ((D - Real.log (1 - ε) : ℝ) : EReal)) : x ≤ D := by
+  refine le_of_forall_lt_iff_le.1 fun z hz ↦ ?_
+  have hη : 0 < z - D := _root_.sub_pos.2 (EReal.coe_lt_coe_iff.1 hz)
+  have hexp : Real.exp (-(z - D)) < 1 := Real.exp_lt_one_iff.2 (by linarith)
+  have h' := h (1 - Real.exp (-(z - D))) (by linarith) (by linarith [Real.exp_pos (-(z - D))])
+  rwa [sub_sub_cancel, Real.log_exp, sub_neg_eq_add, add_sub_cancel] at h'
+
+end EReal
 
 namespace MeasureTheory
 

@@ -34,6 +34,8 @@ occurs.
 
 * `MeasureTheory.hittingAfter_lt_top_iff`: a hitting time is finite exactly when the process
   lies in the set at some time after the starting time.
+* `MeasureTheory.stoppedValue_hittingAfter_zero_mem_iff`: a process lies in a set at its hitting
+  time after `0` of that set exactly when the hitting time is finite.
 * `MeasureTheory.hittingAfter_indicator_lt_top_iff`: the hitting time of the indicators of a
   sequence of events is finite exactly on the union of the events after the starting time.
 * `MeasureTheory.hittingAfter_apply_eq_of_forall_mem_iff`: a process that lies in the set exactly
@@ -75,6 +77,13 @@ lies in `s` at some time `i ≥ n`. -/
 theorem hittingAfter_lt_top_iff {β : Type*} {u : ι → Ω → β} {s : Set β} {n : ι} {ω : Ω} :
     hittingAfter u s n ω < ⊤ ↔ ∃ i, n ≤ i ∧ u i ω ∈ s := by
   simp [lt_top_iff_ne_top, hittingAfter_eq_top_iff]
+
+/-- The value of a process at its hitting time after `0` of a set `s` lies in `s` exactly when
+the hitting time is finite. -/
+theorem stoppedValue_hittingAfter_zero_mem_iff {β : Type*} {u : ℕ → Ω → β} {s : Set β}
+    {ω : Ω} : stoppedValue u (hittingAfter u s 0) ω ∈ s ↔ hittingAfter u s 0 ω ≠ ⊤ :=
+  ⟨fun h htop ↦ hittingAfter_eq_top_iff.1 htop _ (Nat.zero_le _) h,
+    hittingAfter_mem_set_of_ne_top⟩
 
 /-- The hitting time after `n` of `{1}` by the indicators of a sequence of events `E i` is finite
 exactly when some event `E i` with `n ≤ i` occurs. -/

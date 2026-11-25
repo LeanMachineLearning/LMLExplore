@@ -10,6 +10,8 @@ public import LeanMachineLearning.SequentialLearning.StoppedHistory
 public import Mathlib.Data.Fin.Tuple.Take
 public import LMLExplore.Topology.Algebra.InfiniteSum.NatInt
 public import TauCeti.Probability.Kernel.Composition.MeasureCompProd
+import LMLExplore.Data.ENat.Basic
+import LMLExplore.Probability.Process.HittingTime
 
 /-!
 # Stopped histories: dependence on the rounds before stopping, histories stopped at a fixed time
@@ -53,6 +55,10 @@ most `M` rounds.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_map_truncHist`: for an almost surely finite `τ`,
   the law of the history stopped at the time `M` is the image of the law of the stopped history by
   `truncHist M`.
+* `Learning.IsAlgEnvSeq.setLIntegral_comp_stoppedValue_sigmaHistory`,
+  `Learning.IsAlgEnvSeq.lintegral_toENNReal_hittingAfter`: the expectation of a function of the
+  stopped history on the event that `S` stops, and the expected hitting time of `S` when it is
+  almost surely finite, are expectations under the law of the stopped history.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_add`,
   `Learning.map_stoppedProcess_sigmaHistory_succ_eq_add`: the laws of the histories stopped at the
   times `M` and `M + 1` split according to whether round `M` is played.
@@ -592,5 +598,65 @@ lemma map_stoppedProcess_sigmaHistory_apply_compl_fst_le (hO : ∀ n, Measurable
   exact (fst_sigmaHistory _ ω).trans_le (WithTop.untopA_le (min_le_left _ _))
 
 end StoppedAtTime
+
+section HittingTime
+
+/-! ### Expectations at the hitting time of a stopping rule
+
+Where the stopping rule `S` stops, the stopped history lies in `S` and its length is the hitting
+time. Expectations on the event that `S` stops, of functions of the stopped history and of the
+hitting time, are therefore expectations under the law `stoppedHistMeasure alg env S` of the stopped
+history, on `S`: they are determined by the algorithm and the environment. -/
+
+variable {alg : Algorithm 𝓞 𝓐 𝓨} {env : Environment 𝓞 𝓐 𝓨} {P : Measure Ω}
+  [IsProbabilityMeasure P]
+
+/-- The length of the history stopped at `τ` is `τ` where `τ` is finite. -/
+@[simp]
+lemma fst_stoppedValue_sigmaHistory (τ : Ω → WithTop ℕ) (ω : Ω) :
+    (stoppedValue (sigmaHistory O X Y) τ ω).1 = (τ ω).untopA := (rfl)
+
+/-- The hitting time of `S` is almost surely finite exactly when the stopped history lies in `S`
+almost surely under its law. -/
+lemma IsAlgEnvSeq.ae_hittingAfter_ne_top_iff (h : IsAlgEnvSeq O X Y alg env P)
+    (hS : MeasurableSet S) :
+    (∀ᵐ ω ∂P, hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤) ↔
+      ∀ᵐ x ∂stoppedHistMeasure alg env S, x ∈ S := by
+  simp_rw [← stoppedValue_hittingAfter_zero_mem_iff]
+  exact (h.hasLaw_stoppedValue_sigmaHistory hS).ae_iff (measurableSet_setOfPred.1 hS)
+
+/-- The expectation of a function of the stopped history, on the event that `S` stops, is its
+expectation on `S` under the law of the stopped history. -/
+lemma IsAlgEnvSeq.setLIntegral_comp_stoppedValue_sigmaHistory (h : IsAlgEnvSeq O X Y alg env P)
+    (hS : MeasurableSet S) {f : (Σ n, Hist 𝓞 𝓐 𝓨 n) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ ω in {ω | hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤},
+        f (stoppedValue (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) S 0) ω) ∂P =
+      ∫⁻ x in S, f x ∂stoppedHistMeasure alg env S := by
+  have hτ : MeasurableSet {ω | hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤} :=
+    (measurableSet_singleton ⊤).compl.preimage (measurable_hittingAfter_sigmaHistory
+      h.measurable_obs h.measurable_action h.measurable_feedback hS)
+  rw [← lintegral_indicator hτ, ← lintegral_indicator hS,
+    ← (h.hasLaw_stoppedValue_sigmaHistory hS).lintegral_comp (hf.indicator hS).aemeasurable]
+  refine lintegral_congr fun ω ↦ ?_
+  by_cases hω : hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤
+  · rw [indicator_of_mem (s := {ω | hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤}) hω,
+      indicator_of_mem (stoppedValue_hittingAfter_zero_mem_iff.2 hω)]
+  · rw [indicator_of_notMem (s := {ω | hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤}) hω,
+      indicator_of_notMem (mt stoppedValue_hittingAfter_zero_mem_iff.1 hω)]
+
+/-- If the hitting time of `S` is almost surely finite, its expectation is the expected length of
+the stopped history under its law. -/
+lemma IsAlgEnvSeq.lintegral_toENNReal_hittingAfter (h : IsAlgEnvSeq O X Y alg env P)
+    (hS : MeasurableSet S) (hτ : ∀ᵐ ω ∂P, hittingAfter (sigmaHistory O X Y) S 0 ω ≠ ⊤) :
+    ∫⁻ ω, ENat.toENNReal (hittingAfter (sigmaHistory O X Y) S 0 ω) ∂P =
+      ∫⁻ x, (x.1 : ℝ≥0∞) ∂stoppedHistMeasure alg env S := by
+  refine (lintegral_congr_ae (hτ.mono fun ω hω ↦ ?_)).trans
+    ((h.hasLaw_stoppedValue_sigmaHistory hS).lintegral_comp (f := fun x ↦ (x.1 : ℝ≥0∞))
+      (measurable_from_nat.comp measurable_sigma_fst).aemeasurable)
+  rw [fst_stoppedValue_sigmaHistory]
+  conv_lhs => rw [← WithTop.natCast_untopA hω]
+  exact ENat.toENNReal_coe _
+
+end HittingTime
 
 end Learning

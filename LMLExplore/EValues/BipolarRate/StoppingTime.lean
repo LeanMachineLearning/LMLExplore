@@ -117,18 +117,6 @@ namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}
 
-/-! ### Removing the mixing constant -/
-
-/-- The mixing constant `ε` of `(1 - ε) x + ε` costs `- log (1 - ε)`, which tends to `0` with `ε`:
-a bound `x ≤ D - log (1 - ε)` for every `ε ∈ (0, 1)` gives `x ≤ D`. -/
-private lemma le_of_forall_le_sub_log_one_sub {x : EReal} {D : ℝ}
-    (h : ∀ ε : ℝ, 0 < ε → ε < 1 → x ≤ ((D - Real.log (1 - ε) : ℝ) : EReal)) : x ≤ D := by
-  refine EReal.le_of_forall_lt_iff_le.1 fun z hz ↦ ?_
-  have hη : 0 < z - D := sub_pos.2 (EReal.coe_lt_coe_iff.1 hz)
-  have hexp : Real.exp (-(z - D)) < 1 := Real.exp_lt_one_iff.2 (by linarith)
-  have h' := h (1 - Real.exp (-(z - D))) (by linarith) (by linarith [Real.exp_pos (-(z - D))])
-  rwa [sub_sub_cancel, Real.log_exp, sub_neg_eq_add, add_sub_cancel] at h'
-
 /-! ### The Wald inequality for e-processes -/
 
 section EProcess
@@ -263,7 +251,7 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
       (EReal.coe_le_coe_iff.2 (by
         linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 (c := k) hd hD]))
   exact eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hEτm) fun k ↦
-    le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦ step ε hε0 hε1 k
+    EReal.le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦ step ε hε0 hε1 k
 
 end EProcess
 
@@ -502,7 +490,7 @@ private theorem toENNReal_log_inv_div_bipolarRate_le_lintegral_piLE (Q₁ : Meas
       (h_level' : ∀ P ∈ S₁, Measure.infinitePi (fun _ : ℕ ↦ P) {ω | τ ω ≠ ⊤} ≤
         ENNReal.ofReal a) :
       -Real.log a ≤ (bipolarRate Q₁ S₁).toReal * m.toReal :=
-    EReal.coe_le_coe_iff.1 <| le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦
+    EReal.coe_le_coe_iff.1 <| EReal.le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦
       EReal.coe_le_coe_iff.2 (neg_log_le_toReal_mul_sub Q₁ hS₁ hτ.isStoppingTime ha0 h_level' hd hm
         hε0 hε1)
   rcases eq_or_ne α 0 with rfl | hα0
