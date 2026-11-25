@@ -45,7 +45,7 @@ conditional mean `m_n(A_n)` (`Learning.IsAlgEnvSeq.setIntegral_feedback`).
 
 * `LMLExplore.sum_lintegral_pullCount_mul`: for a measurable random time `g`,
   `∑ a, 𝔼[N_a(g)] f a = 𝔼[∑ s < g, f (A s)]`.
-* `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : ℕ∞`.
+* `LMLExplore.natCast_pullCount_toNat_le`: `N_a(n) ≤ n` for `n : WithTop ℕ`.
 * `LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` for an almost surely finite measurable random time `τ`.
 * `Learning.IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means`: Wald's identity for the
@@ -89,20 +89,23 @@ lemma sum_lintegral_pullCount_mul [MeasurableSingletonClass 𝓐] (hA : ∀ n, M
         lintegral_congr fun ω ↦ Learning.sum_pullCount_mul ω f (g ω)
 
 omit [Fintype 𝓐] in
-/-- The number of pulls of an action before `n.toNat` is at most `n`, for `n : ℕ∞`. -/
-lemma natCast_pullCount_toNat_le (a : 𝓐) (n : ℕ∞) (ω : Ω) :
-    (Learning.pullCount A a n.toNat ω : ℝ≥0∞) ≤ n := by
-  rw [← ENat.toENNReal_coe, ENat.toENNReal_le]
-  exact (Nat.cast_le.2 (Learning.pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self _)
+/-- The number of pulls of an action before `ENat.toNat n` is at most `n`, for `n : WithTop ℕ`,
+such as the value of a random time. -/
+lemma natCast_pullCount_toNat_le (a : 𝓐) (n : WithTop ℕ) (ω : Ω) :
+    (Learning.pullCount A a (ENat.toNat n) ω : ℝ≥0∞) ≤ ENat.toENNReal n :=
+  (ENat.toENNReal_coe _).symm.le.trans (ENat.toENNReal_le.2
+    ((Nat.cast_le.2 (Learning.pullCount_le a _ ω)).trans (ENat.natCast_toNat_le_self n)))
 
 /-- **Wald's identity for the number of rounds.** For an almost surely finite measurable random
 time `τ` and finitely many actions, `E[τ] = ∑ a, E[N_a(τ)]`, where `N_a(τ)` is the number of
 rounds before `τ` at which the action `a` is played. -/
 lemma lintegral_toENNReal_eq_sum_lintegral_pullCount [MeasurableSingletonClass 𝓐]
-    (hA : ∀ n, Measurable (A n)) {τ : Ω → ℕ∞} (hτ : Measurable τ) (h_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
-    ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P = ∑ a, ∫⁻ ω, (Learning.pullCount A a (τ ω).toNat ω : ℝ≥0∞) ∂P := by
-  have h := sum_lintegral_pullCount_mul (P := P) hA (g := fun ω ↦ (τ ω).toNat)
-    (Measurable.of_discrete.comp hτ) fun _ ↦ 1
+    (hA : ∀ n, Measurable (A n)) {τ : Ω → WithTop ℕ} (hτ : Measurable τ)
+    (h_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤) :
+    ∫⁻ ω, ENat.toENNReal (τ ω) ∂P =
+      ∑ a, ∫⁻ ω, (Learning.pullCount A a (ENat.toNat (τ ω)) ω : ℝ≥0∞) ∂P := by
+  have h := sum_lintegral_pullCount_mul (P := P) hA (g := fun ω ↦ ENat.toNat (τ ω))
+    ((measurable_of_countable _).comp hτ) fun _ ↦ 1
   simp only [mul_one, sum_const, card_range, nsmul_eq_mul] at h
   rw [h]
   refine lintegral_congr_ae ?_
@@ -133,19 +136,22 @@ The conditional absolute means are lower Lebesgue integrals `∫⁻ y, ‖y‖�
 bounded by `C`: a bound on Bochner integrals would hold vacuously for non-integrable laws. -/
 theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure P]
     [BorelSpace 𝓨] [SecondCountableTopology 𝓨] [CompleteSpace 𝓨]
-    (h : IsAlgEnvSeq O A Y alg env P) {τ : Ω → ℕ∞} (hτ : IsStoppingTime h.filtrationAction τ)
-    (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞) {C : ℝ≥0}
-    (hC : ∀ n, ∀ᵐ ω ∂P, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ≤ C) :
-    ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
-      ∫ ω, ∑ t ∈ range (τ ω).toNat, env.means O A Y (A t ω) t ω ∂P := by
-  -- `S t = {t < τ}` is known when the action of round `t` is chosen
+    (h : IsAlgEnvSeq O A Y alg env P) {τ : Ω → WithTop ℕ}
+    (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, ENat.toENNReal (τ ω) ∂P ≠ ∞)
+    {C : ℝ≥0} (hC : ∀ n, ∀ᵐ ω ∂P, ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y n ω (A n ω)) ≤ C) :
+    ∫ ω, ∑ t ∈ range (ENat.toNat (τ ω)), Y t ω ∂P =
+      ∫ ω, ∑ t ∈ range (ENat.toNat (τ ω)), env.means O A Y (A t ω) t ω ∂P := by
+  -- `S t = {t < τ}` is known when the action of round `t` is chosen. The comparison is made in
+  -- `ℕ∞`, which is by definition `WithTop ℕ`: the tail-sum formula
+  -- `lintegral_toENNReal_eq_tsum_measure_lt` and the measurability of `τ` for the discrete
+  -- σ-algebra (`IsStoppingTime.measurable_enat`) are stated for `ℕ∞`-valued functions.
   set S : ℕ → Set Ω := fun t ↦ {ω | (t : ℕ∞) < τ ω}
   have hS_F (t : ℕ) : MeasurableSet[h.filtrationAction t] (S t) := hτ.measurableSet_gt t
   have hS (t : ℕ) : MeasurableSet (S t) := h.filtrationAction.le t _ (hS_F t)
-  have hτ_meas : Measurable τ := hτ.measurable_enat
+  have hτ_meas := hτ.measurable_enat
   have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ := by
     filter_upwards [ae_lt_top (Measurable.of_discrete.comp hτ_meas) hτ_int] with ω hω
-    simpa using hω.ne
+    exact ENat.toENNReal_ne_top.1 hω.ne
   set m : ℕ → Ω → 𝓨 := fun t ω ↦ env.means O A Y (A t ω) t ω
   set c : ℕ → Ω → ℝ≥0∞ := fun t ω ↦ ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y t ω (A t ω))
   have hY_int (t : ℕ) : Integrable (Y t) P := by
@@ -155,7 +161,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
   -- the series `∑ t, 1{t < τ} Y_t` and `∑ t, 1{t < τ} m_t` are dominated by the series
   -- `∑ t, 𝔼[1{t < τ} c_t] ≤ C ∑ t, P(t < τ) = C 𝔼[τ]`
   have hB : ∑' t, ∫⁻ ω in S t, c t ω ∂P ≠ ∞ := by
-    refine ne_top_of_le_ne_top (b := C * ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P)
+    refine ne_top_of_le_ne_top (b := C * ∫⁻ ω, ENat.toENNReal (τ ω) ∂P)
       (ENNReal.mul_ne_top ENNReal.coe_ne_top hτ_int) ?_
     rw [lintegral_toENNReal_eq_tsum_measure_lt hτ_meas.aemeasurable, ← ENNReal.tsum_mul_left]
     refine tsum_le_tsum fun t ↦ ?_
@@ -171,7 +177,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
     exact lintegral_mono fun ω ↦ eNorm_integral_le_lintegral_eNorm _
   have hm_meas (t : ℕ) : StronglyMeasurable (m t) :=
     (h.stronglyAdapted_means_filtrationAction t).mono (h.filtrationAction.le t)
-  calc ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P
+  calc ∫ ω, ∑ t ∈ range (ENat.toNat (τ ω)), Y t ω ∂P
       = ∫ ω, ∑' t, (S t).indicator (Y t) ω ∂P := integral_congr_ae (by
         filter_upwards [hτ_fin] with ω hω using
           (LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ Y t ω).symm)
@@ -183,7 +189,7 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
           h.setIntegral_feedback (hY_int t) (hS_F t)]
     _ = ∫ ω, ∑' t, (S t).indicator (m t) ω ∂P := (integral_tsum (fun t ↦
         ((hm_meas t).indicator (hS t)).aestronglyMeasurable) hm_sum).symm
-    _ = ∫ ω, ∑ t ∈ range (τ ω).toNat, m t ω ∂P := integral_congr_ae (by
+    _ = ∫ ω, ∑ t ∈ range (ENat.toNat (τ ω)), m t ω ∂P := integral_congr_ae (by
         filter_upwards [hτ_fin] with ω hω using
           LMLExplore.tsum_indicator_natCast_lt_eq_sum_range hω fun t ↦ m t ω)
 
@@ -224,14 +230,15 @@ variable [Fintype 𝓐] [MeasurableSingletonClass 𝓐] [DecidableEq 𝓐] [IsFi
 `𝔼[τ] < ∞`, the expected sum of the rewards before `τ` is `∑ a, 𝔼[N_a(τ)] μ_a`, where `N_a(τ)` is
 the number of rounds before `τ` at which `a` was played and `μ_a` is the mean of `ν a`. -/
 theorem IsAlgEnvSeq.integral_sum_feedback_eq_sum_integral_pullCount_mul
-    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {τ : Ω → ℕ∞}
-    (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, (τ ω : ℝ≥0∞) ∂P ≠ ∞)
+    (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {τ : Ω → WithTop ℕ}
+    (hτ : IsStoppingTime h.filtrationAction τ) (hτ_int : ∫⁻ ω, ENat.toENNReal (τ ω) ∂P ≠ ∞)
     (hν : ∀ a, Integrable id (ν a)) :
-    ∫ ω, ∑ t ∈ range (τ ω).toNat, Y t ω ∂P =
-      ∑ a, (∫ ω, (pullCount A a (τ ω).toNat ω : ℝ) ∂P) * ∫ y, y ∂(ν a) := by
+    ∫ ω, ∑ t ∈ range (ENat.toNat (τ ω)), Y t ω ∂P =
+      ∑ a, (∫ ω, (pullCount A a (ENat.toNat (τ ω)) ω : ℝ) ∂P) * ∫ y, y ∂(ν a) := by
   have hν_top : ∑ a, ∫⁻ y, ‖y‖ₑ ∂(ν a) ≠ ∞ := ENNReal.sum_ne_top.2 fun a _ ↦ (hν a).2.ne
-  have hτ_meas : Measurable τ := hτ.measurable_enat
-  have hN_int (a : 𝓐) : Integrable (fun ω ↦ (pullCount A a (τ ω).toNat ω : ℝ)) P := by
+  -- the measurability of `τ` for the discrete σ-algebra of `ℕ∞`, which is `WithTop ℕ`
+  have hτ_meas := hτ.measurable_enat
+  have hN_int (a : 𝓐) : Integrable (fun ω ↦ (pullCount A a (ENat.toNat (τ ω)) ω : ℝ)) P := by
     refine ⟨(Measurable.of_discrete.comp (measurable_uncurry_pullCount_comp h.measurable_action
       measurable_const (Measurable.of_discrete.comp hτ_meas))).aestronglyMeasurable, ?_⟩
     refine (lintegral_mono fun ω ↦ ?_).trans_lt hτ_int.lt_top
