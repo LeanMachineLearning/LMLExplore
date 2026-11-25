@@ -147,13 +147,6 @@ theorem eintegral_log_le_lintegral_mul_bipolarRate (Q₁ : Measure 𝓧) [IsProb
         bipolarRate Q₁ S₁ := by
   have hYm : Measurable Y := hY.mono hτ.measurableSpace_le le_rfl
   have hτm : Measurable τ := hτ.measurable'
-  -- `τ` and `Y` are determined, on the event `{τ = t}`, by the observations before `t`
-  have hYdep (ω ω' : ℕ → 𝓧) (t : ℕ) (ht : τ ω = t) (h : ∀ i < t, ω i = ω' i) :
-      τ ω' = t ∧ Y ω' = Y ω := by
-    refine ⟨hτ.eq_of_forall_lt ht h, ?_⟩
-    have hs := ((hτ.measurableSet _).1 (hY (measurableSet_singleton (Y ω)))).2 t
-    have hmem : ω ∈ Y ⁻¹' {Y ω} ∩ {ω | τ ω ≤ t} := ⟨rfl, le_of_eq ht⟩
-    exact ((hs.dependsOn_of_piLT h).1 hmem).1
   -- composed with the observations of the source in the array model with one source, they are
   -- a stopping time of the run and a variable known at it
   set obs : Bandits.ArrayModel.ProbSpace Unit 𝓧 → ℕ → 𝓧 := fun ω i ↦ ω.2 i ()
@@ -162,11 +155,13 @@ theorem eintegral_log_le_lintegral_mul_bipolarRate (Q₁ : Measure 𝓧) [IsProb
   have hstop : Bandits.ArrayModel.IsStoppedVar (oneSourceAlg (m𝓧 := m𝓧))
       (fun ω ↦ τ (obs ω)) (fun ω ↦ Y (obs ω)) := by
     refine Bandits.ArrayModel.isStoppedVar_iff.2 fun ω ω' t ht _ hhist ↦ ?_
-    refine hYdep (obs ω) (obs ω') t ht fun i hi ↦ ?_
-    have h := congrFun hhist ⟨i, hi⟩
-    rw [Bandits.ArrayModel.hist_eq, Bandits.ArrayModel.hist_eq] at h
-    simp only [Prod.mk.injEq, true_and] at h
-    rwa [Bandits.ArrayModel.reward_unique, Bandits.ArrayModel.reward_unique] at h
+    -- `τ` and `Y` are determined, on the event `{τ = t}`, by the observations before `t`
+    have hobs_eq : ∀ i < t, obs ω i = obs ω' i := fun i hi ↦ by
+      have h := congrFun hhist ⟨i, hi⟩
+      rw [Bandits.ArrayModel.hist_eq, Bandits.ArrayModel.hist_eq] at h
+      simp only [Prod.mk.injEq, true_and] at h
+      rwa [Bandits.ArrayModel.reward_unique, Bandits.ArrayModel.reward_unique] at h
+    exact ⟨hτ.eq_of_forall_lt ht hobs_eq, hY.eq_of_forall_lt_of_isStoppingTime hτ ht hobs_eq⟩
   have h := Bandits.ArrayModel.eintegral_log_le_designRate_mul_lintegral
     (alg := oneSourceAlg (m𝓧 := m𝓧)) (Kernel.const Unit Q₁) (Λ := Kernel.const Unit '' S₁)
     (by rintro _ ⟨P, hP, rfl⟩; have := hS₁ P hP; infer_instance) (hS₁ne.image _)

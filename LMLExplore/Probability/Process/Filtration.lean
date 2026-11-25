@@ -62,8 +62,9 @@ time `n`.
 * `Measurable.apply_eq_of_piLT_zero`, `Measurable.apply_update_eq_of_piLT`: a function measurable
   at time `0` of `piLT` is constant, and one measurable at time `n + 1`, with the term of index `n`
   replaced, only depends on the first `n` terms.
-* `MeasureTheory.IsStoppingTime.eq_of_forall_lt`: a stopping time of `piLT` is determined, where
-  it is finite, by the coordinates before it.
+* `MeasureTheory.IsStoppingTime.eq_of_forall_lt`, `Measurable.eq_of_forall_lt_of_isStoppingTime`:
+  a stopping time of `piLT` is determined, where it is finite, by the coordinates before it, and
+  so is a variable known at it.
 * `MeasureTheory.Filtration.adapted_piLT_comp_initSeg`,
   `MeasureTheory.Filtration.isStoppingTime_piLT_comp_initSeg`: functions of the first `n` terms
   form a process adapted to `piLT`, and a function of the first `k` terms that is at least `k` is a
@@ -259,6 +260,18 @@ lemma _root_.MeasureTheory.IsStoppingTime.eq_of_forall_lt {τ : (Π n, X n) → 
   have hm : MeasurableSet[piLT n] {ω' | τ ω' = n} := by
     simpa using hτ.measurableSet_eq n
   exact (hm.dependsOn_of_piLT h).1 hn
+
+/-- A variable known at a stopping time of the strict past `Filtration.piLT` of the coordinates of
+a sequence is determined by the coordinates before that time: if `τ ω = n` and `ω'` agrees with
+`ω` before `n`, then `Y ω' = Y ω`, the companion of `IsStoppingTime.eq_of_forall_lt` for `τ`. -/
+lemma _root_.Measurable.eq_of_forall_lt_of_isStoppingTime {Z : Type*} [MeasurableSpace Z]
+    [MeasurableSingletonClass Z] {τ : (Π n, X n) → WithTop ℕ} (hτ : IsStoppingTime piLT τ)
+    {Y : (Π n, X n) → Z} (hY : Measurable[hτ.measurableSpace] Y) {ω ω' : Π n, X n} {n : ℕ}
+    (hn : τ ω = n) (h : ∀ i < n, ω i = ω' i) : Y ω' = Y ω := by
+  -- the event `{Y = Y ω} ∩ {τ ≤ n}` is known at time `n` of `piLT` and contains `ω`
+  have hs := ((hτ.measurableSet _).1 (hY (measurableSet_singleton (Y ω)))).2 n
+  have hmem : ω ∈ Y ⁻¹' {Y ω} ∩ {ω | τ ω ≤ n} := ⟨rfl, le_of_eq hn⟩
+  exact ((hs.dependsOn_of_piLT h).1 hmem).1
 
 /-- Replacing the term of index `n` of a sequence is measurable from the strict past
 `piLT n` and the new term to the strict past `piLT (n + 1)`. -/
