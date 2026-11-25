@@ -8,6 +8,7 @@ module
 public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.Algebra.BigOperators.Intervals
 public import Mathlib.Algebra.Module.Basic
+public import Mathlib.Analysis.Complex.Exponential
 public import Mathlib.Analysis.Real.Sqrt
 public import Mathlib.Order.Filter.AtTopBot.Archimedean
 public import Mathlib.Tactic.Module
@@ -59,8 +60,14 @@ The first bound only needs `H ≥ 0`, and the partial sums `∑_{t=i}^T α^i_t` 
 * `LMLExplore.learningRateWeight_qLearningRate_le_two_mul_div`: `α^i_t ≤ 2 H / t`.
 * `LMLExplore.sum_learningRateWeight_qLearningRate_sq_le`: `∑_{i=1}^t (α^i_t) ^ 2 ≤ 2 H / t`.
 * `LMLExplore.hasSum_learningRateWeight_qLearningRate`: `∑_{t ≥ i} α^i_t = 1 + 1 / H`.
+* `LMLExplore.prod_one_sub_mul_nonneg`: `0 ≤ ∏_{i ∈ s} (1 - η i c)` for `η i, c ∈ [0, 1]`.
+* `LMLExplore.prod_one_sub_le_exp_neg_mul`: `∏_{i ∈ s} (1 - x i) ≤ exp (-(a #s))` for
+  `a ≤ x i ≤ 1`.
 * `LMLExplore.le_div_add_one_of_le_one_sub_two_div_mul_add`: the induction step of the `1 / T`
   rate of steps of order `1 / t` [BCN18].
+* `LMLExplore.le_mul_sqrt_of_le_sqrt_mul_max`: the square-root recursion
+  `u (k + 1) ≤ √(r max 1 (u k))` reaches `c √r` after `K` steps from `u 0 ≤ c ^ 2 ^ K`
+  [LCCWC24, Appendix B.4].
 
 ## References
 
@@ -68,6 +75,8 @@ The first bound only needs `H ≥ 0`, and the partial sums `∑_{t=i}^T α^i_t` 
   NeurIPS 2018, arXiv:1807.03765.
 * [BCN18] L. Bottou, F. E. Curtis and J. Nocedal, *Optimization methods for large-scale machine
   learning*, SIAM Review 60(2), 2018.
+* [LCCWC24] G. Li, C. Cai, Y. Chen, Y. Wei and Y. Chi, *Is Q-learning minimax optimal? A tight
+  sample complexity analysis*, Operations Research (2024), arXiv:2102.06548.
 -/
 
 public section
@@ -417,6 +426,29 @@ theorem hasSum_learningRateWeight_qLearningRate (hH : 1 ≤ H) (i : ℕ) :
 
 end QLearning
 
+section Products
+
+/-- For `0 ≤ c ≤ 1` and learning rates in `[0, 1]`, the product `∏_{i ∈ s} (1 - η i c)` of
+contraction factors is nonnegative. -/
+theorem prod_one_sub_mul_nonneg {ι : Type*} {s : Finset ι} {η : ι → ℝ} {c : ℝ} (hc₀ : 0 ≤ c)
+    (hc : c ≤ 1) (hη : ∀ i ∈ s, η i ∈ Set.Icc (0 : ℝ) 1) : 0 ≤ ∏ i ∈ s, (1 - η i * c) :=
+  prod_nonneg fun i hi ↦ sub_nonneg.2 ((mul_le_of_le_one_left hc₀ (hη i hi).2).trans hc)
+
+/-- **Exponential decay of products of contraction factors**: if `a ≤ x i ≤ 1` for every `i ∈ s`,
+then `∏_{i ∈ s} (1 - x i) ≤ exp (-(a #s))`. With `x i = η i (1 - γ)`, this bounds the contraction
+factors of TD learning by the learning rates. -/
+theorem prod_one_sub_le_exp_neg_mul {ι : Type*} {s : Finset ι} {x : ι → ℝ} {a : ℝ}
+    (ha : ∀ i ∈ s, a ≤ x i) (hx : ∀ i ∈ s, x i ≤ 1) :
+    ∏ i ∈ s, (1 - x i) ≤ Real.exp (-(a * #s)) := by
+  calc ∏ i ∈ s, (1 - x i) ≤ ∏ _i ∈ s, Real.exp (-a) :=
+        prod_le_prod₀ (fun i hi ↦ sub_nonneg.2 (hx i hi)) fun i hi ↦
+          (sub_le_sub_left (ha i hi) 1).trans (Real.one_sub_le_exp_neg a)
+    _ = Real.exp (-(a * #s)) := by
+        rw [prod_const, ← Real.exp_natCast_mul]
+        ring_nf
+
+end Products
+
 section DecayingStep
 
 /-- **The induction step of the `1 / T` rate of decaying steps** [BCN18]: stochastic
@@ -437,5 +469,69 @@ theorem le_div_add_one_of_le_one_sub_two_div_mul_add {u κ K x y : ℝ} (hu : 2 
         nlinarith [mul_nonneg hκ (sq_nonneg u)]
 
 end DecayingStep
+
+section SquareRootRecursion
+
+/-- One step of the square-root recursion: if `u (k + 1) ≤ √(r max 1 (u k))` with `0 ≤ r ≤ 1`,
+then either `u (k + 1) ≤ √r`, or `u k > 1` and `u (k + 1) ^ 2 ≤ r u k`. -/
+private lemma le_sqrt_or_sq_le_mul_of_le_sqrt_mul_max {r x y : ℝ} (hr₀ : 0 ≤ r)
+    (hy : y ≤ √(r * max 1 x)) : y ≤ √r ∨ (1 < x ∧ √r < y ∧ y ^ 2 ≤ r * x) := by
+  rcases le_or_gt y √r with h | h
+  · exact .inl h
+  rcases le_or_gt x 1 with hx | hx
+  · rw [max_eq_left hx, mul_one] at hy
+    exact absurd hy (not_le.2 h)
+  · rw [max_eq_right hx.le] at hy
+    refine .inr ⟨hx, h, ?_⟩
+    calc y ^ 2 ≤ √(r * x) ^ 2 := pow_le_pow_left₀ ((Real.sqrt_nonneg _).trans h.le) hy 2
+      _ = r * x := Real.sq_sqrt (by positivity)
+
+/-- **The square-root recursion** [LCCWC24, Appendix B.4]. Let `0 ≤ r ≤ 1` and `c ≥ 1`, and let
+`u` satisfy `u (k + 1) ≤ √(r max 1 (u k))` for every `k < K`, with `K ≥ 1` and `u 0 ≤ c ^ 2 ^ K`.
+Then `u K ≤ c √r`: as long as `u k > 1`, the recursion gives `u (k + 1) ^ 2 ≤ r u k`, so that
+`u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) u 0`, and once `u k ≤ 1`, the next terms are at most `√r`. This
+solves the recursions of the errors of Q-learning and TD learning on dyadic windows. -/
+theorem le_mul_sqrt_of_le_sqrt_mul_max {u : ℕ → ℝ} {r c : ℝ} {K : ℕ} (hr₀ : 0 ≤ r) (hr : r ≤ 1)
+    (hc : 1 ≤ c) (hK : 1 ≤ K) (hu : ∀ k < K, u (k + 1) ≤ √(r * max 1 (u k)))
+    (h0 : u 0 ≤ c ^ 2 ^ K) :
+    u K ≤ c * √r := by
+  -- either `u k ≤ √r`, or `u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) c ^ 2 ^ K` with `u k > √r`
+  have claim (k : ℕ) (hk : k ≤ K) :
+      u k ≤ √r ∨ (√r < u k ∧ u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) * c ^ 2 ^ K) := by
+    induction k with
+    | zero =>
+      rcases le_or_gt (u 0) √r with h | h
+      · exact .inl h
+      · exact .inr ⟨h, by simpa using h0⟩
+    | succ k ih =>
+      rcases le_sqrt_or_sq_le_mul_of_le_sqrt_mul_max hr₀ (hu k (by omega)) with h | ⟨hx, hy, hsq⟩
+      · exact .inl h
+      refine .inr ⟨hy, ?_⟩
+      rcases ih (by omega) with h | ⟨-, h⟩
+      · exact absurd (h.trans (Real.sqrt_le_one.2 hr)) (not_le.2 hx)
+      have h2k : 1 ≤ 2 ^ k := Nat.one_le_two_pow
+      calc u (k + 1) ^ 2 ^ (k + 1) = (u (k + 1) ^ 2) ^ 2 ^ k := by rw [← pow_mul, pow_succ']
+        _ ≤ (r * u k) ^ 2 ^ k := pow_le_pow_left₀ (sq_nonneg _) hsq _
+        _ = r ^ 2 ^ k * u k ^ 2 ^ k := mul_pow _ _ _
+        _ ≤ r ^ 2 ^ k * (r ^ (2 ^ k - 1) * c ^ 2 ^ K) := by gcongr
+        _ = r ^ (2 ^ (k + 1) - 1) * c ^ 2 ^ K := by
+            rw [← mul_assoc, ← pow_add]
+            congr 2
+            rw [pow_succ]
+            omega
+  rcases claim K le_rfl with h | ⟨h, hK'⟩
+  · exact h.trans (le_mul_of_one_le_left (Real.sqrt_nonneg _) hc)
+  -- `r ^ (2 ^ K - 1) ≤ r ^ 2 ^ (K - 1) = √r ^ 2 ^ K`, so that `u K ^ 2 ^ K ≤ (c √r) ^ 2 ^ K`
+  have hpow : r ^ (2 ^ K - 1) ≤ √r ^ 2 ^ K := by
+    obtain ⟨j, rfl⟩ : ∃ j, K = j + 1 := ⟨K - 1, by omega⟩
+    rw [pow_succ', pow_mul, Real.sq_sqrt hr₀]
+    exact pow_le_pow_of_le_one hr₀ hr (by have := @Nat.one_le_two_pow j; omega)
+  refine (pow_le_pow_iff_left₀ (h.le.trans' (Real.sqrt_nonneg _)) (by positivity)
+    (pow_ne_zero K two_ne_zero)).1 ?_
+  calc u K ^ 2 ^ K ≤ r ^ (2 ^ K - 1) * c ^ 2 ^ K := hK'
+    _ ≤ √r ^ 2 ^ K * c ^ 2 ^ K := by gcongr
+    _ = (c * √r) ^ 2 ^ K := by rw [mul_pow, mul_comm]
+
+end SquareRootRecursion
 
 end LMLExplore

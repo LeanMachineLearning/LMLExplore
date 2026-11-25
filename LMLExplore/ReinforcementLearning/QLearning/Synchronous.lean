@@ -142,6 +142,17 @@ lemma syncQLearning_congr {t : ℕ} {ω ω' : ℕ → 𝓢 × 𝓐 → 𝓢} (h 
     ext p
     rw [syncQLearning_succ, syncQLearning_succ, ih fun i hi ↦ h i (by omega), h t t.lt_succ_self]
 
+/-- The `t`-th iterate only depends on the learning rates of the first `t` iterations. -/
+lemma syncQLearning_congr_learningRate {η' : ℕ → ℝ} {t : ℕ} (h : ∀ i ∈ Ioc 0 t, η i = η' i) :
+    syncQLearning r γ η Q₀ t = syncQLearning r γ η' Q₀ t := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    ext ω p
+    rw [syncQLearning_succ, syncQLearning_succ,
+      ih fun i hi ↦ h i (Ioc_subset_Ioc_right t.le_succ hi),
+      h (t + 1) (mem_Ioc.2 ⟨t.succ_pos, le_rfl⟩)]
+
 /-- For finite state and action spaces, the `t`-th iterate takes finitely many values: it is a
 function of the first `t` samples, which take finitely many values. -/
 theorem finite_range_syncQLearning [Finite 𝓢] [Finite 𝓐] (t : ℕ) :
