@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.MultipleTesting.EClosure
+public import LMLExplore.EValues.MultipleTesting.WeightedEBH
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
 
 /-!
@@ -34,7 +34,10 @@ The e-BH procedure (`ProbabilityTheory.eBH`) [WR22, (5); RW, Definition 9.8] rej
 hypotheses `i` with `K ≤ α * k* * e i`, for the largest `k* ≤ K` such that at least `k*`
 hypotheses `j` satisfy `K ≤ α * k* * e j`; for a level `α ∉ {0, ∞}` and `k* ≠ 0`, these are the
 hypotheses whose e-values are at least `K / (α * k*)`. It rejects `k*` hypotheses, and it is the
-largest self-consistent set and the union of all of them. Conversely, every measurable rejection
+largest self-consistent set and the union of all of them. Self-consistency and e-BH are the
+weighted self-consistency and the weighted e-BH procedure of
+`LMLExplore.EValues.MultipleTesting.WeightedEBH` for the weights `1 / K` on all hypotheses, from
+which their API is derived. Conversely, every measurable rejection
 procedure `R` that controls the false discovery rate at a level `α ∉ {0, ∞}` is the e-BH procedure
 applied to its universal compound e-values `K * 𝟙{i ∈ R} / (α * max #R 1)` [IWR, Theorem 4.4; RW,
 Theorems 9.18–9.19].
@@ -58,6 +61,9 @@ Theorems 9.18–9.19].
   e-closure are dominated [XSF+26, Proposition 26].
 * `ProbabilityTheory.IsSelfConsistent.mem_eClosure`: a self-consistent set belongs to the
   e-closure of the mean e-collection for the false discovery proportion.
+* `ProbabilityTheory.isSelfConsistent_iff_isWeightedSelfConsistent`,
+  `ProbabilityTheory.eBH_eq_weightedEBH`: self-consistency and e-BH are weighted
+  self-consistency and weighted e-BH for the weights `1 / K` [FXR26, §2].
 * `ProbabilityTheory.isGreatest_eBH`, `ProbabilityTheory.mem_eBH_iff_exists`: e-BH is the largest
   self-consistent set and the union of all of them [WR22, §5]; it makes a rejection exactly when
   some nonempty set is self-consistent (`ProbabilityTheory.eBH_nonempty_iff`).
@@ -93,6 +99,8 @@ Theorems 9.18–9.19].
 
 * [WR22] R. Wang and A. Ramdas, *False discovery rate control with e-values*, J. R. Stat. Soc.
   Ser. B 84 (2022), arXiv:2009.02824v5.
+* [FXR26] L. Fischer, Z. Xu and A. Ramdas, *An online generalization of the (e-)Benjamini–Hochberg
+  procedure*, arXiv:2407.20683v5.
 * [IWR] N. Ignatiadis, R. Wang and A. Ramdas, *Asymptotic and compound e-values: multiple testing
   and empirical Bayes*, arXiv:2409.19812v4.
 * [RW] A. Ramdas and R. Wang, *Hypothesis Testing with E-values*, Foundations and Trends in
@@ -116,6 +124,15 @@ private lemma natCast_card_ne_zero (i : ι) : (Fintype.card ι : ℝ≥0∞) ≠
   haveI : Nonempty ι := ⟨i⟩
   Nat.cast_ne_zero.2 Fintype.card_ne_zero
 
+/-- Dividing by the number of hypotheses: `K ≤ α * c * x` exactly when `1 ≤ α * K⁻¹ * c * x`. -/
+private lemma natCast_card_le_iff (i : ι) {α c x : ℝ≥0∞} :
+    (Fintype.card ι : ℝ≥0∞) ≤ α * c * x ↔ 1 ≤ α * (Fintype.card ι : ℝ≥0∞)⁻¹ * c * x := by
+  have h : α * (Fintype.card ι : ℝ≥0∞)⁻¹ * c * x = (α * c * x) / Fintype.card ι := by
+    rw [ENNReal.div_eq_inv_mul]
+    ring
+  rw [h, ENNReal.le_div_iff_mul_le (Or.inl (natCast_card_ne_zero i))
+    (Or.inl (ENNReal.natCast_ne_top _)), one_mul]
+
 /-! ### Self-consistent rejection sets -/
 
 section SelfConsistent
@@ -136,10 +153,19 @@ theorem isSelfConsistent_iff :
 theorem isSelfConsistent_empty : IsSelfConsistent e α ∅ := by
   simp [isSelfConsistent_iff]
 
+/-- **Self-consistency is weighted self-consistency for the weights `1 / K`**, with `K` the number
+of hypotheses [FXR26, §2]. -/
+theorem isSelfConsistent_iff_isWeightedSelfConsistent :
+    IsSelfConsistent e α R ↔
+      IsWeightedSelfConsistent (fun _ ↦ (Fintype.card ι : ℝ≥0∞)⁻¹) e α R := by
+  rw [isSelfConsistent_iff, isWeightedSelfConsistent_iff]
+  exact forall₂_congr fun i _ ↦ natCast_card_le_iff i
+
 /-- Self-consistency is preserved by raising the level and the e-values. -/
 theorem IsSelfConsistent.mono (h : IsSelfConsistent e α R) (hα : α ≤ α') (he : e ≤ e') :
     IsSelfConsistent e' α' R :=
-  fun i hi ↦ (h i hi).trans (by gcongr; exact he i)
+  isSelfConsistent_iff_isWeightedSelfConsistent.2
+    ((isSelfConsistent_iff_isWeightedSelfConsistent.1 h).mono hα le_rfl he)
 
 /-- **Dividing the level is dividing the e-values**: a set is self-consistent at level `α / c`
 for the e-values `e` exactly when it is self-consistent at level `α` for the e-values `e i / c`.
@@ -150,35 +176,17 @@ theorem isSelfConsistent_div_iff {c : ℝ≥0∞} :
 
 /-- The union of two self-consistent sets is self-consistent. -/
 theorem IsSelfConsistent.union [DecidableEq ι] (h : IsSelfConsistent e α R)
-    (h' : IsSelfConsistent e α R') : IsSelfConsistent e α (R ∪ R') := by
-  intro i hi
-  rcases mem_union.1 hi with hi | hi
-  · exact (h i hi).trans (by gcongr; exact subset_union_left)
-  · exact (h' i hi).trans (by gcongr; exact subset_union_right)
+    (h' : IsSelfConsistent e α R') : IsSelfConsistent e α (R ∪ R') :=
+  isSelfConsistent_iff_isWeightedSelfConsistent.2
+    ((isSelfConsistent_iff_isWeightedSelfConsistent.1 h).union
+      (isSelfConsistent_iff_isWeightedSelfConsistent.1 h'))
 
 /-- **The false discovery proportion of a self-consistent set** [WR22, (12)]: for every set `N`
-of hypotheses, `fdp N R ≤ α * ∑ i ∈ N, e i / K`. Each rejected hypothesis of `N` contributes
-`1 / #R ≤ α * e i / K`. -/
+of hypotheses, `fdp N R ≤ α * ∑ i ∈ N, e i / K`. -/
 theorem IsSelfConsistent.fdp_le [DecidableEq ι] (h : IsSelfConsistent e α R) (N : Finset ι) :
     fdp N R ≤ α * ∑ i ∈ N, e i / Fintype.card ι := by
-  rcases R.eq_empty_or_nonempty with rfl | hR
-  · simp
-  obtain ⟨j, hj⟩ := hR
-  have hR0 : (#R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (card_ne_zero_of_mem hj)
-  -- Each rejected hypothesis contributes `1 / #R`, at most `α * e i / K` by self-consistency.
-  have hi : ∀ i ∈ R, (#R : ℝ≥0∞)⁻¹ ≤ α * (e i / Fintype.card ι) := fun i hi ↦
-    calc (#R : ℝ≥0∞)⁻¹ = (#R : ℝ≥0∞)⁻¹ * Fintype.card ι / Fintype.card ι :=
-          (ENNReal.mul_div_cancel_right (natCast_card_ne_zero j) (ENNReal.natCast_ne_top _)).symm
-      _ ≤ (#R : ℝ≥0∞)⁻¹ * (α * #R * e i) / Fintype.card ι := by gcongr; exact h i hi
-      _ = (#R : ℝ≥0∞)⁻¹ * #R * (α * e i) / Fintype.card ι := by ac_rfl
-      _ = α * (e i / Fintype.card ι) := by
-          rw [ENNReal.inv_mul_cancel hR0 (ENNReal.natCast_ne_top _), one_mul, mul_div_assoc]
-  calc fdp N R = ∑ _ ∈ R ∩ N, (#R : ℝ≥0∞)⁻¹ := fdp_eq_sum_inv_card N R
-    _ ≤ ∑ i ∈ R ∩ N, α * (e i / Fintype.card ι) :=
-        sum_le_sum fun i hi' ↦ hi i (mem_inter.1 hi').1
-    _ ≤ ∑ i ∈ N, α * (e i / Fintype.card ι) :=
-        sum_le_sum_of_subset inter_subset_right
-    _ = α * ∑ i ∈ N, e i / Fintype.card ι := (mul_sum ..).symm
+  simpa only [← ENNReal.div_eq_inv_mul] using
+    (isSelfConsistent_iff_isWeightedSelfConsistent.1 h).fdp_le N
 
 /-- **Self-consistent sets belong to the e-closure** of the mean e-collection
 `S ↦ ∑ i ∈ S, E i / K` for the false discovery proportion. -/
@@ -213,36 +221,24 @@ theorem eBH_def (e : ι → ℝ≥0∞) (α : ℝ≥0∞) :
       Finset ι) :=
   (rfl)
 
-/-- The number `k*` of rejections of e-BH bounds every self-consistent set: at least `#R`
-hypotheses `j` of a self-consistent `R` satisfy `K ≤ α * #R * e j`. -/
-private lemma card_le_findGreatest (h : IsSelfConsistent e α R) :
-    #R ≤ Nat.findGreatest
-      (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) :=
-  Nat.le_findGreatest (card_le_univ R)
-    (card_le_card fun j hj ↦ mem_filter.2 ⟨mem_univ j, h j hj⟩)
-
-/-- At least `k*` hypotheses `j` satisfy `K ≤ α * k* * e j`, for the number `k*` of rejections of
-e-BH. -/
-private lemma findGreatest_le_card_filter :
-    Nat.findGreatest (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) ≤
-      #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * (Nat.findGreatest
-        (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) : ℕ) * e j} :=
-  Nat.findGreatest_spec (P := fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j})
-    (Nat.zero_le _) (Nat.zero_le _)
+/-- **Online e-BH generalizes e-BH** [FXR26, §2]: e-BH on `K` hypotheses is weighted e-BH on all of
+them with the weights `1 / K`. -/
+theorem eBH_eq_weightedEBH :
+    eBH e α = weightedEBH (fun _ ↦ (Fintype.card ι : ℝ≥0∞)⁻¹) e α univ := by
+  rcases isEmpty_or_nonempty ι with hι | ⟨⟨i⟩⟩
+  · exact Subsingleton.elim _ _
+  rw [eBH_def, weightedEBH_def, card_univ]
+  simp only [natCast_card_le_iff i]
 
 /-- A self-consistent set is contained in the e-BH rejection set. -/
 theorem IsSelfConsistent.subset_eBH (h : IsSelfConsistent e α R) : R ⊆ eBH e α := by
-  intro i hi
-  rw [eBH_def, mem_filter]
-  exact ⟨mem_univ i, (h i hi).trans (by gcongr; exact card_le_findGreatest h)⟩
+  rw [eBH_eq_weightedEBH]
+  exact (isSelfConsistent_iff_isWeightedSelfConsistent.1 h).subset_weightedEBH (subset_univ R)
 
 /-- The e-BH rejection set is self-consistent. -/
 theorem isSelfConsistent_eBH : IsSelfConsistent e α (eBH e α) := by
-  intro i hi
-  rw [eBH_def, mem_filter] at hi
-  refine hi.2.trans ?_
-  gcongr
-  exact findGreatest_le_card_filter
+  rw [isSelfConsistent_iff_isWeightedSelfConsistent, eBH_eq_weightedEBH]
+  exact isWeightedSelfConsistent_weightedEBH
 
 /-- **e-BH is the largest self-consistent set** [WR22, §5; RW, Definition 9.9]. -/
 theorem isGreatest_eBH : IsGreatest {R | IsSelfConsistent e α R} (eBH e α) :=
@@ -261,17 +257,17 @@ theorem eBH_nonempty_iff : (eBH e α).Nonempty ↔ ∃ R, R.Nonempty ∧ IsSelfC
 hypotheses `j` satisfy `K ≤ α * k * e j`. -/
 theorem card_eBH : #(eBH e α) = Nat.findGreatest
     (fun k ↦ k ≤ #{j | (Fintype.card ι : ℝ≥0∞) ≤ α * k * e j}) (Fintype.card ι) := by
-  refine le_antisymm (card_le_findGreatest isSelfConsistent_eBH) ?_
-  rw [eBH_def]
-  exact findGreatest_le_card_filter
+  rcases isEmpty_or_nonempty ι with hι | ⟨⟨i⟩⟩
+  · simp [Subsingleton.elim (eBH e α) ∅]
+  rw [eBH_eq_weightedEBH, card_weightedEBH]
+  simp only [card_univ, natCast_card_le_iff i]
 
 /-- **The threshold form of e-BH** [WR22, Proposition 1]: e-BH rejects `i` exactly when
 `K ≤ α * #(eBH e α) * e i`. For a level `α ∉ {0, ∞}` and a nonempty rejection set, this says that
 `e i` is at least `K / (α * #(eBH e α))`. -/
 theorem mem_eBH_iff_le_mul_card :
     i ∈ eBH e α ↔ (Fintype.card ι : ℝ≥0∞) ≤ α * #(eBH e α) * e i := by
-  conv_lhs => rw [eBH_def]
-  rw [mem_filter, card_eBH]
+  rw [eBH_eq_weightedEBH, mem_weightedEBH_iff_one_le_mul_card, natCast_card_le_iff i]
   exact and_iff_right (mem_univ i)
 
 /-- **e-BH for one hypothesis is the e-test**: it rejects exactly when `1 ≤ α * e i`. For a
