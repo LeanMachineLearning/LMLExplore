@@ -8,6 +8,7 @@ module
 public import LeanMachineLearning.ForMathlib.Analysis.Convex.Subgradient.Deriv
 public import LMLExplore.Analysis.Convex.Bregman.StrictConvex
 public import LMLExplore.Analysis.Normed.Operator.Basic
+public import Mathlib.Analysis.Calculus.Deriv.Comp
 public import Mathlib.Analysis.Normed.Operator.Bilinear
 public import TauCeti.Analysis.Convex.EffectiveDomain
 public import TauCeti.Analysis.Convex.Subdifferential
@@ -55,6 +56,8 @@ divergence `z ↦ D_F(z, x)` grows linearly away from `x`
   `fenchelConjugate`.
 * `LMLExplore.convexOn_toReal_fenchelConjugateOn`: the conjugate is convex on its effective domain.
 * `LMLExplore.hasSubgradientWithinAt_iff_fenchelConjugateOn_eq`: the Fenchel–Young equality.
+* `LMLExplore.mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt`: its form
+  `m F⋆ (u / m) = x u - m F x` for a function of a real variable and a subgradient slope `u / m`.
 * `LMLExplore.bregDiv_toReal_fenchelConjugateOn`: `D_{F⋆}(v, u) = D_F(x, y)` [LS, Theorem 26.6 (b)].
 * `LMLExplore.hasSubgradientWithinAt_toReal_fenchelConjugateOn`: when the conjugate is finite
   everywhere, the evaluation at `x` is a subgradient of the conjugate at every subgradient `u` of
@@ -63,6 +66,10 @@ divergence `z ↦ D_F(z, x)` grows linearly away from `x`
   at every subgradient of `F` at an interior point `x` (part of [LS, Theorem 26.6 (a)]).
 * `LMLExplore.mem_interior_setOf_fenchelConjugateOn_ne_top`: such a subgradient is interior to
   the domain of the conjugate (part of [LS, Theorem 26.6 (a)]).
+* `LMLExplore.hasDerivAt_toReal_fenchelConjugateOn_toSpanSingleton`: the scalar case of
+  `LMLExplore.hasFDerivAt_toReal_fenchelConjugateOn`, for a function of a real variable and the
+  conjugate as a function of the slope `u` of `t ↦ t * u`: its derivative at the slope of a
+  subgradient at `x` is `x`, so that `(F⋆)' = (F')⁻¹`.
 
 ## References
 
@@ -188,6 +195,21 @@ theorem toReal_fenchelConjugateOn_of_hasSubgradientWithinAt (hu : HasSubgradient
     (hx : x ∈ D) : (fenchelConjugateOn F D u).toReal = u x - F x := by
   rw [(hasSubgradientWithinAt_iff_fenchelConjugateOn_eq hx).1 hu, EReal.toReal_coe]
 
+/-- **The Fenchel–Young equality at a scaled slope**, for a function of a real variable: if the
+slope `u / m` (the functional `t ↦ t * (u / m)`) is a subgradient of `F` on `D` at `x ∈ D`, with
+`m ≠ 0`, then `m F⋆ (u / m) = x u - m F x`. This turns the Cramér–Chernoff exponent
+`m F⋆ (u / m)` into the exponent at the single parameter `x`. -/
+theorem mul_fenchelConjugateOn_toSpanSingleton_div_of_hasSubgradientWithinAt {F : ℝ → ℝ}
+    {D : Set ℝ} {x m u : ℝ}
+    (hu : HasSubgradientWithinAt F (ContinuousLinearMap.toSpanSingleton ℝ (u / m)) D x)
+    (hx : x ∈ D) (hm : m ≠ 0) :
+    m * fenchelConjugateOn F D (ContinuousLinearMap.toSpanSingleton ℝ (u / m)) =
+      ((x * u - m * F x : ℝ) : EReal) := by
+  rw [(hasSubgradientWithinAt_iff_fenchelConjugateOn_eq hx).1 hu, ← EReal.coe_mul,
+    ContinuousLinearMap.toSpanSingleton_apply, smul_eq_mul]
+  congr 1
+  field_simp
+
 end TopologicalSpace
 
 section Normed
@@ -309,6 +331,25 @@ theorem hasFDerivAt_toReal_fenchelConjugateOn (hF : ConvexOn ℝ D F)
   rw [toReal_fenchelConjugateOn_of_hasSubgradientWithinAt hu hxD,
     ContinuousLinearMap.apply_apply, Real.norm_eq_abs, abs_le]
   constructor <;> nlinarith [norm_nonneg h]
+
+/-- **The derivative of the conjugate of a function of a real variable** (part of
+[LS, Theorem 26.6 (a)]). Let `F : ℝ → ℝ` be convex on `D` and strictly convex on the interior of
+`D`, and let `u` be a subgradient of `F` on `D` at an interior point `x`: the functional
+`t ↦ t * u` (`toSpanSingleton ℝ u`) supports `F` at `x`. Then the real representative of the
+conjugate `w ↦ F⋆ (t ↦ t * w)` has derivative `x` at `u`. For a differentiable `F`, this is
+`(F⋆)' (F' x) = x`. -/
+theorem hasDerivAt_toReal_fenchelConjugateOn_toSpanSingleton {F : ℝ → ℝ} {D : Set ℝ} {x u : ℝ}
+    (hF : ConvexOn ℝ D F) (hFs : StrictConvexOn ℝ (interior D) F) (hx : x ∈ interior D)
+    (hu : HasSubgradientWithinAt F (ContinuousLinearMap.toSpanSingleton ℝ u) D x) :
+    HasDerivAt (fun w ↦ (fenchelConjugateOn F D (ContinuousLinearMap.toSpanSingleton ℝ w)).toReal)
+      x u := by
+  -- `w ↦ toSpanSingleton ℝ w = w • toSpanSingleton ℝ 1` has derivative `toSpanSingleton ℝ 1`
+  have hL : HasDerivAt (fun w : ℝ ↦ ContinuousLinearMap.toSpanSingleton ℝ w)
+      (ContinuousLinearMap.toSpanSingleton ℝ 1) u := by
+    simpa [← ContinuousLinearMap.toSpanSingleton_smul] using
+      (hasDerivAt_id u).smul_const (ContinuousLinearMap.toSpanSingleton ℝ (1 : ℝ))
+  simpa [Function.comp_def] using
+    HasFDerivAt.comp_hasDerivAt u (hasFDerivAt_toReal_fenchelConjugateOn hF hFs hx hu) hL
 
 end FiniteDimensional
 
