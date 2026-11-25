@@ -113,7 +113,9 @@ lemma map_shiftTable (ν : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (ν
     simp only [Prod.mk.injEq] at h
     obtain ⟨h1, rfl⟩ := h
     simpa using h1
-  have h_comp : shiftTable n ∘ C = C ∘ fun (y : ℕ × α → 𝓧) p ↦ y (p.1 + n p.2, p.2) := rfl
+  have h_comp : shiftTable n ∘ C = C ∘ fun (y : ℕ × α → 𝓧) p ↦ y (p.1 + n p.2, p.2) := by
+    ext y i a
+    simp [C, MeasurableEquiv.coe_curry]
   rw [← Measure.infinitePi_map_curry (fun (_ : ℕ) (a : α) ↦ ν a),
     Measure.map_map (measurable_shiftTable n) C.measurable, h_comp,
     ← Measure.map_map C.measurable (by fun_prop),
@@ -146,7 +148,9 @@ lemma map_tableOfArray [Fintype α] (ν : α → Measure 𝓧) [∀ a, IsProbabi
     simp only [Prod.mk.injEq] at h
     obtain ⟨h1, rfl⟩ := h
     rw [Fin.ext h1]
-  have h_comp : tableOfArray n ∘ C = fun (y : ℕ × α → 𝓧) p ↦ y ((p.2 : ℕ), p.1) := rfl
+  have h_comp : tableOfArray n ∘ C = fun (y : ℕ × α → 𝓧) p ↦ y ((p.2 : ℕ), p.1) := by
+    ext y p
+    simp [C, MeasurableEquiv.coe_curry]
   rw [← Measure.infinitePi_map_curry (fun (_ : ℕ) (a : α) ↦ ν a),
     Measure.map_map (measurable_tableOfArray n) C.measurable, h_comp,
     Measure.map_infinitePi_infinitePi_of_inj (P := fun p : ℕ × α ↦ ν p.2) hφ,
