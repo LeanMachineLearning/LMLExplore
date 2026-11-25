@@ -203,12 +203,9 @@ private lemma integral_truncLog_stoppedValue_le (Q₁ : Measure 𝓧) [IsProbabi
     · exact fun P hP n ↦ lintegral_indicator_mix_stoppedValue_le_one hS₁ hE (hτk k) hε0 hε1 hP n
     · exact hD k
   -- let `k` tend to infinity
-  refine le_of_tendsto' (tendsto_integral_of_dominated_convergence (fun _ ↦ max |Real.log ε| |c|)
-    (fun k ↦ ((ENNReal.measurable_truncLog c).comp (hVm k)).aestronglyMeasurable)
-    (integrable_const _)
-    (fun k ↦ ae_of_all _ fun ω ↦ (Real.norm_eq_abs _).trans_le
-      (ENNReal.abs_truncLog_le hε0 (hVε k ω))) (ae_of_all _ fun ω ↦ ?_)) hk
-  exact tendsto_atTop_of_eventually_const (i₀ := τ ω) fun k hk ↦ by simp [V, min_eq_left hk]
+  refine integral_truncLog_le_of_eventually_eq hε0 hVm hVε (ae_of_all _ fun ω ↦ ?_) hk
+  filter_upwards [Filter.eventually_ge_atTop (τ ω)] with k hk
+  simp [V, min_eq_left hk]
 
 /-- The Wald inequality when the bipolar rate is finite and either it is `0` or the expected
 number of observations is finite: the expected logarithm of `E_τ` is at most the real number
@@ -241,17 +238,8 @@ private lemma eintegral_log_stoppedValue_le_toReal_mul (Q₁ : Measure 𝓧) [Is
     push_cast
     gcongr
     exact_mod_cast min_le_left _ _
-  have step (ε : ℝ) (hε0 : 0 < ε) (hε1 : ε < 1) (k : ℕ) :
-      ∫ᵉ ω, min (ENNReal.log (E (τ ω) ω)) k ∂μ ≤ ((D - Real.log (1 - ε) : ℝ) : EReal) := by
-    set W : (ℕ → 𝓧) → ℝ≥0∞ := fun ω ↦ ENNReal.ofReal (1 - ε) * E (τ ω) ω + ENNReal.ofReal ε
-    have hYi : Integrable (fun ω ↦ truncLog k (W ω)) μ :=
-      ENNReal.integrable_truncLog_comp hε0 ((measurable_const.mul hEτm).add measurable_const)
-        (fun _ ↦ le_add_self)
-    exact (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hYi).trans
-      (EReal.coe_le_coe_iff.2 (by
-        linarith [integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 (c := k) hd hD]))
-  exact eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hEτm) fun k ↦
-    EReal.le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦ step ε hε0 hε1 k
+  exact eintegral_log_le_of_forall_integral_truncLog_le hEτm fun k ε hε0 hε1 ↦
+    integral_truncLog_stoppedValue_le Q₁ hS₁ hE hτ hε0 hε1 hd hD
 
 end EProcess
 
