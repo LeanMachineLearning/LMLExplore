@@ -459,6 +459,15 @@ theorem monotone_decayTransform : Monotone (decayTransform ψ Λ) := fun _ _ ↦
 theorem decayTransform_mono (hΛ : Λ ⊆ Λ') : decayTransform ψ Λ b ≤ decayTransform ψ Λ' b :=
   decayTransform_le_iff.2 fun _ ht ht0 hψ ↦ ofReal_le_decayTransform (hΛ ht) ht0 hψ
 
+/-- The decay transform is unchanged by lowering the slope from `b` to `c ≤ b`, as long as every
+positive parameter `t ∈ Λ` with `ψ t ≤ b t` still has `ψ t ≤ c t`. For a `ψ` with
+`ψ t ≤ b_max t` for all positive `t ∈ Λ`, this gives `D (min b b_max) = D b` [HRMS20, §2.3]. -/
+theorem decayTransform_eq_of_forall_le_mul {c : ℝ} (hcb : c ≤ b)
+    (hc : ∀ t ∈ Λ, 0 < t → ψ t ≤ b * t → ψ t ≤ c * t) :
+    decayTransform ψ Λ c = decayTransform ψ Λ b :=
+  le_antisymm (decayTransform_le_decayTransform hcb) <|
+    decayTransform_le_iff.2 fun t ht ht0 hψ ↦ ofReal_le_decayTransform ht ht0 (hc t ht ht0 hψ)
+
 /-- The decay transform of the sub-Gaussian `ψ t = t ^ 2 / 2` on `[0, ∞)` is `2 b`. -/
 theorem decayTransform_sq_div_two (b : ℝ) :
     decayTransform (fun t ↦ t ^ 2 / 2) (Ici 0) b = ENNReal.ofReal (2 * b) := by
