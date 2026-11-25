@@ -194,9 +194,11 @@ theorem integral_advantage_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p
     0 ≤ ∫ a, M.advantage γ (directPolicy (p k)) (s, a) ∂(directPolicy (p (k + 1)) s) := by
   have := h.isMarkovKernel k
   have := h.isMarkovKernel (k + 1)
-  simp_rw [advantage_def]
-  rw [integral_sub (integrable_qValue_prodMk_left hγ hR s _) (integrable_const _),
-    h.integral_qValue_directPolicy, integral_const, probReal_univ, one_smul, sub_nonneg]
+  rw [integral_advantage_eq_sum hγ hR _ s 0]
+  simp only [measureReal_directPolicy_singleton (mem_simplex_iff.1 (h.mem_simplex (k + 1) s)).1,
+    measureReal_directPolicy_singleton (mem_simplex_iff.1 (h.mem_simplex k s)).1, sub_zero,
+    sub_mul, sum_sub_distrib, sub_nonneg]
+  rw [← h.value_eq_sum hγ hR]
   exact h.value_le_sum_mul_qValue hF hγ hR hη s
 
 /-- For positive steps, the value of `π_k` is at most the evaluation operator of `π_{k + 1}` at
@@ -368,14 +370,12 @@ private lemma mul_integral_value_sub_le (h : IsPolicyMirrorDescent M γ F F' (fu
             bregDiv F (fun a ↦ (π s).real {a}) (p (j + 1) s) (F' (p (j + 1) s))) / η₀ := by
       rw [le_div_iff₀ hη, mul_comm]
       linarith
-    simp only [A, advantage_def]
-    rw [integral_sub (integrable_qValue_prodMk_left hγ hR s _) (integrable_const _),
-      integral_sub (integrable_qValue_prodMk_left hγ hR s _) (integrable_const _),
-      integral_fintype Integrable.of_finite, integral_directPolicy
-        (mem_simplex_iff.1 (h.mem_simplex (j + 1) s)).1]
+    rw [integral_advantage_eq_sum hγ hR _ s 0, integral_advantage_eq_sum hγ hR _ s 0]
     simp only [mul_sub, sum_sub_distrib] at h_le
-    simp only [integral_const, probReal_univ, smul_eq_mul]
-    simp_rw [mul_comm (p (j + 1) s _), mul_comm ((π s).real _)]
+    simp only [measureReal_directPolicy_singleton (mem_simplex_iff.1 (h.mem_simplex (j + 1) s)).1,
+      measureReal_directPolicy_singleton (mem_simplex_iff.1 (h.mem_simplex j s)).1, sub_zero,
+      sub_mul, sum_sub_distrib]
+    simp_rw [mul_comm (M.qValue γ (directPolicy (p j)) _)] at h_le
     linarith
   -- integrate against the state occupancy measure of `π`
   have h_int := integral_mono (μ := d) Integrable.of_finite Integrable.of_finite h_state
