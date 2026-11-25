@@ -55,8 +55,10 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   its value at every stopping time that is finite everywhere.
 * `ProbabilityTheory.IsEProcess.isEVar`: the value of an e-process at every fixed time is an
   e-variable.
-* `ProbabilityTheory.IsEProcess.lintegral_le_one`: under every member of the null, an e-process has
-  expectation at most `1` at every stopping time that is finite everywhere.
+* `ProbabilityTheory.IsEProcess.lintegral_le_one`,
+  `ProbabilityTheory.IsEProcess.lintegral_le_one_of_ae`: under every member `P` of the null, an
+  e-process has expectation at most `1` at every stopping time that is finite everywhere, and at
+  every stopping time that is finite `P`-almost surely.
 * `ProbabilityTheory.IsEProcess.of_isEVar_stoppedValue`: an adapted process whose value at every
   stopping time that is finite everywhere is an e-variable is an e-process.
 * `ProbabilityTheory.isEProcess_iff_lintegral_le_one`,
@@ -177,6 +179,15 @@ time that is finite everywhere. -/
 theorem lintegral_le_one (hE : IsEProcess E ℱ S) (hτ : IsStoppingTime ℱ τ)
     (hτ_top : ∀ ω, τ ω ≠ ⊤) (hP : P ∈ S) : ∫⁻ ω, stoppedValue E τ ω ∂P ≤ 1 :=
   (hE.isEVar_stoppedValue hτ hτ_top).lintegral_le_one hP
+
+/-- Under every member `P` of the null, an e-process has expectation at most `1` at every stopping
+time that is finite `P`-almost surely. -/
+theorem lintegral_le_one_of_ae (hE : IsEProcess E ℱ S) (hτ : IsStoppingTime ℱ τ)
+    (hτ_top : ∀ᵐ ω ∂P, τ ω ≠ ⊤) (hP : P ∈ S) : ∫⁻ ω, stoppedValue E τ ω ∂P ≤ 1 := by
+  refine le_of_eq_of_le (lintegral_congr_ae ?_)
+    ((hE.isEVar_stoppedValue_liminf hτ).lintegral_le_one hP)
+  filter_upwards [hτ_top] with ω hω
+  simp [hω]
 
 /-- An adapted process whose value at every stopping time that is finite everywhere is an
 e-variable is an e-process. -/

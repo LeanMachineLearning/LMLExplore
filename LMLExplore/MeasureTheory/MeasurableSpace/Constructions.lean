@@ -35,6 +35,8 @@ public import TauCeti.MeasureTheory.MeasurableSpace.Eval
   measurable singletons that only depends on finitely many of them is measurable.
 * `measurable_card_filter`: the number of indices at which a family of measurable predicates holds
   is measurable.
+* `Measurable.biSup_of_forall_subset`: the largest value of a function over a measurable family of
+  subsets of a fixed finite set is measurable.
 * `measurable_biSup_comap`: a map `u i` is measurable for the supremum of the σ-algebras generated
   by a family of maps `u j` containing it.
 * `Measurable.comp_prodMk_of_le`: a function `r ω x` jointly measurable for a sub-σ-algebra of the
@@ -156,6 +158,29 @@ lemma _root_.measurable_card_filter {ι Ω : Type*} {mΩ : MeasurableSpace Ω} [
     Measurable fun ω ↦ #{i | p i ω} :=
   (Measurable.of_discrete (f := fun t : Finset ι ↦ #t)).comp
     (measurable_finset_iff.2 fun i ↦ by simpa using hp i)
+
+open Finset in
+/-- The largest value of a function `g` over the members of a measurable family `𝓡 ω` of finite
+sets that are all subsets of a fixed finite set `J` is measurable. For example, the largest loss
+over a measurable candidate family of rejection sets of finitely many hypotheses is measurable. -/
+lemma _root_.Measurable.biSup_of_forall_subset {ι Ω β : Type*} {mΩ : MeasurableSpace Ω}
+    [CompleteLinearOrder β] [TopologicalSpace β] [OrderTopology β] [SecondCountableTopology β]
+    [MeasurableSpace β] [BorelSpace β] {𝓡 : Ω → Set (Finset ι)} (h𝓡 : Measurable 𝓡)
+    {J : Finset ι} (hJ : ∀ ω, ∀ R ∈ 𝓡 ω, R ⊆ J) (g : Finset ι → β) :
+    Measurable fun ω ↦ ⨆ R ∈ 𝓡 ω, g R := by
+  classical
+  -- Only the finitely many subsets of `J` can be members.
+  have heq (ω : Ω) : ⨆ R ∈ 𝓡 ω, g R = ⨆ R ∈ (J.powerset : Set (Finset ι)),
+      if R ∈ 𝓡 ω then g R else ⊥ := by
+    refine le_antisymm (iSup₂_le fun R hR ↦ le_iSup₂_of_le R
+      (mem_coe.2 (mem_powerset.2 (hJ ω R hR))) (by simp [hR])) (iSup₂_le fun R _ ↦ ?_)
+    split_ifs with hR
+    · exact le_iSup₂_of_le R hR le_rfl
+    · exact bot_le
+  simp_rw [heq]
+  exact Measurable.biSup _ J.powerset.countable_toSet fun R _ ↦
+    Measurable.ite (measurableSet_setOfPred.2 (measurable_set_iff.1 h𝓡 R)) measurable_const
+      measurable_const
 
 /-- A function `r ω x` that is jointly measurable for a sub-σ-algebra `m ≤ mΩ` and `m𝓧`, evaluated
 at a measurable `X ω`, is measurable: `ω ↦ r ω (X ω)` is the composite of `uncurry r` with the
