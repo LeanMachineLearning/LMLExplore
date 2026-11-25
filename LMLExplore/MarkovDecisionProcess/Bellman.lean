@@ -67,6 +67,7 @@ actions give both, and so do bounded rewards and a bounded measurable value func
 
 ## Main statements
 
+* `Learning.MDP.one_sub_coe_pos`: a discount factor `γ < 1` gives `0 < 1 - γ` in `ℝ`.
 * `Learning.MDP.bellman_sub_add_le_bellman_sub`: the support inequality: `u ↦ T u - u` lies
   above its affine minorant at `v` given by a greedy action [P, Proposition 6.4.3].
 * `Learning.MDP.bellman_mono`, `Learning.MDP.bellman_add_const`,
@@ -116,6 +117,11 @@ namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐}
   (M : MDP 𝓢 𝓐 ℝ) (γ : ℝ≥0) {v w : 𝓢 → ℝ} {B B' C D : ℝ}
+
+variable {γ} in
+/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
+lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
+  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
 
 /-! ### The one-step lookahead -/
 
@@ -259,7 +265,7 @@ theorem const_le_bellman_const [Nonempty 𝓐] {c : ℝ} (hγ : γ < 1)
   obtain ⟨a⟩ := ‹Nonempty 𝓐›
   refine le_trans ?_ (lookahead_le_bellman (hbdd s) a)
   -- `c / (1 - γ) = c + γ * (c / (1 - γ))`, and `c ≤ r (s, a)`
-  have h1γ : (1 - γ : ℝ) ≠ 0 := (sub_pos.2 (NNReal.coe_lt_one.2 hγ)).ne'
+  have h1γ : (1 - γ : ℝ) ≠ 0 := (one_sub_coe_pos hγ).ne'
   have hfix : c / (1 - γ) = c + γ * (c / (1 - γ)) := by
     field_simp
     ring

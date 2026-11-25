@@ -38,7 +38,6 @@ reinforcement learning.
 
 ## Main statements
 
-* `Learning.MDP.one_sub_coe_pos`: a discount factor `γ < 1` gives `0 < 1 - γ` in `ℝ`.
 * `Learning.MDP.runValue_sub_integral_eq_integral_occupancy`: the value of every algorithm minus
   `∫ v dμ` is `(1 - γ)⁻¹` times the integral of the Bellman residual of `v` against the occupancy
   measure of the algorithm.
@@ -70,10 +69,6 @@ namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Nonempty 𝓢]
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C B : ℝ} {v : 𝓢 → ℝ} {μ : Measure 𝓢} [IsProbabilityMeasure μ]
-
-/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
-lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
-  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
 
 /-- **Value difference along the occupancy measure**: with bounded rewards and `γ < 1`, for every
 algorithm `alg` and every bounded measurable `v`, the discounted value of `alg` from the
