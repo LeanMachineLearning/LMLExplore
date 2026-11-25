@@ -112,7 +112,8 @@ smallest `q ∈ [0, p]` with `d(p, q) ≤ c`; together they are the confidence b
   fair coin tosses against its maximum likelihood.
 * `LMLExplore.log_one_div_le_klBerReal`, `LMLExplore.ofReal_log_one_div_le_klBer`: the bound
   `log (1 / (2.4 p)) ≤ d(p, 1 - p)`, which turns the lower bounds of fixed-confidence
-  identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`.
+  identification stated with `d(δ, 1 - δ)` into bounds in `log (1 / δ)`;
+  `LMLExplore.tendsto_klBer_one_sub_right_nhdsGT_zero`: so `d(p, 1 - p) → ∞` as `p → 0⁺`.
 * `LMLExplore.mul_ofReal_log_le_of_mul_klBer_le`: a bound `X d(δ, 1 - δ) ≤ E` for `δ ≤ 1 / 2`
   gives `X log (1 / (c δ)) ≤ E` for every `δ` and `c ≥ 2.4`.
 * `LMLExplore.mul_neg_log_le_klBerReal_add_log_two`,
@@ -1093,6 +1094,14 @@ theorem ofReal_log_one_div_le_klBer {c : ℝ} (hc : 2.4 ≤ c) (p : ℝ) :
   have hq : 1 - p ∈ Set.Ioo 0 1 := ⟨by linarith, by linarith⟩
   rw [klBer_eq_ofReal_klBerReal ⟨h0.le, h1.le⟩ (Set.Ioo_subset_Icc_self hq) (klBer_ne_top hq)]
   exact ENNReal.ofReal_le_ofReal (log_one_div_le_klBerReal hc ⟨h0, h1⟩)
+
+/-- **`d(p, 1 - p)` is unbounded as `p → 0⁺`**, since `d(p, 1 - p) ≥ log (1 / (3 p))`. -/
+theorem tendsto_klBer_one_sub_right_nhdsGT_zero :
+    Tendsto (fun p ↦ klBer p (1 - p)) (𝓝[>] 0) (𝓝 ∞) := by
+  refine tendsto_nhds_top_mono (ENNReal.tendsto_ofReal_atTop.comp (tendsto_log_atTop.comp ?_))
+    (.of_forall fun p ↦ ofReal_log_one_div_le_klBer (c := 3) (by norm_num) p)
+  simp_rw [one_div, mul_inv]
+  exact tendsto_inv_nhdsGT_zero.const_mul_atTop (by norm_num)
 
 /-- **From `d(δ, 1 - δ)` to `log (1 / (c δ))`**: for `c ≥ 2.4`, a lower bound `X d(δ, 1 - δ) ≤ E`
 valid for `δ ≤ 1 / 2` gives `X log (1 / (c δ)) ≤ E` for every real `δ`, since for `δ > 1 / 2` the

@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Bandits.ArrayModel.Stopping
 public import LMLExplore.EValues.BipolarRate.Design.Round
+import LMLExplore.Bandits.ArrayModel.AlgEnvSeq
 import LMLExplore.Data.ENat.Basic
 import LMLExplore.EValues.EVariable
 import LMLExplore.MeasureTheory.Integral.EReal
@@ -49,9 +50,11 @@ bounded round of the table (`Bandits.ArrayModel.stoppedShape`), for which
 `ProbabilityTheory.integral_truncLog_le_designRate_mul` gives the bound; letting `k → ∞` and then
 `ε → 0` gives the inequality. Any algorithm–environment sequence transfers to the array model,
 since the law of the stopped history is `Learning.stoppedHistMeasure` for both
-(`Learning.IsAlgEnvSeq.hasLaw_stoppedValue_sigmaHistory`). LML builds the array model, which draws
-the actions of the algorithm from uniform seeds, for standard Borel spaces of sources and of
-observations, hence these hypotheses in the transfer.
+(`Learning.IsAlgEnvSeq.hasLaw_stoppedValue_sigmaHistory`), and the array model is such a sequence
+for observations in any measurable space (`LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit`). The
+array model draws the actions of the algorithm from uniform seeds, which needs a standard Borel
+space of sources, hence this hypothesis in the transfer; a finite space of sources in which
+singletons are measurable is standard Borel.
 
 The proofs are adapted from the draft `notes/lean-wip/SeveralArms.lean` of the paper project
 `RemyDegenne/evalues_research`, which formalizes [EVR26, Note 41].
@@ -208,7 +211,7 @@ then `𝔼[log G] ≤ D* * 𝔼[τ]`, where `D* = designRate κ Λ` is the rate 
 The expected logarithm is Statlib's extended integral, and the product is in `EReal`, with
 `0 * ⊤ = 0`. -/
 theorem IsAlgEnvSeq.eintegral_log_le_designRate_mul_lintegral [Fintype α] [StandardBorelSpace α]
-    [StandardBorelSpace 𝓧] [IsProbabilityMeasure P] {κ : Kernel α 𝓧} [IsMarkovKernel κ]
+    [IsProbabilityMeasure P] {κ : Kernel α 𝓧} [IsMarkovKernel κ]
     (h : IsAlgEnvSeq O A R alg (Environment.bandit κ) P) {Λ : Set (Kernel α 𝓧)}
     (hΛ : ∀ ν ∈ Λ, IsMarkovKernel ν) (hΛne : Λ.Nonempty) (hS : MeasurableSet S)
     {G : (Σ n, Hist Unit α 𝓧 n) → ℝ≥0∞} (hG : Measurable G)
@@ -222,9 +225,8 @@ theorem IsAlgEnvSeq.eintegral_log_le_designRate_mul_lintegral [Fintype α] [Stan
           EReal) := by
   classical
   have : Nonempty α := nonempty_of_isProbabilityMeasure (alg.policyZero ())
-  have : Nonempty 𝓧 := nonempty_of_isProbabilityMeasure (κ (Classical.arbitrary α))
   -- transfer to the array model, where the stopped history has the same law
-  have h' := Bandits.ArrayModel.isAlgEnvSeq_arrayMeasure alg κ
+  have h' := LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg κ
   have hτ' := (h'.ae_hittingAfter_ne_top_iff hS).2 ((h.ae_hittingAfter_ne_top_iff hS).1 hτ)
   have hlog : AEMeasurable (fun x ↦ ENNReal.log (G x))
       (stoppedHistMeasure alg (Environment.bandit κ) S) :=
@@ -240,7 +242,7 @@ theorem IsAlgEnvSeq.eintegral_log_le_designRate_mul_lintegral [Fintype α] [Stan
       h'.measurable_feedback hτm))
     ((Bandits.ArrayModel.isStoppedVar_hittingAfter alg S).comp G) (fun ν hν ↦ ?_) hτ'
   have := hΛ ν hν
-  exact ((Bandits.ArrayModel.isAlgEnvSeq_arrayMeasure alg
+  exact ((LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg
     ν).setLIntegral_comp_stoppedValue_sigmaHistory hS hG).trans_le (hGΛ ν hν)
 
 end Learning

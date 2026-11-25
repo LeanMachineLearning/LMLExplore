@@ -481,7 +481,7 @@ theorem one_sub_errorProb_mul_neg_log_errorProb_le (task : IdentTask α Θ ℐ �
   calc (1 - task.errorProb 𝒜 μ T) * (-ENNReal.log (task.errorProb 𝒜 μ' T)).toENNReal
       ≤ (1 - task.errorProb 𝒜 μ T) * (-ENNReal.log (P' E)).toENNReal := by
         gcongr
-        exact EReal.toENNReal_le_toENNReal (EReal.neg_le_neg_iff.2 (ENNReal.log_monotone hP'E))
+        exact EReal.neg_le_neg_iff.2 (ENNReal.log_monotone hP'E)
     _ ≤ _ := hlow.trans (add_le_add hkl le_rfl)
 
 /-- **Non-asymptotic lower bound on the difficulty ratio** [D23, Theorem 2]. Let `H` be a

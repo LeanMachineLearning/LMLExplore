@@ -7,7 +7,11 @@ module
 
 public import LMLExplore.Identification.ChangeOfMeasure
 public import LMLExplore.Identification.SampleComplexity
+public import LMLExplore.Identification.Task.DesignRate
 public import LMLExplore.Identification.Task.TransportationCost
+import LMLExplore.EValues.BipolarRate.Design.Algorithm
+import LMLExplore.EValues.TestBet
+import LMLExplore.Probability.HasLaw
 
 /-!
 # Lower bound on the sample complexity of `δ`-correct algorithms
@@ -21,6 +25,18 @@ arm `a` before the stopping time `τ`. Writing `E_θ[N_a(τ)] = E_θ[τ] w_a` wi
 proportions of pulls `w`, an allocation, and taking the infimum over the alternatives gives
 `kl(δ, 1 - δ) ≤ E_θ[τ] D(θ, w, ¬i) ≤ E_θ[τ] D(θ)`, that is, the lower bound
 `E_θ[τ] ≥ T*(θ) kl(δ, 1 - δ)` of Garivier and Kaufmann (2016) on the sample complexity.
+
+That lower bound is derived here from a sharper one, with the rate of the designs `D*` in place of
+`1 / T*(θ)` [EVR26, Note 41, Corollary 2]. Given the history at the stopping time, the probability
+that the algorithm stops and answers `i` is a test of level `δ` for the alternatives to `i`, of
+power at least `1 - δ` at `θ`, and the bet on it (`ProbabilityTheory.testBet`) is an e-variable at
+the stopping time whose expected logarithm at `θ` is at least `kl(1 - δ, δ) = kl(δ, 1 - δ)`. The
+Wald inequality with a design bounds that expected logarithm by `D* E_θ[τ]`, so
+`E_θ[τ] ≥ kl(δ, 1 - δ) / D*`, and `D* ≤ D(θ, ¬i) ≤ 1 / T*(θ)`
+(`IdentTask.designRate_le_inv_charTime`). The change of measure above bounds the expected number
+of pulls of each arm (`kl(δ, 1 - δ) ≤ ∑ a, E_θ[N_a(τ)] KL(ν_a(θ), ν_a(λ))`, and
+`kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x` when `D(θ, w, ¬i) ≤ w_a x` for every nonnegative `w`), which the
+bound `D* E_θ[τ]` on the expected stopping time does not give.
 
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
 `log (1 / δ)` as `δ → 0`, and at least `log (1 / (2.4 δ))` for every `δ`, so that
@@ -51,6 +67,8 @@ not unique, with C-tracking [DK19, Theorem 7]
   `D(θ, w, ¬i) ≤ w a x` for all nonnegative allocations, then `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`.
 * `IdentTask.IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict`: the same
   bound for an algorithm that is only `δ`-correct on the models of a set `S`.
+* `IdentTask.IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime`: the lower bound
+  `kl(δ, 1 - δ) ≤ D* E_θ[τ]` with the rate of the designs `D*` against the alternatives.
 * `IdentTask.IsDeltaCorrect.charTime_mul_le_expectedStoppingTime`: the lower bound
   `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`.
 * `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
@@ -68,6 +86,8 @@ not unique, with C-tracking [DK19, Theorem 7]
 
 ## References
 
+* [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 41,
+  `results/41-several-arms-bipolar-rate.md`, Section 3.
 * [DK19] R. Degenne and W. M. Koolen, *Pure exploration with multiple correct answers*,
   NeurIPS 2019, Theorem 7.
 * [GK16] A. Garivier and E. Kaufmann, *Optimal best arm identification with fixed confidence*,
@@ -114,7 +134,7 @@ theorem limsup_expectedStoppingTime_div_log_le {𝓞 𝓓 : Type*} {m𝓞 : Meas
 
 namespace IdentTask
 
-variable [MeasurableSpace.CountablyGenerated 𝓨] {mℐ : MeasurableSpace ℐ}
+variable {mℐ : MeasurableSpace ℐ}
   [MeasurableSingletonClass ℐ] {task : IdentTask α Θ ℐ 𝓨} {A : IdentAlg Unit α 𝓨 ℐ} {δ : ℝ}
   {θ θ' : Θ} {i : ℐ}
 
@@ -123,7 +143,8 @@ variable [MeasurableSpace.CountablyGenerated 𝓨] {mℐ : MeasurableSpace ℐ}
 stops almost surely on `θ`. Then for every alternative `θ'` to `i`,
 `kl(δ, 1 - δ) ≤ ∑ a, E_θ[N_a(τ)] KL(ν_a(θ), ν_a(θ'))`, where `N_a(τ)` is the number of pulls of the
 arm `a` before the stopping time `τ`. -/
-theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv (hA : task.IsDeltaCorrect A δ)
+theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv
+    [MeasurableSpace.CountablyGenerated 𝓨] (hA : task.IsDeltaCorrect A δ)
     (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) (hθ' : θ' ∈ task.alt i)
     (hstop : StopsAS A (Environment.bandit (task.ν θ))) :
     klBer δ (1 - δ) ≤
@@ -144,7 +165,8 @@ theorem IsDeltaCorrect.klBer_le_sum_lintegral_pullCount_mul_klDiv (hA : task.IsD
 `δ ≤ 1 / 2` and let `i` be the only correct answer of the admissible model `θ`. If
 `0 < E_θ[τ] < ∞`, then the expected proportions of pulls `w = E_θ[N(τ)] / E_θ[τ]` satisfy
 `kl(δ, 1 - δ) ≤ E_θ[τ] D(θ, w, ¬i)`. -/
-theorem IsDeltaCorrect.klBer_le_expectedStoppingTime_mul_altCost (hA : task.IsDeltaCorrect A δ)
+theorem IsDeltaCorrect.klBer_le_expectedStoppingTime_mul_altCost
+    [MeasurableSpace.CountablyGenerated 𝓨] (hA : task.IsDeltaCorrect A δ)
     (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
     (h0 : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ 0)
     (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) :
@@ -162,7 +184,8 @@ Then `kl(δ, 1 - δ) ≤ D(θ, n, ¬i)`, where the allocation `n` is the vector 
 of pulls `n a = E_θ[N_a(τ)]`, not normalized. Every upper bound on the cost of the alternatives
 in terms of a single arm, `D(θ, w, ¬i) ≤ w a c`, thus gives the lower bound
 `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] c` on the expected number of pulls of that arm. -/
-theorem IsDeltaCorrect.klBer_le_altCost (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2)
+theorem IsDeltaCorrect.klBer_le_altCost
+    [MeasurableSpace.CountablyGenerated 𝓨] (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2)
     (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
     (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) :
     klBer δ (1 - δ) ≤ task.altCost θ (fun a ↦ (∫⁻ ω, (pullCount IT.action a
@@ -179,6 +202,7 @@ theorem IsDeltaCorrect.klBer_le_altCost (hA : task.IsDeltaCorrect A δ) (hδ : �
 `D(θ, w, ¬i) ≤ w a x` for every nonnegative allocation `w`, then
 `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`. -/
 theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le
+    [MeasurableSpace.CountablyGenerated 𝓨]
     (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hi : task.correct θ = {i})
     (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞) {a : α} {x : ℝ}
     (h_alt : ∀ w : α → ℝ, 0 ≤ w → task.altCost θ w i ≤ ENNReal.ofReal (w a * x)) :
@@ -194,7 +218,8 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le
 `δ`-correct on the models of a set `S`: if `θ ∈ S` is an admissible model of `task` with the single
 correct answer `i` and `D(θ, w, ¬i) ≤ w a x` for every nonnegative allocation `w`, the cost being
 taken over the alternatives in `S`, then `kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x`. -/
-theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict {S : Set Θ}
+theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict
+    [MeasurableSpace.CountablyGenerated 𝓨] {S : Set Θ}
     (hA : (task.restrict S).IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M) (hθS : θ ∈ S)
     (hi : task.correct θ = {i}) (h : expectedStoppingTime A (Environment.bandit (task.ν θ)) ≠ ∞)
     {a : α} {x : ℝ}
@@ -206,32 +231,122 @@ theorem IsDeltaCorrect.klBer_le_lintegral_pullCount_mul_of_altCost_le_restrict {
     (by rw [M_restrict]; exact ⟨hθ, hθS⟩) (by rwa [correct_restrict]) (by simpa using h) h_alt
 
 omit [DecidableEq α] in
+/-- `IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime` for `0 < δ`. -/
+private lemma IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime_of_pos
+    (hA : task.IsDeltaCorrect A δ) (hδ0 : 0 < δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M)
+    (hi : task.correct θ = {i}) (h_alt : (task.alt i).Nonempty)
+    (hstop : StopsAS A (Environment.bandit (task.ν θ))) :
+    (klBer δ (1 - δ) : EReal) ≤
+      designRate (fun a ↦ task.ν θ a) ((fun θ' a ↦ task.ν θ' a) '' task.alt i) *
+        (expectedStoppingTime A (Environment.bandit (task.ν θ)) : EReal) := by
+  classical
+  have hseq := IT.isAlgEnvSeq_trajMeasure A.alg (Environment.bandit (task.ν θ))
+  -- the probability `φ h` that `A` stops and answers `i` given the stopped history `h` is a test
+  -- of level `δ` against the alternatives to `i`, of power at least `1 - δ` at `θ`
+  set φ : (Σ n : ℕ, Hist Unit α 𝓨 n) → ℝ≥0∞ := A.stopSet.indicator fun h ↦ A.output h {i}
+  have hφm : Measurable φ :=
+    (A.output.measurable_coe (measurableSet_singleton i)).indicator A.measurableSet_stopSet
+  have hφ1 (h : Σ n : ℕ, Hist Unit α 𝓨 n) : φ h ≤ 1 :=
+    Set.indicator_apply_le' (fun _ ↦ prob_le_one) fun _ ↦ zero_le_one
+  have hφθ : ENNReal.ofReal (1 - δ) ≤
+      ∫⁻ h, φ h ∂stoppedHistMeasure A.alg (Environment.bandit (task.ν θ)) A.stopSet := by
+    rw [lintegral_indicator_output_eq_histOutputMeasure]
+    exact ENNReal.ofReal_le_of_le_toReal (hA.one_sub_le_measureReal_histOutputMeasure hθ hi)
+  -- the bet on that test is an e-variable at the stopping time against the alternatives
+  set G := testBet δ (1 - δ) φ
+  have hGm : Measurable G := hφm.testBet
+  have hGalt : ∀ (ν : Kernel α 𝓨) [IsMarkovKernel ν], ν ∈ task.ν '' task.alt i →
+      ∫⁻ h in A.stopSet, G h ∂stoppedHistMeasure A.alg (Environment.bandit ν) A.stopSet ≤ 1 := by
+    rintro _ _ ⟨θ', hθ', rfl⟩
+    refine (setLIntegral_le_lintegral _ _).trans (lintegral_testBet_le_one hφm hφ1
+      ⟨hδ0, by linarith⟩ (by linarith) (by linarith) prob_le_one ?_)
+    rw [lintegral_indicator_output_eq_histOutputMeasure]
+    exact (ENNReal.le_ofReal_iff_toReal_le (measure_ne_top _ _) hδ0.le).2
+      (hA.measureReal_histOutputMeasure_le hθ')
+  have hτ : ∀ᵐ ω ∂trajMeasure A.alg (Environment.bandit (task.ν θ)),
+      hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) A.stopSet 0 ω ≠ ⊤ :=
+    (stopsAS_iff_ae_stoppingTime_ne_top hseq).1 hstop
+  have hlog : AEMeasurable (fun h ↦ ENNReal.log (G h))
+      (stoppedHistMeasure A.alg (Environment.bandit (task.ν θ)) A.stopSet) :=
+    (ENNReal.measurable_log.comp hGm).aemeasurable
+  -- `kl(δ, 1 - δ) = kl(1 - δ, δ) ≤ 𝔼_θ[log G] ≤ D* 𝔼_θ[τ]`
+  calc (klBer δ (1 - δ) : EReal) = klBer (1 - δ) δ := by
+        rw [← klBer_one_sub_one_sub, sub_sub_cancel]
+  _ ≤ ∫ᵉ h, ENNReal.log (G h)
+      ∂stoppedHistMeasure A.alg (Environment.bandit (task.ν θ)) A.stopSet :=
+    klBer_le_eintegral_log_testBet hφm hφ1 hδ0 (by linarith) (by linarith) hφθ
+  _ = ∫ᵉ ω, ENNReal.log (G (stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
+        (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) A.stopSet 0) ω))
+          ∂trajMeasure A.alg (Environment.bandit (task.ν θ)) :=
+    ((hseq.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).eintegral_comp hlog).symm
+  _ ≤ _ := hseq.eintegral_log_le_designRate_mul_lintegral (Λ := task.ν '' task.alt i)
+      (by rintro _ ⟨θ', -, rfl⟩; infer_instance) (h_alt.image _) A.measurableSet_stopSet hGm
+      hGalt hτ
+  _ = _ := by rw [Set.image_image, expectedStoppingTime_def, IdentAlg.stoppingTime_def]
+
+omit [DecidableEq α] in
+/-- **Lower bound on the sample complexity with the rate of the designs** [EVR26, Note 41,
+Corollary 2]. Let `A` be `δ`-correct with `δ ≤ 1 / 2`, let `i` be the only correct answer of the
+admissible model `θ`, and suppose that `i` has an alternative and that `A` stops almost surely on
+`θ`. Then `kl(δ, 1 - δ) ≤ D* E_θ[τ]`, where `D*` is the rate of the designs of the laws of the arms
+at `θ` against those at the alternatives to `i`: `E_θ[τ] ≥ kl(δ, 1 - δ) / D*`.
+
+This is the Wald inequality with a design
+(`Learning.IsAlgEnvSeq.eintegral_log_le_designRate_mul_lintegral`) for the bet on the event that
+`A` stops and answers `i`, randomized by the output rule. The product is in `EReal`; since
+`D* ≤ 1 / T*(θ)` (`IdentTask.designRate_le_inv_charTime`), it implies the bound
+`T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]` of `IsDeltaCorrect.charTime_mul_le_expectedStoppingTime`. -/
+theorem IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime
+    (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M)
+    (hi : task.correct θ = {i}) (h_alt : (task.alt i).Nonempty)
+    (hstop : StopsAS A (Environment.bandit (task.ν θ))) :
+    (klBer δ (1 - δ) : EReal) ≤
+      designRate (fun a ↦ task.ν θ a) ((fun θ' a ↦ task.ν θ' a) '' task.alt i) *
+        (expectedStoppingTime A (Environment.bandit (task.ν θ)) : EReal) := by
+  rcases lt_or_ge 0 δ with hδ0 | hδ0
+  · exact hA.klBer_le_designRate_mul_expectedStoppingTime_of_pos hδ0 hδ hθ hi h_alt hstop
+  -- for `δ ≤ 0`, `A` is `ε`-correct for every `ε > 0`, and `kl(ε, 1 - ε)` is unbounded as
+  -- `ε → 0`, so that the right-hand side is `⊤`
+  rw [klBer_one_sub_right_eq_top fun h ↦ hδ0.not_gt h.1]
+  refine ((EReal.eq_top_iff_forall_lt _).2 fun y ↦ ?_).ge
+  obtain ⟨ε, hy, hε⟩ := ((tendsto_klBer_one_sub_right_nhdsGT_zero.eventually
+    (eventually_gt_nhds (ENNReal.ofReal_lt_top (r := y)))).and
+    (Ioc_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2))).exists
+  calc (y : EReal) ≤ (ENNReal.ofReal y : EReal) := by
+        rw [EReal.coe_ennreal_ofReal]
+        exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
+  _ < (klBer ε (1 - ε) : EReal) := EReal.coe_ennreal_lt_coe_ennreal_iff.2 hy
+  _ ≤ _ := hA.mono (hδ0.trans hε.1.le) |>.klBer_le_designRate_mul_expectedStoppingTime_of_pos hε.1
+    hε.2 hθ hi h_alt hstop
+
+omit [DecidableEq α] in
 /-- **Lower bound on the sample complexity** [GK16, Theorem 1; LS, Theorem 33.5]. Let `A` be
 `δ`-correct with `δ ≤ 1 / 2` and let `θ` be an admissible model with a single correct answer.
-Then `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`. -/
+Then `T*(θ) kl(δ, 1 - δ) ≤ E_θ[τ]`. It follows from
+`IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime`, `E_θ[τ] ≥ kl(δ, 1 - δ) / D*`, and
+`D* ≤ 1 / T*(θ)`. -/
 theorem IsDeltaCorrect.charTime_mul_le_expectedStoppingTime [Nonempty α]
     (hA : task.IsDeltaCorrect A δ) (hδ : δ ≤ 1 / 2) (hθ : θ ∈ task.M)
     (hi : task.correct θ = {i}) :
     task.charTime θ * klBer δ (1 - δ) ≤ expectedStoppingTime A (Environment.bandit (task.ν θ)) := by
-  classical
-  rcases eq_or_ne (expectedStoppingTime A (Environment.bandit (task.ν θ))) ∞ with h | h
+  set E := expectedStoppingTime A (Environment.bandit (task.ν θ))
+  -- If `E_θ[τ] = ∞` there is nothing to prove; otherwise `A` stops almost surely on `θ`.
+  rcases eq_or_ne E ∞ with h | h
   · exact h ▸ le_top
   -- If `i` has no alternative, then `D(θ) = ∞` and `T*(θ) = 0`.
-  rcases (task.alt i).eq_empty_or_nonempty with h_alt | ⟨θ', hθ'⟩
+  rcases (task.alt i).eq_empty_or_nonempty with h_alt | h_alt
   · simp [charTime_eq_inv_answerValue _ hi, answerValue_eq_top_of_alt_eq_empty _ h_alt]
-  rcases eq_or_ne (expectedStoppingTime A (Environment.bandit (task.ν θ))) 0 with h0 | h0
-  · -- If `E_θ[τ] = 0`, then all the expected numbers of pulls vanish, hence so does `kl(δ, 1 - δ)`.
-    have h_kl := hA.klBer_le_sum_lintegral_pullCount_mul_klDiv hδ hθ hi hθ'
-      (.of_expectedStoppingTime_ne_top h)
-    simp_rw [← expectedStoppingTime_mul_ofReal_expectedPullProportion h, h0, zero_mul,
-      Finset.sum_const_zero, nonpos_iff_eq_zero] at h_kl
-    simp [h_kl]
-  rw [charTime_def, mul_comm, ← div_eq_mul_inv]
-  refine ENNReal.div_le_of_le_mul ((hA.klBer_le_expectedStoppingTime_mul_altCost hδ hθ hi h0
-    h).trans ?_)
-  gcongr
-  exact (task.altCost_le_answerValue (expectedPullProportion_mem_simplex h0 h)).trans
-    (task.answerValue_le_gameValue (hi ▸ Set.mem_singleton i))
+  -- `kl(δ, 1 - δ) ≤ D* E_θ[τ] ≤ E_θ[τ] / T*(θ)`
+  have h_le : klBer δ (1 - δ) ≤ (task.charTime θ)⁻¹ * E := by
+    rw [← EReal.coe_ennreal_le_coe_ennreal_iff, EReal.coe_ennreal_mul]
+    exact (hA.klBer_le_designRate_mul_expectedStoppingTime hδ hθ hi h_alt
+      (.of_expectedStoppingTime_ne_top h)).trans (mul_le_mul_of_nonneg_right
+        (task.designRate_le_inv_charTime (hi ▸ Set.mem_singleton i)) (EReal.coe_ennreal_nonneg _))
+  calc task.charTime θ * klBer δ (1 - δ) ≤ task.charTime θ * ((task.charTime θ)⁻¹ * E) := by
+        gcongr
+  _ ≤ E := by
+    rw [← mul_assoc]
+    exact mul_le_of_le_one_left' (ENNReal.mul_inv_le_one _)
 
 omit [DecidableEq α] in
 /-- **Lower bound on the sample complexity in logarithmic form** [KCG16; LS, Theorem 33.5]. Let `A`
