@@ -152,15 +152,17 @@ theorem klBer_le_eintegral_log_eventBet {Q : Measure Ω} [IsProbabilityMeasure Q
     by_cases h : ω ∈ s
     · simp [h, ENNReal.log_ofReal_of_pos ha, L₁]
     · simp [h, ENNReal.log_ofReal_of_pos hb, L₀]
-  have hint : Integrable (s.piecewise (fun _ ↦ L₁) (fun _ ↦ L₀)) Q :=
-    Integrable.piecewise hs.nullMeasurableSet (integrable_const L₁).integrableOn
-      (integrable_const L₀).integrableOn
+  have h₁ : IntegrableOn (fun _ ↦ L₁) s Q := (integrable_const L₁).integrableOn
+  have h₀ : IntegrableOn (fun _ ↦ L₀) sᶜ Q := (integrable_const L₀).integrableOn
+  -- the expected logarithm of the bet is `Q s L₁ + (1 - Q s) L₀`
+  have hval : ∫ᵉ ω, ENNReal.log (eventBet p q s ω) ∂Q =
+      ((Q.real s * L₁ + (1 - Q.real s) * L₀ : ℝ) : EReal) := by
+    rw [hlog, eintegral_eq_integral (Integrable.piecewise hs.nullMeasurableSet h₁ h₀),
+      integral_piecewise hs h₁ h₀]
+    simp [probReal_compl_eq_one_sub hs]
   have hpq' : p ∈ Icc 0 1 := ⟨hp.le, hp'.2.le⟩
   have hq' : q ∈ Icc 0 1 := ⟨hp.le.trans hpq, hq.le⟩
-  rw [hlog, eintegral_eq_integral hint, integral_piecewise hs (integrable_const L₁).integrableOn
-    (integrable_const L₀).integrableOn, setIntegral_const, setIntegral_const,
-    probReal_compl_eq_one_sub hs, smul_eq_mul, smul_eq_mul,
-    klBer_eq_ofReal_klBerReal hq' hpq' (klBer_ne_top hp'), EReal.coe_ennreal_ofReal,
+  rw [hval, klBer_eq_ofReal_klBerReal hq' hpq' (klBer_ne_top hp'), EReal.coe_ennreal_ofReal,
     EReal.coe_le_coe_iff]
   -- `kl(q, p) = q L₁ + (1 - q) L₀ ≤ x L₁ + (1 - x) L₀` for `x = Q s ≥ q`, since `L₀ ≤ L₁`
   have h : InformationTheory.klBerReal q p ≤ Q.real s * L₁ + (1 - Q.real s) * L₀ := by
