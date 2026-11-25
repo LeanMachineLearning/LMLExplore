@@ -23,10 +23,12 @@ whose evidence for `S` at time `t` is `e (S ∩ I t)`. When `e` is increasing al
 (`e (S ∩ I t) ≤ e S`) it is a coherent and time-monotone dynamic intersection e-process
 collection for every filtration to which it is adapted, and its dynamic e-closure at time `t` is
 the family of the sets `R ⊆ I t` with `f S R ≤ α * e S` for every nonempty `S ⊆ I t`. This gives
-the **online SupFDR e-closure principle** [XFR26, Theorem 1; dH26, Remark 3.8]: these families
-are nested and control the supremum loss
-(`ProbabilityTheory.controlsSupLoss_dynamicEClosure_arrivedECollection`). No adaptedness is needed
-for the supremum loss, since it does not involve a filtration.
+the **online SupFDR e-closure principle** [XFR26, Theorem 1; dH26, Remark 3.8]: for a loss `f`
+vanishing when there are no true nulls (`f ∅ R = 0`), these families control the supremum loss
+(`ProbabilityTheory.controlsSupLoss_dynamicEClosure_arrivedECollection`), and when `f` also
+depends only on the rejected true nulls (`f S R = f (S ∩ R) R`) they are nested
+(`ProbabilityTheory.monotone_dynamicEClosure_arrivedECollection`); both conditions hold for
+`fdp`. No adaptedness is needed for the supremum loss, since it does not involve a filtration.
 
 **Online e-BH and e-LOND.** For e-variables `E i` for the hypotheses and weights `γ i` with
 `∑' i, γ i ≤ 1`, the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i` is increasing. A set `R` is
