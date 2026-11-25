@@ -33,10 +33,10 @@ The exact e-variables include the bets on antisymmetric payoffs: for a measurabl
 
 The invariant laws are also a constraint null. A finite measure is invariant under `T` exactly
 when every constraint `g - g ∘ T`, for a bounded measurable `g`, has integral zero
-(`ProbabilityTheory.map_eq_iff_forall_integral_eq_zero`), so that the invariant laws are the
-constraint null of these constraints `ProbabilityTheory.invarianceConstraints T`, a set closed
-under negation (`ProbabilityTheory.invariantLaws_eq_constraintNull`). This holds for every
-measurable `T`.
+(`ProbabilityTheory.map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero`), so that the
+invariant laws are the constraint null of these constraints
+`ProbabilityTheory.invarianceConstraints T`, a set closed under negation
+(`ProbabilityTheory.invariantLaws_eq_constraintNull`). This holds for every measurable `T`.
 
 ## Main definitions
 
@@ -50,7 +50,7 @@ measurable `T`.
   for a measurable involution, the e-variables and the exact e-variables by the symmetrization.
 * `ProbabilityTheory.isExactEVar_invariantLaws_ofReal_one_add`: bets on antisymmetric payoffs are
   exact e-variables.
-* `ProbabilityTheory.map_eq_iff_forall_integral_eq_zero`,
+* `ProbabilityTheory.map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero`,
   `ProbabilityTheory.invariantLaws_eq_constraintNull`: invariance through the constraints of
   invariance; the invariant laws are their constraint null.
 * `ProbabilityTheory.prod_mem_invariantLaws_swap_iff`: the product laws invariant under the swap
@@ -166,6 +166,17 @@ theorem isExactEVar_invariantLaws_iff (hT : Measurable T) (hTT : Function.Involu
   rwa [lintegral_smul_dirac_add_dirac hX.measurable,
     ENNReal.div_eq_one_iff two_ne_zero ENNReal.ofNat_ne_top] at h
 
+omit [MeasurableSpace 𝓧] in
+/-- **The factors of a bet on an antisymmetric payoff sum to two.** For a payoff `v` with
+`v (T z) = -v z` and `v ≥ -1`, `1 + v z` and `1 + v (T z)` are nonnegative and sum to `2`. -/
+theorem ofReal_one_add_add_ofReal_one_add_comp_eq_two {v : 𝓧 → ℝ}
+    (hv_anti : ∀ z, v (T z) = -v z) (hv_ge : ∀ z, -1 ≤ v z) (z : 𝓧) :
+    ENNReal.ofReal (1 + v z) + ENNReal.ofReal (1 + v (T z)) = 2 := by
+  have h₁ : 0 ≤ 1 + v z := by linarith [hv_ge z]
+  have h₂ : 0 ≤ 1 + v (T z) := by linarith [hv_ge (T z)]
+  rw [← ENNReal.ofReal_add h₁ h₂, hv_anti, show 1 + v z + (1 + -v z) = 2 by ring]
+  simp
+
 /-- **Bets on antisymmetric payoffs are exact e-variables** [SR23, §2 and §5.2]. For a measurable
 `T` and a measurable payoff `v` with `v (T z) = -v z` and `v ≥ -1`, the factor `1 + v` is an
 exact e-variable for the laws invariant under `T`. With `v z = c * (g z - g (T z))` for an
@@ -173,12 +184,9 @@ involution `T`, a function `g` with values in `[-1/2, 1/2]` and `c ∈ [-1, 1]`,
 of the tests of [SR23]. -/
 theorem isExactEVar_invariantLaws_ofReal_one_add (hT : Measurable T) {v : 𝓧 → ℝ}
     (hv : Measurable v) (hv_anti : ∀ z, v (T z) = -v z) (hv_ge : ∀ z, -1 ≤ v z) :
-    IsExactEVar (fun z ↦ ENNReal.ofReal (1 + v z)) (invariantLaws T) := by
-  refine isExactEVar_invariantLaws_of_add_eq hT (by fun_prop) fun z ↦ ?_
-  have h₁ : 0 ≤ 1 + v z := by linarith [hv_ge z]
-  have h₂ : 0 ≤ 1 + v (T z) := by linarith [hv_ge (T z)]
-  rw [← ENNReal.ofReal_add h₁ h₂, hv_anti, show 1 + v z + (1 + -v z) = 2 by ring]
-  simp
+    IsExactEVar (fun z ↦ ENNReal.ofReal (1 + v z)) (invariantLaws T) :=
+  isExactEVar_invariantLaws_of_add_eq hT (by fun_prop)
+    (ofReal_one_add_add_ofReal_one_add_comp_eq_two hv_anti hv_ge)
 
 /-! ### The invariant laws as a constraint null -/
 
@@ -198,7 +206,7 @@ theorem measurable_of_mem_invarianceConstraints (hT : Measurable T)
   obtain ⟨g, hg, -, rfl⟩ := hf
   exact hg.sub (hg.comp hT)
 
-/-- The constraints of invariance under a measurable `T` are bounded. -/
+/-- The constraints of invariance under `T` are bounded. -/
 theorem exists_abs_le_of_mem_invarianceConstraints (hf : f ∈ invarianceConstraints T) :
     ∃ C, ∀ z, |f z| ≤ C := by
   obtain ⟨g, -, ⟨C, hC⟩, rfl⟩ := hf
@@ -208,7 +216,7 @@ theorem exists_abs_le_of_mem_invarianceConstraints (hf : f ∈ invarianceConstra
 theorem neg_mem_invarianceConstraints (hf : f ∈ invarianceConstraints T) :
     -f ∈ invarianceConstraints T := by
   obtain ⟨g, hg, ⟨C, hC⟩, rfl⟩ := hf
-  exact ⟨-g, hg.neg, ⟨C, fun z ↦ by simpa using hC z⟩, by ext z; simp; ring⟩
+  exact ⟨-g, hg.neg, ⟨C, fun z ↦ by simpa using hC z⟩, by ext z; simp only [Pi.neg_apply]; ring⟩
 
 /-- Under a finite measure, the constraints of invariance under a measurable `T` are
 integrable. -/
@@ -242,7 +250,8 @@ private lemma integral_indicator_sub_indicator_comp [IsFiniteMeasure ν] (hT : M
 /-- **Invariance through the constraints.** A finite measure `ν` is invariant under a measurable
 `T` exactly when every constraint `g - g ∘ T` of invariance, for a bounded measurable `g`, has
 integral zero under `ν`. -/
-theorem map_eq_iff_forall_integral_eq_zero [IsFiniteMeasure ν] (hT : Measurable T) :
+theorem map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero [IsFiniteMeasure ν]
+    (hT : Measurable T) :
     ν.map T = ν ↔ ∀ f ∈ invarianceConstraints T, ∫ z, f z ∂ν = 0 := by
   refine ⟨fun hν f hf ↦ ?_, fun h ↦ Measure.ext fun t ht ↦ ?_⟩
   · obtain ⟨g, hg, ⟨C, hC⟩, rfl⟩ := hf
@@ -266,10 +275,12 @@ theorem invariantLaws_eq_constraintNull (hT : Measurable T) :
   refine ⟨fun hν ↦ ?_, fun hν ↦ ?_⟩
   · have := isProbabilityMeasure_of_mem_invariantLaws hν
     refine mem_constraintNull_iff.2 ⟨this, fun f hf ↦
-      ⟨integrable_of_mem_invarianceConstraints hT hf, ((map_eq_iff_forall_integral_eq_zero hT).1
-        (map_eq_of_mem_invariantLaws hν) f hf).le⟩⟩
+      ⟨integrable_of_mem_invarianceConstraints hT hf,
+        ((map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero hT).1
+          (map_eq_of_mem_invariantLaws hν) f hf).le⟩⟩
   · obtain ⟨hprob, h⟩ := mem_constraintNull_iff.1 hν
-    refine ⟨hprob, (map_eq_iff_forall_integral_eq_zero hT).2 fun f hf ↦ ?_⟩
+    refine ⟨hprob,
+      (map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero hT).2 fun f hf ↦ ?_⟩
     have h₂ := (h _ (neg_mem_invarianceConstraints hf)).2
     simp only [Pi.neg_apply, integral_neg, neg_nonpos] at h₂
     exact le_antisymm (h f hf).2 h₂

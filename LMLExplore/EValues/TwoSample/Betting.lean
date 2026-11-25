@@ -48,7 +48,7 @@ martingale for the null of invariance
 the prediction and betting strategies, their wealth is a test martingale, and the test that rejects
 as soon as the wealth reaches `α⁻¹` has type I error at most `α`, uniformly over the null
 [SR23, Theorem 1 (eq. (13)), Corollary 1]
-(`ProbabilityTheory.measure_exists_inv_le_prod_ofReal_one_add_mul_sub_le`).
+(`ProbabilityTheory.measure_exists_inv_le_prod_ofReal_one_add_mul_sub_invarianceConstraints_le`).
 
 For finitely many fixed payoffs `g i - g i ∘ T`, this is the betting wealth against the equality
 constraints of a sequential constraint null
@@ -66,8 +66,8 @@ finitely many constraints.
   null of invariance with factors chosen from the past.
 * `ProbabilityTheory.isTestMartingale_prod_ofReal_one_add_mul_sub_invarianceConstraints`: the
   wealth of the tests of [SR23] is a test martingale, for every prediction and betting strategy.
-* `ProbabilityTheory.measure_exists_inv_le_prod_ofReal_one_add_mul_sub_le`: their type I error is
-  at most `α` [SR23, Theorem 1, Corollary 1].
+* `ProbabilityTheory.measure_exists_inv_le_prod_ofReal_one_add_mul_sub_invarianceConstraints_le`:
+  their type I error is at most `α` [SR23, Theorem 1, Corollary 1].
 * `ProbabilityTheory.sequentialNull_invariantLaws_subset_sequentialConstraintNull`,
   `ProbabilityTheory.infinitePi_mem_sequentialConstraintNull_invarianceConstraints`,
   `ProbabilityTheory.infinitePi_prod_self_mem_sequentialConstraintNull_invarianceConstraints_swap`:
@@ -104,7 +104,7 @@ theorem map_map_restrict_eq_of_mem_sequentialConstraintNull_invarianceConstraint
     (hs : MeasurableSet[ℱ k] s) :
     ((P.restrict s).map (Z k)).map T = (P.restrict s).map (Z k) := by
   have := isFiniteMeasure_of_mem_sequentialConstraintNull hP
-  refine (map_eq_iff_forall_integral_eq_zero hT).2 fun f hf ↦ ?_
+  refine (map_eq_iff_forall_mem_invarianceConstraints_integral_eq_zero hT).2 fun f hf ↦ ?_
   rw [integral_map hZ.aemeasurable
     (measurable_of_mem_invarianceConstraints hT hf).aestronglyMeasurable]
   exact setIntegral_eq_zero_of_mem_sequentialConstraintNull hP hf
@@ -131,11 +131,11 @@ theorem lintegral_comp_eq_of_mem_sequentialConstraintNull_invarianceConstraints
     refine Measure.ext_prod (mα := ℱ k) fun {s t} hs ht ↦ ?_
     have h := congrArg (· t)
       (map_map_restrict_eq_of_mem_sequentialConstraintNull_invarianceConstraints hT hP hZ hs)
-    simp only [Measure.map_apply hT ht, Measure.map_apply hZ ht, Measure.map_apply hZ (hT ht),
-      Measure.restrict_apply (hZ (hT ht)), Measure.restrict_apply (hZ ht)] at h
-    rw [Set.preimage_preimage] at h
-    rw [Measure.map_apply hψ (hs.prod ht), Measure.map_apply hφ (hs.prod ht),
-      Set.mk_preimage_prod, Set.mk_preimage_prod, Set.preimage_id', inter_comm s, inter_comm s, h]
+    have hTZ : MeasurableSet ((fun ω ↦ T (Z k ω)) ⁻¹' t) := hT.comp hZ ht
+    simpa [Measure.map_apply hψ (hs.prod ht), Measure.map_apply hφ (hs.prod ht),
+      Measure.map_apply hT ht, Measure.map_apply hZ ht, Measure.map_apply hZ (hT ht),
+      Measure.restrict_apply (hZ ht), Measure.restrict_apply hTZ, mk_preimage_prod,
+      preimage_preimage, inter_comm] using h
   have h₁ := lintegral_map (μ := P) hh hψ
   have h₂ := lintegral_map (μ := P) hh hφ
   simp only [Function.uncurry_apply_pair] at h₁ h₂
@@ -258,9 +258,9 @@ theorem isTestMartingale_prod_ofReal_one_add_mul_sub_invarianceConstraints (hT :
   refine isTestMartingale_prod_invarianceConstraints_of_add_eq hT hZ
     (r := fun k ω z ↦ ENNReal.ofReal (1 + c k ω * (g k ω z - g k ω (T z))))
     (fun k ↦ (measurable_const.add (hv k)).ennreal_ofReal) fun k ω z ↦ ?_
-  -- the factor is an exact e-variable for the laws invariant under `T`
-  refine ((isExactEVar_invariantLaws_iff hT hTT).1 (isExactEVar_invariantLaws_ofReal_one_add hT
-    (hv k).of_uncurry_left (fun z ↦ by rw [hTT z]; ring) fun z ↦ ?_)).2 z
+  -- the payoff is antisymmetric and at least `-1`
+  refine ofReal_one_add_add_ofReal_one_add_comp_eq_two
+    (v := fun z ↦ c k ω * (g k ω z - g k ω (T z))) (fun z ↦ by rw [hTT z]; ring) (fun z ↦ ?_) z
   refine neg_le_of_abs_le ?_
   rw [abs_mul, ← one_mul 1]
   exact mul_le_mul (hc1 k ω) (hg1 k ω z) (abs_nonneg _) zero_le_one
@@ -271,9 +271,9 @@ Corollary 1]. In the setting of
 every member of the sequential constraint null of the constraints of invariance under `T`, the
 wealth reaches `α⁻¹` with probability at most `α`, whatever the prediction and betting
 strategies. -/
-theorem measure_exists_inv_le_prod_ofReal_one_add_mul_sub_le (hT : Measurable T)
-    (hTT : Function.Involutive T) (hZ : ∀ k, Measurable[ℱ (k + 1)] (Z k)) {c : ℕ → Ω → ℝ}
-    (hc : ∀ k, Measurable[ℱ k] (c k)) (hc1 : ∀ k ω, |c k ω| ≤ 1) {g : ℕ → Ω → 𝓧 → ℝ}
+theorem measure_exists_inv_le_prod_ofReal_one_add_mul_sub_invarianceConstraints_le
+    (hT : Measurable T) (hTT : Function.Involutive T) (hZ : ∀ k, Measurable[ℱ (k + 1)] (Z k))
+    {c : ℕ → Ω → ℝ} (hc : ∀ k, Measurable[ℱ k] (c k)) (hc1 : ∀ k ω, |c k ω| ≤ 1) {g : ℕ → Ω → 𝓧 → ℝ}
     (hg : ∀ k, Measurable[(ℱ k).prod m𝓧] (Function.uncurry (g k)))
     (hg1 : ∀ k ω z, |g k ω z - g k ω (T z)| ≤ 1)
     (hP : P ∈ sequentialConstraintNull (invarianceConstraints T) Z ℱ) (α : ℝ≥0∞) :
