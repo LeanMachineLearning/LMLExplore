@@ -37,6 +37,8 @@ adapted from the Lean proof in `EValuesResearch/Results/SubGaussianCompleteClass
   the masses of sets and of atoms;
 * `measureReal_weightedMeasure_singleton_of_mem_simplex`: for `p ∈ simplex ι`, the atom `{i}`
   has probability `p i`;
+* `mem_simplex_measureReal_singleton`: conversely, the masses of the atoms of a probability
+  measure form a probability vector;
 * `isFiniteMeasure_weightedMeasure`: a weighted measure is finite (an instance);
 * `isProbabilityMeasure_weightedMeasure`: it is a probability measure for a probability vector
   `p ∈ simplex ι`;
@@ -105,6 +107,12 @@ lemma measureReal_weightedMeasure_singleton_of_mem_simplex [MeasurableSingletonC
     (hp : p ∈ simplex ι) (i : ι) :
     (weightedMeasure p).real {i} = p i :=
   measureReal_weightedMeasure_singleton (mem_simplex_iff.1 hp).1 i
+
+/-- The masses `i ↦ μ.real {i}` of the atoms of a probability measure `μ` on a finite type form a
+probability vector of the simplex. -/
+lemma mem_simplex_measureReal_singleton [MeasurableSingletonClass ι] (μ : Measure ι)
+    [IsProbabilityMeasure μ] : (fun i ↦ μ.real {i}) ∈ simplex ι :=
+  mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
 
 /-- A weighted measure is finite. -/
 instance isFiniteMeasure_weightedMeasure (p : ι → ℝ) : IsFiniteMeasure (weightedMeasure p) :=

@@ -120,10 +120,6 @@ end Defs
 
 variable {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η C : ℝ}
 
-/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
-private lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
-  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-
 /-- Natural policy gradient starts from the uniform policy. -/
 lemma softmax_npgParam_zero (s : 𝓢) :
     softmax (npgParam M γ η 0 s) = fun _ ↦ (Fintype.card 𝓐 : ℝ)⁻¹ := by
@@ -238,8 +234,7 @@ private lemma mul_sum_integral_advantage_le (hη : 0 < η) (s : 𝓢) (ν : Meas
     η / (1 - γ) * ∑ t ∈ range T, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν ≤
       log (Fintype.card 𝓐) + ∑ t ∈ range T, npgLogPartition M γ η t s := by
   have hη' : 0 < η / (1 - γ) := div_pos hη (one_sub_coe_pos hγ)
-  have hν : (fun a ↦ ν.real {a}) ∈ simplex 𝓐 :=
-    mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
+  have hν := mem_simplex_measureReal_singleton ν
   -- the mix losses of exponential weights telescope into the potential
   have h_tel := sum_mixLoss_softmax_le_of_antitone (fun _ ↦ hη') antitone_const
     (fun r a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η r)) (s, a)) T

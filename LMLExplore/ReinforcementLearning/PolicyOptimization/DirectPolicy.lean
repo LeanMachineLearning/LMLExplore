@@ -50,13 +50,14 @@ variable {𝓢 𝓐 : Type*} [MeasurableSpace 𝓢] [MeasurableSpace 𝓐] [Coun
   [MeasurableSingletonClass 𝓢] [Fintype 𝓐]
 
 /-- The **directly parametrized policy** of the weights `p : 𝓢 → 𝓐 → ℝ`: the stationary policy
-that draws its action at the state `s` from the weights `p s`, that is `π_p (a | s) = p s a`
-[AKLM21, §4]. Every map on the countable state space `𝓢` is measurable, so no measurability
-hypothesis on `p` is needed. -/
+that draws its action at the state `s` from the weights `p s`, that is, for nonnegative
+weights, `π_p (a | s) = p s a` [AKLM21, §4]. Every map on the countable state space `𝓢` is
+measurable, so no measurability hypothesis on `p` is needed. -/
 noncomputable def directPolicy (p : 𝓢 → 𝓐 → ℝ) : Kernel 𝓢 𝓐 :=
   Bandits.weightKernel p fun _ ↦ measurable_of_countable _
 
 /-- The direct policy draws its action at the state `s` from the weights `p s`. -/
+@[simp]
 lemma directPolicy_apply (p : 𝓢 → 𝓐 → ℝ) (s : 𝓢) :
     directPolicy p s = weightedMeasure (p s) :=
   Bandits.weightKernel_apply _ _ s

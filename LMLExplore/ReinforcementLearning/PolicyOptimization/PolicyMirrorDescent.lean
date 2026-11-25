@@ -5,10 +5,9 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.Analysis.Convex.Legendre.Basic
 public import LMLExplore.MarkovDecisionProcess.Optimality
 public import LMLExplore.MarkovDecisionProcess.PerformanceDifference
-public import LMLExplore.OnlineLearning.MirrorDescent.Basic
+public import LMLExplore.OnlineLearning.MirrorDescent.Legendre
 public import LMLExplore.ReinforcementLearning.PolicyOptimization.DirectPolicy
 
 /-!
@@ -41,9 +40,9 @@ probability vector `u`,
   [JPR23, Theorem 4.1].
 * For `u` the action probabilities of a comparison policy `π`, together with the performance
   difference lemma along the state occupancy measure `d` of `π`, it gives the sublinear rate
-  `∫ v^π dρ - ∫ v^{π_k} dρ ≤ (D₀ / (η (1 - γ)) + C / (1 - γ) ^ 2) / (k + 1)` for a constant step
-  `η` and rewards bounded by `C` with nonnegative means, where `D₀ = ∫ D_F(π s, p 0 s) dd(s)`
-  [Xiao22, Theorem 8].
+  `∫ v^π dρ - ∫ v^{π_k} dρ ≤ (D₀ / (η (1 - γ)) + C / (1 - γ) ^ 2) / (k + 1)` on a finite state
+  space, for a constant step `η` and rewards bounded by `C` with nonnegative means, where
+  `D₀ = ∫ D_F(π s, p 0 s) dd(s)` [Xiao22, Theorem 8].
 
 [Xiao22] and [JPR23] minimize costs; the statements here maximize rewards, which turns their
 `argmin` of `η k * ⟨Q, q⟩ + D_F(q, p k s)` into the update above.
@@ -69,7 +68,7 @@ probability vector `u`,
   [JPR23, Theorem 4.1].
 * `LMLExplore.ReinforcementLearning.IsPolicyMirrorDescent.integral_value_sub_integral_value_le`,
   `LMLExplore.ReinforcementLearning.IsPolicyMirrorDescent.integral_optValue_sub_integral_value_le`:
-  the sublinear convergence with a constant step [Xiao22, Theorem 8].
+  the sublinear convergence with a constant step on a finite state space [Xiao22, Theorem 8].
 * `LMLExplore.ReinforcementLearning.exists_isPolicyMirrorDescent`: for a Legendre mirror map whose
   domain contains the simplex, policy mirror descent is well defined from every initial policy in
   the interior of the domain, with iterates in the interior.
@@ -200,6 +199,15 @@ theorem integral_advantage_nonneg (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p
     h.integral_qValue_directPolicy, integral_const, probReal_univ, one_smul, sub_nonneg]
   exact h.value_le_sum_mul_qValue hF hγ hR hη s
 
+/-- For positive steps, the value of `π_k` is at most the evaluation operator of `π_{k + 1}` at
+this value: `v^{π_k} ≤ T^{π_{k + 1}} v^{π_k}`. -/
+private lemma value_le_bellmanEval (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {k : ℕ}
+    (hη : 0 < η k) :
+    M.value γ (directPolicy (p k)) ≤
+      M.bellmanEval γ (directPolicy (p (k + 1))) (M.value γ (directPolicy (p k))) := fun s ↦ by
+  rw [bellmanEval_def, ← qValue_eq_lookahead, h.integral_qValue_directPolicy]
+  exact h.value_le_sum_mul_qValue hF hγ hR hη s
+
 variable [Nonempty 𝓢]
 
 /-- **The values of policy mirror descent increase** [Xiao22, Lemma 7]: for positive steps,
@@ -209,10 +217,9 @@ theorem value_le_value_succ (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x|
     M.value γ (directPolicy (p k)) s ≤ M.value γ (directPolicy (p (k + 1))) s := by
   have := h.isMarkovKernel k
   have := h.isMarkovKernel (k + 1)
-  have h_imp := integral_integral_advantage_le_integral_value_sub (μ := Measure.dirac s) hγ hR
-    (h.integral_advantage_nonneg hF hγ hR hη)
-  simp only [integral_dirac] at h_imp
-  linarith [h.integral_advantage_nonneg hF hγ hR hη s]
+  -- policy improvement: `v^{π_k} ≤ T^{π_{k + 1}} v^{π_k}` gives `v^{π_k} ≤ v^{π_{k + 1}}`
+  exact le_value_of_le_bellmanEval hγ hR (measurable_value hγ hR) (abs_value_le hγ hR)
+    (h.value_le_bellmanEval hF hγ hR hη) s
 
 /-- **The values of policy mirror descent increase** [Xiao22, Lemma 7]: for positive steps, in
 every state `s`, `k ↦ v^{π_k} s` is monotone. -/
@@ -225,9 +232,7 @@ theorem monotone_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ 
 /-- **One step of policy mirror descent with an adapted step size** [JPR23, proof of
 Theorem 4.1]. Let `η k > 0`, and assume that in every state `s` some probability vector `u`,
 supported on the maximizers of `Q^{π_k} (s, ·)`, has `D_F(u, p k s) ≤ η k * c`. If
-`v* - v^{π_k} ≤ ε` in every state, then `v* - v^{π_{k + 1}} ≤ γ * ε + c` in every state: the
-policy `π_{k + 1}` is `c`-greedy for `v^{π_k}`, and its value is at least its evaluation operator
-at `v^{π_k}`. -/
+`v* - v^{π_k} ≤ ε` in every state, then `v* - v^{π_{k + 1}} ≤ γ * ε + c` in every state. -/
 theorem optValue_sub_value_succ_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {k : ℕ}
     (hη : 0 < η k) {c : ℝ}
     (hc : ∀ s, ∃ u ∈ simplex 𝓐, (∀ a, u a ≠ 0 → ∀ b, M.qValue γ (directPolicy (p k)) (s, b) ≤
@@ -238,8 +243,9 @@ theorem optValue_sub_value_succ_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
   have := h.isMarkovKernel (k + 1)
   have := nonempty_of_mem_simplex (h.mem_simplex k s)
   obtain ⟨u, hu, hsupp, hD⟩ := hc s
+  -- the policy `π_{k + 1}` is `c`-greedy for `v^{π_k}`, and its value is at least its evaluation
+  -- operator at `v^{π_k}`
   set Q := M.qValue γ (directPolicy (p k))
-  set Q' := M.qValue γ (directPolicy (p (k + 1)))
   -- the step is `c`-greedy for `Q`: `∑ a, u a * Q (s, a) ≤ ∑ a, p (k + 1) s a * Q (s, a) + c`
   have h_greedy : ∑ a, u a * Q (s, a) ≤ ∑ a, p (k + 1) s a * Q (s, a) + c := by
     have h3 := h.mul_sum_qValue_mul_sub_le k s hu
@@ -250,18 +256,11 @@ theorem optValue_sub_value_succ_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R 
     simp only [mul_sub, sum_sub_distrib] at h_le'
     simp_rw [mul_comm (u _), mul_comm (p _ s _)]
     linarith
-  -- the action values increase with the values: `Q ≤ Q'`
-  have hQ (a : 𝓐) : Q (s, a) ≤ Q' (s, a) := by
-    have h_int := integral_mono
-      (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) (M.P (s, a)))
-      (integrable_of_abs_le (measurable_value hγ hR) (abs_value_le hγ hR) (M.P (s, a)))
-      fun s' ↦ h.value_le_value_succ hF hγ hR hη s'
-    simp only [Q, Q', qValue_def]
-    exact add_le_add_right (mul_le_mul_of_nonneg_left h_int γ.coe_nonneg) _
+  -- policy improvement: `T^{π_{k + 1}} v^{π_k} ≤ v^{π_{k + 1}}`
   have h_succ : ∑ a, p (k + 1) s a * Q (s, a) ≤ M.value γ (directPolicy (p (k + 1))) s := by
-    rw [h.value_eq_sum hγ hR (k + 1) s]
-    exact sum_le_sum fun a _ ↦
-      mul_le_mul_of_nonneg_left (hQ a) ((mem_simplex_iff.1 (h.mem_simplex (k + 1) s)).1 a)
+    have h_imp := bellmanEval_le_value hγ hR (measurable_value hγ hR) (abs_value_le hγ hR)
+      (h.value_le_bellmanEval hF hγ hR hη) s
+    rwa [bellmanEval_def, ← qValue_eq_lookahead, h.integral_qValue_directPolicy] at h_imp
   -- `v* s = ⨆ a, Q* (s, a)` and `Q* ≤ Q + γ ε`
   have h_opt : M.optValue γ s ≤ ∑ a, u a * Q (s, a) + γ * ε := by
     rw [← iSup_optQValue hγ hR s]
@@ -321,11 +320,9 @@ theorem norm_optValue_sub_value_le [Fintype 𝓢] (hγ : γ < 1)
   refine (pi_norm_le_iff_of_nonneg ((h_nonneg k s₀).trans (h_le s₀))).2 fun s ↦ ?_
   simpa [Real.norm_of_nonneg (h_nonneg k s)] using h_le s
 
-/-! ### Sublinear convergence with a constant step size -/
-
-/-! ### Sublinear convergence with a constant step size -/
-
 end Iterates
+
+/-! ### Sublinear convergence with a constant step size -/
 
 section Sublinear
 
@@ -350,14 +347,13 @@ private lemma mul_integral_value_sub_le (h : IsPolicyMirrorDescent M γ F F' (fu
           ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst -
         ∫ s, M.value γ (directPolicy (p j)) s
           ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst) := by
-  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   have := h.isMarkovKernel j
   have := h.isMarkovKernel (j + 1)
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := ρ) hγ
   set d := (M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst
   set A := M.advantage γ (directPolicy (p j))
-  have hu (s : 𝓢) : (fun a ↦ (π s).real {a}) ∈ simplex 𝓐 :=
-    mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
+  have hu (s : 𝓢) := mem_simplex_measureReal_singleton (π s)
   -- in every state, the advantage of `π_j` under `π` is at most the decrease of the divergence
   -- plus the advantage of `π_j` under `π_{j + 1}`
   have h_state (s : 𝓢) : ∫ a, A (s, a) ∂(π s) ≤
@@ -407,7 +403,7 @@ theorem integral_value_sub_integral_value_le
       ((∫ s, bregDiv F (fun a ↦ (π s).real {a}) (p 0 s) (F' (p 0 s))
           ∂(M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst) / (η₀ * (1 - γ)) +
         C / (1 - γ) ^ 2) / (k + 1) := by
-  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  have h1γ := one_sub_coe_pos hγ
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π) (μ := ρ) hγ
   set d := (M.occupancy γ (Algorithm.markov fun _ ↦ π) ρ).fst
   set D : ℕ → ℝ := fun j ↦ ∫ s, bregDiv F (fun a ↦ (π s).real {a}) (p j s) (F' (p j s)) ∂d
@@ -418,7 +414,7 @@ theorem integral_value_sub_integral_value_le
     rw [mul_sum, ← sum_range_sub' D, sum_div, ← sum_range_sub w, ← sum_add_distrib]
     exact sum_le_sum fun j _ ↦ mul_integral_value_sub_le h hF hγ hR hη π ρ j
   have hD : 0 ≤ D (k + 1) := integral_nonneg fun s ↦ h.bregDiv_nonneg hF (k + 1) s
-    (mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩)
+    (mem_simplex_measureReal_singleton (π s))
   have hw : w (k + 1) - w 0 ≤ C / (1 - γ) := by
     have := h.isMarkovKernel (k + 1)
     have := h.isMarkovKernel 0
@@ -443,7 +439,8 @@ theorem integral_value_sub_integral_value_le
     field_simp
   rw [hD0, le_div_iff₀ hk, le_div_iff₀ h1γ]
   have := div_le_div_of_nonneg_right (sub_le_self (D 0) hD) hη.le
-  nlinarith
+  have := mul_le_mul_of_nonneg_left h_mono h1γ.le
+  linarith
 
 /-- **Sublinear convergence of policy mirror descent** [Xiao22, Theorem 8]. On a finite state
 space, with rewards in `[0, 1]` and a constant step `η₀ > 0`, let `π*` be an optimal stationary
@@ -473,24 +470,6 @@ end IsPolicyMirrorDescent
 
 /-! ### Existence for Legendre mirror maps -/
 
-/-- For a Legendre mirror map `F` whose domain `D` contains the simplex, from every point `a` of
-the interior of `D` and for every loss `y`, mirror descent on the simplex has a step from `a`
-with derivative `fderiv ℝ F a`, and every such step lies in the interior of `D`, provided that
-the simplex meets the interior of `D`. -/
-private lemma exists_isMirrorDescentStep_mem_interior {D : Set (𝓐 → ℝ)} (hF : IsLegendre F D)
-    (hD : simplex 𝓐 ⊆ D) {x₀ : 𝓐 → ℝ} (hx₀ : x₀ ∈ simplex 𝓐 ∩ interior D) (η : ℝ)
-    (y : (𝓐 → ℝ) →L[ℝ] ℝ) (a : 𝓐 → ℝ) :
-    ∃ x, IsMirrorDescentStep (simplex 𝓐) F η y a (fderiv ℝ F a) x ∧ x ∈ interior D := by
-  have hKD : simplex 𝓐 ∩ D = simplex 𝓐 := Set.inter_eq_left.2 hD
-  -- the step is a Bregman projection for the Legendre function `D_F(·, a)` with a shifted slope
-  obtain ⟨z, ⟨hz, hzmin⟩, -⟩ :=
-    (hF.bregDiv a (fderiv ℝ F a - η • y)).existsUnique_isMinOn_inter_of_isBounded
-      (isClosed_simplex 𝓐) (convex_simplex 𝓐) hx₀
-      ((isCompact_simplex 𝓐).isBounded.subset fun x hx ↦ hx.1.1)
-  have h_int := hF.mem_interior_of_isMinOn_bregDiv (convex_simplex 𝓐) ⟨x₀, hx₀⟩ hz hzmin
-  rw [hKD] at hz hzmin
-  exact ⟨z, (isMirrorDescentStep_iff_isMinOn_bregDiv rfl a a z).2 ⟨hz, hzmin⟩, h_int⟩
-
 /-- **Policy mirror descent is well defined for Legendre mirror maps.** Let `F` be a Legendre
 function whose domain `D` contains the simplex, such as the negative entropy
 `x ↦ ∑ a, x a * log (x a)` on the nonnegative orthant, and let the initial
@@ -506,7 +485,8 @@ theorem exists_isPolicyMirrorDescent {D : Set (𝓐 → ℝ)} (hF : IsLegendre F
       IsMirrorDescentStep (simplex 𝓐) F (η k)
         (-∑ a, M.qValue γ (directPolicy q) (s, a) • (ContinuousLinearMap.proj a :
           (𝓐 → ℝ) →L[ℝ] ℝ)) (q s) (fderiv ℝ F (q s)) x ∧ x ∈ interior D :=
-    exists_isMirrorDescentStep_mem_interior hF hD (hp₀ s) _ _ _
+    hF.exists_isMirrorDescentStep_mem_interior (isClosed_simplex 𝓐) (convex_simplex 𝓐)
+      (isCompact_simplex 𝓐).isBounded hD ⟨_, hp₀ s⟩ _ _ _ _
   choose f hf using h_step
   obtain ⟨p, hp0, hp_succ⟩ : ∃ p : ℕ → 𝓢 → 𝓐 → ℝ, p 0 = p₀ ∧ ∀ k, p (k + 1) = f (p k) k :=
     ⟨fun k ↦ Nat.rec p₀ (fun k q ↦ f q k) k, rfl, fun _ ↦ rfl⟩
@@ -518,6 +498,5 @@ theorem exists_isPolicyMirrorDescent {D : Set (𝓐 → ℝ)} (hF : IsLegendre F
     fun k s ↦ (hF.hasFDerivAt (h_int k s)).hasFDerivWithinAt, fun k s ↦ ?_⟩, h_int⟩
   rw [hp_succ k]
   exact (hf (p k) k s).1
-
 
 end LMLExplore.ReinforcementLearning

@@ -38,6 +38,7 @@ reinforcement learning.
 
 ## Main statements
 
+* `Learning.MDP.one_sub_coe_pos`: a discount factor `γ < 1` gives `0 < 1 - γ` in `ℝ`.
 * `Learning.MDP.runValue_sub_integral_eq_integral_occupancy`: the value of every algorithm minus
   `∫ v dμ` is `(1 - γ)⁻¹` times the integral of the Bellman residual of `v` against the occupancy
   measure of the algorithm.
@@ -69,6 +70,10 @@ namespace Learning.MDP
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Nonempty 𝓢]
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C B : ℝ} {v : 𝓢 → ℝ} {μ : Measure 𝓢} [IsProbabilityMeasure μ]
+
+/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
+lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
+  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
 
 /-- **Value difference along the occupancy measure**: with bounded rewards and `γ < 1`, for every
 algorithm `alg` and every bounded measurable `v`, the discounted value of `alg` from the
@@ -117,15 +122,15 @@ theorem integral_value_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
 
 /-- **Improvement lower bound**: with bounded rewards and `γ < 1`, if the advantage of the
 stationary policy `π` has nonnegative mean `g s = ∫ A^π (s, ·) dπ' s` under the stationary policy
-`π'` in every state, then `∫ g dμ ≤ ∫ v^π' dμ - ∫ v^π dμ` for every initial law `μ`. By the
-performance difference lemma the right-hand side is `(1 - γ)⁻¹ ∫ g dd`, for the state occupancy
-measure `d` of `π'` from `μ`, and `d` dominates `(1 - γ) • μ`. -/
+`π'` in every state, then `∫ g dμ ≤ ∫ v^π' dμ - ∫ v^π dμ` for every initial law `μ`. -/
 theorem integral_integral_advantage_le_integral_value_sub (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {π π' : Kernel 𝓢 𝓐} [IsMarkovKernel π]
     [IsMarkovKernel π'] (hA : ∀ s, 0 ≤ ∫ a, M.advantage γ π (s, a) ∂(π' s)) :
     ∫ s, ∫ a, M.advantage γ π (s, a) ∂(π' s) ∂μ ≤
       ∫ s, M.value γ π' s ∂μ - ∫ s, M.value γ π s ∂μ := by
-  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  -- by the performance difference lemma the right-hand side is `(1 - γ)⁻¹ ∫ g dd`, for the state
+  -- occupancy measure `d` of `π'` from `μ`
+  have h1γ := one_sub_coe_pos hγ
   have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π') (μ := μ) hγ
   have hg : Measurable fun s ↦ ∫ a, M.advantage γ π (s, a) ∂(π' s) :=
     ((measurable_advantage hγ hR).stronglyMeasurable.integral_kernel_prod_right'
