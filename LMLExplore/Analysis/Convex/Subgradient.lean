@@ -56,6 +56,9 @@ feasible set.
   has a subgradient at every point.
 * `ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin`: local subgradients of a convex function
   are global.
+* `HasSubgradientWithinAt.apply_sub_le_of_le_add_mul_add_sq`: on a convex set, a subgradient `g`
+  at `x` satisfies `g (z - x) ≤ c` whenever `f (x + τ • (z - x)) ≤ f x + τ * c + τ ^ 2 * C` for
+  `τ ∈ (0, 1]`.
 * `ConvexOn.exists_hasSubgradientWithinAt_of_mem_interior`: in finite dimension, a convex function
   has a subgradient at every interior point.
 * `Convex.convexOn_iff_forall_exists_hasSubgradientWithinAt`: on an open convex set in finite
@@ -148,6 +151,32 @@ theorem ConvexOn.hasSubgradientWithinAt_of_mem_nhdsWithin {t : Set E} {g : E →
   simp only [Pi.sub_apply] at this
   rw [map_sub]
   linarith
+
+omit [IsTopologicalAddGroup E] [ContinuousSMul ℝ E] in
+/-- **Subgradients under a quadratic upper bound along a segment.** Let `g` be a subgradient of `f`
+within a convex set `s` at `x ∈ s`, and let `z ∈ s`. If `f` grows along the segment from `x` to
+`z` at most like `f (x + τ • (z - x)) ≤ f x + τ * c + τ ^ 2 * C` for `τ ∈ (0, 1]`, then
+`g (z - x) ≤ c`. For a function that is quadratic along segments, such as a sum of a linear
+function and a quadratic form, `c` is its derivative at `x` in the direction `z - x`, so on a
+convex set its subgradients at `x` are bounded by its derivative along the directions into the
+set. -/
+theorem HasSubgradientWithinAt.apply_sub_le_of_le_add_mul_add_sq {g : E →L[ℝ] ℝ} {z : E}
+    {c C : ℝ} (hg : HasSubgradientWithinAt f g s x) (hs : Convex ℝ s) (hx : x ∈ s) (hz : z ∈ s)
+    (hf : ∀ τ ∈ Ioc (0 : ℝ) 1, f (x + τ • (z - x)) ≤ f x + τ * c + τ ^ 2 * C) :
+    g (z - x) ≤ c := by
+  -- the subgradient inequality at `x + τ • (z - x)` gives `g (z - x) ≤ c + τ * C`; let `τ → 0⁺`
+  have hle (τ : ℝ) (hτ : τ ∈ Ioc (0 : ℝ) 1) : g (z - x) ≤ c + τ * C := by
+    have h := hasSubgradientWithinAt_iff_le.1 hg _ (hs.add_smul_sub_mem hx hz ⟨hτ.1.le, hτ.2⟩)
+    rw [add_sub_cancel_left, map_smul, smul_eq_mul] at h
+    have h' : τ * g (z - x) ≤ τ * (c + τ * C) := by nlinarith [hf τ hτ]
+    exact le_of_mul_le_mul_left h' hτ.1
+  have hlim : Tendsto (fun τ : ℝ ↦ c + τ * C) (𝓝[>] 0) (𝓝 c) := by
+    have h : Tendsto (fun τ : ℝ ↦ c + τ * C) (𝓝 0) (𝓝 (c + 0 * C)) :=
+      tendsto_const_nhds.add (tendsto_id.mul tendsto_const_nhds)
+    rw [zero_mul, add_zero] at h
+    exact h.mono_left nhdsWithin_le_nhds
+  exact ge_of_tendsto hlim (by
+    filter_upwards [Ioc_mem_nhdsGT zero_lt_one] with τ hτ using hle τ hτ)
 
 end TopologicalVectorSpace
 
