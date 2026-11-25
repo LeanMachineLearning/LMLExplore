@@ -44,6 +44,7 @@ The bridge to the operator theory is the algebra equivalence
 ## Main statements
 
 * `Matrix.tendsto_cesaro_limitingMatrix`, `Matrix.limitingMatrix_mem_rowStochastic`,
+  `Matrix.limitingMatrix_mulVec_eq_self_iff`,
   `Matrix.mul_limitingMatrix`, `Matrix.limitingMatrix_mul`, `Matrix.limitingMatrix_mul_self`.
 * `Matrix.limitingMatrix_apply_vecMul`, `Matrix.exists_mem_simplex_vecMul_eq_self`: the rows of
   `P*` are invariant, and every stochastic matrix has an invariant probability vector.
@@ -56,6 +57,10 @@ The bridge to the operator theory is the algebra equivalence
 * `Matrix.tendsto_cesaro_sum_pow_sub_limitingMatrix`.
 * `Matrix.eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff`: the evaluation
   equations [P, Theorem 8.2.6].
+* `Matrix.eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_add_iff`: all solutions of the
+  first two evaluation equations.
+* `Matrix.inv_one_sub_smul_eq_laurent`: the Laurent expansion of the resolvent
+  [P, Theorem 8.2.3].
 * `Matrix.tendsto_one_sub_smul_inv_one_sub_smul_limitingMatrix`,
   `Matrix.tendsto_inv_smul_one_sub_smul_inv_one_sub_smul_sub_deviationMatrix`: the limits of the
   resolvent as `γ ↑ 1` [P, Corollaries 8.2.4–8.2.5].
@@ -149,6 +154,13 @@ theorem limitingMatrix_mul_self : P.limitingMatrix * P.limitingMatrix = P.limiti
   (toContinuousLinAlgEquiv' ℝ).injective <| by
     rw [map_mul, toContinuousLinAlgEquiv'_limitingMatrix hP,
       IsPowerBounded.meanErgodicProj_mul_self]
+
+/-- A vector is fixed by `P*` exactly when it is harmonic for `P`: `P* v = v ↔ P v = v`. -/
+theorem limitingMatrix_mulVec_eq_self_iff {v : S → ℝ} :
+    P.limitingMatrix *ᵥ v = v ↔ P *ᵥ v = v := by
+  rw [← toContinuousLinAlgEquiv'_apply, toContinuousLinAlgEquiv'_limitingMatrix hP,
+    IsPowerBounded.meanErgodicProj_apply_eq_self_iff, ContinuousLinearMap.mem_ker_one_sub_iff,
+    toContinuousLinAlgEquiv'_apply]
 
 /-- The limiting matrix of a stochastic matrix is stochastic. -/
 theorem limitingMatrix_mem_rowStochastic : P.limitingMatrix ∈ rowStochastic ℝ S := by
@@ -329,6 +341,40 @@ theorem eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff {g h r : S �
     toContinuousLinAlgEquiv'_limitingMatrix hP, toContinuousLinAlgEquiv'_deviationMatrix hP]
   exact (isPowerBounded_toContinuousLinAlgEquiv' hP).eq_meanErgodicProj_and_eq_deviation_iff
     (isPowerBounded_toContinuousLinAlgEquiv' hP).ker_sup_range_eq_top
+
+/-- **All solutions of the first two evaluation equations** [P, Theorem 8.2.6]. For a stochastic
+matrix `P` and a reward vector `r`, the pairs `(g, h)` with `(1 - P) g = 0` and
+`g + (1 - P) h = r` are those with `g = P* r` and `h = D r + P* h`: the gain is determined, and
+the bias up to the vector `P* h`, which is fixed by `P`. -/
+theorem eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_add_iff {g h r : S → ℝ} :
+    g = P.limitingMatrix *ᵥ r ∧ h = P.deviationMatrix *ᵥ r + P.limitingMatrix *ᵥ h ↔
+      (1 - P) *ᵥ g = 0 ∧ g + (1 - P) *ᵥ h = r := by
+  -- apply the normalized evaluation equations to `h - P* h`, which `1 - P` maps like `h` and
+  -- `P*` maps to `0`
+  have h₁ : (1 - P) *ᵥ (h - P.limitingMatrix *ᵥ h) = (1 - P) *ᵥ h := by
+    rw [mulVec_sub, mulVec_mulVec, sub_mul, one_mul, mul_limitingMatrix hP, sub_self,
+      zero_mulVec, sub_zero]
+  have h₂ : P.limitingMatrix *ᵥ (h - P.limitingMatrix *ᵥ h) = 0 := by
+    rw [mulVec_sub, mulVec_mulVec, limitingMatrix_mul_self hP, sub_self]
+  have := eq_limitingMatrix_mulVec_and_eq_deviationMatrix_mulVec_iff hP (g := g)
+    (h := h - P.limitingMatrix *ᵥ h) (r := r)
+  rwa [h₁, h₂, sub_eq_iff_eq_add, eq_self_iff_true, and_true] at this
+
+/-- **Laurent expansion of the resolvent** [P, Theorem 8.2.3]. For `0 < γ < 1` and
+`u = (1 - γ) / γ` with `u ‖D‖ < 1`, where `‖D‖` is the operator norm of the action of `D` on
+`S → ℝ` for the sup norm, `(1 - γ P)⁻¹ = (1 + u) (u⁻¹ P* + ∑ₙ (-u) ^ n D ^ (n + 1))`. The series
+converges (`Matrix.summable_neg_pow_smul_pow_succ`). -/
+theorem inv_one_sub_smul_eq_laurent {γ u : ℝ} (hγ₀ : 0 < γ) (hγ₁ : γ < 1)
+    (hu : u = (1 - γ) / γ) (hD : u * ‖toContinuousLinAlgEquiv' ℝ P.deviationMatrix‖ < 1) :
+    (1 - γ • P)⁻¹ = (1 + u) • (u⁻¹ • P.limitingMatrix +
+      ∑' n : ℕ, (-u) ^ n • P.deviationMatrix ^ (n + 1)) :=
+  (toContinuousLinAlgEquiv' ℝ).injective <| by
+    have hT := isPowerBounded_toContinuousLinAlgEquiv' hP
+    simpa only [map_smul, map_add, map_sub, map_one, map_pow, toContinuousLinAlgEquiv'_inv,
+      toContinuousLinAlgEquiv'_tsum, toContinuousLinAlgEquiv'_limitingMatrix hP,
+      toContinuousLinAlgEquiv'_deviationMatrix hP, RCLike.ofReal_real_eq_id, id_eq] using
+      hT.ringInverse_one_sub_smul_eq_laurent hT.ker_sup_range_eq_top hγ₀ hγ₁ hu
+        (by rwa [← toContinuousLinAlgEquiv'_deviationMatrix hP])
 
 /-- `(1 - γ) (1 - γ P)⁻¹ → P*` as `γ ↑ 1` [P, Corollary 8.2.5]. -/
 theorem tendsto_one_sub_smul_inv_one_sub_smul_limitingMatrix :

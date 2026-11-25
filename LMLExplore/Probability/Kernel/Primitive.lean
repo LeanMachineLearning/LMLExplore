@@ -6,8 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Probability.Kernel.Dobrushin
+public import LMLExplore.Probability.Kernel.Matrix
 public import Mathlib.LinearAlgebra.Matrix.Irreducible.Defs
-public import TauCeti.Probability.Kernel.Matrix.Basic
 
 /-!
 # Primitive Markov chains on finite spaces
@@ -42,8 +42,8 @@ theorem exists_dobrushinCoeff_pow_lt_one_of_isPrimitive
     ∃ m > 0, dobrushinCoeff (κ ^ m) < 1 := by
   obtain ⟨m, hm, hpos⟩ := h.exists_pos_pow
   -- the entries of the `m`-th power of the matrix are the masses of `κ ^ m`
-  have hmat : κ.toMatrix.map ((↑) : ℝ≥0 → ℝ) ^ m = (κ ^ m).toMatrix.map (↑) := by
-    simpa [toMatrix_pow] using (map_pow (NNReal.toRealHom.mapMatrix (m := α)) κ.toMatrix m).symm
+  have hmat : κ.toMatrix.map ((↑) : ℝ≥0 → ℝ) ^ m = (κ ^ m).toMatrix.map (↑) :=
+    (toMatrix_map_coe_pow κ m).symm
   have hpow (x y : α) : 0 < (κ ^ m) x {y} := by
     have hxy := hpos x y
     rw [hmat, Matrix.map_apply, NNReal.coe_pos, toMatrix_apply, ENNReal.toNNReal_pos_iff] at hxy
