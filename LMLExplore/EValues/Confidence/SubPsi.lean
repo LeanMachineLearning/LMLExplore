@@ -7,8 +7,6 @@ module
 
 public import LMLExplore.EValues.Confidence.Sequence
 public import LMLExplore.EValues.SubPsi
-public import LMLExplore.Probability.Martingale.Hoeffding
-public import LMLExplore.Probability.Martingale.KLChernoff
 
 /-!
 # Confidence sequences from sub-ψ processes
@@ -16,17 +14,17 @@ public import LMLExplore.Probability.Martingale.KLChernoff
 A family `(S θ, V θ)` of `1`-sub-ψ processes on `Λ` for the nulls `𝒩 θ` gives, for every
 `t ∈ Λ`, the e-processes `exp (t S θ n - ψ t V θ n)` for `𝒩 θ`, hence the confidence sequence
 `{θ | t S θ n - ψ t V θ n < log δ⁻¹}` at level `δ` [HRMS21, §3; WSR24, Theorem 1]. This file
-specialises it to the mean of real observations `X k`, with `S m n = ∑ k < n, (X k - m)`, and
-derives the four classical cases:
+specialises it to the mean of real observations `X k`, with `S m n = ∑ k < n, (X k - m)`. It
+treats the general null of the sub-ψ bets and derives the four classical cases from it:
 
 * **the null of the sub-ψ bets** for the centred observations `X k - m`, under which every bet
   `exp (t (X k - m) - ψ t)`, `t ∈ Λ`, is a conditional e-variable given the past: for `t > 0` the
   bound `∑ k < n, X k - (log δ⁻¹ + n ψ t) / t < n m` holds for all `n` at once except with
   probability at most `δ`, for `-t ∈ Λ` the reverse bound, and both together at level `δ` with
   `log (2 / δ)`;
-* **sub-Gaussian** observations, `ψ t = c t ^ 2 / 2` on `ℝ`: the laws with conditionally
-  `c`-sub-Gaussian centred observations (Mathlib's `HasCondSubgaussianMGF`) are members, and the
-  confidence sequence is `|∑ k < n, X k - n m| < log (2 / δ) / u + n c u / 2`;
+* **sub-Gaussian** observations, `ψ t = c t ^ 2 / 2` on `ℝ`: for `c ≥ 0`, the laws with
+  conditionally `c`-sub-Gaussian centred observations (Mathlib's `HasCondSubgaussianMGF`) are
+  members, and the confidence sequence is `|∑ k < n, X k - n m| < log (2 / δ) / u + n c u / 2`;
 * **Hoeffding**: observations in `[a, b]` with conditional mean `m` are conditionally
   `(b - a) ^ 2 / 4`-sub-Gaussian, which gives the confidence sequence
   `|∑ k < n, X k - n m| < log (2 / δ) / u + n (b - a) ^ 2 u / 8`;
@@ -42,7 +40,9 @@ derives the four classical cases:
   inequality, uniformly in time.
 
 Each confidence sequence holds at every time simultaneously, so it may be read at any stopping
-time (`ProbabilityTheory.isConfSeq_tfae`).
+time (`ProbabilityTheory.isConfSeq_tfae`). The memberships of the classical laws in the nulls of
+the sub-ψ bets, and Freedman's sub-ψ process with a predictable variance bound, are in
+`LMLExplore.EValues.SubPsi`.
 
 ## Main statements
 
@@ -54,17 +54,11 @@ time (`ProbabilityTheory.isConfSeq_tfae`).
   `ProbabilityTheory.isConfSeq_mul_lt_add_div_condEVarNull`,
   `ProbabilityTheory.isConfSeq_sub_div_lt_mul_and_mul_lt_add_div_condEVarNull`: the confidence
   sequences for the mean under the nulls of the sub-ψ bets.
-* `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_hasCondSubgaussianMGF`,
-  `ProbabilityTheory.isConfSeq_abs_sum_sub_mul_lt_condEVarNull`: the sub-Gaussian case.
-* `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_mem_Icc`,
-  `ProbabilityTheory.isConfSeq_abs_sum_sub_mul_lt_of_mem_Icc`: the Hoeffding case.
-* `ProbabilityTheory.mem_condEVarNull_subPsiBets_log_of_condExp_le`,
-  `ProbabilityTheory.isConfSeq_mul_sum_sub_mul_log_lt_log_of_condExp_le`, and their mirrors
-  `ProbabilityTheory.mem_condEVarNull_subPsiBets_log_of_le_condExp`,
+* `ProbabilityTheory.isConfSeq_abs_sum_sub_mul_lt_condEVarNull`: the sub-Gaussian case.
+* `ProbabilityTheory.isConfSeq_abs_sum_sub_mul_lt_of_mem_Icc`: the Hoeffding case.
+* `ProbabilityTheory.isConfSeq_mul_sum_sub_mul_log_lt_log_of_condExp_le`,
   `ProbabilityTheory.isConfSeq_mul_sum_sub_mul_log_lt_log_of_le_condExp`: the Bernoulli case.
-* `ProbabilityTheory.isCondEVar_exp_mul_sub_mul_of_condExp_sq_le`,
-  `ProbabilityTheory.isSubPsiProcess_sum_sub_sum_of_condExp_sq_le`,
-  `ProbabilityTheory.isConfSeq_sum_sub_div_lt_mul_of_condExp_sq_le`: the Freedman case.
+* `ProbabilityTheory.isConfSeq_sum_sub_div_lt_mul_of_condExp_sq_le`: the Freedman case.
 
 ## References
 
@@ -81,11 +75,11 @@ time (`ProbabilityTheory.isConfSeq_tfae`).
 public section
 
 open MeasureTheory Set Finset Real
-open scoped ENNReal NNReal unitInterval
+open scoped ENNReal unitInterval
 
 namespace ProbabilityTheory
 
-variable {Ω Θ : Type*} {m mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {X : ℕ → Ω → ℝ}
+variable {Ω Θ : Type*} {mΩ : MeasurableSpace Ω} {ℱ : Filtration ℕ mΩ} {X : ℕ → Ω → ℝ}
   {ψ : ℝ → ℝ} {Λ : Set ℝ} {t u δ : ℝ}
 
 /-! ### Confidence sequences from sub-ψ processes -/
@@ -128,6 +122,13 @@ end SubPsiProcess
 
 /-! ### The mean under the null of the sub-ψ bets -/
 
+/-- The partial sums `∑ k < n, f k` are `ℱ n`-measurable when each `f k` is
+`ℱ (k + 1)`-measurable. -/
+private lemma measurable_sum_range_of_succ {f : ℕ → Ω → ℝ}
+    (hf : ∀ k, Measurable[ℱ (k + 1)] (f k)) (n : ℕ) :
+    Measurable[ℱ n] fun ω ↦ ∑ k ∈ range n, f k ω :=
+  Finset.measurable_fun_sum _ fun k hk ↦ (hf k).mono (ℱ.mono (mem_range.1 hk)) le_rfl
+
 /-- `∑ k < n, (x k - m) = ∑ k < n, x k - n m`. -/
 private lemma sum_range_sub_const (x : ℕ → ℝ) (m : ℝ) (n : ℕ) :
     ∑ k ∈ range n, (x k - m) = ∑ k ∈ range n, x k - n * m := by
@@ -146,8 +147,7 @@ theorem isConfSeq_lt_log_condEVarNull (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)
     (S := fun m n ω ↦ ∑ k ∈ range n, (X k ω - m)) (V := fun _ n _ ↦ n)
     (fun m ↦ isSubPsiProcess_sum_condEVarNull fun k ↦ (hX k).sub_const m)
     (fun _ _ hP ↦ isProbabilityMeasure_of_mem_condEVarNull hP)
-    (fun m n ↦ Finset.measurable_sum _ fun k hk ↦
-      ((hX k).sub_const m).mono (ℱ.mono (Finset.mem_range.1 hk)) le_rfl)
+    (fun m ↦ measurable_sum_range_of_succ fun k ↦ (hX k).sub_const m)
     (fun _ _ ↦ measurable_const) ht hδ
   simpa only [sum_range_sub_const, mul_comm (ψ t)] using h
 
@@ -199,21 +199,12 @@ theorem isConfSeq_sub_div_lt_mul_and_mul_lt_add_div_condEVarNull
 
 section SubGaussian
 
-/-- **Sub-Gaussian laws are members of the null of the sub-Gaussian bets** [HRMS20, Fact 1].
-A probability measure under which every measurable observation `X k` is conditionally
-`c`-sub-Gaussian given `ℱ k` belongs to the null of the bets `exp (t x - c t ^ 2 / 2)`, `t ∈ ℝ`. -/
-theorem mem_condEVarNull_subPsiBets_of_hasCondSubgaussianMGF [StandardBorelSpace Ω]
-    {P : Measure Ω} [IsProbabilityMeasure P] {c : ℝ≥0} (hX : ∀ k, Measurable (X k))
-    (h : ∀ k, HasCondSubgaussianMGF (ℱ k) (ℱ.le k) (X k) c P) :
-    P ∈ condEVarNull (subPsiBets (fun t ↦ c * t ^ 2 / 2) univ) X ℱ :=
-  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
-    LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF.2 (h k)
-
 /-- **Confidence sequences for the mean of sub-Gaussian observations** [HRMS21, §3]. Let each
 observation `X k` be `ℱ (k + 1)`-measurable. For `u > 0` and `δ > 0`, the means `m` with
 `|∑ k < n, X k - n m| < log (2 / δ) / u + n c u / 2` form a confidence sequence at level `δ` for
-the nulls of the sub-Gaussian bets `exp (t (x - m) - c t ^ 2 / 2)`, `t ∈ ℝ`, on the observations,
-which contain the laws with conditionally `c`-sub-Gaussian centred observations
+the nulls of the sub-Gaussian bets `exp (t (x - m) - c t ^ 2 / 2)`, `t ∈ ℝ`, on the observations.
+For `c ≥ 0` and a standard Borel `Ω`, these nulls contain the laws with conditionally
+`c`-sub-Gaussian centred observations
 (`ProbabilityTheory.mem_condEVarNull_subPsiBets_of_hasCondSubgaussianMGF`). -/
 theorem isConfSeq_abs_sum_sub_mul_lt_condEVarNull {c : ℝ} (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
     (hu0 : 0 < u) (hδ : 0 < δ) :
@@ -237,30 +228,6 @@ end SubGaussian
 section Hoeffding
 
 variable {a b : ℝ}
-
-/-- **Bounded observations are members of the null of the Hoeffding bets** [HRMS20, Fact 1].
-A probability measure under which every measurable observation `X k` has values in `[a, b]` and
-conditional mean `m` given `ℱ k` belongs to the null of the bets
-`exp (t (x - m) - (b - a) ^ 2 t ^ 2 / 8)`, `t ∈ ℝ`, on the observations. This is the conditional
-Hoeffding lemma. -/
-theorem mem_condEVarNull_subPsiBets_of_mem_Icc [StandardBorelSpace Ω] {P : Measure Ω}
-    [IsProbabilityMeasure P] {m : ℝ} (hX : ∀ k, Measurable (X k))
-    (hab : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Icc a b) (hm : ∀ k, P[X k | ℱ k] =ᵐ[P] fun _ ↦ m) :
-    P ∈ condEVarNull (subPsiBets (fun t ↦ (b - a) ^ 2 * t ^ 2 / 8) univ)
-      (fun k ω ↦ X k ω - m) ℱ := by
-  refine mem_condEVarNull_subPsiBets_of_hasCondMGFBound (fun k ↦ (hX k).sub_const m) fun k ↦ ?_
-  -- the conditional Hoeffding lemma, with the conditional mean replaced by `m`
-  have h := LMLExplore.hasCondSubgaussianMGF_of_mem_Icc (ℱ.le k) (hX k).aemeasurable (hab k)
-  have h' : HasCondSubgaussianMGF (ℱ k) (ℱ.le k) (fun ω ↦ X k ω - m) ((‖b - a‖₊ / 2) ^ 2) P := by
-    refine Kernel.HasSubgaussianMGF.congr h ?_
-    rw [condExpKernel_comp_trim]
-    filter_upwards [hm k] with ω hω
-    simp [hω]
-  refine (LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF.2 h').mono subset_rfl
-    fun t _ ↦ le_of_eq ?_
-  simp only [NNReal.coe_pow, NNReal.coe_div, coe_nnNorm, Real.norm_eq_abs, NNReal.coe_ofNat,
-    div_pow, sq_abs]
-  ring
 
 /-- **Hoeffding confidence sequences for the mean of bounded observations** [HRMS21, §3]. Let each
 observation `X k` be `ℱ (k + 1)`-measurable. For `u > 0` and `δ > 0`, the means `m` with
@@ -292,30 +259,6 @@ end Hoeffding
 
 section Bernoulli
 
-/-- **Observations in `[0, 1]` with conditional mean at most `q` are members of the null of the
-Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
-observation `X k` has values in `[0, 1]` and conditional mean at most `q` given `ℱ k` belongs to
-the null of the bets `exp (t x - log (1 - q + q exp t))`, `t ≥ 0`, on the observations. -/
-theorem mem_condEVarNull_subPsiBets_log_of_condExp_le [StandardBorelSpace Ω] {P : Measure Ω}
-    [IsProbabilityMeasure P] {q : I} (hX : ∀ k, Measurable (X k))
-    (h01 : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Set.Icc 0 1) (hq : ∀ k, P[X k | ℱ k] ≤ᵐ[P] fun _ ↦ (q : ℝ)) :
-    P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Ici 0)) X ℱ :=
-  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
-    (LMLExplore.hasCondMGFBound_Ici_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
-      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
-
-/-- **Observations in `[0, 1]` with conditional mean at least `q` are members of the null of the
-Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
-observation `X k` has values in `[0, 1]` and conditional mean at least `q` given `ℱ k` belongs to
-the null of the bets `exp (t x - log (1 - q + q exp t))`, `t ≤ 0`, on the observations. -/
-theorem mem_condEVarNull_subPsiBets_log_of_le_condExp [StandardBorelSpace Ω] {P : Measure Ω}
-    [IsProbabilityMeasure P] {q : I} (hX : ∀ k, Measurable (X k))
-    (h01 : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Set.Icc 0 1) (hq : ∀ k, (fun _ ↦ (q : ℝ)) ≤ᵐ[P] P[X k | ℱ k]) :
-    P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Iic 0)) X ℱ :=
-  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
-    (LMLExplore.hasCondMGFBound_Iic_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
-      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
-
 /-- The confidence sequence of the Bernoulli bets for the parameters `q`, for any family of nulls
 contained in the nulls of the Bernoulli bets on `Λ`. -/
 private lemma isConfSeq_mul_sum_sub_mul_log_lt_log_of_subset {𝒩 : I → Set (Measure Ω)}
@@ -329,8 +272,7 @@ private lemma isConfSeq_mul_sum_sub_mul_log_lt_log_of_subset {𝒩 : I → Set (
     (S := fun _ n ω ↦ ∑ k ∈ range n, X k ω) (V := fun _ n _ ↦ n)
     (fun q ↦ (isSubPsiProcess_sum_condEVarNull hX).anti_set (h𝒩 q))
     (fun q _ hP ↦ isProbabilityMeasure_of_mem_condEVarNull (h𝒩 q hP))
-    (fun _ n ↦ Finset.measurable_sum _ fun k hk ↦
-      (hX k).mono (ℱ.mono (Finset.mem_range.1 hk)) le_rfl) (fun _ _ ↦ measurable_const) ht hδ
+    (fun _ ↦ measurable_sum_range_of_succ hX) (fun _ _ ↦ measurable_const) ht hδ
   simpa only [mul_comm (log _)] using h
 
 /-- **Bernoulli confidence sequences for upper bounds on the mean** [HRMS20, Fact 1; HRMS21, §3].
@@ -373,74 +315,6 @@ section Freedman
 
 variable {v : ℕ → Ω → ℝ} {b : ℝ}
 
-/-- **Freedman's bet is a conditional e-variable** [Fre75; HRMS20, Fact 1(c)]. Let `Y` be
-measurable with `Y ^ 2` integrable, `Y ≤ b` almost surely with `b > 0` and `E[Y | m] ≤ 0`, and let
-`w` be an `m`-measurable bound on the conditional second moment `E[Y ^ 2 | m]`. For `t ≥ 0`, the
-bet `exp (t Y - ψ_b t w)`, with `ψ_b t = (exp (t b) - 1 - t b) / b ^ 2`, is a conditional e-variable
-given `m` under the finite measure `P`. -/
-theorem isCondEVar_exp_mul_sub_mul_of_condExp_sq_le (hm : m ≤ mΩ)
-    {P : Measure Ω} [IsFiniteMeasure P] {Y w : Ω → ℝ} (hb : 0 < b) (ht : 0 ≤ t)
-    (hY : Measurable Y) (hw : Measurable[m] w) (hY2 : Integrable (fun ω ↦ Y ω ^ 2) P)
-    (h_bdd : ∀ᵐ ω ∂P, Y ω ≤ b) (h_mean : P[Y | m] ≤ᵐ[P] 0)
-    (h_var : P[fun ω ↦ Y ω ^ 2 | m] ≤ᵐ[P] w) :
-    IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (t * Y ω - (exp (t * b) - 1 - t * b) / b ^ 2 * w ω)))
-      m {P} := by
-  set c := (exp (t * b) - 1 - t * b) / b ^ 2 with hc_def
-  have hc0 : 0 ≤ c := exp_sub_one_sub_id_div_sq_nonneg (t * b) b
-  -- the bet with the conditional second moment in place of `w` has conditional mean at most `1`
-  have hZ : IsCondEVar
-      (fun ω ↦ ENNReal.ofReal (exp (t * Y ω - c * P[fun ω ↦ Y ω ^ 2 | m] ω))) m {P} := by
-    refine (isCondEVar_ofReal_iff_condExp_le hm
-      (fun _ hQ ↦ by rw [mem_singleton_iff.1 hQ]; infer_instance)
-      (fun _ hQ ↦ by
-        rw [mem_singleton_iff.1 hQ]
-        exact LMLExplore.integrable_exp_mul_sub_mul_condExp_sq hm ht hc0 hY.aestronglyMeasurable
-          h_bdd)
-      fun _ _ ↦ .of_forall fun _ ↦ (exp_pos _).le).2 ⟨?_, fun _ hQ ↦ ?_⟩
-    · exact ((hY.const_mul t).sub
-        ((stronglyMeasurable_condExp.measurable.mono hm le_rfl).const_mul c)).exp.ennreal_ofReal
-    · rw [mem_singleton_iff.1 hQ]
-      exact LMLExplore.condExp_exp_mul_sub_mul_condExp_sq_le_one hm hb ht le_rfl
-        hY.aestronglyMeasurable hY2 h_mean h_bdd
-  -- a larger bound `w` makes a smaller bet
-  refine hZ.mono_ae (((hY.const_mul t).sub ((hw.mono hm le_rfl).const_mul c)).exp.ennreal_ofReal)
-    ?_
-  rw [quasiSure_singleton]
-  filter_upwards [h_var] with ω hω
-  exact ENNReal.ofReal_le_ofReal (exp_le_exp.2 (by nlinarith))
-
-/-- **Freedman's sums are sub-Poisson for a null** [Fre75; HRMS20, Fact 1(c)]. Let each observation
-`X k` be `ℱ (k + 1)`-measurable and `v k` be `ℱ k`-measurable, and let `b > 0`. Under every
-probability measure under which the centred observations `X k - m` have integrable squares, are
-at most `b`, have nonpositive conditional mean and conditional second moment at most `v k` given
-`ℱ k`, the sums `∑ k < n, (X k - m)` with the intrinsic time `∑ k < n, v k` are a `1`-sub-ψ process
-on `[0, ∞)` for `ψ t = (exp (t b) - 1 - t b) / b ^ 2`. -/
-theorem isSubPsiProcess_sum_sub_sum_of_condExp_sq_le (hX : ∀ k, Measurable[ℱ (k + 1)] (X k))
-    (hv : ∀ k, Measurable[ℱ k] (v k)) (hb : 0 < b) (m : ℝ) :
-    IsSubPsiProcess (fun n ω ↦ ∑ k ∈ range n, (X k ω - m)) (fun n ω ↦ ∑ k ∈ range n, v k ω)
-      (fun t ↦ (exp (t * b) - 1 - t * b) / b ^ 2) (Ici 0) 1 ℱ
-      {P | IsProbabilityMeasure P ∧ ∀ k, Integrable (fun ω ↦ (X k ω - m) ^ 2) P ∧
-        (∀ᵐ ω ∂P, X k ω - m ≤ b) ∧ P[fun ω ↦ X k ω - m | ℱ k] ≤ᵐ[P] 0 ∧
-        P[fun ω ↦ (X k ω - m) ^ 2 | ℱ k] ≤ᵐ[P] v k} := by
-  rw [isSubPsiProcess_iff]
-  rintro P ⟨hP, hPX⟩ t ht
-  set c := (exp (t * b) - 1 - t * b) / b ^ 2
-  have hY (k : ℕ) : Measurable[ℱ (k + 1)] fun ω ↦ X k ω - m := (hX k).sub_const m
-  -- the product of Freedman's bets is a test supermartingale under `P`
-  have hL := isTestSupermartingale_prod (S := {P})
-    (E := fun k ω ↦ ENNReal.ofReal (exp (t * (X k ω - m) - c * v k ω)))
-    (fun _ hQ ↦ by rw [mem_singleton_iff.1 hQ, measure_univ])
-    (fun k ↦ (((hY k).const_mul t).sub (((hv k).mono (ℱ.mono k.le_succ) le_rfl).const_mul
-      c)).exp.ennreal_ofReal)
-    fun k ↦ isCondEVar_exp_mul_sub_mul_of_condExp_sq_le (ℱ.le k) hb (Set.mem_Ici.1 ht)
-      ((hY k).mono (ℱ.le _) le_rfl) (hv k) (hPX k).1 (hPX k).2.1 (hPX k).2.2.1 (hPX k).2.2.2
-  refine ⟨_, hL.toIsENNSupermartingale, .of_forall fun _ ↦ by simp, fun n ↦ .of_forall
-    fun ω ↦ le_of_eq ?_⟩
-  -- the exponential of the sum is the product of the exponentials
-  dsimp only
-  rw [← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (exp_pos _).le, ← exp_sum,
-    Finset.sum_sub_distrib (f := fun k ↦ t * (X k ω - m)), ← mul_sum, ← mul_sum]
-
 /-- **Freedman confidence sequences for the mean** [Fre75; HRMS20, Fact 1(c); HRMS21, §3]. Let each
 observation `X k` be `ℱ (k + 1)`-measurable and `v k` be `ℱ k`-measurable, and let `b > 0`. For
 `t > 0` and `δ > 0`, the means `m` with
@@ -459,10 +333,9 @@ theorem isConfSeq_sum_sub_div_lt_mul_of_condExp_sq_le (hX : ∀ k, Measurable[�
       (ENNReal.ofReal δ) := by
   have h := isConfSeq_lt_log_of_isSubPsiProcess
     (fun m ↦ isSubPsiProcess_sum_sub_sum_of_condExp_sq_le hX hv hb m) (fun _ _ hP ↦ hP.1)
-    (fun m n ↦ Finset.measurable_sum _ fun k hk ↦
-      ((hX k).sub_const m).mono (ℱ.mono (Finset.mem_range.1 hk)) le_rfl)
-    (fun _ n ↦ Finset.measurable_sum _ fun k hk ↦
-      (hv k).mono (ℱ.mono (Finset.mem_range.1 hk).le) le_rfl) (Set.mem_Ici.2 ht0.le) hδ
+    (fun m ↦ measurable_sum_range_of_succ fun k ↦ (hX k).sub_const m)
+    (fun _ ↦ measurable_sum_range_of_succ fun k ↦ (hv k).mono (ℱ.mono k.le_succ) le_rfl)
+    (Set.mem_Ici.2 ht0.le) hδ
   convert h using 4 with n ω
   ext m
   rw [sum_range_sub_const, sub_lt_comm, lt_div_iff₀ ht0]
