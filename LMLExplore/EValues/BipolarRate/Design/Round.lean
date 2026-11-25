@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
-public import LMLExplore.EValues.BipolarRate.Design.Basic
+public import LMLExplore.EValues.BipolarRate.Design.Growth
 public import LMLExplore.Probability.ProductMeasure.Table
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 
@@ -24,6 +24,8 @@ what it has read.
 
 The Wald inequality with a design [EVR26, Note 41]: if the payoff has expectation at most `1` under
 every instance of `Λ`, then its expected logarithm under `μ`, truncated above at `c`, is at most
+`G x`, the growth `designGrowth μ Λ x` of the designs proportional to the vector
+`x = 𝔼_μ[(σ ω).2]` of the expected numbers of observations of each source, and so at most
 `D* * 𝔼_μ[∑ a, (σ ω).2 a]`, where `D* = designRate μ Λ` is the rate of the designs. Adaptive
 sampling does not beat the best fixed design.
 
@@ -33,17 +35,21 @@ sampling does not beat the best fixed design.
   `n a` observations of each source `a`, with expectation at most `1` under the instances of `Λ`,
   has expected logarithm at most the value `designValue μ Λ n` of the design `n` under `μ`: the
   seeds have the same law under every instance, so they do not help.
-* `ProbabilityTheory.integral_truncLog_le_designRate_mul`: the Wald inequality with a design for
-  a round that reads at most `K` observations of each source, with payoff at least `δ > 0`.
+* `ProbabilityTheory.integral_truncLog_le_designGrowth`: the Wald inequality with a design for a
+  round that reads at most `K` observations of each source, with payoff at least `δ > 0`, with the
+  growth `G` of the designs proportional to the expected numbers of observations.
+* `ProbabilityTheory.integral_truncLog_le_designRate_mul`: the same inequality with the rate of
+  the designs, `G x ≤ D* * ∑ a, x a`.
 
 ## Implementation notes
 
 The proof restarts the round `m` times on the entries not yet read
 (`ProbabilityTheory.restartShape`). By Chebyshev's inequality for these independent rounds, they
-fit with high probability in the table of the design `n` with `n a ≈ m (𝔼_μ[(σ ω).2 a] + ε)`, on
-which `1/2 + 1/2 * 𝟙{the rounds fit} * ∏ i < m, V_i` is an e-variable. Comparing its expected
-logarithm with `designValue μ Λ n ≤ (∑ a, n a) * D*` and letting `m → ∞`, then `ε → 0`, gives the
-bound.
+fit with high probability in the table of the design `⌈m (x + ε 𝟙_{supp x})⌉`
+(`ProbabilityTheory.proportionalDesign`), on which `1/2 + 1/2 * 𝟙{the rounds fit} * ∏ i < m, V_i`
+is an e-variable. Its expected logarithm is at least `m 𝔼_μ[truncLog c V]` up to a constant, which
+gives the bound with `G x` (`ProbabilityTheory.le_designGrowth_of_forall_sub_le`); the bound with
+`D*` follows from `ProbabilityTheory.designGrowth_le_designRate_mul`.
 
 The proofs are adapted from the draft `notes/lean-wip/SeveralArmsRound.lean` of the paper project
 `RemyDegenne/evalues_research`, which formalizes [EVR26, Note 41]. The one-stream analogue is
@@ -59,7 +65,7 @@ public section
 
 open MeasureTheory InformationTheory
 open ENNReal (truncLog)
-open scoped ENNReal
+open scoped ENNReal NNReal
 
 namespace ProbabilityTheory
 
@@ -252,86 +258,65 @@ private lemma mul_integral_truncLog_sub_le_designValue (ρ : Measure 𝓤) [IsPr
   _ ≤ _ := (eintegral_mono hlog).trans
     (eintegral_log_restartBet_le_designValue ρ μ hΛ hσm hσ hVm hV h_null m n)
 
-/-- The limit argument of the Wald inequality with a design: if for every `ε > 0` there is `c₁`
-with `m ℓ - c₁ ≤ (m X + m ε k + k) d` for every `m ≥ 1`, then `ℓ ≤ d X`. -/
-private lemma le_mul_of_forall_design_le {ℓ d X k : ℝ} (hd : 0 ≤ d) (hk : 0 ≤ k)
-    (h : ∀ ε : ℝ, 0 < ε → ∃ c₁ : ℝ, ∀ m : ℕ, 0 < m →
-      m * ℓ - c₁ ≤ (m * X + m * ε * k + k) * d) :
-    ℓ ≤ d * X := by
-  by_contra hlt
-  rw [not_le] at hlt
-  set η := ℓ - d * X with hη
-  have hη0 : 0 < η := sub_pos.2 hlt
-  have hkd : 0 ≤ k * d := mul_nonneg hk hd
-  obtain ⟨c₁, hc₁⟩ := h (η / (2 * (k * d + 1))) (by positivity)
-  have hε : η / (2 * (k * d + 1)) * (k * d) ≤ η / 2 := by
-    rw [div_mul_eq_mul_div, div_le_div_iff₀ (by positivity) two_pos]
-    nlinarith
-  obtain ⟨m, hm⟩ := exists_nat_gt (2 * (c₁ + k * d) / η)
-  have hm' := hc₁ (m + 1) (Nat.succ_pos m)
-  have h2 : 2 * (c₁ + k * d) < m * η := (div_lt_iff₀ hη0).1 hm
-  have h3 : ((m : ℝ) + 1) * (η / (2 * (k * d + 1)) * (k * d)) ≤ ((m : ℝ) + 1) * (η / 2) :=
-    mul_le_mul_of_nonneg_left hε (by positivity)
-  have h4 : ((m : ℝ) + 1) * ℓ = ((m : ℝ) + 1) * η + ((m : ℝ) + 1) * (d * X) := by
-    rw [hη]
-    ring
-  push_cast at hm'
-  nlinarith
-
 /-- **The design proportional to the mean numbers of observations.** For `m ≥ 1` and `ε > 0`, the
-design `n` with `n a = ⌈m (𝔼_μ[(σ ω).2 a] + ε)⌉` for the sources that the round reads (and
-`n a = 0` for the others) has at most `m (X + ε |α|) + |α|` observations, with `X` the expected
-number of observations of a round, and value at least `m 𝔼_μ[truncLog c V] - log 2 - C`, with a
-constant `C` that does not depend on `m`: the `m` restarted rounds fit in its table with
-probability at least `1 - |α| K² / (m ε²)`. -/
-private lemma exists_le_designValue (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
+design `⌈m (x + ε 𝟙_{supp x})⌉`, with `x a = 𝔼_μ[(σ ω).2 a]` the mean number of observations of
+the source `a` in a round, has value at least `m 𝔼_μ[truncLog c V] - log 2 - C`, with a constant
+`C` that does not depend on `m`: the `m` restarted rounds fit in its table with probability at
+least `1 - |α| K² / (m ε²)`. -/
+private lemma sub_le_designValue_proportionalDesign (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
     (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ) (hσ : DependsOnBelow σ σ)
     (hVm : Measurable V) (hV : DependsOnBelow σ V) {K : ℕ} (hσK : ∀ ω a, (σ ω).2 a ≤ K)
     (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ} (hδ : 0 < δ)
-    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) {m : ℕ} (hm : 0 < m) {ε : ℝ} (hε : 0 < ε) :
-    ∃ n : α → ℕ, (∀ a, ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ = 0 → n a = 0) ∧
-      ((∑ a, n a : ℕ) : ℝ) ≤ m * ∑ a, ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ +
-        m * ε * Fintype.card α + Fintype.card α ∧
-      ((m * ∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ - (Real.log 2 + max |Real.log δ| |c| *
-        (Fintype.card α * (K : ℝ) ^ 2 / ε ^ 2)) : ℝ) : EReal) ≤ designValue μ Λ n := by
-  classical
+    (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) {m : ℕ} (hm : 0 < m) {ε : ℝ≥0} (hε : 0 < ε) :
+    ((m * ∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ - (Real.log 2 + max |Real.log δ| |c| *
+        (Fintype.card α * (K : ℝ) ^ 2 / (ε : ℝ) ^ 2)) : ℝ) : EReal) ≤
+      designValue μ Λ (proportionalDesign
+        (fun a ↦ (∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ).toNNReal) ε m) := by
+  set x : α → ℝ≥0 := fun a ↦ (∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ).toNNReal with hx_def
+  have hx (a : α) : (x a : ℝ) = ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ :=
+    Real.coe_toNNReal _ (integral_nonneg fun ω ↦ Nat.cast_nonneg _)
+  refine le_trans (EReal.coe_le_coe_iff.2 ?_) (mul_integral_truncLog_sub_le_designValue ρ μ
+    hΛ hσm hσ hVm hV h_null hδ hVδ c m (proportionalDesign x ε m))
+  -- Chebyshev's inequality for the restarted rounds
+  have hp := measureReal_not_restartShape_snd_le ρ μ hσm hσ hσK hm (NNReal.coe_pos.2 hε)
+    (n := proportionalDesign x ε m) fun a ha ↦ by
+      have hxa : x a ≠ 0 := by
+        rw [← NNReal.coe_ne_zero, hx]
+        exact ha
+      rw [← hx]
+      exact_mod_cast le_proportionalDesign (m := m) hxa
   have hmr : (0 : ℝ) < m := by exact_mod_cast hm
-  set x : α → ℝ := fun a ↦ ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ
-  have hx0 (a : α) : 0 ≤ x a := integral_nonneg fun ω ↦ Nat.cast_nonneg _
-  set n : α → ℕ := fun a ↦ if x a = 0 then 0 else ⌈m * (x a + ε)⌉₊ with hn_def
-  refine ⟨n, fun a ha ↦ by simp [hn_def, x, ha], ?_, ?_⟩
-  · -- the number of observations of the design
-    have h_le (a : α) : (n a : ℝ) ≤ m * (x a + ε) + 1 := by
-      have h_pos : 0 ≤ m * (x a + ε) := mul_nonneg hmr.le (add_nonneg (hx0 a) hε.le)
-      simp only [hn_def]
-      split_ifs
-      · simpa using by linarith
-      · exact (Nat.ceil_lt_add_one h_pos).le
-    calc ((∑ a, n a : ℕ) : ℝ) = ∑ a, (n a : ℝ) := by push_cast; rfl
-    _ ≤ ∑ a, (m * (x a + ε) + 1) := Finset.sum_le_sum fun a _ ↦ h_le a
-    _ = m * ∑ a, x a + m * ε * Fintype.card α + Fintype.card α := by
-      simp only [Finset.sum_add_distrib, ← Finset.mul_sum, Finset.sum_const, Finset.card_univ,
-        nsmul_eq_mul, mul_one]
-      ring
-  · -- its value, by Chebyshev's inequality for the restarted rounds
-    refine le_trans (EReal.coe_le_coe_iff.2 ?_) (mul_integral_truncLog_sub_le_designValue ρ μ
-      hΛ hσm hσ hVm hV h_null hδ hVδ c m n)
-    have hp := measureReal_not_restartShape_snd_le ρ μ hσm hσ hσK hm hε (n := n) fun a ha ↦ by
-      simpa [hn_def, x, ha] using Nat.le_ceil _
-    have hC0 : 0 ≤ max |Real.log δ| |c| := (abs_nonneg _).trans (le_max_left _ _)
-    have h1 : m * max |Real.log δ| |c| * (arrayLaw ρ μ).real {ω | ¬ (restartShape σ m ω).2 ≤ n} ≤
-        max |Real.log δ| |c| * (Fintype.card α * (K : ℝ) ^ 2 / ε ^ 2) := by
-      calc m * max |Real.log δ| |c| * (arrayLaw ρ μ).real {ω | ¬ (restartShape σ m ω).2 ≤ n}
-      _ ≤ m * max |Real.log δ| |c| * (Fintype.card α * (K : ℝ) ^ 2 / (m * ε ^ 2)) := by gcongr
-      _ = max |Real.log δ| |c| * (Fintype.card α * (K : ℝ) ^ 2 / ε ^ 2) := by field_simp
-    linarith
+  set p := (arrayLaw ρ μ).real {ω | ¬ (restartShape σ m ω).2 ≤ proportionalDesign x ε m}
+  set C := max |Real.log δ| |c|
+  have h1 : m * C * p ≤ C * (Fintype.card α * (K : ℝ) ^ 2 / (ε : ℝ) ^ 2) := by
+    calc m * C * p
+    _ ≤ m * C * (Fintype.card α * (K : ℝ) ^ 2 / (m * (ε : ℝ) ^ 2)) := by gcongr
+    _ = C * (Fintype.card α * (K : ℝ) ^ 2 / (ε : ℝ) ^ 2) := by field_simp
+  linarith
 
 /-- **The Wald inequality with a design, for a bounded round** [EVR26, Note 41, Theorem 1]. Let
 `σ` be the shape and `V ≥ δ > 0` the payoff of a round, both determined by the seeds and the
 observations that the round reads, with at most `K` observations of each source. If the payoff
-has expectation at most `1` under every instance of the nonempty set `Λ`, then under the instance
-`μ` the expected logarithm of the payoff, truncated above at `c`, is at most the rate of the
+has expectation at most `1` under every instance of `Λ`, then under the instance `μ` the expected
+logarithm of the payoff, truncated above at `c`, is at most the growth `G x` of the designs
+proportional to the vector `x` of the expected numbers of observations of each source that the
+round reads. -/
+theorem integral_truncLog_le_designGrowth (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
+    (μ : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hσm : Measurable σ)
+    (hσ : DependsOnBelow σ σ) (hVm : Measurable V) (hV : DependsOnBelow σ V) {K : ℕ}
+    (hσK : ∀ ω a, (σ ω).2 a ≤ K) (h_null : ∀ ν ∈ Λ, ∫⁻ ω, V ω ∂arrayLaw ρ ν ≤ 1) {δ : ℝ}
+    (hδ : 0 < δ) (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) :
+    ((∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ : ℝ) : EReal) ≤
+      designGrowth μ Λ fun a ↦ (∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ).toNNReal :=
+  le_designGrowth_of_forall_sub_le fun _ hε ↦ ⟨_, fun _ hm ↦
+    sub_le_designValue_proportionalDesign ρ μ hΛ hσm hσ hVm hV hσK h_null hδ hVδ c hm hε⟩
+
+/-- **The Wald inequality with a design, for a bounded round, with the rate of the designs**
+[EVR26, Note 41, Theorem 1]. Under the hypotheses of
+`ProbabilityTheory.integral_truncLog_le_designGrowth`, for a nonempty set `Λ` of instances, the
+expected logarithm of the payoff under `μ`, truncated above at `c`, is at most the rate of the
 designs times the expected number of observations that the round reads. The product is in
 `EReal`, with `⊤ * 0 = 0`. -/
 theorem integral_truncLog_le_designRate_mul (ρ : Measure 𝓤) [IsProbabilityMeasure ρ]
@@ -343,52 +328,14 @@ theorem integral_truncLog_le_designRate_mul (ρ : Measure 𝓤) [IsProbabilityMe
     (hVδ : ∀ ω, ENNReal.ofReal δ ≤ V ω) (c : ℝ) :
     ((∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ : ℝ) : EReal) ≤
       designRate μ Λ * ((∫ ω, ∑ a, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ : ℝ) : EReal) := by
-  have hN (a : α) : Integrable (fun ω ↦ ((σ ω).2 a : ℝ)) (arrayLaw ρ μ) :=
-    integrable_shape_snd_apply hσm fun ω ↦ hσK ω a
-  rw [integral_finsetSum _ fun a _ ↦ hN a]
-  have key := fun (m : ℕ) (hm : 0 < m) (ε : ℝ) (hε : 0 < ε) ↦
-    exists_le_designValue ρ μ hΛ hσm hσ hVm hV hσK h_null hδ hVδ c hm hε
-  have hx0 (a : α) : 0 ≤ ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ :=
-    integral_nonneg fun ω ↦ Nat.cast_nonneg _
-  set ℓ := ∫ ω, truncLog c (V ω) ∂arrayLaw ρ μ
-  set X := ∑ a, ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ with hX
-  set C := max |Real.log δ| |c|
-  set k : ℝ := ((Fintype.card α : ℕ) : ℝ)
-  have hX_nonneg : 0 ≤ X := Finset.sum_nonneg fun a _ ↦ hx0 a
-  rcases eq_or_ne (designRate μ Λ) ⊤ with hD | hD
-  · rcases hX_nonneg.eq_or_lt with hX0 | hXpos
-    · -- no observation is read: the designs of `key` are empty, of value `0`
-      rw [← hX0, EReal.coe_zero, mul_zero, ← EReal.coe_zero, EReal.coe_le_coe_iff]
-      have hx_all (a : α) : ∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ = 0 :=
-        (Finset.sum_eq_zero_iff_of_nonneg fun a _ ↦ hx0 a).1 (hX.symm.trans hX0.symm) a
-          (Finset.mem_univ a)
-      by_contra hℓ
-      rw [not_le] at hℓ
-      obtain ⟨m, hm⟩ := exists_nat_gt ((Real.log 2 + C * (k * (K : ℝ) ^ 2 / 1 ^ 2)) / ℓ)
-      obtain ⟨n, hn0, -, hn⟩ := key (m + 1) (Nat.succ_pos m) 1 one_pos
-      have hn_eq : n = 0 := funext fun a ↦ hn0 a (hx_all a)
-      rw [hn_eq, designValue_zero μ hΛne, ← EReal.coe_zero, EReal.coe_le_coe_iff] at hn
-      have h1 := (div_lt_iff₀ hℓ).1 hm
-      push_cast at hn
-      nlinarith
-    · rw [hD, EReal.top_mul_of_pos (EReal.coe_pos.2 hXpos)]
-      exact le_top
-  · -- the values of the designs of `key` are at most their numbers of observations times `D*`
-    have hd0 := designRate_nonneg μ Λ
-    have hd : (((designRate μ Λ).toReal : ℝ) : EReal) = designRate μ Λ :=
-      EReal.coe_toReal hD (ne_bot_of_le_ne_bot EReal.zero_ne_bot hd0)
-    rw [← hd, ← EReal.coe_mul, EReal.coe_le_coe_iff]
-    refine le_mul_of_forall_design_le (k := k) (EReal.toReal_nonneg hd0) (Nat.cast_nonneg _)
-      fun ε hε ↦ ⟨Real.log 2 + C * (k * (K : ℝ) ^ 2 / ε ^ 2), fun m hm ↦ ?_⟩
-    obtain ⟨n, -, hn_sum, hn⟩ := key m hm ε hε
-    have h1 : ((m * ℓ - (Real.log 2 + C * (k * (K : ℝ) ^ 2 / ε ^ 2)) : ℝ) : EReal) ≤
-        ((∑ a, n a : ℕ) : EReal) * designRate μ Λ := by
-      refine hn.trans ?_
-      rcases eq_or_ne n 0 with rfl | hn0
-      · simp [designValue_zero μ hΛne]
-      · exact designValue_le_mul_designRate μ Λ hn0
-    rw [← hd, ← EReal.coe_coe_eq_natCast, ← EReal.coe_mul, EReal.coe_le_coe_iff] at h1
-    exact h1.trans (mul_le_mul_of_nonneg_right hn_sum (EReal.toReal_nonneg hd0))
+  have h_sum : ∑ a, ((∫ ω, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ).toNNReal : ℝ) =
+      ∫ ω, ∑ a, ((σ ω).2 a : ℝ) ∂arrayLaw ρ μ := by
+    rw [integral_finsetSum _ fun a _ ↦ integrable_shape_snd_apply hσm fun ω ↦ hσK ω a]
+    exact Finset.sum_congr rfl fun a _ ↦
+      Real.coe_toNNReal _ (integral_nonneg fun ω ↦ Nat.cast_nonneg _)
+  rw [← h_sum]
+  exact (integral_truncLog_le_designGrowth ρ μ hΛ hσm hσ hVm hV hσK h_null hδ hVδ c).trans
+    (designGrowth_le_designRate_mul hΛne _)
 
 end Wald
 
