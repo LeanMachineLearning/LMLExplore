@@ -58,6 +58,8 @@ supported distributions, not a subset of `α → ℝ`.
   `∑ a, ENNReal.ofReal (w a) * e a ≤ 1`, then `∑ a, w a * ((e a).toReal - 1) ≤ 0`, and
   `LMLExplore.sum_ofReal_mul_le_one_of_sum_mul_toReal_sub_one_nonpos`: the converse for finite
   values.
+* `LMLExplore.le_sum_mul_of_mem_simplex`: an average `∑ a, w a * c a` with weights `w` of the
+  simplex supported on the maximizers of `c` is at least every value of `c`.
 * `LMLExplore.smul_sub_single_mem_simplex`: removing a mass `s < 1` from an entry of a vector of
   the simplex and rescaling by `(1 - s)⁻¹` stays in the simplex.
 * `LMLExplore.sub_single_add_indicator_mem_simplex`: moving a mass `s ≤ w b` from an entry of a
@@ -338,6 +340,16 @@ lemma nonempty_of_mem_simplex (hw : w ∈ simplex α) : Nonempty α := by
   by_contra h
   rw [not_nonempty_iff] at h
   simpa using hw.2
+
+/-- If the weights `w` of the simplex are supported on the maximizers of `c`, then every value of
+`c` is at most the average `∑ a, w a * c a`, which is thus the maximum of `c`. -/
+lemma le_sum_mul_of_mem_simplex (hw : w ∈ simplex α) (hc : ∀ a, w a ≠ 0 → ∀ b, c b ≤ c a)
+    (b : α) : c b ≤ ∑ a, w a * c a :=
+  calc c b = ∑ a, w a * c b := by rw [← Finset.sum_mul, hw.2, one_mul]
+    _ ≤ ∑ a, w a * c a := Finset.sum_le_sum fun a _ ↦ by
+        rcases eq_or_ne (w a) 0 with ha | ha
+        · simp [ha]
+        · exact mul_le_mul_of_nonneg_left (hc a ha b) (hw.1 a)
 
 /-- On a type with at most one element, the only point of the simplex is the constant `1`. -/
 lemma eq_one_of_mem_simplex [Subsingleton α] (hw : w ∈ simplex α) : w = fun _ ↦ 1 := by

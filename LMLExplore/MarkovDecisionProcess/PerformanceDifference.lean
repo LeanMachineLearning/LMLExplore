@@ -46,6 +46,9 @@ reinforcement learning.
 * `Learning.MDP.runValue_sub_integral_value`: the performance difference lemma [AJKS, Lemma 1.16];
   `Learning.MDP.integral_value_sub_integral_value`: its form for two stationary policies, with the
   advantage averaged over the actions of the first one.
+* `Learning.MDP.integral_integral_advantage_le_integral_value_sub`: if the advantage of `π` has
+  nonnegative mean under `π'` in every state, the values increase from `π` to `π'` by at least
+  the integral of that mean against the initial law.
 * `Learning.MDP.integral_value_sub_integral_value_le_mul_integral_iSup_advantage`: on countable
   action sets, the suboptimality of `π` against a stationary policy `σ` is at most the mismatch
   coefficient of `σ` times `(1 - γ) ^ {-2}` times the mean greedy advantage
@@ -117,6 +120,27 @@ theorem integral_value_sub_integral_value (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
     (ρ := M.occupancy γ (Algorithm.markov fun _ ↦ π') μ) (ρCond := π')]
   rw [Measure.integral_compProd
     (integrable_of_abs_le (measurable_advantage hγ hR) (abs_advantage_le hγ hR) _)]
+
+/-- **Improvement lower bound**: with bounded rewards and `γ < 1`, if the advantage of the
+stationary policy `π` has nonnegative mean `g s = ∫ A^π (s, ·) dπ' s` under the stationary policy
+`π'` in every state, then `∫ g dμ ≤ ∫ v^π' dμ - ∫ v^π dμ` for every initial law `μ`. -/
+theorem integral_integral_advantage_le_integral_value_sub (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {π π' : Kernel 𝓢 𝓐} [IsMarkovKernel π]
+    [IsMarkovKernel π'] (hA : ∀ s, 0 ≤ ∫ a, M.advantage γ π (s, a) ∂(π' s)) :
+    ∫ s, ∫ a, M.advantage γ π (s, a) ∂(π' s) ∂μ ≤
+      ∫ s, M.value γ π' s ∂μ - ∫ s, M.value γ π s ∂μ := by
+  -- by the performance difference lemma the right-hand side is `(1 - γ)⁻¹ ∫ g dd`, for the state
+  -- occupancy measure `d` of `π'` from `μ`
+  have h1γ := one_sub_coe_pos hγ
+  have := isProbabilityMeasure_occupancy (M := M) (alg := Algorithm.markov fun _ ↦ π') (μ := μ) hγ
+  have h_int : Integrable (fun s ↦ ∫ a, M.advantage γ π (s, a) ∂(π' s))
+      (M.occupancy γ (Algorithm.markov fun _ ↦ π') μ).fst :=
+    integrable_of_abs_le (measurable_integral_advantage hγ hR π')
+      (fun _ ↦ abs_integral_le_of_abs_le fun _ ↦ abs_advantage_le hγ hR _) _
+  -- the state occupancy measure of `π'` dominates `(1 - γ) • μ`
+  have h_dom := mul_integral_le_integral_occupancy_fst hγ.le (ae_of_all _ hA) h_int
+  rw [integral_value_sub_integral_value hγ hR π π', le_inv_mul_iff₀ h1γ]
+  exact h_dom
 
 /-- **Suboptimality from the greedy advantage** [KL02, §6]: on a countable action set,
 with bounded rewards and `γ < 1`, let `π` and `σ` be stationary policies and `D` bound the

@@ -120,10 +120,6 @@ end Defs
 
 variable {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η C : ℝ}
 
-/-- A discount factor `γ < 1` gives the positive normalization `0 < 1 - γ`. -/
-private lemma one_sub_coe_pos (hγ : γ < 1) : (0 : ℝ) < 1 - γ :=
-  sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-
 /-- Natural policy gradient starts from the uniform policy. -/
 lemma softmax_npgParam_zero (s : 𝓢) :
     softmax (npgParam M γ η 0 s) = fun _ ↦ (Fintype.card 𝓐 : ℝ)⁻¹ := by
@@ -238,8 +234,7 @@ private lemma mul_sum_integral_advantage_le (hη : 0 < η) (s : 𝓢) (ν : Meas
     η / (1 - γ) * ∑ t ∈ range T, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a) ∂ν ≤
       log (Fintype.card 𝓐) + ∑ t ∈ range T, npgLogPartition M γ η t s := by
   have hη' : 0 < η / (1 - γ) := div_pos hη (one_sub_coe_pos hγ)
-  have hν : (fun a ↦ ν.real {a}) ∈ simplex 𝓐 :=
-    mem_simplex_iff.2 ⟨fun _ ↦ measureReal_nonneg, by simp⟩
+  have hν := mem_simplex_measureReal_singleton ν
   -- the mix losses of exponential weights telescope into the potential
   have h_tel := sum_mixLoss_softmax_le_of_antitone (fun _ ↦ hη') antitone_const
     (fun r a ↦ -M.advantage γ (softmaxPolicy (npgParam M γ η r)) (s, a)) T
@@ -295,28 +290,21 @@ theorem mul_integral_npgLogPartition_le (t : ℕ) (μ : Measure 𝓢) [IsProbabi
       ∫ s, M.value γ (softmaxPolicy (npgParam M γ η (t + 1))) s ∂μ -
         ∫ s, M.value γ (softmaxPolicy (npgParam M γ η t)) s ∂μ := by
   have h1γ := one_sub_coe_pos hγ
-  set d := (M.occupancy γ (Algorithm.markov fun _ ↦ softmaxPolicy (npgParam M γ η (t + 1))) μ).fst
-  rw [integral_value_sub_integral_value hγ hR]
-  -- the state marginal `d` of the occupancy measure of `π_{t+1}` dominates `(1 - γ) • μ`
-  have h_dom : (1 - γ) * ∫ s, npgLogPartition M γ η t s ∂μ ≤
-      ∫ s, npgLogPartition M γ η t s ∂d :=
-    mul_integral_le_integral_occupancy_fst hγ.le (ae_of_all _ (npgLogPartition_nonneg hγ hR t))
-      (integrable_npgLogPartition hγ hR hη t d)
-  -- in every state, `log Z_t ≤ η / (1 - γ) * ∫ A^{π_t} dπ_{t+1}`
-  have h_state : ∫ s, npgLogPartition M γ η t s ∂d ≤ η / (1 - γ) *
-      ∫ s, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
-        ∂(softmaxPolicy (npgParam M γ η (t + 1)) s) ∂d := by
-    rw [← integral_const_mul]
-    exact integral_mono (integrable_npgLogPartition hγ hR hη t d)
-      ((integrable_integral_advantage hγ hR t _ d).const_mul _)
-      (npgLogPartition_le_mul_integral_advantage t)
-  calc (1 - γ) / η * ∫ s, npgLogPartition M γ η t s ∂μ
-      = ((1 - γ) * ∫ s, npgLogPartition M γ η t s ∂μ) / η := by ring
-    _ ≤ (η / (1 - γ) * ∫ s, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
-        ∂(softmaxPolicy (npgParam M γ η (t + 1)) s) ∂d) / η :=
-        div_le_div_of_nonneg_right (h_dom.trans h_state) hη.le
-    _ = (1 - γ : ℝ)⁻¹ * ∫ s, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
-        ∂(softmaxPolicy (npgParam M γ η (t + 1)) s) ∂d := by field_simp
+  -- in every state, `(1 - γ) / η * log Z_t ≤ ∫ A^{π_t} dπ_{t+1}`, and the left side is nonnegative
+  have h_state (s : 𝓢) : (1 - γ) / η * npgLogPartition M γ η t s ≤
+      ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
+        ∂(softmaxPolicy (npgParam M γ η (t + 1)) s) := by
+    have h := npgLogPartition_le_mul_integral_advantage (M := M) (γ := γ) (η := η) t s
+    calc (1 - γ) / η * npgLogPartition M γ η t s
+        ≤ (1 - γ) / η * (η / (1 - γ) * ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t))
+          (s, a) ∂(softmaxPolicy (npgParam M γ η (t + 1)) s)) :=
+          mul_le_mul_of_nonneg_left h (div_pos h1γ hη).le
+      _ = _ := by field_simp
+  have h_imp := integral_integral_advantage_le_integral_value_sub (μ := μ) hγ hR
+    fun s ↦ (mul_nonneg (div_pos h1γ hη).le (npgLogPartition_nonneg hγ hR t s)).trans (h_state s)
+  rw [← integral_const_mul]
+  exact (integral_mono ((integrable_npgLogPartition hγ hR hη t μ).const_mul _)
+    (integrable_integral_advantage hγ hR t _ μ) h_state).trans h_imp
 
 /-- **The values of natural policy gradient increase**: in every state `s`, `t ↦ v^{π_t} s` is
 monotone. -/
