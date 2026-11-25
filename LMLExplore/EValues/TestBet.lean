@@ -75,6 +75,18 @@ lemma testBet_apply (p q : ℝ) (φ : Ω → ℝ≥0∞) (ω : Ω) :
       ENNReal.ofReal (q / p) * φ ω + ENNReal.ofReal ((1 - q) / (1 - p)) * (1 - φ ω) :=
   (rfl)
 
+/-- On the event `s`, the bet on the indicator of `s` pays `q / p`. -/
+@[simp]
+lemma testBet_indicator_of_mem {s : Set Ω} {ω : Ω} (hω : ω ∈ s) :
+    testBet p q (s.indicator 1) ω = ENNReal.ofReal (q / p) := by
+  simp [testBet_apply, indicator_of_mem hω]
+
+/-- Off the event `s`, the bet on the indicator of `s` pays `(1 - q) / (1 - p)`. -/
+@[simp]
+lemma testBet_indicator_of_notMem {s : Set Ω} {ω : Ω} (hω : ω ∉ s) :
+    testBet p q (s.indicator 1) ω = ENNReal.ofReal ((1 - q) / (1 - p)) := by
+  simp [testBet_apply, indicator_of_notMem hω]
+
 @[fun_prop]
 lemma Measurable.testBet (hφ : Measurable φ) : Measurable (testBet p q φ) := by
   simp_rw [funext (testBet_apply p q φ)]
@@ -139,6 +151,36 @@ theorem IsTest.isEVar_testBet (hφ : IsTest φ S (ENNReal.ofReal p)) (hp : p ∈
   lintegral_le_one P hP :=
     lintegral_testBet_le_one hφ.measurable hφ.le_one hp hpq hq (hS P hP) (hφ.lintegral_le P hP)
 
+/-- Where `φ ≤ 1`, the bet on `φ` is the real number `q / p * f + (1 - q) / (1 - p) * (1 - f)` for
+the real test `f = (φ ω).toReal`, provided both payoffs are nonnegative. -/
+private lemma testBet_eq_ofReal {ω : Ω} (hφ1 : φ ω ≤ 1) (ha : 0 ≤ q / p)
+    (hb : 0 ≤ (1 - q) / (1 - p)) :
+    testBet p q φ ω = ENNReal.ofReal
+      (q / p * (φ ω).toReal + (1 - q) / (1 - p) * (1 - (φ ω).toReal)) := by
+  have hf1 : (φ ω).toReal ≤ 1 :=
+    ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using hφ1)
+  rw [testBet_apply, ENNReal.ofReal_add (mul_nonneg ha ENNReal.toReal_nonneg)
+    (mul_nonneg hb (sub_nonneg.2 hf1)), ENNReal.ofReal_mul ha, ENNReal.ofReal_mul hb,
+    ENNReal.ofReal_sub _ ENNReal.toReal_nonneg, ENNReal.ofReal_one,
+    ENNReal.ofReal_toReal ((hφ1.trans_lt ENNReal.one_lt_top).ne)]
+
+/-- For `0 < p ≤ q < 1` and `f ∈ [0, 1]`, the mixture `g = a f + b (1 - f)` of the payoffs
+`a = q / p` and `b = (1 - q) / (1 - p)` lies in `[b, a]`, and, by the concavity of the logarithm,
+`f log a + (1 - f) log b ≤ log g`. -/
+private lemma testBet_payoffs_mix (hp : 0 < p) (hpq : p ≤ q) (hq : q < 1) {f : ℝ} (hf0 : 0 ≤ f)
+    (hf1 : f ≤ 1) :
+    (1 - q) / (1 - p) ≤ q / p * f + (1 - q) / (1 - p) * (1 - f) ∧
+      q / p * f + (1 - q) / (1 - p) * (1 - f) ≤ q / p ∧
+      f * Real.log (q / p) + (1 - f) * Real.log ((1 - q) / (1 - p)) ≤
+        Real.log (q / p * f + (1 - q) / (1 - p) * (1 - f)) := by
+  obtain ⟨-, hb1, ha1, -⟩ := testBet_payoffs ⟨hp, hpq.trans_lt hq⟩ hpq hq.le
+  have hb : 0 < (1 - q) / (1 - p) := div_pos (sub_pos.2 hq) (sub_pos.2 (hpq.trans_lt hq))
+  have ha : 0 < q / p := hb.trans_le (hb1.trans ha1)
+  refine ⟨by nlinarith [hb1.trans ha1], by nlinarith [hb1.trans ha1], ?_⟩
+  have h := strictConcaveOn_log_Ioi.concaveOn.2 (mem_Ioi.2 ha) (mem_Ioi.2 hb) hf0
+    (sub_nonneg.2 hf1) (by ring)
+  simpa only [smul_eq_mul, mul_comm f, mul_comm (1 - f)] using h
+
 /-- **The expected logarithm of the bet on a test.** Under a probability measure `Q` with
 `q ≤ ∫⁻ φ ∂Q`, the expected logarithm of the bet on `φ ≤ 1` is at least the binary relative entropy
 `kl(q, p)`, for `0 < p ≤ q < 1`. -/
@@ -147,30 +189,24 @@ theorem klBer_le_eintegral_log_testBet {Q : Measure Ω} [IsProbabilityMeasure Q]
     (hQφ : ENNReal.ofReal q ≤ ∫⁻ ω, φ ω ∂Q) :
     (klBer q p : EReal) ≤ ∫ᵉ ω, ENNReal.log (testBet p q φ ω) ∂Q := by
   have hp' : p ∈ Ioo 0 1 := ⟨hp, hpq.trans_lt hq⟩
-  obtain ⟨-, hb1, ha1, -⟩ := testBet_payoffs hp' hpq hq.le
+  obtain ⟨hb0, hb1, ha1, -⟩ := testBet_payoffs hp' hpq hq.le
   set a := q / p
   set b := (1 - q) / (1 - p)
   have hb : 0 < b := div_pos (sub_pos.2 hq) (sub_pos.2 hp'.2)
-  have ha : 0 < a := hb.trans_le (hb1.trans ha1)
-  -- the bet is `a f + b (1 - f)`, for the real test `f = φ.toReal` with values in `[0, 1]`
+  -- the bet is `g = a f + b (1 - f)`, for the real test `f = φ.toReal` with values in `[0, 1]`
   set f : Ω → ℝ := fun ω ↦ (φ ω).toReal
   have hf0 (ω : Ω) : 0 ≤ f ω := ENNReal.toReal_nonneg
   have hf1 (ω : Ω) : f ω ≤ 1 := ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using hφ1 ω)
   set g : Ω → ℝ := fun ω ↦ a * f ω + b * (1 - f ω)
-  have hgb (ω : Ω) : b ≤ g ω := by nlinarith [hf0 ω, hf1 ω, hb1.trans ha1]
-  have hga (ω : Ω) : g ω ≤ a := by nlinarith [hf0 ω, hf1 ω, hb1.trans ha1]
-  have hbet (ω : Ω) : testBet p q φ ω = ENNReal.ofReal (g ω) := by
-    have hφω : φ ω = ENNReal.ofReal (f ω) := (ENNReal.ofReal_toReal ((hφ1 ω).trans_lt
-      ENNReal.one_lt_top).ne).symm
-    rw [testBet_apply, ENNReal.ofReal_add (mul_nonneg ha.le (hf0 ω))
-      (mul_nonneg hb.le (sub_nonneg.2 (hf1 ω))), ENNReal.ofReal_mul ha.le,
-      ENNReal.ofReal_mul hb.le, ENNReal.ofReal_sub _ (hf0 ω), ENNReal.ofReal_one, ← hφω]
+  have hg (ω : Ω) := testBet_payoffs_mix hp hpq hq (hf0 ω) (hf1 ω)
+  have hg0 (ω : Ω) : 0 < g ω := hb.trans_le (hg ω).1
+  have hbet (ω : Ω) : testBet p q φ ω = ENNReal.ofReal (g ω) :=
+    testBet_eq_ofReal (hφ1 ω) (hb0.trans (hb1.trans ha1)) hb0
   have hfm : Measurable f := hφ.ennreal_toReal
   have hgm : Measurable g := by fun_prop
   have hlog_int : Integrable (fun ω ↦ Real.log (g ω)) Q :=
     Integrable.of_mem_Icc (Real.log b) (Real.log a) (hgm.log.aemeasurable)
-      (ae_of_all _ fun ω ↦ ⟨Real.log_le_log hb (hgb ω), Real.log_le_log (hb.trans_le (hgb ω))
-        (hga ω)⟩)
+      (ae_of_all _ fun ω ↦ ⟨Real.log_le_log hb (hg ω).1, Real.log_le_log (hg0 ω) (hg ω).2.1⟩)
   have hf_int : Integrable f Q :=
     Integrable.of_mem_Icc 0 1 hfm.aemeasurable (ae_of_all _ fun ω ↦ ⟨hf0 ω, hf1 ω⟩)
   -- the power `F = ∫ f ∂Q` of the test is at least `q`
@@ -184,11 +220,6 @@ theorem klBer_le_eintegral_log_testBet {Q : Measure Ω} [IsProbabilityMeasure Q]
   set L₁ := Real.log a
   set L₀ := Real.log b
   have hL : L₀ ≤ L₁ := Real.log_le_log hb (hb1.trans ha1)
-  -- by concavity of the logarithm, `log (a f + b (1 - f)) ≥ f log a + (1 - f) log b`
-  have hconc (ω : Ω) : f ω * L₁ + (1 - f ω) * L₀ ≤ Real.log (g ω) := by
-    have h := strictConcaveOn_log_Ioi.concaveOn.2 (mem_Ioi.2 ha) (mem_Ioi.2 hb) (hf0 ω)
-      (sub_nonneg.2 (hf1 ω)) (by ring)
-    simpa only [smul_eq_mul, mul_comm (f ω), mul_comm (1 - f ω), g] using h
   have hmean : ∫ ω, (f ω * L₁ + (1 - f ω) * L₀) ∂Q = F * L₁ + (1 - F) * L₀ := by
     have : (fun ω ↦ f ω * L₁ + (1 - f ω) * L₀) = fun ω ↦ L₀ + f ω * (L₁ - L₀) := by
       ext ω; ring
@@ -197,13 +228,13 @@ theorem klBer_le_eintegral_log_testBet {Q : Measure Ω} [IsProbabilityMeasure Q]
     ring
   have hpq' : p ∈ Icc 0 1 := ⟨hp.le, hp'.2.le⟩
   have hq' : q ∈ Icc 0 1 := ⟨hp.le.trans hpq, hq.le⟩
-  simp_rw [hbet, ENNReal.log_ofReal_of_pos (hb.trans_le (hgb _))]
+  simp_rw [hbet, ENNReal.log_ofReal_of_pos (hg0 _)]
   rw [eintegral_eq_integral hlog_int, klBer_eq_ofReal_klBerReal hq' hpq' (klBer_ne_top hp'),
     EReal.coe_ennreal_ofReal, EReal.coe_le_coe_iff]
   -- `kl(q, p) = q L₁ + (1 - q) L₀ ≤ F L₁ + (1 - F) L₀ ≤ ∫ log g ∂Q`, since `F ≥ q` and `L₀ ≤ L₁`
   have h : InformationTheory.klBerReal q p ≤ ∫ ω, Real.log (g ω) ∂Q := by
     refine le_trans ?_ (hmean.symm.trans_le (integral_mono ((hf_int.mul_const L₁).add
-      (((integrable_const 1).sub hf_int).mul_const L₀)) hlog_int hconc))
+      (((integrable_const 1).sub hf_int).mul_const L₀)) hlog_int fun ω ↦ (hg ω).2.2))
     rw [InformationTheory.klBerReal_apply]
     nlinarith [mul_nonneg (sub_nonneg.2 hF) (sub_nonneg.2 hL)]
   exact max_le h ((klBerReal_nonneg_of_klBer_ne_top hq' hpq' (klBer_ne_top hp')).trans h)

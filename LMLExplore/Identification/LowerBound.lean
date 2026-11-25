@@ -33,8 +33,10 @@ power at least `1 - δ` at `θ`, and the bet on it (`ProbabilityTheory.testBet`)
 the stopping time whose expected logarithm at `θ` is at least `kl(1 - δ, δ) = kl(δ, 1 - δ)`. The
 Wald inequality with a design bounds that expected logarithm by `D* E_θ[τ]`, so
 `E_θ[τ] ≥ kl(δ, 1 - δ) / D*`, and `D* ≤ D(θ, ¬i) ≤ 1 / T*(θ)`
-(`IdentTask.designRate_le_inv_charTime`). The change of measure above is kept: it holds for
-stopping times of infinite mean, which the Wald inequality with a design does not cover.
+(`IdentTask.designRate_le_inv_charTime`). The change of measure above bounds the expected number
+of pulls of each arm (`kl(δ, 1 - δ) ≤ ∑ a, E_θ[N_a(τ)] KL(ν_a(θ), ν_a(λ))`, and
+`kl(δ, 1 - δ) ≤ E_θ[N_a(τ)] x` when `D(θ, w, ¬i) ≤ w_a x` for every nonnegative `w`), which the
+bound `D* E_θ[τ]` on the expected stopping time does not give.
 
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
 `log (1 / δ)` as `δ → 0`, and at least `log (1 / (2.4 δ))` for every `δ`, so that
@@ -303,27 +305,19 @@ theorem IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime
         (expectedStoppingTime A (Environment.bandit (task.ν θ)) : EReal) := by
   rcases lt_or_ge 0 δ with hδ0 | hδ0
   · exact hA.klBer_le_designRate_mul_expectedStoppingTime_of_pos hδ0 hδ hθ hi h_alt hstop
-  -- for `δ ≤ 0`, `A` is `ε`-correct for every `ε > 0`, and `kl(ε, 1 - ε) ≥ log (1 / (3 ε))` is
-  -- unbounded as `ε → 0`, so that the right-hand side is `⊤`
+  -- for `δ ≤ 0`, `A` is `ε`-correct for every `ε > 0`, and `kl(ε, 1 - ε)` is unbounded as
+  -- `ε → 0`, so that the right-hand side is `⊤`
   rw [klBer_one_sub_right_eq_top fun h ↦ hδ0.not_gt h.1]
   refine ((EReal.eq_top_iff_forall_lt _).2 fun y ↦ ?_).ge
-  set ε := Real.exp (-(|y| + 1)) / 3
-  have hε0 : 0 < ε := by positivity
-  have hε : ε ≤ 1 / 2 := by
-    have := Real.exp_le_one_iff.2 (by linarith [abs_nonneg y] : -(|y| + 1) ≤ 0)
-    simp only [ε]
-    linarith
-  have h_log : Real.log (1 / (3 * ε)) = |y| + 1 := by
-    rw [mul_div_cancel₀ _ three_ne_zero, one_div, ← Real.exp_neg, neg_neg, Real.log_exp]
-  calc (y : EReal) < ((|y| + 1 : ℝ) : EReal) := EReal.coe_lt_coe_iff.2 (by linarith [le_abs_self y])
-  _ ≤ (ENNReal.ofReal (|y| + 1) : EReal) := by
-    rw [EReal.coe_ennreal_ofReal]
-    exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
-  _ ≤ (klBer ε (1 - ε) : EReal) := by
-    rw [EReal.coe_ennreal_le_coe_ennreal_iff, ← h_log]
-    exact ofReal_log_one_div_le_klBer (by norm_num) ε
-  _ ≤ _ := hA.mono (hδ0.trans hε0.le) |>.klBer_le_designRate_mul_expectedStoppingTime_of_pos hε0 hε
-    hθ hi h_alt hstop
+  obtain ⟨ε, hy, hε⟩ := ((tendsto_klBer_one_sub_right_nhdsGT_zero.eventually
+    (eventually_gt_nhds (ENNReal.ofReal_lt_top (r := y)))).and
+    (Ioc_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2))).exists
+  calc (y : EReal) ≤ (ENNReal.ofReal y : EReal) := by
+        rw [EReal.coe_ennreal_ofReal]
+        exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
+  _ < (klBer ε (1 - ε) : EReal) := EReal.coe_ennreal_lt_coe_ennreal_iff.2 hy
+  _ ≤ _ := hA.mono (hδ0.trans hε.1.le) |>.klBer_le_designRate_mul_expectedStoppingTime_of_pos hε.1
+    hε.2 hθ hi h_alt hstop
 
 omit [DecidableEq α] in
 /-- **Lower bound on the sample complexity** [GK16, Theorem 1; LS, Theorem 33.5]. Let `A` be
