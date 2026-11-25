@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Data.Finset.Card
 public import LMLExplore.MeasureTheory.Integral.Lebesgue.Selection
 public import LMLExplore.EValues.PVariable
 public import Statlib.EValues.EVariable
@@ -329,29 +330,11 @@ theorem mem_eClosure_of_forall_le
     (hf : ∀ N R N' R', #N = #N' → #R = #R' → #(N ∩ R) ≤ #(N' ∩ R') → f N R ≤ f N' R')
     (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
     (hR : R ∈ eClosure f α e ω) (hT : #T = #R) (hTx : ∀ i ∈ T, ∀ j ∉ T, x j ≤ x i) :
-    T ∈ eClosure f α e ω := by
-  -- Induction on the number of members of `R` outside `T`, exchanging one of them for a member
-  -- of `T` outside `R`.
-  induction hn : #(R \ T) generalizing R with
-  | zero =>
-    rwa [eq_of_subset_of_card_le (sdiff_eq_empty_iff_subset.1 (card_eq_zero.1 hn)) hT.le] at hR
-  | succ n ih =>
-    obtain ⟨i, hi⟩ : (R \ T).Nonempty := card_pos.1 (by omega)
-    obtain ⟨j, hj⟩ : (T \ R).Nonempty := card_pos.1 (by rw [card_sdiff_comm hT]; omega)
-    rw [mem_sdiff] at hi hj
-    refine ih (insert_erase_mem_eClosure hf he hR hi.1 hj.2 (hTx j hj.1 i hi.2))
-      (by rw [hT, card_insert_of_notMem fun h ↦ hj.2 (mem_of_mem_erase h), card_erase_add_one hi.1])
-      ?_
-    have hset : insert j (R.erase i) \ T = (R \ T).erase i := by
-      ext k
-      simp only [mem_sdiff, mem_insert, mem_erase]
-      constructor
-      · rintro ⟨rfl | ⟨hki, hkR⟩, hkT⟩
-        · exact absurd hj.1 hkT
-        · exact ⟨hki, hkR, hkT⟩
-      · rintro ⟨hki, hkR, hkT⟩
-        exact ⟨Or.inr ⟨hki, hkR⟩, hkT⟩
-    rw [hset, card_erase_of_mem (mem_sdiff.2 hi), hn, Nat.add_sub_cancel]
+    T ∈ eClosure f α e ω :=
+  -- Exchange, one at a time, a member of `R` outside `T` for a member of `T` outside `R`.
+  induction_on_exchange (p := fun R ↦ R ∈ eClosure f α e ω → T ∈ eClosure f α e ω) id
+    (fun _ i j _ hi hiT hjT hjR ih hR ↦
+      ih (insert_erase_mem_eClosure hf he hR hi hjR (hTx j hjT i hiT))) R hT.symm hR
 
 end Ordering
 
