@@ -170,8 +170,7 @@ lemma lintegral_stoppingTime_eq_sum_lintegral_pullCount [IsProbabilityMeasure P]
     ∫⁻ ω, ENat.toENNReal (A.stoppingTime O X Y ω) ∂P =
       ∑ a, ∫⁻ ω, (pullCount X a (ENat.toNat (A.stoppingTime O X Y ω)) ω : ℝ≥0∞) ∂P :=
   LMLExplore.lintegral_toENNReal_eq_sum_lintegral_pullCount h.measurable_action
-    (measurable_to_countable' (α := ℕ∞) fun n ↦ A.measurable_stoppingTime h.measurable_obs
-      h.measurable_action h.measurable_feedback (measurableSet_singleton (α := WithTop ℕ) n))
+    (A.measurable_stoppingTime h.measurable_obs h.measurable_action h.measurable_feedback)
     (hA.ae_stoppingTime_ne_top h)
 
 end Learning.IdentAlg

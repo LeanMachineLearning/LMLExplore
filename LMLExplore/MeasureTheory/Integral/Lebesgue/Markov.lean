@@ -7,16 +7,18 @@ module
 
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Markov
 public import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
-public import LMLExplore.MeasureTheory.Integral.Lebesgue.Add
+
+import TauCeti.MeasureTheory.Integral.Lebesgue.Encard
 
 /-!
 # Markov's inequality for counts and for nonincreasing functions
 
-If each event of a finite family has probability at most `η`, then the expected number of events
-that occur is at most `#S * η`, so by Markov's inequality at least `m` of them occur with
-probability at most `#S * η / m`. In the same way, a count `U` whose integral, scaled by `d > 0`,
-is at most `C` reaches `K` with probability at most `C / (d K)`. A function nonincreasing on
-`[a, b]` is at least `f u` on `[a, u]`, so `(u - a) f u` is at most its integral over `[a, b]`.
+If each event of a finite family has probability at most `η`, then by Markov's inequality for the
+number of events that occur (`MeasureTheory.measure_lt_card_filter_le` of Tau Ceti), at least `m`
+of them occur with probability at most `#S * η / m`. In the same way, a count `U` whose integral,
+scaled by `d > 0`, is at most `C` reaches `K` with probability at most `C / (d K)`. A function
+nonincreasing on `[a, b]` is at least `f u` on `[a, u]`, so `(u - a) f u` is at most its integral
+over `[a, b]`.
 
 ## Main statements
 
@@ -41,30 +43,24 @@ variable {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
 
 /-- **Markov's inequality for a number of events.** If each of the events `E b`, `b ∈ S`, has
 probability at most `η` and `#S ≤ m c` with `m ≠ 0`, then at least `m` of these events occur with
-probability at most `c η`. -/
+probability at most `c η`. This is Tau Ceti's `measure_lt_card_filter_le` with threshold `m - 1`
+and a common bound on the measures of the events. -/
 lemma measure_le_card_filter_le {E : ι → Set Ω} [∀ b, DecidablePred (· ∈ E b)] {S : Finset ι}
-    (hE : ∀ b ∈ S, MeasurableSet (E b)) {η : ℝ≥0∞} (h : ∀ b ∈ S, P (E b) ≤ η) {m c : ℕ}
-    (hm : m ≠ 0) (hc : #S ≤ m * c) :
+    {η : ℝ≥0∞} (h : ∀ b ∈ S, P (E b) ≤ η) {m c : ℕ} (hm : m ≠ 0) (hc : #S ≤ m * c) :
     P {ω | m ≤ #{b ∈ S | ω ∈ E b}} ≤ c * η := by
-  -- The number of events that occur.
-  set N : Ω → ℝ≥0∞ := fun ω ↦ ∑ b ∈ S, (E b).indicator 1 ω with hN
-  have h_eq : {ω | m ≤ #{b ∈ S | ω ∈ E b}} = {ω | (m : ℝ≥0∞) ≤ N ω} := by
-    ext ω
-    simp only [Set.mem_ofPred_eq, hN, Set.indicator_apply, Pi.one_apply]
-    rw [sum_boole]
-    norm_cast
-  have h_int : ∫⁻ ω, N ω ∂P ≤ #S * η := by
-    rw [hN, lintegral_finsetSum_indicator_one hE]
-    calc ∑ b ∈ S, P (E b) ≤ ∑ _b ∈ S, η := sum_le_sum h
-    _ = #S * η := by simp
-  have h_markov := (mul_meas_ge_le_lintegral₀ (μ := P) (Finset.measurable_sum _ fun b hb ↦
-    measurable_one.indicator (hE b hb)).aemeasurable (m : ℝ≥0∞)).trans h_int
-  have hSc : (#S : ℝ≥0∞) * η ≤ m * (c * η) := by
-    rw [← mul_assoc]
+  have h_sub : {ω | m ≤ #{b ∈ S | ω ∈ E b}} ⊆ {ω | m - 1 < #{b ∈ S | ω ∈ E b}} := by
+    intro ω hω
+    simp only [Set.mem_ofPred_eq] at hω ⊢
+    omega
+  refine (measure_mono h_sub).trans
+    ((measure_lt_card_filter_le S E _).trans (ENNReal.div_le_of_le_mul' ?_))
+  calc ∑ b ∈ S, P (E b) ≤ #S • η := sum_le_card_nsmul _ _ _ h
+  _ = #S * η := nsmul_eq_mul _ _
+  _ ≤ (↑(m - 1) + 1) * c * η := by
     gcongr
+    rw [← Nat.cast_add_one, Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.2 hm)]
     exact_mod_cast hc
-  rw [h_eq]
-  exact (ENNReal.mul_le_mul_iff_right (by exact_mod_cast hm) (by simp)).1 (h_markov.trans hSc)
+  _ = _ := mul_assoc _ _ _
 
 /-- **Markov's inequality for a count.** If `d ∫⁻ U ≤ C` and `C ≤ d K ε`, with `0 < d` and
 `K ≠ 0`, then `U` is at least `K` with probability at most `ε`. -/

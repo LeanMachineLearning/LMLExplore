@@ -426,8 +426,7 @@ theorem isNumeraireAt_ite_top_of_mutuallySingular {P₁ Q₁ : Measure 𝓧} [Is
     obtain ⟨ω₀, hω₀⟩ := h0
     have hτ0 (ω : ℕ → 𝓧) : τ ω = 0 :=
       Nat.cast_inj.1 (hτ.eq_of_forall_lt (by rw [hω₀]) fun i hi ↦ absurd hi (Nat.not_lt_zero i))
-    have hF0 (ω : ℕ → 𝓧) : F 0 ω = F 0 ω₀ :=
-      (hF.adapted 0).dependsOn_of_piLT fun i hi ↦ absurd hi (Nat.not_lt_zero i)
+    have hF0 (ω : ℕ → 𝓧) : F 0 ω = F 0 ω₀ := (hF.adapted 0).apply_eq_of_piLT_zero ω ω₀
     have hc : F 0 ω₀ ≤ 1 := by
       have h := (hF.isEVar 0).lintegral_le_one (μ := Measure.infinitePi fun _ ↦ P₁) rfl
       simp_rw [hF0] at h

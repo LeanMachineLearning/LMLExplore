@@ -648,9 +648,8 @@ variable {Q₁ : Measure 𝓧} {S₁ : Set (Measure 𝓧)}
 Let `F n` be e-variables for the i.i.d. laws of the members of `S₁` such that `F n` is a function
 of the first `n` observations: `F` is adapted to the filtration `Filtration.piLT` of the
 observations. Almost surely under the i.i.d. law of `Q₁`,
-`limsup (1/n) log (F n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. If `Q₁` is not a probability
-measure, its i.i.d. law `Measure.infinitePi` is `0` and the statement holds trivially. -/
-theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
+`limsup (1/n) log (F n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. -/
+theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {F : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hF : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) F)
     (hFe : ∀ n, IsEVar (F n) (iidNull S₁)) :
@@ -658,9 +657,6 @@ theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
       limsup (fun n : ℕ ↦ ENNReal.log (F n ω) / (n : EReal)) atTop ≤ bipolarRate Q₁ S₁ := by
   have hFm : ∀ n, Measurable (F n) := fun n ↦ (hFe n).measurable
   have hFn : ∀ n, DependsOn (F n) (Set.Iio n) := fun n ↦ (hF n).dependsOn_of_piLT
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · exact Measure.ae_infinitePi_of_not_isProbabilityMeasure (i := 0) hQ
   set μ := Measure.infinitePi (fun _ : ℕ ↦ Q₁)
   by_cases hd : bipolarRate Q₁ S₁ = ⊤
   · simp [hd]
@@ -735,7 +731,7 @@ theorem ae_limsup_log_div_le_bipolarRate_of_adapted (Q₁ : Measure 𝓧)
 For every sequence of `n`-sample e-variables `M n` for the i.i.d. laws of the members of `S₁`,
 almost surely under the i.i.d. law of `Q₁`, `M n` evaluated at the first `n` observations has
 `limsup (1/n) log (M n) ≤ bipolarRate Q₁ S₁` [EVR26, Note 01]. -/
-theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
+theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {M : (n : ℕ) → (Fin n → 𝓧) → ℝ≥0∞}
     (hM : ∀ n, IsEVar (M n) (sampleNull S₁ n)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
@@ -750,7 +746,7 @@ theorem ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
 e-process `E` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT` of the
 observations, almost surely under the i.i.d. law of `Q₁`, the logarithm of `E n` divided by the
 number `n` of observations it has seen has `limsup` at most `bipolarRate Q₁ S₁`. -/
-theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧)
+theorem IsEProcess.ae_limsup_log_div_le_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {E : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
     (hE : IsEProcess E (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁)) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),

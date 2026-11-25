@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.EProcess.Admissible
 public import LMLExplore.EValues.Null.Basic
+public import LMLExplore.EValues.SubGaussian.Null
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Probability.Moments.SubGaussian
 public import Mathlib.Probability.ProductMeasure
@@ -29,15 +30,15 @@ import TauCeti.MeasureTheory.Integral.Pi
 Observe a sequence `X 0, X 1, …` of real numbers, the coordinates of `ℕ → ℝ`, with the filtration
 `MeasureTheory.Filtration.piLT`, so that time `n` has seen the `n` observations
 `X 0, …, X (n - 1)`. The null is the set of the i.i.d. laws whose marginal `μ` is `1`-sub-Gaussian
-(`∫ exp (t x) ∂μ ≤ exp (t ^ 2 / 2)` for every real `t`, Mathlib's `HasSubgaussianMGF id 1 μ`) and
-has no atom (`MeasureTheory.NullSingletonClass μ`). The process
-`E n = exp (∑ i < n, X i - n / 2)` is a test supermartingale for this null, hence an
-e-process, and it is admissible: every e-process that is at least `E` at every time, almost surely
-under every member of the null, is equal to `E` at every time, almost surely under every member of
-the null. Ramdas, Ruf, Larsson and Koolen prove the admissibility of this process for the larger
-null of conditionally `1`-sub-Gaussian increments [RRLK, Theorem 35], and conjecture it for the
-nonatomic laws; this file proves that conjecture for the i.i.d. nonatomic laws, following the
-proof of [EVR26, Note 02].
+(`∫ exp (t x) ∂μ ≤ exp (t ^ 2 / 2)` for every real `t`, Mathlib's `HasSubgaussianMGF id 1 μ`, that
+is, `μ ∈ ProbabilityTheory.subgaussianNull 1`) and has no atom
+(`MeasureTheory.NullSingletonClass μ`). The process `E n = exp (∑ i < n, X i - n / 2)` is a test
+supermartingale for this null, hence an e-process, and it is admissible: every e-process that is
+at least `E` at every time, almost surely under every member of the null, is equal to `E` at every
+time, almost surely under every member of the null. Ramdas, Ruf, Larsson and Koolen prove the
+admissibility of this process for the larger null of conditionally `1`-sub-Gaussian increments
+[RRLK, Theorem 35], and conjecture it for the nonatomic laws; this file proves that conjecture for
+the i.i.d. nonatomic laws, following the proof of [EVR26, Note 02].
 
 ## Main statements
 
@@ -162,13 +163,12 @@ private lemma lintegral_expFactor_le_one {μ : Measure ℝ} (hμ : HasSubgaussia
 /-- The exponential process is an e-process for i.i.d. sampling from `1`-sub-Gaussian laws. -/
 private lemma isEProcess_expProcess :
     IsEProcess expProcess (Filtration.piLT (X := fun _ : ℕ ↦ ℝ))
-      (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
-          HasSubgaussianMGF id 1 μ}) := by
-  have he : IsEVar expFactor {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
-      HasSubgaussianMGF id 1 μ} := by
-    refine ⟨measurable_expFactor, fun μ hμ ↦ ?_⟩
-    exact lintegral_expFactor_le_one hμ.2.2
-  convert he.isEProcess_prod_piLT fun μ (hμ : IsProbabilityMeasure μ ∧ _) ↦ hμ.1 using 1
+      (iidNull (subgaussianNull 1 ∩ {μ | NullSingletonClass μ})) := by
+  have he : IsEVar expFactor (subgaussianNull 1 ∩ {μ | NullSingletonClass μ}) :=
+    ⟨measurable_expFactor, fun μ hμ ↦
+      lintegral_expFactor_le_one (mem_subgaussianNull_iff_hasSubgaussianMGF.1 hμ.1).2⟩
+  convert he.isEProcess_prod_piLT fun μ (hμ : μ ∈ subgaussianNull 1 ∩ _) ↦
+    isProbabilityMeasure_of_mem_subgaussianNull hμ.1 using 1
   exact funext fun n ↦ funext (expProcess_eq_prod n)
 
 /-! ### The Kearns–Saul gap
@@ -938,13 +938,14 @@ theorem isAdmissibleEProcess_ofReal_exp_sum_sub_iid :
     IsAdmissibleEProcess
       (fun n ω ↦ ENNReal.ofReal (Real.exp (∑ i ∈ Finset.range n, ω i - n / 2)))
       (Filtration.piLT (X := fun _ : ℕ ↦ ℝ))
-      (iidNull {μ : Measure ℝ | IsProbabilityMeasure μ ∧ NullSingletonClass μ ∧
-          HasSubgaussianMGF id 1 μ}) := by
+      (iidNull (subgaussianNull 1 ∩ {μ | NullSingletonClass μ})) := by
   refine isEProcess_expProcess.isAdmissibleEProcess_of_exists_lintegral_eq ?_
   rintro n A hA ⟨_, hμ, hμA⟩
-  obtain ⟨μ, ⟨hμ, hμa, -⟩, rfl⟩ := mem_iidNull.1 hμ
+  obtain ⟨μ, ⟨hμs, hμa⟩, rfl⟩ := mem_iidNull.1 hμ
+  have := isProbabilityMeasure_of_mem_subgaussianNull hμs
+  have : NullSingletonClass μ := hμa
   obtain ⟨ν, hν, hνa, hνs, hν1, hνA⟩ := exists_touching_infinitePi_ne_zero hA hμA
-  exact ⟨_, infinitePi_mem_iidNull ⟨hν, hνa, hνs⟩, hνA, by
-    rw [lintegral_expProcess_of_touching hν1 n]⟩
+  exact ⟨_, infinitePi_mem_iidNull ⟨mem_subgaussianNull_iff_hasSubgaussianMGF.2 ⟨hν, hνs⟩, hνa⟩,
+    hνA, by rw [lintegral_expProcess_of_touching hν1 n]⟩
 
 end ProbabilityTheory

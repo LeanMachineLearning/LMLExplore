@@ -14,6 +14,8 @@ public import Mathlib.Basic.ENNReal.Real
 
 * `ENNReal.ofReal_div_lt_of_ofReal_le_ofReal_mul`: if `ofReal θ ≤ ofReal N * I` with `0 < θ` and
   `0 ≤ N < b`, then `ofReal (θ / b) < I`.
+* `ENNReal.ofReal_neg_min_of_nonneg`: truncating a real from above at a level `c ≥ 0` does not
+  change its negative part.
 -/
 
 public section
@@ -33,5 +35,11 @@ theorem ofReal_div_lt_of_ofReal_le_ofReal_mul {N θ b : ℝ} {I : ℝ≥0∞} (h
   refine (h.trans (mul_le_mul_right h' _)).not_gt ?_
   rw [← ENNReal.ofReal_mul hN]
   exact (ENNReal.ofReal_lt_ofReal_iff hθ).2 hlt
+
+/-- Truncating a real `x` from above at a level `c ≥ 0` does not change its negative part:
+`(min x c)⁻ = x⁻`. -/
+theorem ofReal_neg_min_of_nonneg {c : ℝ} (hc : 0 ≤ c) (x : ℝ) :
+    ENNReal.ofReal (-min x c) = ENNReal.ofReal (-x) := by
+  rw [← max_neg_neg, ENNReal.ofReal_max, ENNReal.ofReal_of_nonpos (neg_nonpos.2 hc), max_zero]
 
 end ENNReal

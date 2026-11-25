@@ -58,10 +58,14 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
 * `ProbabilityTheory.maxEPower_singleton`: the simple null, `maxEPower Q {P} = klIntegral Q P` for
   `P` of mass at most one, and `ProbabilityTheory.maxEPower_singleton_eq_klDiv`, its value
   `klDiv Q P` for a probability measure `P`.
+* `ProbabilityTheory.maxEPower_singleton_le_add_eintegral_log_inv`: if `ν.withDensity c ≤ m` for
+  a measurable `c ≤ 1`, positive under `Q`, and the expected value of `log c⁻¹` under `Q` is
+  finite, then the largest e-power of `{m}` exceeds that of `{ν}` by at most that expected value.
 * `ProbabilityTheory.maxEPower_eq_eintegral_numeraire`: the numeraire attains the largest e-power.
 * `ProbabilityTheory.maxEPower_prod_eq_add`: additivity of `maxEPower` on products of nulls.
-* `ProbabilityTheory.maxEPower_map_le` and `MeasurableEmbedding.maxEPower_map_eq`: data processing
-  for `maxEPower` along a measurable map, with equality along a measurable embedding.
+* `ProbabilityTheory.maxEPower_map_le`, `MeasurableEmbedding.maxEPower_map_eq` and
+  `MeasurableEquiv.maxEPower_map_eq`: data processing for `maxEPower` along a measurable map, with
+  equality along a measurable embedding or a measurable equivalence.
 * `ProbabilityTheory.coe_klDiv_smul_right_self_lt_maxEPower`: `klDiv` cannot replace `klIntegral` in
   the duality.
 
@@ -325,6 +329,39 @@ theorem maxEPower_singleton_eq_klDiv (Q P : Measure Ω) [IsProbabilityMeasure Q]
     [IsProbabilityMeasure P] : maxEPower Q {P} = klDiv Q P :=
   maxUtility_singleton_eq_klDiv Q P
 
+/-- **Transfer of e-variables along a domination.** Let `c ≤ 1` be measurable, `Q`-almost
+everywhere positive, with `ν.withDensity c ≤ m`. For every e-variable `E` for `{m}`, `c * E` is an
+e-variable for `{ν}`; so, provided the expected value of `log c⁻¹` under `Q` is finite, the
+largest e-power of `{m}` under `Q` exceeds that of `{ν}` by at most that expected value. -/
+theorem maxEPower_singleton_le_add_eintegral_log_inv {m : Measure Ω} {c : Ω → ℝ≥0∞}
+    (hc : Measurable c) (hc_le : ∀ ω, c ω ≤ 1) (hc_ne : ∀ᵐ ω ∂Q, c ω ≠ 0)
+    (hle : ν.withDensity c ≤ m) (h_top : ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q ≠ ⊤) :
+    maxEPower Q {m} ≤ maxEPower Q {ν} + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q := by
+  have hlog_nonneg (ω : Ω) : 0 ≤ ENNReal.log (c ω)⁻¹ :=
+    ENNReal.zero_le_log_iff.2 (ENNReal.one_le_inv.2 (hc_le ω))
+  refine maxEPower_le_iff.2 fun E hE ↦ ?_
+  have hE_meas := hE.measurable
+  -- `c * E` is an e-variable for `ν`
+  have hcE : IsEVar (c * E) {ν} := by
+    refine ⟨hc.mul hE_meas, fun ν' hν' ↦ ?_⟩
+    rw [mem_singleton_iff] at hν'
+    subst hν'
+    rw [← lintegral_withDensity_eq_lintegral_mul _ hc hE_meas]
+    exact (lintegral_mono' hle le_rfl).trans (hE.lintegral_le_one (mem_singleton m))
+  -- `log E = log (c * E) + log c⁻¹` where `c` is positive
+  have h_eq : ∀ᵐ ω ∂Q, ENNReal.log (E ω) =
+      ENNReal.log ((c * E) ω) + ENNReal.log (c ω)⁻¹ := by
+    filter_upwards [hc_ne] with ω hω
+    rw [← ENNReal.log_mul_add, Pi.mul_apply, mul_comm (c ω), mul_assoc,
+      ENNReal.mul_inv_cancel hω ((hc_le ω).trans_lt ENNReal.one_lt_top).ne, mul_one]
+  calc ∫ᵉ ω, ENNReal.log (E ω) ∂Q
+      = ∫ᵉ ω, ENNReal.log ((c * E) ω) + ENNReal.log (c ω)⁻¹ ∂Q := eintegral_congr_ae h_eq
+    _ = ∫ᵉ ω, ENNReal.log ((c * E) ω) ∂Q + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q :=
+        eintegral_add (by fun_prop) (by fun_prop) (eintegrable_of_nonneg hlog_nonneg)
+          (.inr h_top) (.inr (EReal.ne_bot_of_nonneg (eintegral_nonneg hlog_nonneg)))
+    _ ≤ maxEPower Q {ν} + ∫ᵉ ω, ENNReal.log (c ω)⁻¹ ∂Q :=
+        add_le_add_left (hcE.eintegral_log_le_maxEPower Q) _
+
 /-- **Additivity on products of nulls**: the largest e-power of the products of the members of
 two nulls, under a product of probability measures, is the sum of the largest e-powers. This is
 Statlib's `maxUtility_prod_eq_add`. -/
@@ -346,6 +383,17 @@ theorem _root_.MeasurableEmbedding.maxEPower_map_eq [Nonempty Ω] {φ : Ω → �
     (hφ : MeasurableEmbedding φ) (Q : Measure Ω) (S : Set (Measure Ω)) :
     maxEPower (Q.map φ) (mapNull φ S) = maxEPower Q S :=
   mapNull_def φ S ▸ MeasurableEmbedding.maxUtility_map_eq φ hφ Q S
+
+/-- Pushing the measure and the null forward along a measurable equivalence preserves the largest
+e-power. Unlike `MeasurableEmbedding.maxEPower_map_eq`, no point of `Ω` is needed: the inverse
+carries the e-variables back. -/
+theorem _root_.MeasurableEquiv.maxEPower_map_eq (e : Ω ≃ᵐ Ω') (Q : Measure Ω)
+    (S : Set (Measure Ω)) :
+    maxEPower (Q.map e) (mapNull e S) = maxEPower Q S := by
+  refine le_antisymm (maxEPower_map_le Q e.measurable) ?_
+  have h := maxEPower_map_le (Q.map e) (S := mapNull e S) e.symm.measurable
+  rwa [Measure.map_map e.symm.measurable e.measurable, mapNull_mapNull e.symm.measurable
+    e.measurable, e.symm_comp_self, Measure.map_id, mapNull_id] at h
 
 /-! ### `klDiv` cannot replace `klIntegral` -/
 

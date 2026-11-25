@@ -12,8 +12,9 @@ public import Mathlib.Data.Fintype.BigOperators
 
 The functions `f : ∀ i, α i` with `Q i (f i)` for every `i` form the box
 `Fintype.piFinset fun i ↦ {a | Q i a}`, so there are `∏ i, #{a | Q i a}` of them. The lower
-bound for e-BH on running maxima (`LMLExplore.EValues.MultipleTesting.RunningMaxima.LowerBound`)
-counts the height vectors in a fiber of its information this way.
+bound for e-BH on running maxima
+(`LMLExplore.EValues.Examples.MultipleTesting.RunningMaxima.LowerBound`) counts the height vectors
+in a fiber of its information this way.
 
 For a numbering `e : α ≃ Fin n` of a finite type, a product over `α` of a function of the numbers
 is the product over `{0, …, n - 1}`. The bandits whose means are in arithmetic progression along a

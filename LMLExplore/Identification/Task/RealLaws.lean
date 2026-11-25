@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Bandits.Regret
+public import LMLExplore.EValues.SubGaussian.Null
 public import LMLExplore.Identification.Task.ProductModel
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 public import LMLExplore.Probability.Moments.SubGaussian.Bounded
@@ -39,7 +40,8 @@ equality at the Bernoulli laws [AJG20].
 * `LMLExplore.Identification.lawMean θ a`: the mean `∫ x ∂(θ a)` of arm `a`, the mean functional of
   the model.
 * `LMLExplore.Identification.subgaussianLaws σ2`: the laws `P` on `ℝ` that are σ²-sub-Gaussian
-  around their mean, `P[exp (t (X - ∫ x ∂P))] ≤ exp (σ² t² / 2)`.
+  around their mean, `P[exp (t (X - ∫ x ∂P))] ≤ exp (σ² t² / 2)`: their centred law is in the
+  two-sided sub-Gaussian null `ProbabilityTheory.subgaussianNull σ2`.
 * `LMLExplore.Identification.unitIntervalLaws`: the laws on `[0, 1]`.
 * `LMLExplore.Identification.bernoulliModel p`: the Bernoulli model with success probabilities
   `p`, whose bandit is the Bernoulli bandit `Bandits.bernoulliBandit p`.
@@ -141,10 +143,11 @@ lemma lawMean_eq_integral_lawBandit [Countable α] [MeasurableSingletonClass α]
 
 /-! ### Classes of laws -/
 
-/-- The laws `P` on `ℝ` that are σ²-sub-Gaussian around their mean:
-`∫ exp (t (x - ∫ y ∂P)) ∂P(x) ≤ exp (σ² t² / 2)` for every `t`. -/
+/-- The laws `P` on `ℝ` that are σ²-sub-Gaussian around their mean: the law of `x - ∫ y ∂P`
+under `P` is in the two-sided σ²-sub-Gaussian null, that is,
+`∫ exp (t (x - ∫ y ∂P)) ∂P(x) ≤ exp (σ² t² / 2)` for every `t` (`mem_subgaussianLaws_iff`). -/
 def subgaussianLaws (σ2 : ℝ≥0) : Set (ProbabilityMeasure ℝ) :=
-  {P | HasSubgaussianMGF (fun x ↦ x - (P : Measure ℝ)[id]) σ2 P}
+  {P | (P : Measure ℝ).map (fun x ↦ x - (P : Measure ℝ)[id]) ∈ subgaussianNull σ2}
 
 /-- The laws on `[0, 1]`. -/
 def unitIntervalLaws : Set (ProbabilityMeasure ℝ) :=
@@ -152,21 +155,29 @@ def unitIntervalLaws : Set (ProbabilityMeasure ℝ) :=
 
 variable {P : ProbabilityMeasure ℝ} {σ2 : ℝ≥0}
 
+lemma subgaussianLaws_def (σ2 : ℝ≥0) :
+    subgaussianLaws σ2 = {P : ProbabilityMeasure ℝ |
+      (P : Measure ℝ).map (fun x ↦ x - (P : Measure ℝ)[id]) ∈ subgaussianNull σ2} :=
+  (rfl)
+
 @[simp]
 lemma mem_subgaussianLaws_iff :
-    P ∈ subgaussianLaws σ2 ↔ HasSubgaussianMGF (fun x ↦ x - (P : Measure ℝ)[id]) σ2 P :=
-  Iff.rfl
+    P ∈ subgaussianLaws σ2 ↔ HasSubgaussianMGF (fun x ↦ x - (P : Measure ℝ)[id]) σ2 P := by
+  rw [subgaussianLaws_def, mem_ofPred_eq, mem_subgaussianNull_iff_hasSubgaussianMGF,
+    HasSubgaussianMGF.id_map_iff (by fun_prop)]
+  exact and_iff_right inferInstance
 
 @[simp]
 lemma mem_unitIntervalLaws_iff : P ∈ unitIntervalLaws ↔ ∀ᵐ x ∂(P : Measure ℝ), x ∈ Icc 0 1 :=
   Iff.rfl
 
-lemma subgaussianLaws_mono : Monotone subgaussianLaws := fun _ _ h _ hP ↦
-  mem_subgaussianLaws_iff.2 ((mem_subgaussianLaws_iff.1 hP).mono h)
+lemma subgaussianLaws_mono : Monotone subgaussianLaws := fun _ _ h _ hP ↦ by
+  rw [subgaussianLaws_def, mem_ofPred_eq] at hP ⊢
+  exact subgaussianNull_mono h hP
 
 /-- **Hoeffding's lemma**: a law on `[0, 1]` is `1 / 4`-sub-Gaussian around its mean. -/
 lemma unitIntervalLaws_subset_subgaussianLaws : unitIntervalLaws ⊆ subgaussianLaws (1 / 4) :=
-  fun _ hP ↦ hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id hP
+  fun _ hP ↦ mem_subgaussianLaws_iff.2 (hasSubgaussianMGF_of_mem_Icc_zero_one aemeasurable_id hP)
 
 /-- The Bernoulli laws `Ber(1, 0, p)` are laws on `[0, 1]`. -/
 lemma bernoulliMeasure_mem_unitIntervalLaws (p : I) :

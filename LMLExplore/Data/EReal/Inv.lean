@@ -21,6 +21,8 @@ public import Mathlib.Data.EReal.Inv
 * `EReal.coe_le_div_natCast_iff`, `EReal.coe_lt_div_natCast_iff`, `EReal.div_natCast_le_coe_iff`,
   `EReal.div_natCast_lt_coe_iff`: for `0 < n`, comparing `y / n` with a real `r` is comparing `y`
   with the real `n * r`. They turn a bound on a normalized exponent into a bound on the exponent.
+* `EReal.div_natCast_le_iff`: for `0 < n`, `y / n ≤ c` if and only if `y ≤ n * c`, for any
+  extended real `c`.
 -/
 
 public section
@@ -61,5 +63,9 @@ lemma div_natCast_le_coe_iff (hn : 0 < n) : y / n ≤ r ↔ y ≤ ((n * r : ℝ)
 lemma div_natCast_lt_coe_iff (hn : 0 < n) : y / n < r ↔ y < ((n * r : ℝ) : EReal) := by
   rw [div_lt_iff (by exact_mod_cast hn) (natCast_ne_top n), mul_comm, ← EReal.coe_natCast,
     ← coe_mul]
+
+/-- For `0 < n`, `y / n` is at most `c` if and only if `y` is at most `n * c`. -/
+lemma div_natCast_le_iff (hn : 0 < n) {c : EReal} : y / n ≤ c ↔ y ≤ n * c :=
+  div_le_iff_le_mul (by exact_mod_cast hn) (natCast_ne_top n)
 
 end EReal

@@ -49,6 +49,8 @@ means.
   points of `ℝ≥0∞`.
 * `ProbabilityTheory.exists_lintegral_id_eq_one`: every finite `e : ℝ≥0∞` is charged by a
   Bernoulli law on `ℝ≥0∞` of mean `1`.
+* `ProbabilityTheory.exists_pi_lintegral_id_eq_one`: every point with finite coordinates is
+  charged by a product of laws on `ℝ≥0∞` of mean `1`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_of_imp`: if `q = 0 → p = 0` and
   `q = 1 → p = 1`, then `Ber(x, y, p) ≪ Ber(x, y, q)`.
 * `ProbabilityTheory.bernoulliMeasure_absolutelyContinuous_iff`: for `x ≠ y`,
@@ -147,6 +149,16 @@ theorem exists_lintegral_id_eq_one {e : ℝ≥0∞} (he : e ≠ ∞) :
         ENNReal.ofReal_toReal he, ENNReal.inv_mul_cancel he0 he]
     · rw [bernoulliMeasure_apply_singleton_left he0]
       exact (ENNReal.ofReal_pos.2 (inv_pos.2 hpos)).ne'
+
+/-- Every point with finite coordinates is charged by a product of probability measures on `ℝ≥0∞`
+of mean `1`: a product of Bernoulli laws (`exists_lintegral_id_eq_one`). -/
+theorem exists_pi_lintegral_id_eq_one {ι : Type*} [Fintype ι] (e : ι → ℝ≥0) :
+    ∃ μ : ι → Measure ℝ≥0∞, (∀ i, IsProbabilityMeasure (μ i)) ∧ (∀ i, ∫⁻ z, z ∂μ i = 1) ∧
+      Measure.pi μ {fun i ↦ (e i : ℝ≥0∞)} ≠ 0 := by
+  choose μ hμ hmean hμe using fun i ↦ exists_lintegral_id_eq_one (ENNReal.coe_ne_top (r := e i))
+  refine ⟨μ, hμ, hmean, ?_⟩
+  rw [Measure.pi_singleton]
+  exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hμe i
 
 /-- Every real function has exponential moments of all orders under a Bernoulli law. -/
 @[simp]

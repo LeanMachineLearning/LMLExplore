@@ -83,13 +83,11 @@ theorem IsEVar.isEProcess_prod_piLT (hS : ∀ P ∈ S, IsProbabilityMeasure P) (
 /-- **Ville's inequality for products over blocks.** If a function `V` of `m` observations has
 expectation at most `1` under the `m`-fold product of `P`, then under the i.i.d. law of `P` the
 product of `V` over the first `k` blocks of `m` observations reaches `c` for some `k` with
-probability at most `c⁻¹`. If `P` is not a probability measure, its i.i.d. law is `0`. -/
-theorem measure_exists_le_seqBlockProd_le (P : Measure 𝓧) {m : ℕ} {V : (Fin m → 𝓧) → ℝ≥0∞}
-    (hV : Measurable V) (hVP : ∫⁻ x, V x ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1) (c : ℝ≥0∞) :
+probability at most `c⁻¹`. -/
+theorem measure_exists_le_seqBlockProd_le (P : Measure 𝓧) [IsProbabilityMeasure P] {m : ℕ}
+    {V : (Fin m → 𝓧) → ℝ≥0∞} (hV : Measurable V)
+    (hVP : ∫⁻ x, V x ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1) (c : ℝ≥0∞) :
     Measure.infinitePi (fun _ : ℕ ↦ P) {ω | ∃ k, c ≤ seqBlockProd m V k ω} ≤ c⁻¹ := by
-  by_cases hP : IsProbabilityMeasure P
-  swap
-  · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0) hP]
   -- the products of copies of `V` along the sequence of the blocks
   have hE := (show IsEVar V {Measure.pi fun _ : Fin m ↦ P} from
     ⟨hV, fun _ h ↦ h ▸ hVP⟩).isEProcess_prod_piLT (fun _ h ↦ h ▸ inferInstance)

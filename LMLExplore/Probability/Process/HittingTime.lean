@@ -34,6 +34,8 @@ occurs.
 
 * `MeasureTheory.hittingAfter_lt_top_iff`: a hitting time is finite exactly when the process
   lies in the set at some time after the starting time.
+* `MeasureTheory.stoppedValue_hittingAfter_zero_mem_iff`: a process lies in a set at its hitting
+  time after `0` of that set exactly when the hitting time is finite.
 * `MeasureTheory.hittingAfter_indicator_lt_top_iff`: the hitting time of the indicators of a
   sequence of events is finite exactly on the union of the events after the starting time.
 * `MeasureTheory.hittingAfter_apply_eq_of_forall_mem_iff`: a process that lies in the set exactly
@@ -42,6 +44,8 @@ occurs.
   which the indicators of the events `{τ ≤ i}` equal `1`.
 * `MeasureTheory.hittingAfter_apply_congr`: two hitting times agree at `ω` when the two processes
   lie in their sets at the same times.
+* `MeasureTheory.hittingAfter_apply_le_of_forall_mem`: a process that lies in its set whenever
+  another one does hits it no later.
 * `MeasureTheory.measure_iUnion_eq_iSup_isStoppingTime`: the measure of the union of an adapted
   sequence of events is the supremum of the measures of the events read at the bounded stopping
   times [RRLK, Lemma 2].
@@ -73,6 +77,13 @@ lies in `s` at some time `i ≥ n`. -/
 theorem hittingAfter_lt_top_iff {β : Type*} {u : ι → Ω → β} {s : Set β} {n : ι} {ω : Ω} :
     hittingAfter u s n ω < ⊤ ↔ ∃ i, n ≤ i ∧ u i ω ∈ s := by
   simp [lt_top_iff_ne_top, hittingAfter_eq_top_iff]
+
+/-- The value of a process at its hitting time after `0` of a set `s` lies in `s` exactly when
+the hitting time is finite. -/
+theorem stoppedValue_hittingAfter_zero_mem_iff {β : Type*} {u : ℕ → Ω → β} {s : Set β}
+    {ω : Ω} : stoppedValue u (hittingAfter u s 0) ω ∈ s ↔ hittingAfter u s 0 ω ≠ ⊤ :=
+  ⟨fun h htop ↦ hittingAfter_eq_top_iff.1 htop _ (Nat.zero_le _) h,
+    hittingAfter_mem_set_of_ne_top⟩
 
 /-- The hitting time after `n` of `{1}` by the indicators of a sequence of events `E i` is finite
 exactly when some event `E i` with `n ≤ i` occurs. -/
@@ -113,6 +124,19 @@ theorem hittingAfter_apply_congr [WellFoundedLT ι] {β β' : Type*} {u : ι →
   | coe k =>
     rw [hittingAfter_le_iff, hittingAfter_le_iff]
     exact exists_congr fun i ↦ and_congr_right fun hi ↦ h i hi.1
+
+/-- If, at every time `i ≥ n`, the process `u'` lies in `s'` whenever the process `u` lies in `s`,
+then `u'` hits `s'` after `n` no later than `u` hits `s`. For instance a walk hits `[b, ∞)` no later
+than a walk below it. -/
+theorem hittingAfter_apply_le_of_forall_mem [WellFoundedLT ι] {β β' : Type*} {u : ι → Ω → β}
+    {u' : ι → Ω → β'} {s : Set β} {s' : Set β'} {n : ι} {ω : Ω}
+    (h : ∀ i, n ≤ i → u i ω ∈ s → u' i ω ∈ s') :
+    hittingAfter u' s' n ω ≤ hittingAfter u s n ω := by
+  induction hu : hittingAfter u s n ω using WithTop.recTopCoe with
+  | top => exact le_top
+  | coe k =>
+    obtain ⟨i, hi, his⟩ := hittingAfter_le_iff.1 hu.le
+    exact (hittingAfter_le_of_mem hi.1 (h i hi.1 his)).trans (mod_cast hi.2)
 
 /-- **A random time is the first time it has passed.** For `τ : Ω → WithTop ι` with `n ≤ τ ω`, the
 first time after `n` at which the indicator of the event `{τ ≤ i}` equals `1` is `τ ω`. -/

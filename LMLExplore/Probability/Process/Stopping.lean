@@ -8,7 +8,6 @@ module
 public import Mathlib.MeasureTheory.MeasurableSpace.Instances
 public import Mathlib.Probability.Process.Stopping
 public import LMLExplore.Data.ENat.Basic
-public import TauCeti.Probability.Process.Filtration.Comp
 import Mathlib.MeasureTheory.Function.FactorsThrough
 
 /-!
@@ -41,11 +40,11 @@ time, which is how a statistician switches between two stopping rules after seei
 * `MeasureTheory.Adapted.shift`, `MeasureTheory.adapted_shift_iff`: for filtrations with
   `𝒢 (n + 1) = ℱ n`, a process `M` with `M 0` measurable at time `0` is adapted to `𝒢` exactly
   when its shift `fun n ↦ M (n + 1)` is adapted to `ℱ`.
-* `MeasureTheory.IsStoppingTime.map_of_comp`: a stopping time of the filtration `ℱ.comp ht`
-  sampled along a monotone time map `t`, read on the clock of `ℱ`, is a stopping time of `ℱ`.
 * `MeasureTheory.IsStoppingTime.eq_of_forall_le`: a stopping time of the coordinate filtration
   `Filtration.piLE` is determined, where it is finite, by the coordinates up to it.
 * `MeasureTheory.Adapted.stoppedProcess_of_discrete`: a stopped adapted process is adapted.
+* `MeasureTheory.IsStoppingTime.iInf_nat`: the infimum of countably many stopping times of a
+  filtration indexed by `ℕ` is a stopping time.
 * `MeasureTheory.IsStoppingTime.piecewise_of_stoppingTime_le`: two stopping times at least a
   stopping time `ρ`, glued along a set of the σ-algebra at `ρ`, form a stopping time.
 -/
@@ -202,23 +201,33 @@ theorem adapted_shift_iff {β : Type*} [MeasurableSpace β] {𝒢 : Filtration �
   · exact hM₀
   · exact (h n).symm ▸ hM n
 
-/-- **Sampled stopping times.** For a monotone time map `t`, a stopping time `κ` of the sampled
-filtration `ℱ.comp ht`, whose time `k` is `ℱ (t k)`, read on the clock of `ℱ` as
-`(κ ω).map t`, is a stopping time of `ℱ`. -/
-theorem IsStoppingTime.map_of_comp {t : ℕ → ℕ} (ht : Monotone t) {κ : Ω → WithTop ℕ}
-    (hκ : IsStoppingTime (ℱ.comp ht) κ) : IsStoppingTime ℱ fun ω ↦ (κ ω).map t := by
-  refine isStoppingTime_of_measurableSet_eq fun j ↦ ?_
-  have h_eq : {ω | (κ ω).map t = WithTop.some j} =
-      ⋃ k, ⋃ (_ : t k = j), {ω | κ ω = WithTop.some k} := by
-    ext ω
-    simp only [Set.mem_ofPred_eq, Set.mem_iUnion, exists_prop]
-    cases κ ω <;> simp
-  rw [h_eq]
-  refine .iUnion fun k ↦ .iUnion fun hk ↦ ?_
-  subst hk
-  exact (Filtration.measurableSet_comp_iff ℱ ht k).1 (hκ.measurableSet_eq k)
-
 end Nat
+
+/-! ### Countable infima of stopping times -/
+
+section iInf
+
+variable {ℱ : Filtration ℕ mΩ}
+
+/-- The infimum of countably many stopping times of a filtration indexed by `ℕ` is a stopping time:
+it is at most `n` exactly when one of them is. Mathlib's `IsStoppingTime.iInf` is the version for
+right-continuous filtrations indexed by a densely ordered time. -/
+theorem IsStoppingTime.iInf_nat {ι : Type*} [Countable ι] {τ : ι → Ω → WithTop ℕ}
+    (hτ : ∀ i, IsStoppingTime ℱ (τ i)) : IsStoppingTime ℱ fun ω ↦ ⨅ i, τ i ω := by
+  intro n
+  -- the event `{⨅ i, τ i ≤ n}` is the union of the events `{τ i ≤ n}`
+  convert MeasurableSet.iUnion fun i ↦ hτ i n using 1
+  ext ω
+  simp only [Set.mem_ofPred_eq, Set.mem_iUnion]
+  refine ⟨fun h ↦ ?_, fun ⟨i, hi⟩ ↦ (iInf_le _ i).trans hi⟩
+  -- the infimum is below `n + 1`, hence so is one of the times, which is then at most `n`
+  obtain ⟨i, hi⟩ := iInf_lt_iff.1 (h.trans_lt (WithTop.coe_lt_coe.2 (Nat.lt_succ_self n)))
+  refine ⟨i, ?_⟩
+  cases h : τ i ω with
+  | top => simp [h] at hi
+  | coe k => exact WithTop.coe_le_coe.2 (Nat.lt_succ_iff.1 (WithTop.coe_lt_coe.1 (h ▸ hi)))
+
+end iInf
 
 /-! ### Piecewise stopping times -/
 

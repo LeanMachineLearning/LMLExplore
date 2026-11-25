@@ -275,17 +275,13 @@ private lemma lintegral_hittingAfter_add_one_le (Q₁ : Measure 𝓧) [IsProbabi
 `Filtration.piLE`, where `τ + 1` observations have been made at a time `τ`:
 `limsup_{α → 0} 𝔼[τ α + 1] / log (1/α) ≤ 1 / d'`. -/
 private theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE (Q₁ : Measure 𝓧)
-    {d' : ℝ} (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {d' : ℝ} (hd' : 0 < d')
+    (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
     ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
       (∀ α, IsLevelStoppingTime (τ α) (Filtration.piLE (X := fun _ : ℕ ↦ 𝓧))
         (iidNull S₁) α) ∧
       limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (τ α ω) + 1 ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
         (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
-  by_cases hQ : IsProbabilityMeasure Q₁
-  swap
-  · -- the i.i.d. law of `Q₁` is `0`: never stop
-    refine ⟨fun _ _ ↦ ⊤, fun α ↦ ⟨fun i ↦ by simp, fun P _ ↦ by simp⟩, ?_⟩
-    simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0) hQ]
   obtain ⟨m, hm, v, hv, ⟨C₀, hvC₀⟩, hvP, hmv⟩ := exists_bounded_bet Q₁ hd'd
   set C := max C₀ 0
   have hvC (x : Fin m → 𝓧) : v x ≤ C := (hvC₀ x).trans (le_max_left _ _)
@@ -303,61 +299,33 @@ private theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE (Q�
     ⟨hE.isStoppingTime_hittingAfter measurableSet_Ici, ?_⟩, ?_⟩
   · -- the level, by Ville's inequality
     refine forall_mem_iidNull.2 fun P hP ↦ ?_
-    by_cases hP' : IsProbabilityMeasure P
-    swap
-    · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ P) (i := 0)
-        hP']
+    have := hS₁ P hP
     refine (measure_mono fun ω hω ↦ ?_).trans
-      ((measure_exists_le_seqBlockProd_le P hVm (hvP P hP hP') α⁻¹).trans_eq (inv_inv α))
+      ((measure_exists_le_seqBlockProd_le P hVm (hvP P hP this) α⁻¹).trans_eq (inv_inv α))
     obtain ⟨n, -, hn⟩ := hittingAfter_lt_top_iff.1 hω
     exact ⟨_, hn⟩
-  -- the expected number of observations, for `α ∈ (0, 1)`
-  set B : ℝ≥0∞ → ℝ≥0∞ := fun α ↦ (ENNReal.log α⁻¹).toENNReal
-  have hbound : ∀ᶠ α in 𝓝[>] (0 : ℝ≥0∞),
-      (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) / B α ≤
-        ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α) := by
-    filter_upwards [Ioo_mem_nhdsGT zero_lt_one] with α ⟨hα0, hα1⟩
-    have hlog_top : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
+  -- the expected number of observations, for `α ∈ (0, 1)`, is at most
+  -- `m * (b + C) / a = m * C / a + log (1/α) * (m / a)`
+  refine (ENNReal.limsup_div_toENNReal_log_inv_le (K := ENNReal.ofReal (m * C / a))
+    (r := ENNReal.ofReal (m / a)) ENNReal.ofReal_ne_top fun α hα0 hα1 ↦ ?_).trans
+    (ENNReal.ofReal_le_ofReal ?_)
+  · have hlog_top : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
     have hlog_bot : ENNReal.log α⁻¹ ≠ ⊥ := by simpa using hα1.ne_top
     set b := (ENNReal.log α⁻¹).toReal
     have hb : (b : EReal) = ENNReal.log α⁻¹ := EReal.coe_toReal hlog_top hlog_bot
     have hb0 : 0 < b := by
       rw [← EReal.coe_lt_coe_iff, hb, EReal.coe_zero, ENNReal.zero_lt_log_iff]
       exact ENNReal.one_lt_inv.2 hα1
-    have hBb : B α = ENNReal.ofReal b := EReal.toENNReal_of_ne_top hlog_top
-    have hexp := lintegral_hittingAfter_add_one_le Q₁ hm hv hvC ha (ENNReal.one_lt_inv.2 hα1)
-      hb.symm
-    have hB0 : B α ≠ 0 := by rw [hBb]; exact (ENNReal.ofReal_pos.2 hb0).ne'
-    have hBtop : B α ≠ ⊤ := by rw [hBb]; exact ENNReal.ofReal_ne_top
-    calc (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) / B α
-    _ ≤ m * ENNReal.ofReal ((b + C) / a) / B α := by gcongr
-    _ = ENNReal.ofReal (m / a) * (B α + ENNReal.ofReal C) / B α := by
-      rw [hBb, ← ENNReal.ofReal_add hb0.le (le_max_right _ _), ← ENNReal.ofReal_natCast,
-        ← ENNReal.ofReal_mul (Nat.cast_nonneg _), ← ENNReal.ofReal_mul (by positivity)]
-      congr 2
+    calc ∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ
+    _ ≤ m * ENNReal.ofReal ((b + C) / a) :=
+      lintegral_hittingAfter_add_one_le Q₁ hm hv hvC ha (ENNReal.one_lt_inv.2 hα1) hb.symm
+    _ = ENNReal.ofReal (m * C / a) + (ENNReal.log α⁻¹).toENNReal * ENNReal.ofReal (m / a) := by
+      rw [EReal.toENNReal_of_ne_top hlog_top, ← ENNReal.ofReal_natCast,
+        ← ENNReal.ofReal_mul (Nat.cast_nonneg _), ← ENNReal.ofReal_mul hb0.le,
+        ← ENNReal.ofReal_add (by positivity) (by positivity)]
+      congr 1
       ring
-    _ = ENNReal.ofReal (m / a) * ((B α + ENNReal.ofReal C) / B α) := mul_div_assoc _ _ _
-    _ = ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α) := by
-      rw [ENNReal.add_div, ENNReal.div_self hB0 hBtop]
-  -- the bound tends to `m / a` as `α → 0`
-  have hB : Tendsto B (𝓝[>] 0) (𝓝 ⊤) := by
-    have h : Continuous B :=
-      EReal.continuous_toENNReal.comp (ENNReal.continuous_log.comp continuous_inv)
-    simpa [B] using (h.tendsto 0).mono_left nhdsWithin_le_nhds
-  have hlim : Tendsto (fun α ↦ ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α)) (𝓝[>] 0)
-      (𝓝 (ENNReal.ofReal (m / a))) := by
-    have h := ENNReal.Tendsto.const_mul (tendsto_const_nhds.add
-      (ENNReal.Tendsto.const_mul (tendsto_inv_iff.2 hB) (.inr ENNReal.ofReal_ne_top)))
-      (.inr ENNReal.ofReal_ne_top) (a := ENNReal.ofReal (m / a)) (b := 1 + ENNReal.ofReal C * ⊤⁻¹)
-    simpa [div_eq_mul_inv] using h
-  calc limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) + 1 ∂μ) /
-      B α) (𝓝[>] 0)
-  _ ≤ limsup (fun α ↦ ENNReal.ofReal (m / a) * (1 + ENNReal.ofReal C / B α)) (𝓝[>] 0) :=
-    limsup_le_limsup hbound
-  _ = ENNReal.ofReal (m / a) := hlim.limsup_eq
-  _ ≤ ENNReal.ofReal d'⁻¹ := by
-    refine ENNReal.ofReal_le_ofReal ?_
-    rw [div_le_iff₀ ha, ← div_eq_inv_mul, le_div_iff₀ hd']
+  · rw [div_le_iff₀ ha, ← div_eq_inv_mul, le_div_iff₀ hd']
     linarith
 
 /-- **Sequential tests attain the bipolar rate to first order.** For every real `d' > 0` below the
@@ -369,16 +337,17 @@ i.i.d. laws of the members of the null, stopping times of `Filtration.piLT` with
 `d` is the bipolar rate (`toENNReal_log_inv_div_bipolarRate_le_lintegral`), the optimal expected
 number of observations is `log (1/α) / d` to first order. The tests bet on successive blocks of
 `m` observations and stop when the product of the bets reaches `α⁻¹`. The bipolar rate may be
-infinite. Neither `Q₁` nor the members of `S₁` need be probability measures: the i.i.d. law of a
-measure that is not one is `0`. -/
-theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧) {d' : ℝ}
-    (hd' : 0 < d') (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
+infinite. -/
+theorem exists_isLevelStoppingTime_limsup_lintegral_div_log_le (Q₁ : Measure 𝓧)
+    [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {d' : ℝ} (hd' : 0 < d')
+    (hd'd : (d' : EReal) < bipolarRate Q₁ S₁) :
     ∃ τ : ℝ≥0∞ → (ℕ → 𝓧) → WithTop ℕ,
       (∀ α, IsLevelStoppingTime (τ α) Filtration.piLT (iidNull S₁) α) ∧
       limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (τ α ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) /
         (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤ ENNReal.ofReal d'⁻¹ := by
   -- the tests `σ α` for `Filtration.piLE`, shifted by one
-  obtain ⟨σ, hσ, hlim⟩ := exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE Q₁ hd' hd'd
+  obtain ⟨σ, hσ, hlim⟩ := exists_isLevelStoppingTime_limsup_lintegral_div_log_le_piLE Q₁ hS₁ hd'
+    hd'd
   exact ⟨fun α ω ↦ σ α ω + 1,
     fun α ↦ (isLevelStoppingTime_add_one_iff Filtration.piLT_add_one).2 (hσ α),
     by simpa only [ENat.toENNReal_add_one] using hlim⟩

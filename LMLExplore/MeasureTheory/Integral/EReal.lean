@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
+import Mathlib.MeasureTheory.Integral.DominatedConvergence
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
@@ -29,6 +30,13 @@ with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most
 * `MeasureTheory.eintegral_min_log_le_integral_truncLog_sub`: under a probability measure, the
   extended integral of `min (log E) k` is at most the integral of the truncated logarithm
   `ENNReal.truncLog k ((1 - ε) E + ε)`, minus `log (1 - ε)`.
+* `EReal.le_of_forall_le_sub_log_one_sub`: a bound `x ≤ D - log (1 - ε)` for every
+  `ε ∈ (0, 1)` gives `x ≤ D`, which removes the cost of the mixing constant.
+* `MeasureTheory.eintegral_log_le_of_forall_integral_truncLog_le`: under a probability measure, a
+  bound `D` on the integrals of the truncated logarithms `ENNReal.truncLog k ((1 - ε) E + ε)`, for
+  every level `k` and every `ε ∈ (0, 1)`, is a bound on the extended integral of `log E`.
+* `MeasureTheory.integral_truncLog_le_of_eventually_eq`: **dominated convergence** for truncated
+  logarithms of functions bounded below by `ε > 0`, when they are eventually equal to their limit.
 * `MeasureTheory.exists_integrable_truncLog_lt_integral`: if the extended integral of `log f`
   exceeds a real `a`, and the negative part of `log f` has a finite mean, then so does the integral
   of the truncated logarithm `ENNReal.truncLog c f` for some level `c`.
@@ -37,6 +45,21 @@ with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most
 public section
 
 open scoped ENNReal
+
+namespace EReal
+
+/-- **Removing the mixing constant.** Mixing with a constant `ε`, as in `(1 - ε) x + ε`, costs
+`- log (1 - ε)`, which tends to `0` with `ε`: a bound `x ≤ D - log (1 - ε)` for every
+`ε ∈ (0, 1)` gives `x ≤ D`. -/
+lemma le_of_forall_le_sub_log_one_sub {x : EReal} {D : ℝ}
+    (h : ∀ ε : ℝ, 0 < ε → ε < 1 → x ≤ ((D - Real.log (1 - ε) : ℝ) : EReal)) : x ≤ D := by
+  refine le_of_forall_lt_iff_le.1 fun z hz ↦ ?_
+  have hη : 0 < z - D := _root_.sub_pos.2 (EReal.coe_lt_coe_iff.1 hz)
+  have hexp : Real.exp (-(z - D)) < 1 := Real.exp_lt_one_iff.2 (by linarith)
+  have h' := h (1 - Real.exp (-(z - D))) (by linarith) (by linarith [Real.exp_pos (-(z - D))])
+  rwa [sub_sub_cancel, Real.log_exp, sub_neg_eq_add, add_sub_cancel] at h'
+
+end EReal
 
 namespace MeasureTheory
 
@@ -107,6 +130,39 @@ theorem eintegral_min_log_le_integral_truncLog_sub {Ω : Type*} [MeasurableSpace
   _ = _ := by
     rw [integral_sub hint (integrable_const _), integral_const]
     simp
+
+/-- **The expected logarithm from the mixtures.** Under a probability measure, if for every level
+`k` and every `ε ∈ (0, 1)` the integral of the truncated logarithm `ENNReal.truncLog k` of the
+mixture `(1 - ε) E + ε` is at most `D`, then the extended integral of `log E` is at most `D`:
+truncate the logarithm, mix with `ε`, and let `ε` tend to `0`. -/
+theorem eintegral_log_le_of_forall_integral_truncLog_le {Ω : Type*} [MeasurableSpace Ω]
+    {μ : Measure Ω} [IsProbabilityMeasure μ] {E : Ω → ℝ≥0∞} (hE : Measurable E) {D : ℝ}
+    (h : ∀ (k : ℕ) (ε : ℝ), 0 < ε → ε < 1 →
+      ∫ x, ENNReal.truncLog k (ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε) ∂μ ≤ D) :
+    ∫ᵉ x, ENNReal.log (E x) ∂μ ≤ D :=
+  eintegral_le_of_forall_min_le (ENNReal.measurable_log.comp hE) fun k ↦
+    EReal.le_of_forall_le_sub_log_one_sub fun ε hε0 hε1 ↦
+      (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k
+        (ENNReal.integrable_truncLog_comp hε0 ((measurable_const.mul hE).add measurable_const)
+          fun _ ↦ le_add_self)).trans
+        (EReal.coe_le_coe_iff.2 (by linarith [h k ε hε0 hε1]))
+
+/-- **Dominated convergence for truncated logarithms.** Let `V k` be measurable functions bounded
+below by `ε > 0` which are, almost everywhere, eventually equal to `W`. Under a finite measure, a
+bound `D` on the integrals of the truncated logarithms `ENNReal.truncLog c (V k)` is a bound on
+the integral of `ENNReal.truncLog c W`. -/
+theorem integral_truncLog_le_of_eventually_eq {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    [IsFiniteMeasure μ] {V : ℕ → Ω → ℝ≥0∞} {W : Ω → ℝ≥0∞} {c ε D : ℝ} (hε : 0 < ε)
+    (hV : ∀ k, Measurable (V k)) (hVε : ∀ k x, ENNReal.ofReal ε ≤ V k x)
+    (hVW : ∀ᵐ x ∂μ, ∀ᶠ k in Filter.atTop, V k x = W x)
+    (h : ∀ k, ∫ x, ENNReal.truncLog c (V k x) ∂μ ≤ D) :
+    ∫ x, ENNReal.truncLog c (W x) ∂μ ≤ D :=
+  le_of_tendsto' (tendsto_integral_of_dominated_convergence (fun _ ↦ max |Real.log ε| |c|)
+    (fun k ↦ ((ENNReal.measurable_truncLog c).comp (hV k)).aestronglyMeasurable)
+    (integrable_const _)
+    (fun k ↦ ae_of_all _ fun x ↦ (Real.norm_eq_abs _).trans_le
+      (ENNReal.abs_truncLog_le hε (hVε k x)))
+    (hVW.mono fun _ hx ↦ tendsto_nhds_of_eventually_eq (hx.mono fun _ hk ↦ congrArg _ hk))) h
 
 /-- **Truncation of an expected logarithm.** Let `f` be measurable, with a logarithm whose negative
 part has a finite mean under a finite measure (so `f` is almost everywhere nonzero). If the extended

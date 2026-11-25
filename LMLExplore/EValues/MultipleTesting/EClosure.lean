@@ -59,6 +59,13 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 
 * `ProbabilityTheory.isECollection_iff`: an e-collection is a family of e-variables indexed by
   the truth.
+* `ProbabilityTheory.lintegral_biSup_eClosure_le_mul_lintegral`: the e-closure of any statistics
+  controls the loss at `α` times the expectation of the statistic of the true nulls [Goe26,
+  Theorem 13].
+* `ProbabilityTheory.mem_eClosure_of_forall_le`: for a loss depending only on the numbers of true
+  nulls, of rejections and of rejected true nulls, nondecreasingly in the last, and statistics
+  nondecreasing in the values of the hypotheses, a member of an e-closure may be replaced by any
+  set of the same size of largest values [XSF+26, Lemma 52].
 * `ProbabilityTheory.IsECollection.lintegral_iSup_div_le_one`,
   `ProbabilityTheory.exists_isECollection_of_lintegral_iSup_div_le_one`: the post-hoc
   e-Closure Principle [XSF+26, Theorem 48].
@@ -83,6 +90,8 @@ rejection set [XSF+26, Lemma 4], through a measurable selection of a maximizer.
 * [XSF+26] Z. Xu, A. Solari, L. Fischer, R. de Heide, A. Ramdas and J. Goeman, *Bringing closure
   to false discovery rate control: a general principle for multiple testing*,
   arXiv:2509.02517v3.
+* [Goe26] J. Goeman, *A uniform improvement of the Benjamini–Hochberg procedure via e-Closure*,
+  arXiv:2606.01854v2.
 * [MPG76] R. Marcus, E. Peritz and K. R. Gabriel, *On closed testing procedures with special
   reference to ordered analysis of variance*, Biometrika 63 (1976).
 -/
@@ -132,6 +141,24 @@ theorem fdp_le_one (N R : Finset ι) : fdp N R ≤ 1 := by
   rw [one_mul]
   exact (Nat.cast_le.2 (card_le_card inter_subset_left)).trans (le_max_left _ _)
 
+/-- The false discovery proportion grows with the set of true nulls. -/
+@[gcongr]
+theorem fdp_mono_left {N' : Finset ι} (h : N ⊆ N') : fdp N R ≤ fdp N' R := by
+  rw [fdp_def, fdp_def]
+  gcongr
+
+/-- The false discovery proportion depends only on the rejected true nulls. -/
+@[simp]
+theorem fdp_inter_self (N R : Finset ι) : fdp (N ∩ R) R = fdp N R := by
+  rw [fdp_def, fdp_def, inter_comm N R, ← inter_assoc, inter_self]
+
+/-- The false discovery proportion depends only on the number of rejections and on the number of
+rejected true nulls, and grows with the latter. -/
+theorem fdp_le_fdp {N' R' : Finset ι} (hR : #R = #R') (h : #(N ∩ R) ≤ #(N' ∩ R')) :
+    fdp N R ≤ fdp N' R' := by
+  rw [fdp_def, fdp_def, inter_comm R, inter_comm R', hR]
+  gcongr
+
 /-- The loss of the family-wise error: `1` when the rejection set `R` contains a true null of `N`,
 and `0` otherwise. -/
 noncomputable def fwerLoss (N R : Finset ι) : ℝ≥0∞ :=
@@ -152,6 +179,22 @@ theorem fwerLoss_empty_left (R : Finset ι) : fwerLoss ∅ R = 0 :=
 
 theorem fwerLoss_empty_right (N : Finset ι) : fwerLoss N ∅ = 0 :=
   fwerLoss_of_disjoint (disjoint_empty_left N)
+
+/-- The family-wise loss grows with the set of true nulls. -/
+@[gcongr]
+theorem fwerLoss_mono_left {N' : Finset ι} (h : N ⊆ N') : fwerLoss N R ≤ fwerLoss N' R := by
+  by_cases hN : Disjoint R N
+  · simp [hN]
+  · rw [fwerLoss_of_not_disjoint hN,
+      fwerLoss_of_not_disjoint fun hN' ↦ hN (hN'.mono_right h)]
+
+/-- The family-wise loss depends only on the rejected true nulls. -/
+@[simp]
+theorem fwerLoss_inter_self (N R : Finset ι) : fwerLoss (N ∩ R) R = fwerLoss N R := by
+  have h : Disjoint R (N ∩ R) ↔ Disjoint R N := by
+    rw [inter_comm N R, disjoint_iff_inter_eq_empty, disjoint_iff_inter_eq_empty, ← inter_assoc,
+      inter_self]
+  simp only [fwerLoss_def, h]
 
 /-- The expected largest family-wise loss of a measurable candidate family is the probability
 that some candidate contains a true null of `N`. -/
@@ -199,12 +242,118 @@ theorem measurable_eClosure [Countable ι] (he : ∀ S, Measurable (e S)) :
   measurable_set_iff.2 fun _ ↦ Measurable.forall fun S ↦
     measurableSet_setOfPred.1 (measurableSet_le measurable_const ((he S).const_mul α))
 
+/-- **The e-closure of any statistics**, the argument of [Goe26, Theorem 13]: for every set `N`
+of hypotheses and every measure `P`, the largest loss `f N R` over the members `R` of the
+e-closure of `e` has expectation at most `α` times the expectation of `e N`. When `e N` has
+expectation at most `γ` for the true nulls `N` of `P`, as for an e-collection with `γ = 1`, the
+e-closure controls the loss simultaneously at level `γ * α`. -/
+theorem lintegral_biSup_eClosure_le_mul_lintegral (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞)
+    {N : Finset ι} {P : Measure Ω} (he : AEMeasurable (e N) P) :
+    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f N R ∂P ≤ α * ∫⁻ ω, e N ω ∂P :=
+  calc ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f N R ∂P ≤ ∫⁻ ω, α * e N ω ∂P :=
+        lintegral_mono fun _ ↦ iSup₂_le fun _ hR ↦ hR N
+    _ = α * ∫⁻ ω, e N ω ∂P := lintegral_const_mul'' α he
+
 /-- The e-closure grows with the level `α` and the statistics `e`, and as the loss `f`
 decreases. -/
 theorem eClosure_mono {f' : Finset ι → Finset ι → ℝ≥0∞} {α' : ℝ≥0∞} {e' : Finset ι → Ω → ℝ≥0∞}
     (hf : ∀ S R, f' S R ≤ f S R) (hα : α ≤ α') (he : ∀ S, e S ω ≤ e' S ω) :
     eClosure f α e ω ⊆ eClosure f' α' e' ω :=
   fun R hR S ↦ (hf S R).trans ((hR S).trans (mul_le_mul' hα (he S)))
+
+/-! ### Ordered members of an e-closure -/
+
+section Ordering
+
+variable [DecidableEq ι] {β : Type*} [LinearOrder β] {x : ι → β} {T : Finset ι}
+
+/-- One exchange: replacing a rejected hypothesis `i` by an unrejected `j` with a larger value
+keeps a set in the e-closure, for a loss that depends only on the numbers of true nulls, of
+rejections and of rejected true nulls, nondecreasing in the last, and statistics that grow when an
+element of a set is replaced by one with a larger value. -/
+private lemma insert_erase_mem_eClosure
+    (hf : ∀ N R N' R', #N = #N' → #R = #R' → #(N ∩ R) ≤ #(N' ∩ R') → f N R ≤ f N' R')
+    (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
+    (hR : R ∈ eClosure f α e ω) {i j : ι} (hi : i ∈ R) (hj : j ∉ R) (hij : x i ≤ x j) :
+    insert j (R.erase i) ∈ eClosure f α e ω := by
+  have hR' : #(insert j (R.erase i)) = #R := by
+    rw [card_insert_of_notMem fun h ↦ hj (mem_of_mem_erase h), card_erase_add_one hi]
+  refine mem_eClosure.2 fun S ↦ ?_
+  by_cases hjS : j ∈ S
+  · by_cases hiS : i ∈ S
+    · -- `S` contains both: it meets the two sets in as many hypotheses.
+      refine (hf _ _ _ _ rfl hR' ?_).trans (mem_eClosure.1 hR S)
+      calc #(S ∩ insert j (R.erase i)) ≤ #(insert j ((S ∩ R).erase i)) :=
+            card_le_card fun k hk ↦ by
+              simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+              tauto
+        _ ≤ #((S ∩ R).erase i) + 1 := card_insert_le _ _
+        _ = #(S ∩ R) := card_erase_add_one (mem_inter.2 ⟨hiS, hi⟩)
+    · -- `S` contains `j` and not `i`: compare with `S'`, which has `i` in place of `j`.
+      have hiS' : i ∉ S.erase j := fun h ↦ hiS (mem_of_mem_erase h)
+      have hS' : #S = #(insert i (S.erase j)) := by
+        rw [card_insert_of_notMem hiS', card_erase_add_one hjS]
+      calc f S (insert j (R.erase i)) ≤ f (insert i (S.erase j)) R := by
+            refine hf _ _ _ _ hS' hR' ?_
+            calc #(S ∩ insert j (R.erase i)) ≤ #(insert j (S ∩ R)) :=
+                  card_le_card fun k hk ↦ by
+                    simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+                    tauto
+              _ ≤ #(S ∩ R) + 1 := card_insert_le _ _
+              _ = #(insert i (S ∩ R)) :=
+                  (card_insert_of_notMem fun h ↦ hiS (mem_inter.1 h).1).symm
+              _ ≤ #(insert i (S.erase j) ∩ R) := card_le_card fun k hk ↦ by
+                  simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+                  rcases hk with rfl | ⟨hkS, hkR⟩
+                  · exact ⟨Or.inl rfl, hi⟩
+                  · exact ⟨Or.inr ⟨fun h ↦ hj (h ▸ hkR), hkS⟩, hkR⟩
+        _ ≤ α * e (insert i (S.erase j)) ω := mem_eClosure.1 hR _
+        _ ≤ α * e (insert j (S.erase j)) ω := by
+            gcongr
+            exact he _ _ _ hiS' (notMem_erase j S) hij
+        _ = α * e S ω := by rw [insert_erase hjS]
+  · -- `S` does not contain `j`: it meets the new set in fewer hypotheses.
+    refine (hf _ _ _ _ rfl hR' (card_le_card fun k hk ↦ ?_)).trans (mem_eClosure.1 hR S)
+    simp only [mem_inter, mem_insert, mem_erase] at hk ⊢
+    rcases hk with ⟨hkS, rfl | ⟨-, hkR⟩⟩
+    · exact absurd hkS hjS
+    · exact ⟨hkS, hkR⟩
+
+/-- **Ordered members of an e-closure** [XSF+26, Lemma 52]. Let the loss `f N R` depend only on
+`#N`, `#R` and `#(N ∩ R)`, nondecreasingly in `#(N ∩ R)`, and let the statistics grow when an
+element of a set is replaced by one with a larger value `x`, as symmetric statistics
+nondecreasing in the values do. If some set `R` belongs to the e-closure, then so does every set
+`T` of the same size made of hypotheses with the largest values, whatever the order among ties.
+For p-values, take for `x` the p-values in the order dual. -/
+theorem mem_eClosure_of_forall_le
+    (hf : ∀ N R N' R', #N = #N' → #R = #R' → #(N ∩ R) ≤ #(N' ∩ R') → f N R ≤ f N' R')
+    (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
+    (hR : R ∈ eClosure f α e ω) (hT : #T = #R) (hTx : ∀ i ∈ T, ∀ j ∉ T, x j ≤ x i) :
+    T ∈ eClosure f α e ω := by
+  -- Induction on the number of members of `R` outside `T`, exchanging one of them for a member
+  -- of `T` outside `R`.
+  induction hn : #(R \ T) generalizing R with
+  | zero =>
+    rwa [eq_of_subset_of_card_le (sdiff_eq_empty_iff_subset.1 (card_eq_zero.1 hn)) hT.le] at hR
+  | succ n ih =>
+    obtain ⟨i, hi⟩ : (R \ T).Nonempty := card_pos.1 (by omega)
+    obtain ⟨j, hj⟩ : (T \ R).Nonempty := card_pos.1 (by rw [card_sdiff_comm hT]; omega)
+    rw [mem_sdiff] at hi hj
+    refine ih (insert_erase_mem_eClosure hf he hR hi.1 hj.2 (hTx j hj.1 i hi.2))
+      (by rw [hT, card_insert_of_notMem fun h ↦ hj.2 (mem_of_mem_erase h), card_erase_add_one hi.1])
+      ?_
+    have hset : insert j (R.erase i) \ T = (R \ T).erase i := by
+      ext k
+      simp only [mem_sdiff, mem_insert, mem_erase]
+      constructor
+      · rintro ⟨rfl | ⟨hki, hkR⟩, hkT⟩
+        · exact absurd hj.1 hkT
+        · exact ⟨hki, hkR, hkT⟩
+      · rintro ⟨hki, hkR, hkT⟩
+        exact ⟨Or.inr ⟨hki, hkR⟩, hkT⟩
+    rw [hset, card_erase_of_mem (mem_sdiff.2 hi), hn, Nat.add_sub_cancel]
+
+end Ordering
 
 variable [Fintype ι] {H : ι → Set (Measure Ω)} {P : Measure Ω}
 
@@ -311,12 +460,9 @@ theorem exists_isECollection_of_lintegral_iSup_div_le_one [Countable κ]
 controls the loss simultaneously at level `α`, for every level `α`. -/
 theorem IsECollection.lintegral_biSup_eClosure_le (he : IsECollection e H)
     (f : Finset ι → Finset ι → ℝ≥0∞) (α : ℝ≥0∞) (P : Measure Ω) [IsProbabilityMeasure P] :
-    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P ≤ α := by
-  calc ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P
-      ≤ ∫⁻ ω, α * e (trueNulls H P) ω ∂P :=
-        lintegral_mono fun _ ↦ iSup₂_le fun _ hR ↦ hR _
-    _ = α * ∫⁻ ω, e (trueNulls H P) ω ∂P := lintegral_const_mul α (he.measurable _)
-    _ ≤ α := mul_le_of_le_one_right' (he.lintegral_le_one P)
+    ∫⁻ ω, ⨆ R ∈ eClosure f α e ω, f (trueNulls H P) R ∂P ≤ α :=
+  (lintegral_biSup_eClosure_le_mul_lintegral f α (he.measurable _).aemeasurable).trans
+    (mul_le_of_le_one_right' (he.lintegral_le_one P))
 
 /-- **The e-Closure Principle** [XSF+26, Theorem 6]: for a loss vanishing when there are no true
 nulls and a level `α ∉ {0, ∞}`, a measurable candidate family controls the loss simultaneously at

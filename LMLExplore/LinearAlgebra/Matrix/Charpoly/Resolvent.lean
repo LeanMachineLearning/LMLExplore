@@ -13,6 +13,7 @@ public import Mathlib.Topology.Algebra.Polynomial
 public import Mathlib.Topology.Order.IntermediateValue
 public import LMLExplore.LinearAlgebra.Matrix.Polynomial
 public import LMLExplore.LinearAlgebra.Matrix.Stochastic
+import TauCeti.LinearAlgebra.Matrix.Charpoly.Reverse
 
 /-!
 # The resolvent `(1 - a • M)⁻¹` as a rational function of `a`
@@ -44,8 +45,8 @@ stationary policies of a finite Markov decision process for all discount factors
 
 * `Matrix.inv_one_sub_smul_apply`, `Matrix.inv_one_sub_smul_mulVec_apply`: the entries of
   `(1 - a • M)⁻¹` and of `(1 - a • M)⁻¹ *ᵥ v` as quotients of polynomials evaluated at `a`.
-* `Matrix.natDegree_charpolyRev_le`, `Matrix.natDegree_adjugate_charmatrixRev_apply_le`: the
-  degree bounds on the denominator and the numerators.
+* `Matrix.natDegree_adjugate_charmatrixRev_apply_le`: the degree bound on the numerators; the
+  bound on the denominator is Tau Ceti's `Matrix.natDegree_charpolyRev_le`.
 * `Matrix.det_one_sub_smul_ne_zero`: `1 - a • M` is nonsingular when every row of `a • M` has
   `ℓ¹`-norm less than `1`.
 * `Matrix.eqOn_or_finite_setOf_inv_one_sub_smul_mulVec_apply_eq`: two such rational functions
@@ -101,10 +102,6 @@ theorem map_eval_charmatrixRev (a : R) : M.charmatrixRev.map (eval a) = 1 - a �
   ext i j
   rcases eq_or_ne i j with rfl | hij <;> simp [*] <;> ring
 
-/-- The reversed characteristic polynomial evaluated at `a` is the determinant of `1 - a • M`. -/
-theorem eval_charpolyRev_eq_det (a : R) : M.charpolyRev.eval a = (1 - a • M).det := by
-  simpa using RingHom.map_det (evalRingHom a) M.charmatrixRev
-
 /-- The adjugate of `1 - a • M` is the adjugate of the polynomial matrix `1 - X • M` evaluated
 at `a`. -/
 theorem adjugate_one_sub_smul (a : R) :
@@ -116,10 +113,6 @@ omit [Fintype n] in
 theorem natDegree_charmatrixRev_apply_le (i j : n) : (M.charmatrixRev i j).natDegree ≤ 1 := by
   rw [charmatrixRev_apply, Matrix.one_apply]
   split_ifs <;> compute_degree
-
-/-- The reversed characteristic polynomial of an `n × n` matrix has degree at most `card n`. -/
-theorem natDegree_charpolyRev_le : M.charpolyRev.natDegree ≤ Fintype.card n := by
-  simpa [← det_charmatrixRev] using natDegree_det_le_sum M.natDegree_charmatrixRev_apply_le
 
 /-- The entries of the adjugate of `1 - X • M` have degree at most `card n - 1`. -/
 theorem natDegree_adjugate_charmatrixRev_apply_le (i j : n) :
@@ -155,7 +148,7 @@ the numerator is `natDegree_adjugate_charmatrixRev_apply_le`. Both sides vanish 
 `1 - a • M` is singular. -/
 theorem inv_one_sub_smul_apply (a : K) (i j : n) :
     (1 - a • M)⁻¹ i j = (M.charmatrixRev.adjugate i j).eval a / M.charpolyRev.eval a := by
-  simp [inv_def, adjugate_one_sub_smul, eval_charpolyRev_eq_det, div_eq_inv_mul]
+  simp [inv_def, adjugate_one_sub_smul, eval_charpolyRev_eq_det_one_sub_smul, div_eq_inv_mul]
 
 /-- Every coordinate of `(1 - a • M)⁻¹ *ᵥ v` is a coordinate of `adjugate (1 - X • M) *ᵥ v`
 divided by `M.charpolyRev`, both evaluated at `a`; the degree bound on the numerator is
@@ -163,8 +156,8 @@ divided by `M.charpolyRev`, both evaluated at `a`; the degree bound on the numer
 theorem inv_one_sub_smul_mulVec_apply (a : K) (v : n → K) (i : n) :
     ((1 - a • M)⁻¹ *ᵥ v) i =
       ((M.charmatrixRev.adjugate *ᵥ fun j ↦ C (v j)) i).eval a / M.charpolyRev.eval a := by
-  simp [eval_adjugate_charmatrixRev_mulVec_apply, inv_def, smul_mulVec, eval_charpolyRev_eq_det,
-    div_eq_inv_mul]
+  simp [eval_adjugate_charmatrixRev_mulVec_apply, inv_def, smul_mulVec,
+    eval_charpolyRev_eq_det_one_sub_smul, div_eq_inv_mul]
 
 end Field
 
@@ -196,7 +189,7 @@ theorem isUnit_one_sub_smul {a : 𝕜} (h : ∀ i, ‖a‖ * ∑ j, ‖M i j‖ 
 `ℓ¹`-norm less than `1`. -/
 theorem eval_charpolyRev_ne_zero {a : 𝕜} (h : ∀ i, ‖a‖ * ∑ j, ‖M i j‖ < 1) :
     M.charpolyRev.eval a ≠ 0 := by
-  rw [eval_charpolyRev_eq_det]
+  rw [eval_charpolyRev_eq_det_one_sub_smul]
   exact det_one_sub_smul_ne_zero h
 
 omit [DecidableEq n] in

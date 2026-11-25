@@ -6,9 +6,12 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Probability.Process.Progressive
+public import LMLExplore.Probability.Process.StoppedValue
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Countable
 public import Mathlib.MeasureTheory.Integral.Lebesgue.Map
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
+import Mathlib.MeasureTheory.Measure.WithDensityFinite
+import TauCeti.Statistics.Experiments.Mixture
 
 /-!
 # The law of a stopped path
@@ -35,9 +38,17 @@ one measurable space: e-processes are the e-variables of the stopped laws of a n
   progressive set, the integrals of a progressive function with values in `ℝ≥0∞` and in `EReal`,
   and the almost-sure properties under a stopped law, at a measurable random time.
 * `MeasureTheory.stoppedLaw_univ`: a stopped law has the mass of the measure.
+* `MeasureTheory.stoppedLaw_setOf_mem`: under the stopped law at a random time `τ` that is finite
+  everywhere, the stopped paths `(n, ω)` with `ω ∈ B n` have the mass of the event `B τ` read at
+  `τ` (`MeasureTheory.stoppedEvent`).
 * `MeasureTheory.lintegral_sum_smul_stoppedLaw_const`: under the mixture over a measure `ρ` on the
   times of the stopped laws at the constant times, the integral of a progressive function `f` is
   `∑' i, ρ {i} * ∫⁻ ω, f (i, ω) ∂P`; it is a probability measure when `ρ` and `P` are.
+* `MeasureTheory.stoppedLaw_absolutelyContinuous`: the stopped laws of a measure dominated by `μ`
+  are dominated by every measure that dominates the stopped laws of `μ` at the constant times.
+* `MeasureTheory.exists_isFiniteMeasure_forall_stoppedLaw_absolutelyContinuous`: in time `ℕ`, the
+  stopped laws of all the measures dominated by an s-finite measure, at all measurable random
+  times, are dominated by one finite measure on the stopped paths.
 
 ## Implementation notes
 
@@ -148,5 +159,52 @@ instance isProbabilityMeasure_sum_smul_stoppedLaw_const {ρ : Measure ι} [IsPro
   have hρ := lintegral_countable' (μ := ρ) fun _ ↦ 1
   simp only [lintegral_const, measure_univ, mul_one, one_mul] at h hρ
   rw [h, ← hρ]
+
+/-- Under the stopped law at a measurable random time `τ` that is finite everywhere, the set of
+stopped paths `(n, ω)` with `ω ∈ B n`, for events `B n` of the filtration, has the mass of the
+event `B τ` read at `τ`. -/
+theorem stoppedLaw_setOf_mem {ℱ : Filtration ℕ mΩ} {P : Measure Ω} {B : ℕ → Set Ω}
+    (hB : ∀ n, MeasurableSet[ℱ n] (B n)) {τ : Ω → WithTop ℕ} (hτ : Measurable τ)
+    (hτ_top : ∀ ω, τ ω ≠ ⊤) :
+    stoppedLaw ℱ P (fun ω ↦ (τ ω).untopA) {x | x.2 ∈ B x.1} = P (stoppedEvent B τ) := by
+  rw [stoppedLaw_apply hτ.untopA
+    (Filtration.measurableSet_progressive_iff_of_countable.2 hB),
+    stoppedEvent_of_forall_ne_top B hτ_top]
+  simp
+
+/-! ### Domination of stopped laws -/
+
+/-- **Domination of stopped laws.** If `P ≪ μ`, the stopped law of `P` at a measurable random time
+is dominated by every measure on the stopped paths that dominates the stopped laws of `μ` at the
+constant times. -/
+theorem stoppedLaw_absolutelyContinuous {μ : Measure Ω} {ν : @Measure (ι × Ω) ℱ.progressive}
+    (hPμ : P ≪ μ) (hτ : Measurable τ) (hν : ∀ i, stoppedLaw ℱ μ (fun _ ↦ i) ≪ ν) :
+    stoppedLaw ℱ P τ ≪ ν := by
+  refine Measure.AbsolutelyContinuous.mk fun s hs hνs ↦ ?_
+  have h i : μ {ω | (i, ω) ∈ s} = 0 := by
+    rw [← stoppedLaw_apply measurable_const hs]
+    exact hν i hνs
+  rw [stoppedLaw_apply hτ hs]
+  exact measure_mono_null (fun ω hω ↦ mem_iUnion.2 ⟨τ ω, hω⟩)
+    (measure_iUnion_null fun i ↦ hPμ (h i))
+
+/-- **A finite measure dominates the stopped laws of a dominated family.** For an s-finite measure
+`μ` and a filtration indexed by `ℕ`, some finite measure on the stopped paths dominates the stopped
+law of every measure `P ≪ μ` at every measurable random time. One such measure is the countable
+mixture of the stopped laws at the constant times of a finite measure equivalent to `μ`. -/
+theorem exists_isFiniteMeasure_forall_stoppedLaw_absolutelyContinuous {ℱ : Filtration ℕ mΩ}
+    (μ : Measure Ω) [SFinite μ] :
+    ∃ ν : @Measure (ℕ × Ω) ℱ.progressive, IsFiniteMeasure ν ∧
+      ∀ ⦃P : Measure Ω⦄ ⦃τ : Ω → ℕ⦄, P ≪ μ → Measurable τ → stoppedLaw ℱ P τ ≪ ν := by
+  -- the countable mixture of Tau Ceti, on the progressive σ-algebra, which is not an instance
+  let ν := @TauCeti.countableMixture ℕ (ℕ × Ω) ℱ.progressive
+    (fun n ↦ stoppedLaw ℱ μ.toFinite fun _ ↦ n) id
+  refine ⟨ν, ⟨?_⟩, fun P τ hPμ hτ ↦ stoppedLaw_absolutelyContinuous
+    (hPμ.trans (absolutelyContinuous_toFinite μ)) hτ
+    (@TauCeti.absolutelyContinuous_countableMixture ℕ (ℕ × Ω) ℱ.progressive _ id)⟩
+  rw [@TauCeti.countableMixture_apply ℕ (ℕ × Ω) ℱ.progressive]
+  simp only [id_eq, stoppedLaw_univ measurable_const]
+  rw [ENNReal.tsum_mul_right, TauCeti.tsum_mixtureWeight, one_mul]
+  exact measure_lt_top _ _
 
 end MeasureTheory

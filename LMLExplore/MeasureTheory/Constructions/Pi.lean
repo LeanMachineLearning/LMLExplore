@@ -21,9 +21,10 @@ import TauCeti.MeasureTheory.Measure.PiWithDensity
 # Measures on products: monotonicity, laws of coordinatewise images, restricted factors, mixtures,
 bounds by lines, binds and fixed prefixes
 
-The product of finite measures is monotone in its factors. In particular, if each `μ i` with
-density `f i` lies below a finite `ν i`, the product `Measure.pi μ` with density
-`x ↦ ∏ i, f i (x i)` lies below `Measure.pi ν`.
+The mass of a point under a product of finite measures is the product of the real masses of its
+coordinates, as an extended nonnegative real. The product of finite measures is monotone in its
+factors. In particular, if each `μ i` with density `f i` lies below a finite `ν i`, the product
+`Measure.pi μ` with density `x ↦ ∏ i, f i (x i)` lies below `Measure.pi ν`.
 
 Under the product measure `Measure.pi μ`, the law of a function `f` of the coordinatewise images
 `X i (y i)` is the law of `f` under the product of the laws of the `X i`. For example, the law of
@@ -72,6 +73,8 @@ A function of the images of the coordinates under measurable maps to finite type
 
 ## Main statements
 
+* `MeasureTheory.Measure.pi_singleton_eq_ofReal_prod`: the mass of a point under a product of
+  finite measures is `ENNReal.ofReal (∏ i, (μ i).real {x i})`.
 * `MeasureTheory.Measure.pi_mono`: if `μ i ≤ ν i` for every `i`, with every `ν i` finite, then
   `Measure.pi μ ≤ Measure.pi ν`.
 * `MeasureTheory.Measure.withDensity_prod_le_pi`: if `(μ i).withDensity (f i) ≤ ν i` for every
@@ -125,6 +128,13 @@ namespace MeasureTheory.Measure
 
 variable {ι : Type*} [Fintype ι] {Ω 𝓨 : ι → Type*} {mΩ : ∀ i, MeasurableSpace (Ω i)}
   [∀ i, MeasurableSpace (𝓨 i)] {β : Type*} {mβ : MeasurableSpace β}
+
+/-- The mass of a point under a product of finite measures, as the product of the real masses of
+its coordinates. -/
+lemma pi_singleton_eq_ofReal_prod (μ : ∀ i, Measure (Ω i)) [∀ i, IsFiniteMeasure (μ i)]
+    (x : ∀ i, Ω i) : Measure.pi μ {x} = ENNReal.ofReal (∏ i, (μ i).real {x i}) := by
+  rw [Measure.pi_singleton, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ measureReal_nonneg]
+  simp
 
 /-- **Monotonicity of the product measure.** The product of finite measures is monotone in its
 factors: if `μ i ≤ ν i` for every `i`, then `Measure.pi μ ≤ Measure.pi ν`. -/
