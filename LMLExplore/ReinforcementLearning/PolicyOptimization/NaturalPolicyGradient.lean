@@ -299,10 +299,9 @@ theorem mul_integral_npgLogPartition_le (t : ℕ) (μ : Measure 𝓢) [IsProbabi
   rw [integral_value_sub_integral_value hγ hR]
   -- the state marginal `d` of the occupancy measure of `π_{t+1}` dominates `(1 - γ) • μ`
   have h_dom : (1 - γ) * ∫ s, npgLogPartition M γ η t s ∂μ ≤
-      ∫ s, npgLogPartition M γ η t s ∂d := by
-    have h := integral_mono_measure smul_le_occupancy_fst
-      (ae_of_all _ (npgLogPartition_nonneg hγ hR t)) (integrable_npgLogPartition hγ hR hη t d)
-    simpa [integral_smul_nnreal_measure, NNReal.smul_def, NNReal.coe_sub hγ.le] using h
+      ∫ s, npgLogPartition M γ η t s ∂d :=
+    mul_integral_le_integral_occupancy_fst hγ.le (ae_of_all _ (npgLogPartition_nonneg hγ hR t))
+      (integrable_npgLogPartition hγ hR hη t d)
   -- in every state, `log Z_t ≤ η / (1 - γ) * ∫ A^{π_t} dπ_{t+1}`
   have h_state : ∫ s, npgLogPartition M γ η t s ∂d ≤ η / (1 - γ) *
       ∫ s, ∫ a, M.advantage γ (softmaxPolicy (npgParam M γ η t)) (s, a)
