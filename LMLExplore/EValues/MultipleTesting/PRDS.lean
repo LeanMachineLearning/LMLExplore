@@ -388,10 +388,12 @@ theorem measurable_thresholdECollection (hp : ∀ j, Measurable (p j))
 
 /-- **The threshold statistics of nonincreasing thresholds form an e-collection under PRDS**
 [Goe26, Theorem 8]: if each `p i` is a p-variable for `H i`, the p-values are PRDS on the true
-nulls under every probability measure, and each threshold `a s` is measurable and coordinatewise
-nonincreasing, then `thresholdECollection p a` is an e-collection. -/
+nulls under every probability measure, and each threshold `a s` is measurable, and coordinatewise
+nonincreasing for the sizes `s` of sets of hypotheses, then `thresholdECollection p a` is an
+e-collection. -/
 theorem isECollection_thresholdECollection [Fintype ι] {H : ι → Set (Measure Ω)}
-    (hp : ∀ i, IsPVar (p i) (H i)) (ha : ∀ s, Antitone (a s)) (ham : ∀ s, Measurable (a s))
+    (hp : ∀ i, IsPVar (p i) (H i)) (ha : ∀ s ≤ Fintype.card ι, Antitone (a s))
+    (ham : ∀ s, Measurable (a s))
     (hPRDS : ∀ (P : Measure Ω) [IsProbabilityMeasure P], IsPRDS p P (trueNulls H P)) :
     IsECollection (thresholdECollection p a) H where
   measurable := measurable_thresholdECollection (fun j ↦ (hp j).measurable) ham
@@ -409,7 +411,7 @@ theorem isECollection_thresholdECollection [Fintype ι] {H : ι → Set (Measure
           gcongr
           exact (hPRDS P).sum_lintegral_indicator_le_inv_le_card
             (fun i hi ↦ (hp i).anti_set (Set.singleton_subset_iff.2 (mem_trueNulls.1 hi)))
-            (fun j ↦ (hp j).measurable) (ha _) (ham _)
+            (fun j ↦ (hp j).measurable) (ha _ (card_le_univ N)) (ham _)
       _ ≤ 1 := ENNReal.inv_mul_le_one _
 
 end ECollection

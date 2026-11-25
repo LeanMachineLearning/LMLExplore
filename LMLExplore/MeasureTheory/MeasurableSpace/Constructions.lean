@@ -33,6 +33,8 @@ public import TauCeti.MeasureTheory.MeasurableSpace.Eval
   `MeasurableSpace.comap f ⊤` are the unions of fibers of `f`.
 * `DependsOn.measurable_of_countable`: a function of a family of countable variables with
   measurable singletons that only depends on finitely many of them is measurable.
+* `measurable_card_filter`: the number of indices at which a family of measurable predicates holds
+  is measurable.
 * `measurable_biSup_comap`: a map `u i` is measurable for the supremum of the σ-algebras generated
   by a family of maps `u j` containing it.
 * `Measurable.comp_prodMk_of_le`: a function `r ω x` jointly measurable for a sub-σ-algebra of the
@@ -144,6 +146,16 @@ lemma _root_.measurable_biSup_comap {ι Ω : Type*} {β : ι → Type*} [∀ i, 
     Measurable[⨆ j, ⨆ (_ : p j), MeasurableSpace.comap (u j) inferInstance] (u i) :=
   Measurable.of_comap_le
     (le_iSup₂ (f := fun j (_ : p j) ↦ MeasurableSpace.comap (u j) inferInstance) i hi)
+
+open Finset in
+/-- The number of indices `i` of a finite type at which a family of measurable predicates `p i`
+holds is measurable. For example, the number of p-values below a threshold is a measurable
+function of the p-values. -/
+lemma _root_.measurable_card_filter {ι Ω : Type*} {mΩ : MeasurableSpace Ω} [Fintype ι]
+    {p : ι → Ω → Prop} [∀ i ω, Decidable (p i ω)] (hp : ∀ i, Measurable (p i)) :
+    Measurable fun ω ↦ #{i | p i ω} :=
+  (Measurable.of_discrete (f := fun t : Finset ι ↦ #t)).comp
+    (measurable_finset_iff.2 fun i ↦ by simpa using hp i)
 
 /-- A function `r ω x` that is jointly measurable for a sub-σ-algebra `m ≤ mΩ` and `m𝓧`, evaluated
 at a measurable `X ω`, is measurable: `ω ↦ r ω (X ω)` is the composite of `uncurry r` with the
