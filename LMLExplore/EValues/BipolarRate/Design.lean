@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.Data.EReal.Inv
 import Mathlib.Probability.Independence.InfinitePi
@@ -45,6 +46,8 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
 * `ProbabilityTheory.designValue_mono`: the value of a design is monotone in the design.
 * `ProbabilityTheory.designValue_le_iInf_sum_mul_klDiv`: the entropy bound
   `designValue μ Λ n ≤ ⨅ ν ∈ Λ, ∑ a, n a * klDiv (μ a) (ν a)`.
+* `ProbabilityTheory.designRate_le_iSup_iInf_sum_mul_klDiv`: the entropy bound on the rate,
+  `designRate μ Λ ≤ ⨆ w, ⨅ ν ∈ Λ, ∑ a, w a * klDiv (μ a) (ν a)` over the probability vectors `w`.
 * `ProbabilityTheory.measurePreserving_designBlockEquiv`: `m` independent tables of the design `r`
   have the law of the table of the design `m • r`.
 * `ProbabilityTheory.maxLogGrowth_designLaw`: `m` independent tables of the design `r` are the
@@ -237,6 +240,37 @@ theorem designValue_le_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
   refine le_iInf₂ fun ν hν ↦ ?_
   have := hΛ ν hν
   exact designValue_le_sum_mul_klDiv hν n
+
+/-- **The entropy bound on the rate of the designs.** The rate of the designs is at most the
+supremum over the probability vectors `w` of `⨅ ν ∈ Λ, ∑ a, w a * klDiv (μ a) (ν a)`: the
+rate is at most the inverse `1 / T*(μ)` of the characteristic time of Garivier and Kaufmann, with
+the alternatives `Λ` [EVR26, Note 41, Corollary 2]. -/
+theorem designRate_le_iSup_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) :
+    designRate μ Λ ≤ ((⨆ w ∈ LMLExplore.simplex α, ⨅ ν ∈ Λ,
+      ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) : ℝ≥0∞) : EReal) := by
+  refine (designRate_le_iff (EReal.coe_ennreal_nonneg _)).2 fun n hn ↦ ?_
+  set N := ∑ a, n a
+  have hN : (N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (Fintype.sum_pos (pos_iff_ne_zero.2 hn)).ne'
+  -- the proportions of the design `n`
+  set w : α → ℝ := fun a ↦ n a / N
+  have hw : w ∈ LMLExplore.simplex α := by
+    refine LMLExplore.mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
+    rw [← Finset.sum_div, ← Nat.cast_sum, div_self (by exact_mod_cast hN)]
+  have hn_eq (a : α) : (n a : ℝ≥0∞) = N * ENNReal.ofReal (w a) := by
+    rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast (pos_iff_ne_zero.2 hN)),
+      ENNReal.ofReal_natCast, ENNReal.ofReal_natCast,
+      ENNReal.mul_div_cancel hN (ENNReal.natCast_ne_top N)]
+  refine (designValue_le_iInf_sum_mul_klDiv hΛ n).trans ?_
+  rw [← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul, EReal.coe_ennreal_le_coe_ennreal_iff]
+  calc ⨅ ν ∈ Λ, ∑ a, (n a : ℝ≥0∞) * klDiv (μ a) (ν a)
+  _ = N * ⨅ ν ∈ Λ, ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) := by
+    simp_rw [ENNReal.mul_iInf_of_ne hN (ENNReal.natCast_ne_top N), Finset.mul_sum, ← mul_assoc,
+      hn_eq]
+  _ ≤ N * ⨆ w ∈ LMLExplore.simplex α, ⨅ ν ∈ Λ,
+      ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) := by
+    gcongr
+    exact le_iSup₂ (f := fun w _ ↦ ⨅ ν ∈ Λ, ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a)) w hw
 
 /-! ### Blocks of observations and the bipolar rate -/
 
