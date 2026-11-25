@@ -81,7 +81,8 @@ nulls. The adjusted e-value of `i` is the discovery e-value of `{i}` at `0`.
   the adjusted products and [VW21, Algorithm 2, Theorem 5.1].
 * `ProbabilityTheory.discoveryEValue_antitone`, `ProbabilityTheory.discoveryEValue_mono`,
   `ProbabilityTheory.discoveryEValue_add_card_sdiff_le`: [VW23, Proposition 6.3].
-* `ProbabilityTheory.IsECollection.measure_exists_inv_le_discoveryEValue_le`: the true-discovery
+* `ProbabilityTheory.measure_exists_inv_le_discoveryEValue_le`,
+  `ProbabilityTheory.IsECollection.measure_exists_inv_le_discoveryEValue_le`: the true-discovery
   bounds of [VW23, §6].
 
 ## References
@@ -92,6 +93,9 @@ nulls. The adjusted e-value of `i` is the discovery e-value of `{i}` at `0`.
   49 (2021), arXiv:1912.06116v4.
 * [VW23] V. Vovk and R. Wang, *Confidence and discoveries with e-values*, Statist. Sci. 38 (2023),
   arXiv:1912.13292v5.
+* [XSF+26] Z. Xu, A. Solari, L. Fischer, R. de Heide, A. Ramdas and J. Goeman, *Bringing closure
+  to false discovery rate control: a general principle for multiple testing*,
+  arXiv:2509.02517v3.
 -/
 
 public section
@@ -146,7 +150,7 @@ theorem measurable_adjustedEValue [Countable ι] (he : ∀ S, i ∈ S → Measur
 theorem adjustedEValue_iSup (E : ι → Ω → ℝ≥0∞) :
     adjustedEValue (fun S ω ↦ ⨆ j ∈ S, E j ω) = E := by
   ext i ω
-  refine le_antisymm ?_ (le_adjustedEValue_iff.2 fun S hS ↦ le_iSup₂ (f := fun j _ ↦ E j ω) i hS)
+  refine le_antisymm ?_ (le_adjustedEValue_iff.2 fun _ hS ↦ le_biSup (fun j ↦ E j ω) hS)
   simpa using adjustedEValue_le (e := fun S ω ↦ ⨆ j ∈ S, E j ω) (mem_singleton_self i) (ω := ω)
 
 /-- The e-closed test is closed testing: `i` belongs to the closed testing rejection set of the
@@ -173,9 +177,22 @@ section FamilyWise
 variable [Fintype ι] {H : ι → Set (Measure Ω)} {E F : ι → Ω → ℝ≥0∞}
   {e : Finset ι → Ω → ℝ≥0∞} {P : Measure Ω}
 
+/-- The statistic of a true null is at most the largest statistic of a true null. -/
+theorem le_iSup_trueNulls (E : ι → Ω → ℝ≥0∞) {i : ι} (hi : i ∈ trueNulls H P) (ω : Ω) :
+    E i ω ≤ ⨆ j ∈ trueNulls H P, E j ω :=
+  le_biSup (fun j ↦ E j ω) hi
+
+/-- If the statistic of some true null is at least `c`, so is the largest statistic of a true
+null. -/
+theorem le_iSup_trueNulls_of_exists {c : ℝ≥0∞} {ω : Ω} (h : ∃ i ∈ trueNulls H P, c ≤ E i ω) :
+    c ≤ ⨆ i ∈ trueNulls H P, E i ω :=
+  let ⟨_, hi, hiω⟩ := h
+  hiω.trans (le_iSup_trueNulls E hi ω)
+
 /-- Statistics `E i` are **family-wise valid** for the hypotheses `H` [VW21, §5] when they are
 measurable and, under every probability measure `P`, the largest statistic of a true null of `P`
-has expectation at most one. Then each `E i` is an e-variable for `H i`, and the e-values of all
+has expectation at most one. Then each `E i` is an e-variable for the probability measures of
+`H i`, and the e-values of all
 the true nulls are valid jointly: one may reject every `H i` whose `E i` is large. -/
 structure IsFamilyWiseValid (E : ι → Ω → ℝ≥0∞) (H : ι → Set (Measure Ω)) : Prop where
   /-- Each statistic is measurable. -/
@@ -197,7 +214,7 @@ its hypothesis. -/
 theorem isEVar (hE : IsFamilyWiseValid E H) (i : ι) :
     IsEVar (E i) {P | P ∈ H i ∧ IsProbabilityMeasure P} := by
   refine ⟨hE.measurable i, fun P ⟨hP, _⟩ ↦ ?_⟩
-  exact (lintegral_mono fun ω ↦ le_iSup₂ (f := fun j _ ↦ E j ω) i (mem_trueNulls.2 hP)).trans
+  exact (lintegral_mono (le_iSup_trueNulls E (mem_trueNulls.2 hP))).trans
     (hE.lintegral_iSup_le_one P)
 
 /-- Measurable statistics below a family-wise valid family are family-wise valid. -/
@@ -213,10 +230,8 @@ probability measure `P`, the probability that some true null of `P` has a statis
 theorem measure_exists_inv_le_le (hE : IsFamilyWiseValid E H) (P : Measure Ω)
     [IsProbabilityMeasure P] (α : ℝ≥0∞) :
     P {ω | ∃ i ∈ trueNulls H P, α⁻¹ ≤ E i ω} ≤ α := by
-  refine (measure_mono fun ω hω ↦ ?_).trans
+  exact (measure_mono fun _ ↦ le_iSup_trueNulls_of_exists).trans
     ((hE.isEVar_iSup P).measure_inv_le_le (Set.mem_singleton P) α)
-  obtain ⟨i, hi, hiω⟩ := hω
-  exact hiω.trans (le_iSup₂ (f := fun j _ ↦ E j ω) i hi)
 
 /-- **Control at a data-dependent level** [HL25, Theorem 2.3]: for every level `ℓ ω` chosen after
 seeing the data, measurable or not, the indicator that some true null has a statistic at least
@@ -226,9 +241,8 @@ theorem lintegral_indicator_inv_le_one (hE : IsFamilyWiseValid E H) (P : Measure
     ∫⁻ ω, {ω | ∃ i ∈ trueNulls H P, (ℓ ω)⁻¹ ≤ E i ω}.indicator (fun ω ↦ (ℓ ω)⁻¹) ω ∂P ≤ 1 := by
   refine (lintegral_mono fun ω ↦ ?_).trans (hE.lintegral_iSup_le_one P)
   by_cases hω : ∃ i ∈ trueNulls H P, (ℓ ω)⁻¹ ≤ E i ω
-  · obtain ⟨i, hi, hiω⟩ := hω
-    rw [Set.indicator_of_mem (by exact ⟨i, hi, hiω⟩)]
-    exact hiω.trans (le_iSup₂ (f := fun j _ ↦ E j ω) i hi)
+  · rw [Set.indicator_of_mem (by exact hω)]
+    exact le_iSup_trueNulls_of_exists hω
   · rw [Set.indicator_of_notMem (by exact hω)]
     exact zero_le
 
@@ -238,9 +252,8 @@ least `α⁻¹` are post-hoc valid for `P`. -/
 theorem isPostHocValid (hE : IsFamilyWiseValid E H) (P : Measure Ω) [IsProbabilityMeasure P] :
     IsPostHocValid (fun α ↦ {ω | ∃ i ∈ trueNulls H P, α⁻¹ ≤ E i ω}.indicator 1) {P} := by
   refine (hE.isEVar_iSup P).isPostHocValid_indicator.mono fun _ _ ↦ ae_of_all _ fun ω α _ ↦ ?_
-  refine Set.indicator_le_indicator_of_subset (fun ω hω ↦ ?_) (fun _ ↦ zero_le) ω
-  obtain ⟨i, hi, hiω⟩ := hω
-  exact hiω.trans (le_iSup₂ (f := fun j _ ↦ E j ω) i hi)
+  exact Set.indicator_le_indicator_of_subset (fun _ ↦ le_iSup_trueNulls_of_exists)
+    (fun _ ↦ zero_le) ω
 
 end IsFamilyWiseValid
 
@@ -253,7 +266,7 @@ theorem isFamilyWiseValid_iff_exists_le (hE : ∀ i, Measurable (E i)) :
       ∃ E' : Measure Ω → Ω → ℝ≥0∞, (∀ (P : Measure Ω) [IsProbabilityMeasure P], IsEVar (E' P) {P}) ∧
         ∀ i, ∀ P ∈ H i, E i ≤ E' P := by
   refine ⟨fun h ↦ ⟨fun P ω ↦ ⨆ i ∈ trueNulls H P, E i ω, fun P _ ↦ h.isEVar_iSup P,
-    fun i P hP ω ↦ le_iSup₂ (f := fun j _ ↦ E j ω) i (mem_trueNulls.2 hP)⟩,
+    fun _ _ hP ↦ le_iSup_trueNulls E (mem_trueNulls.2 hP)⟩,
     fun ⟨E', hE', hle⟩ ↦ ⟨hE, fun P _ ↦ ?_⟩⟩
   refine (lintegral_mono fun ω ↦ iSup₂_le fun i hi ↦ hle i P (mem_trueNulls.1 hi) ω).trans ?_
   exact (hE' P).lintegral_le_one (Set.mem_singleton P)
@@ -344,51 +357,13 @@ section Exchange
 variable [DecidableEq ι] {β : Type*} [LinearOrder β] {x : ι → β} {k : ι} {ω : Ω}
   {e : Finset ι → Ω → ℝ≥0∞}
 
-/-- For statistics that grow when an element of a set is exchanged for one with a larger value,
-a set `insert k T`, with `T` made of hypotheses of smallest values among those other than `k`, has
-a statistic at most that of every set `insert k A` with `#A = #T`. -/
-private lemma le_insert_of_card_eq
-    (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω)
-    {T : Finset ι} (hkT : k ∉ T) (hTx : ∀ i ∈ T, ∀ j ∉ T, j ≠ k → x i ≤ x j) :
-    ∀ A : Finset ι, k ∉ A → #A = #T → e (insert k T) ω ≤ e (insert k A) ω := by
-  -- Induction on the number of members of `A` outside `T`, exchanging one of them for a member
-  -- of `T` outside `A`.
-  intro A hkA hAT
-  induction hn : #(A \ T) generalizing A with
-  | zero =>
-    rw [eq_of_subset_of_card_le (sdiff_eq_empty_iff_subset.1 (card_eq_zero.1 hn)) hAT.ge]
-  | succ n ih =>
-    obtain ⟨i, hi⟩ : (A \ T).Nonempty := card_pos.1 (by omega)
-    obtain ⟨j, hj⟩ : (T \ A).Nonempty := card_pos.1 (by rw [card_sdiff_comm hAT.symm]; omega)
-    rw [mem_sdiff] at hi hj
-    have hik : i ≠ k := fun h ↦ hkA (h ▸ hi.1)
-    have hjk : j ≠ k := fun h ↦ hkT (h ▸ hj.1)
-    have hiS : i ∉ insert k (A.erase i) := by simp [hik]
-    have hjS : j ∉ insert k (A.erase i) := by
-      rw [mem_insert, mem_erase, not_or]
-      exact ⟨hjk, fun h ↦ hj.2 h.2⟩
-    have hset : insert j (A.erase i) \ T = (A \ T).erase i := by
-      ext l
-      simp only [mem_sdiff, mem_insert, mem_erase]
-      constructor
-      · rintro ⟨rfl | ⟨hli, hlA⟩, hlT⟩
-        · exact absurd hj.1 hlT
-        · exact ⟨hli, hlA, hlT⟩
-      · rintro ⟨hli, hlA, hlT⟩
-        exact ⟨Or.inr ⟨hli, hlA⟩, hlT⟩
-    calc e (insert k T) ω ≤ e (insert k (insert j (A.erase i))) ω := by
-          refine ih _ (by simp [hjk.symm, hkA]) ?_ ?_
-          · rw [card_insert_of_notMem (by simp [hj.2]), card_erase_add_one hi.1, hAT]
-          · rw [hset, card_erase_of_mem (mem_sdiff.2 hi), hn, Nat.add_sub_cancel]
-      _ = e (insert j (insert k (A.erase i))) ω := by rw [insert_comm]
-      _ ≤ e (insert i (insert k (A.erase i))) ω := he _ _ _ hjS hiS (hTx j hj.1 i hi.2 hik)
-      _ = e (insert k A) ω := by rw [insert_comm, insert_erase hi.1]
-
 /-- **Adjusted e-values of exchangeable statistics** [VW21, §5, Algorithm 1]: for statistics that
 grow when an element of a set is exchanged for one with a larger value `x`, as symmetric
 statistics nondecreasing in the e-values do, the infimum defining the adjusted e-value of `k` may
 be restricted to the sets `insert k T` where `T` is made of hypotheses other than `k` with the
-smallest values, whatever the order among ties. -/
+smallest values, whatever the order among ties. The proof exchanges the members of a set one at a
+time (`Finset.induction_on_exchange`), as in the proof of
+`ProbabilityTheory.mem_eClosure_of_forall_le` [XSF+26, Lemma 52]. -/
 theorem adjustedEValue_eq_iInf_of_exchange [Finite ι]
     (he : ∀ S i j, i ∉ S → j ∉ S → x i ≤ x j → e (insert i S) ω ≤ e (insert j S) ω) :
     adjustedEValue e k ω =
@@ -405,7 +380,17 @@ theorem adjustedEValue_eq_iInf_of_exchange [Finite ι]
     hTx i hi j (mem_sdiff.2 ⟨mem_erase.2 ⟨hjk, mem_univ j⟩, hj⟩)
   calc ⨅ (T : Finset ι) (_ : k ∉ T) (_ : ∀ i ∈ T, ∀ j ∉ T, j ≠ k → x i ≤ x j), e (insert k T) ω
       ≤ e (insert k T) ω := iInf₂_le_of_le T hkT (iInf_le _ hTx)
-    _ ≤ e (insert k (S.erase k)) ω := le_insert_of_card_eq he hkT hTx _ (notMem_erase k S) hT.symm
+    _ ≤ e (insert k (S.erase k)) ω := by
+        refine induction_on_exchange (p := fun A ↦ k ∉ A → e (insert k T) ω ≤ e (insert k A) ω)
+          (fun _ ↦ le_rfl) (fun A i j _ hi hiT hjT hjA ih hkA ↦ ?_) _ hT.symm (notMem_erase k S)
+        have hik : i ≠ k := fun h ↦ hkA (h ▸ hi)
+        have hjk : j ≠ k := fun h ↦ hkT (h ▸ hjT)
+        calc e (insert k T) ω ≤ e (insert k (insert j (A.erase i))) ω :=
+              ih (by simp [hjk.symm, hkA])
+          _ = e (insert j (insert k (A.erase i))) ω := by rw [insert_comm]
+          _ ≤ e (insert i (insert k (A.erase i))) ω :=
+              he _ _ _ (by simp [hjk, hjA]) (by simp [hik]) (hTx j hjT i hiT hik)
+          _ = e (insert k A) ω := by rw [insert_comm, insert_erase hi]
     _ = e S ω := by rw [insert_erase hS]
 
 omit [DecidableEq ι] in
@@ -493,8 +478,10 @@ variable [DecidableEq ι] {e : Finset ι → Ω → ℝ≥0∞} {R R' S : Finset
 
 /-- The **discovery e-value** of the rejection set `R` at `j` [VW23, §6]: the smallest
 statistic `e S` of a set `S` of hypotheses that leaves at most `j` members of `R` outside it.
-When it is large, `R` has more than `j` true discoveries: the set `N` of true nulls has
-`j < #(R \ N)`. This is the regularized discovery e-vector `min_{j' ≤ j} D^R(j')` of [VW23]. -/
+For an e-collection, with probability at least `1 - α`, every `R` with
+`α⁻¹ ≤ discoveryEValue e R j` has more than `j` true discoveries: the set `N` of true nulls has
+`j < #(R \ N)` (`IsECollection.measure_exists_inv_le_discoveryEValue_le`). This is the
+regularized discovery e-vector `min_{j' ≤ j} D^R(j')` of [VW23]. -/
 noncomputable def discoveryEValue (e : Finset ι → Ω → ℝ≥0∞) (R : Finset ι) (j : ℕ) (ω : Ω) :
     ℝ≥0∞ :=
   ⨅ (S : Finset ι) (_ : #(R \ S) ≤ j), e S ω
@@ -508,6 +495,12 @@ theorem discoveryEValue_le (h : #(R \ S) ≤ j) : discoveryEValue e R j ω ≤ e
 theorem le_discoveryEValue_iff {c : ℝ≥0∞} :
     c ≤ discoveryEValue e R j ω ↔ ∀ S, #(R \ S) ≤ j → c ≤ e S ω :=
   le_iInf₂_iff
+
+/-- The discovery e-value of measurable statistics is measurable. Only the statistics of the sets
+leaving at most `j` members of `R` outside them matter. -/
+theorem measurable_discoveryEValue [Countable ι] (he : ∀ S, #(R \ S) ≤ j → Measurable (e S)) :
+    Measurable (discoveryEValue e R j) :=
+  Measurable.iInf fun S ↦ Measurable.iInf fun hS ↦ he S hS
 
 /-- The regularized discovery e-value is the smallest of the discovery e-values
 `D^R(j') = ⨅ {e S | #(R \ S) = j'}` of [VW23, §6] at the numbers `j' ≤ j`. -/
@@ -546,26 +539,41 @@ theorem discoveryEValue_add_card_sdiff_le (e : Finset ι → Ω → ℝ≥0∞) 
 variable [Fintype ι] {H : ι → Set (Measure Ω)} {P : Measure Ω}
 
 /-- The discovery e-values of the pairs `(R, j)` with at most `j` true discoveries in `R` are at
-most the statistic of the true nulls; for an e-collection their supremum is an e-value [VW23,
-§6]. -/
-theorem IsECollection.lintegral_iSup_discoveryEValue_le_one (he : IsECollection e H)
-    (P : Measure Ω) [IsProbabilityMeasure P] :
+most the statistic of the true nulls; if it has expectation at most one, as for an e-collection,
+their supremum is an e-value [VW23, §6]. Only the statistic of the true nulls is used. -/
+theorem lintegral_iSup_discoveryEValue_le_one (P : Measure Ω)
+    (hle : ∫⁻ ω, e (trueNulls H P) ω ∂P ≤ 1) :
     ∫⁻ ω, ⨆ (R : Finset ι) (j : ℕ) (_ : #(R \ trueNulls H P) ≤ j), discoveryEValue e R j ω ∂P ≤ 1 :=
-  (lintegral_mono fun _ ↦ iSup_le fun _ ↦ iSup₂_le fun _ ↦ discoveryEValue_le).trans
-    (he.lintegral_le_one P)
+  (lintegral_mono fun _ ↦ iSup_le fun _ ↦ iSup₂_le fun _ ↦ discoveryEValue_le).trans hle
 
-/-- **True-discovery bounds** [VW23, §6]: for an e-collection, under every probability measure
-`P`, with probability at least `1 - α`, every rejection set `R` with discovery e-value at `j` at
-least `α⁻¹` contains more than `j` hypotheses that are not true nulls of `P`, simultaneously over
-all `R` and `j`. -/
-theorem IsECollection.measure_exists_inv_le_discoveryEValue_le (he : IsECollection e H)
-    (P : Measure Ω) [IsProbabilityMeasure P] (α : ℝ≥0∞) :
+/-- **True-discovery bounds** [VW23, §6]: under a measure `P` for which the statistic of the true
+nulls is measurable with expectation at most one, as for an e-collection, outside an event of
+measure at most `α`, every rejection set `R` with discovery e-value at `j` at least `α⁻¹` contains
+more than `j` hypotheses that are not true nulls of `P`, simultaneously over all `R` and `j`. Only
+the statistic of the true nulls is used. -/
+theorem measure_exists_inv_le_discoveryEValue_le (P : Measure Ω)
+    (hm : Measurable (e (trueNulls H P))) (hle : ∫⁻ ω, e (trueNulls H P) ω ∂P ≤ 1) (α : ℝ≥0∞) :
     P {ω | ∃ R j, #(R \ trueNulls H P) ≤ j ∧ α⁻¹ ≤ discoveryEValue e R j ω} ≤ α := by
-  have hN : IsEVar (e (trueNulls H P)) {P} :=
-    ⟨he.measurable _, fun _ hQ ↦ (Set.mem_singleton_iff.1 hQ) ▸ he.lintegral_le_one P⟩
+  have hN : IsEVar (e (trueNulls H P)) {P} := ⟨hm, fun _ hQ ↦ (Set.mem_singleton_iff.1 hQ) ▸ hle⟩
   refine (measure_mono fun ω hω ↦ ?_).trans (hN.measure_inv_le_le (Set.mem_singleton P) α)
   obtain ⟨R, j, hRj, hRω⟩ := hω
   exact hRω.trans (discoveryEValue_le hRj)
+
+/-- The true-discovery bounds of an e-collection [VW23, §6], in expectation. -/
+theorem IsECollection.lintegral_iSup_discoveryEValue_le_one (he : IsECollection e H)
+    (P : Measure Ω) [IsProbabilityMeasure P] :
+    ∫⁻ ω, ⨆ (R : Finset ι) (j : ℕ) (_ : #(R \ trueNulls H P) ≤ j), discoveryEValue e R j ω ∂P ≤ 1 :=
+  ProbabilityTheory.lintegral_iSup_discoveryEValue_le_one P (he.lintegral_le_one P)
+
+/-- **True-discovery bounds of an e-collection** [VW23, §6]: under every probability measure `P`,
+with probability at least `1 - α`, every rejection set `R` with discovery e-value at `j` at least
+`α⁻¹` contains more than `j` hypotheses that are not true nulls of `P`, simultaneously over all
+`R` and `j`. -/
+theorem IsECollection.measure_exists_inv_le_discoveryEValue_le (he : IsECollection e H)
+    (P : Measure Ω) [IsProbabilityMeasure P] (α : ℝ≥0∞) :
+    P {ω | ∃ R j, #(R \ trueNulls H P) ≤ j ∧ α⁻¹ ≤ discoveryEValue e R j ω} ≤ α :=
+  ProbabilityTheory.measure_exists_inv_le_discoveryEValue_le P (he.measurable _)
+    (he.lintegral_le_one P) α
 
 end Discovery
 
