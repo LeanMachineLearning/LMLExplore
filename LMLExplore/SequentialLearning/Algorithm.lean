@@ -140,8 +140,15 @@ lemma isAlgEnvSeq_bandit_of_hasCondDistrib [SFinite P] {alg : Algorithm Unit �
     have h_ker : (ν.prodMkLeft (Hist Unit 𝓐 𝓨 n × Unit)).comap _ hf = ν.prodMkLeft _ := by
       ext p : 1
       simp only [Kernel.comap_apply, Kernel.prodMkLeft_apply]
-    rw [feedback_bandit]
-    exact (h_ker ▸ h_feedback n).comp_right (hf := hf)
+    -- the conditioning variable of the goal is the one of `h_feedback n` followed by the
+    -- insertion of the trivial observation: definitionally, since `noObs Ω n ω = ()`
+    have h_cond : (fun p : Hist Unit 𝓐 𝓨 n × 𝓐 ↦ ((p.1, ()), p.2)) ∘
+        (fun ω ↦ (history (noObs Ω) A Y n ω, A n ω)) =
+        fun ω ↦ ((history (noObs Ω) A Y n ω, noObs Ω n ω), A n ω) := rfl
+    have h := h_feedback n
+    rw [← h_ker] at h
+    rw [feedback_bandit, ← h_cond]
+    exact h.comp_right
 
 /-- The history of the first `n` rounds is the initial segment of the history of the first
 `n + 1` rounds. -/

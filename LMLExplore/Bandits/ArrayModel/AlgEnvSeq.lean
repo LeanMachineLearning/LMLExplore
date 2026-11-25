@@ -126,7 +126,7 @@ theorem hasCondDistrib_reward_hist_action (n : ℕ) :
   rw [h_reward, (indepFun_snd_apply_truncRow ν a m).measure_inter_preimage_eq_mul _ _ ht
       ((hE _).inter (hΦ hs)),
     truncRow_preimage_inter, ← Measure.map_apply (by fun_prop) ht, map_snd_apply_arrayMeasure,
-    setLIntegral_congr_fun ((hE _).inter (hΦ hs)) fun ω hω ↦ by rw [show (Φ ω).2 = a from hω.1.1],
+    setLIntegral_congr_fun ((hE _).inter (hΦ hs)) fun ω hω ↦ by simp only [Φ]; rw [hω.1.1],
     setLIntegral_const]
 
 /-- **The array model is a run of the algorithm**, for observations in any measurable space: under
