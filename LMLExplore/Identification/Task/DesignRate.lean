@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import LMLExplore.EValues.BipolarRate.Design
+public import LMLExplore.EValues.BipolarRate.Design.Basic
 public import LMLExplore.Identification.Task.TransportationCost
 
 /-!
