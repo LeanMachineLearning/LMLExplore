@@ -22,12 +22,17 @@ procedure of `LMLExplore.EValues.MultipleTesting.EBH` is the case of the weights
 ## Main definitions
 
 * `ProbabilityTheory.IsWeightedSelfConsistent γ e α R`: weighted self-consistency.
+* `ProbabilityTheory.weightedECollection γ E`: the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i`,
+  which bounds, up to the factor `α`, the false discovery proportion of a weighted self-consistent
+  set.
 * `ProbabilityTheory.weightedEBH γ e α J`: the weighted e-BH procedure on the finite set `J`.
 
 ## Main statements
 
 * `ProbabilityTheory.IsWeightedSelfConsistent.fdp_le`: the false discovery proportion of a
   weighted self-consistent set.
+* `ProbabilityTheory.isEVar_weightedECollection`: for weights of sum at most `1`, the weighted
+  e-collection of e-variables is an e-variable for the intersection null.
 * `ProbabilityTheory.isGreatest_weightedEBH`, `ProbabilityTheory.mem_weightedEBH_iff_exists`:
   weighted e-BH is the largest weighted self-consistent subset of `J` and the union of all of them
   [FXR26, §2.1].
@@ -44,7 +49,7 @@ procedure of `LMLExplore.EValues.MultipleTesting.EBH` is the case of the weights
 
 public section
 
-open Finset
+open MeasureTheory Finset
 open scoped ENNReal
 
 namespace ProbabilityTheory
@@ -103,6 +108,43 @@ theorem IsWeightedSelfConsistent.fdp_le [DecidableEq ι] (h : IsWeightedSelfCons
     _ = α * ∑ i ∈ N, γ i * e i := (mul_sum ..).symm
 
 end WeightedSelfConsistent
+
+/-! ### Weighted e-collections -/
+
+section WeightedECollection
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {H : ι → Set (Measure Ω)} {γ : ι → ℝ≥0∞}
+  {E : ι → Ω → ℝ≥0∞} {S S' : Finset ι}
+
+/-- The **weighted e-collection** of statistics `E i` with weights `γ i`: the statistic of a set `S`
+of hypotheses is `∑ i ∈ S, γ i * E i`, the e-collection behind [FXR26, Proposition 2.1]. -/
+noncomputable def weightedECollection (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) (S : Finset ι) :
+    Ω → ℝ≥0∞ :=
+  fun ω ↦ ∑ i ∈ S, γ i * E i ω
+
+theorem weightedECollection_def (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) (S : Finset ι) :
+    weightedECollection γ E S = fun ω ↦ ∑ i ∈ S, γ i * E i ω := (rfl)
+
+@[simp]
+theorem weightedECollection_empty (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) :
+    weightedECollection γ E ∅ = 0 := by
+  ext ω
+  simp [weightedECollection_def]
+
+/-- The weighted e-collection is monotone in the set of hypotheses. -/
+theorem weightedECollection_mono (h : S ⊆ S') :
+    weightedECollection γ E S ≤ weightedECollection γ E S' :=
+  fun _ ↦ sum_le_sum_of_subset h
+
+/-- For weights of sum at most `1`, the weighted sum of e-variables `E i` for the hypotheses
+`i ∈ S` is an e-variable for the intersection of their nulls. -/
+theorem isEVar_weightedECollection (hγ : ∑' i, γ i ≤ 1) (hE : ∀ i ∈ S, IsEVar (E i) (H i)) :
+    IsEVar (weightedECollection γ E S) (⋂ i ∈ S, H i) := by
+  rw [weightedECollection_def]
+  exact isEVar_finsetSum_mul S (fun i hi ↦ (hE i hi).anti_set (Set.biInter_subset_of_mem hi))
+    ((sum_le_tsum S).trans hγ)
+
+end WeightedECollection
 
 /-! ### The weighted e-BH procedure -/
 

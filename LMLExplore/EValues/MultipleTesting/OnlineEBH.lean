@@ -31,7 +31,9 @@ depends only on the rejected true nulls (`f S R = f (S ∩ R) R`) they are neste
 `fdp`. No adaptedness is needed for the supremum loss, since it does not involve a filtration.
 
 **Online e-BH and e-LOND.** For e-variables `E i` for the hypotheses and weights `γ i` with
-`∑' i, γ i ≤ 1`, the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i` is increasing. A set `R` is
+`∑' i, γ i ≤ 1`, the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i`
+(`ProbabilityTheory.weightedECollection`, in `LMLExplore.EValues.MultipleTesting.WeightedEBH`) is
+increasing. A set `R` is
 self-consistent for the weights (`ProbabilityTheory.IsWeightedSelfConsistent`, in
 `LMLExplore.EValues.MultipleTesting.WeightedEBH`) when `1 ≤ α * γ i * #R * E i` for every `i ∈ R`;
 such a set belongs to the dynamic e-closure, so the self-consistent sets control the supremum over
@@ -54,7 +56,6 @@ discovery rate [WDR25, Theorem 2.4, and its remark on closed e-BH].
 ## Main definitions
 
 * `ProbabilityTheory.arrivedECollection e I`: the dynamic collection of a fixed e-collection.
-* `ProbabilityTheory.weightedECollection γ E`: the weighted e-collection `S ↦ ∑ i ∈ S, γ i * E i`.
 * `ProbabilityTheory.eLOND γ e α t`: the rejection set of e-LOND at time `t`.
 
 ## Main statements
@@ -185,39 +186,11 @@ theorem monotone_dynamicEClosure_arrivedECollection (hI : Monotone I) (hf₀ : �
 
 end Arrived
 
-/-! ### Weighted e-collections -/
+/-! ### Weighted self-consistent sets and the online e-closure -/
 
 section Weighted
 
-variable {γ : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {α : ℝ≥0∞} {R S S' : Finset ι}
-
-/-- The **weighted e-collection** of statistics `E i` with weights `γ i`: the statistic of a set `S`
-of hypotheses is `∑ i ∈ S, γ i * E i`, the e-collection behind [FXR26, Proposition 2.1]. -/
-noncomputable def weightedECollection (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) (S : Finset ι) :
-    Ω → ℝ≥0∞ :=
-  fun ω ↦ ∑ i ∈ S, γ i * E i ω
-
-theorem weightedECollection_def (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) (S : Finset ι) :
-    weightedECollection γ E S = fun ω ↦ ∑ i ∈ S, γ i * E i ω := (rfl)
-
-@[simp]
-theorem weightedECollection_empty (γ : ι → ℝ≥0∞) (E : ι → Ω → ℝ≥0∞) :
-    weightedECollection γ E ∅ = 0 := by
-  ext ω
-  simp [weightedECollection_def]
-
-/-- The weighted e-collection is monotone in the set of hypotheses. -/
-theorem weightedECollection_mono (h : S ⊆ S') :
-    weightedECollection γ E S ≤ weightedECollection γ E S' :=
-  fun _ ↦ sum_le_sum_of_subset h
-
-/-- For weights of sum at most `1`, the weighted sum of e-variables `E i` for the hypotheses
-`i ∈ S` is an e-variable for the intersection of their nulls. -/
-theorem isEVar_weightedECollection (hγ : ∑' i, γ i ≤ 1) (hE : ∀ i ∈ S, IsEVar (E i) (H i)) :
-    IsEVar (weightedECollection γ E S) (⋂ i ∈ S, H i) := by
-  rw [weightedECollection_def]
-  exact isEVar_finsetSum_mul S (fun i hi ↦ (hE i hi).anti_set (Set.biInter_subset_of_mem hi))
-    ((sum_le_tsum S).trans hγ)
+variable {γ : ι → ℝ≥0∞} {E : ι → Ω → ℝ≥0∞} {α : ℝ≥0∞} {R : Finset ι}
 
 /-- **Weighted self-consistent sets belong to the online e-closure** of the weighted e-collection
 for the false discovery proportion. -/
