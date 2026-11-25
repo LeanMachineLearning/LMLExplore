@@ -275,7 +275,7 @@ private lemma isConfSeq_mul_sum_sub_mul_log_lt_log_of_subset {𝒩 : I → Set (
     (fun _ ↦ measurable_sum_range_of_succ hX) (fun _ _ ↦ measurable_const) ht hδ
   simpa only [mul_comm (log _)] using h
 
-/-- **Bernoulli confidence sequences for upper bounds on the mean** [HRMS20, Fact 1; HRMS21, §3].
+/-- **Bernoulli lower confidence bounds for the mean** [HRMS20, Fact 1; HRMS21, §3].
 Let each observation `X k` be `ℱ (k + 1)`-measurable. For `t ≥ 0` and `δ > 0`, the parameters `q`
 with `t ∑ k < n, X k - n log (1 - q + q exp t) < log δ⁻¹` form a confidence sequence at level `δ`
 for the nulls of the laws under which every observation has values in `[0, 1]` and conditional
@@ -291,7 +291,7 @@ theorem isConfSeq_mul_sum_sub_mul_log_lt_log_of_condExp_le [StandardBorelSpace �
     mem_condEVarNull_subPsiBets_log_of_condExp_le (fun k ↦ (hX k).mono (ℱ.le _) le_rfl)
       (fun k ↦ (hPX k).1) fun k ↦ (hPX k).2
 
-/-- **Bernoulli confidence sequences for lower bounds on the mean** [HRMS20, Fact 1; HRMS21, §3].
+/-- **Bernoulli upper confidence bounds for the mean** [HRMS20, Fact 1; HRMS21, §3].
 Let each observation `X k` be `ℱ (k + 1)`-measurable. For `t ≤ 0` and `δ > 0`, the parameters `q`
 with `t ∑ k < n, X k - n log (1 - q + q exp t) < log δ⁻¹` form a confidence sequence at level `δ`
 for the nulls of the laws under which every observation has values in `[0, 1]` and conditional
