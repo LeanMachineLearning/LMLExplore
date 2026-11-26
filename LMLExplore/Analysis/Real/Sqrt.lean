@@ -55,12 +55,17 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
   [JOA10, Lemma 19]. If `0 ≤ z k ≤ max 1 (Z k)` for every `k < n`, where `Z k = ∑_{i < k} z i`,
   then `∑_{k < n} z k / √(max 1 (Z k)) ≤ (√2 + 1) √(Z n)`. It sums confidence widths over the
   epochs of algorithms that restart an epoch when some count doubles, as UCRL2.
+* `Real.le_mul_sqrt_of_le_sqrt_mul_max`: the square-root recursion [LCCWC24, Appendix B.4]. If
+  `0 ≤ r ≤ 1`, `c ≥ 1`, `u (k + 1) ≤ √(r max 1 (u k))` for `k < K` and `u 0 ≤ c ^ 2 ^ K`, then
+  `u K ≤ c √r`. It bounds the errors of synchronous TD learning on dyadic windows of iterations.
 
 ## References
 
 * [Ora] F. Orabona, *A Modern Introduction to Online Learning*, arXiv:1912.13213v10.
 * [JOA10] T. Jaksch, R. Ortner and P. Auer, *Near-optimal regret bounds for reinforcement
   learning*, Journal of Machine Learning Research 11 (2010).
+* [LCCWC24] G. Li, C. Cai, Y. Chen, Y. Wei and Y. Chi, *Is Q-learning minimax optimal? A tight
+  sample complexity analysis*, Operations Research (2024), arXiv:2102.06548.
 -/
 
 public section
@@ -280,5 +285,66 @@ theorem sum_div_sqrt_max_one_le {z : ℕ → ℝ} {n : ℕ} (hz : ∀ k < n, 0 �
     have ih' := ih (fun k hk ↦ hz k (by omega)) (fun k hk ↦ hzZ k (by omega))
     rw [Finset.sum_range_succ, Finset.sum_range_succ]
     linarith
+
+/-- One step of the square-root recursion: if `y ≤ √(r max 1 x)` with `0 ≤ r`, then either
+`y ≤ √r`, or `x > 1` and `y ^ 2 ≤ r x`. -/
+private lemma le_sqrt_or_sq_le_mul_of_le_sqrt_mul_max {r x y : ℝ} (hr₀ : 0 ≤ r)
+    (hy : y ≤ √(r * max 1 x)) : y ≤ √r ∨ (1 < x ∧ √r < y ∧ y ^ 2 ≤ r * x) := by
+  rcases le_or_gt y √r with h | h
+  · exact .inl h
+  rcases le_or_gt x 1 with hx | hx
+  · rw [max_eq_left hx, mul_one] at hy
+    exact absurd hy (not_le.2 h)
+  · rw [max_eq_right hx.le] at hy
+    refine .inr ⟨hx, h, ?_⟩
+    calc y ^ 2 ≤ √(r * x) ^ 2 := pow_le_pow_left₀ ((sqrt_nonneg _).trans h.le) hy 2
+      _ = r * x := sq_sqrt (by positivity)
+
+/-- **The square-root recursion** [LCCWC24, Appendix B.4]. Let `0 ≤ r ≤ 1` and `c ≥ 1`, and let
+`u` satisfy `u (k + 1) ≤ √(r max 1 (u k))` for every `k < K`, with `K ≥ 1` and `u 0 ≤ c ^ 2 ^ K`.
+Then `u K ≤ c √r`: as long as `u k > 1`, the recursion gives `u (k + 1) ^ 2 ≤ r u k`, so that
+`u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) u 0`, and once `u k ≤ 1`, the next terms are at most `√r`. With
+`u` the bounds on the errors on dyadic windows of iterations, it solves the recursion of the
+errors of synchronous TD learning. -/
+theorem le_mul_sqrt_of_le_sqrt_mul_max {u : ℕ → ℝ} {r c : ℝ} {K : ℕ} (hr₀ : 0 ≤ r) (hr : r ≤ 1)
+    (hc : 1 ≤ c) (hK : 1 ≤ K) (hu : ∀ k < K, u (k + 1) ≤ √(r * max 1 (u k)))
+    (h0 : u 0 ≤ c ^ 2 ^ K) :
+    u K ≤ c * √r := by
+  -- either `u k ≤ √r`, or `u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) c ^ 2 ^ K` with `u k > √r`
+  have claim (k : ℕ) (hk : k ≤ K) :
+      u k ≤ √r ∨ (√r < u k ∧ u k ^ 2 ^ k ≤ r ^ (2 ^ k - 1) * c ^ 2 ^ K) := by
+    induction k with
+    | zero =>
+      rcases le_or_gt (u 0) √r with h | h
+      · exact .inl h
+      · exact .inr ⟨h, by simpa using h0⟩
+    | succ k ih =>
+      rcases le_sqrt_or_sq_le_mul_of_le_sqrt_mul_max hr₀ (hu k (by omega)) with h | ⟨hx, hy, hsq⟩
+      · exact .inl h
+      refine .inr ⟨hy, ?_⟩
+      rcases ih (by omega) with h | ⟨-, h⟩
+      · exact absurd (h.trans (sqrt_le_one.2 hr)) (not_le.2 hx)
+      have h2k : 1 ≤ 2 ^ k := Nat.one_le_two_pow
+      calc u (k + 1) ^ 2 ^ (k + 1) = (u (k + 1) ^ 2) ^ 2 ^ k := by rw [← pow_mul, pow_succ']
+        _ ≤ (r * u k) ^ 2 ^ k := pow_le_pow_left₀ (sq_nonneg _) hsq _
+        _ = r ^ 2 ^ k * u k ^ 2 ^ k := mul_pow _ _ _
+        _ ≤ r ^ 2 ^ k * (r ^ (2 ^ k - 1) * c ^ 2 ^ K) := by gcongr
+        _ = r ^ (2 ^ (k + 1) - 1) * c ^ 2 ^ K := by
+            rw [← mul_assoc, ← pow_add]
+            congr 2
+            rw [pow_succ]
+            omega
+  rcases claim K le_rfl with h | ⟨h, hK'⟩
+  · exact h.trans (le_mul_of_one_le_left (sqrt_nonneg _) hc)
+  -- `r ^ (2 ^ K - 1) ≤ r ^ 2 ^ (K - 1) = √r ^ 2 ^ K`, so that `u K ^ 2 ^ K ≤ (c √r) ^ 2 ^ K`
+  have hpow : r ^ (2 ^ K - 1) ≤ √r ^ 2 ^ K := by
+    obtain ⟨j, rfl⟩ : ∃ j, K = j + 1 := ⟨K - 1, by omega⟩
+    rw [pow_succ', pow_mul, sq_sqrt hr₀]
+    exact pow_le_pow_of_le_one hr₀ hr (by have := @Nat.one_le_two_pow j; omega)
+  refine (pow_le_pow_iff_left₀ (h.le.trans' (sqrt_nonneg _)) (by positivity)
+    (pow_ne_zero K two_ne_zero)).1 ?_
+  calc u K ^ 2 ^ K ≤ r ^ (2 ^ K - 1) * c ^ 2 ^ K := hK'
+    _ ≤ √r ^ 2 ^ K * c ^ 2 ^ K := by gcongr
+    _ = (c * √r) ^ 2 ^ K := by rw [mul_pow, mul_comm]
 
 end Real

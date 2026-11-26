@@ -6,6 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.ReinforcementLearning.TemporalDifference.Synchronous
+import LMLExplore.Analysis.Real.Sqrt
+import LMLExplore.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 
@@ -31,7 +33,7 @@ and the bound on the quadratic variation of the noise in terms of the late error
 `t ≥ T / log T` satisfies `‖Δ t‖ ≤ √(r max 1 (max_{t / 2 ≤ k < t} ‖Δ k‖))`, with
 `r = 5476 log³ T log (S T / δ) / ((1 - γ) ^ 3 T)`. On the dyadic windows
 `T / 2 ^ (K - j) ≤ t ≤ T`, the bounds `x (j + 1) = √(r max 1 (x j))` from `x 0 = 1 / (1 - γ)` reach
-`e √r` after `K ≈ log₂ log T` windows (`LMLExplore.le_mul_sqrt_of_le_sqrt_mul_max`
+`e √r` after `K ≈ log₂ log T` windows (`Real.le_mul_sqrt_of_le_sqrt_mul_max`
 [LCCWC24, Appendix B.4]).
 
 The bound improves the source in two ways: the factor `1 / γ ^ 2` of [LCCWC24, (101)] is not
@@ -106,15 +108,14 @@ private lemma prod_le_exp_of_window (hγ : γ < 1) (hT : 16 * Real.log T ^ 2 ≤
     {k t : ℕ} (htT : t ≤ T) :
     ∏ i ∈ Ioc k t, (1 - η i * (1 - γ)) ≤
       Real.exp (-(8 * Real.log T ^ 2 / T * (t - k : ℕ))) := by
-  have hsub (i : ℕ) (hi : i ∈ Ioc k t) : i ∈ Ioc 0 T :=
-    mem_Ioc.2 ⟨by have := (mem_Ioc.1 hi).1; omega, (mem_Ioc.1 hi).2.trans htT⟩
-  rw [← Nat.card_Ioc k t]
-  refine prod_one_sub_le_exp_neg_mul (fun i hi ↦ le_mul_one_sub_of_window hγ hT hL hlo (hsub i hi))
-    fun i hi ↦ ?_
-  have hηi := mem_Icc_of_window hγ hlo hhi (hsub i hi)
-  have h1γ : (0 : ℝ) ≤ 1 - γ := sub_nonneg.2 (by exact_mod_cast hγ.le)
-  have h1γ' : (1 : ℝ) - γ ≤ 1 := by linarith [γ.coe_nonneg]
-  nlinarith [hηi.1, hηi.2]
+  have hsub : Ioc k t ⊆ Ioc 0 T := Ioc_subset_Ioc (Nat.zero_le _) htT
+  refine (Real.prod_one_sub_le_exp_neg_sum fun i hi ↦ ?_).trans (Real.exp_le_exp.2 ?_)
+  · have hηi := mem_Icc_of_window hγ hlo hhi (hsub hi)
+    have h1γ : (0 : ℝ) ≤ 1 - γ := sub_nonneg.2 (by exact_mod_cast hγ.le)
+    have h1γ' : (1 : ℝ) - γ ≤ 1 := by linarith [γ.coe_nonneg]
+    nlinarith [hηi.1, hηi.2]
+  · rw [neg_le_neg_iff, ← Nat.card_Ioc k t, mul_comm, ← nsmul_eq_mul, ← sum_const]
+    exact sum_le_sum fun i hi ↦ le_mul_one_sub_of_window hγ hT hL hlo (hsub hi)
 
 /-- The early products are small: for `T ≤ log T * t` and `t ≤ 4 (t - k)`, `ρ k t ≤ 1 / T ^ 2`. -/
 private lemma prod_le_one_div_sq_of_window (hγ : γ < 1)
@@ -160,11 +161,9 @@ private lemma mul_prod_le_of_window_of_le (hγ : γ < 1) (hL : 0 < Real.log T)
   -- the product is at most `1`
   have hρ : ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) ≤ 1 := by
     refine prod_le_one₀ (fun i hi ↦ ?_) fun i hi ↦ ?_
-    · have := mem_Icc_of_window hγ hlo hhi (i := i)
-        (mem_Ioc.2 ⟨by have := (mem_Ioc.1 hi).1; omega, (mem_Ioc.1 hi).2.trans htT⟩)
+    · have := mem_Icc_of_window hγ hlo hhi (Ioc_subset_Ioc (Nat.zero_le _) htT hi)
       nlinarith [this.1, this.2]
-    · have := mem_Icc_of_window hγ hlo hhi (i := i)
-        (mem_Ioc.2 ⟨by have := (mem_Ioc.1 hi).1; omega, (mem_Ioc.1 hi).2.trans htT⟩)
+    · have := mem_Icc_of_window hγ hlo hhi (Ioc_subset_Ioc (Nat.zero_le _) htT hi)
       nlinarith [this.1]
   -- the learning rate is at most `16 log² T / ((1 - γ) (k + 1)) ≤ 32 log³ T / ((1 - γ) T)`
   have hk1 : (T : ℝ) ≤ 2 * Real.log T * ((k + 1 : ℕ) : ℝ) := by
@@ -202,8 +201,8 @@ private lemma mul_prod_le_of_window (hγ : γ < 1) (hT : 16 * Real.log T ^ 2 ≤
   have hk := mem_Icc_of_window hγ hlo hhi (i := k + 1) (mem_Ioc.2 ⟨k.succ_pos, by omega⟩)
   have hρ := prod_le_one_div_sq_of_window hγ hT hL0 hlo hhi htT hTt (k := k + 1) (by omega)
   have hρ₀ : 0 ≤ ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) :=
-    prod_one_sub_mul_nonneg h1γ.le h1γ' fun i hi ↦ mem_Icc_of_window hγ hlo hhi
-      (mem_Ioc.2 ⟨by have := (mem_Ioc.1 hi).1; omega, (mem_Ioc.1 hi).2.trans htT⟩)
+    Real.prod_one_sub_mul_nonneg h1γ.le h1γ' fun _ hi ↦
+      mem_Icc_of_window hγ hlo hhi (Ioc_subset_Ioc (Nat.zero_le _) htT hi)
   calc η (k + 1) * ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) ≤ 1 * (1 / (T : ℝ) ^ 2) :=
         mul_le_mul hk.2 hρ hρ₀ zero_le_one
     _ ≤ 32 * Real.log T ^ 3 / ((1 - γ) * T) := by
@@ -442,6 +441,29 @@ private lemma dyadic_facts {L B : ℝ} (hL2 : 2 ≤ L) (hB1 : 1 ≤ B) (hB3 : 3 
   push_cast
   linarith [Real.log_nonneg hB1]
 
+/-- An iteration `t` of the dyadic windows, `T ≤ 2 ^ K t` with `2 ^ K ≤ log T` and `T ≥ 8`,
+satisfies `2 ≤ t` and `T ≤ log T * t`. -/
+private lemma two_le_and_le_log_mul_of_le_two_pow_mul {T K t : ℕ} (hT8 : 8 ≤ (T : ℝ))
+    (hKL : ((2 ^ K : ℕ) : ℝ) ≤ Real.log T) (hTt : T ≤ 2 ^ K * t) :
+    2 ≤ t ∧ (T : ℝ) ≤ Real.log T * t := by
+  have hTt' : (T : ℝ) ≤ Real.log T * t := by
+    have : (T : ℝ) ≤ ((2 ^ K : ℕ) : ℝ) * t := by exact_mod_cast hTt
+    nlinarith [(Nat.cast_nonneg t : (0 : ℝ) ≤ t)]
+  refine ⟨?_, hTt'⟩
+  have hLT : Real.log T ≤ T - 1 := Real.log_le_sub_one_of_pos (by linarith)
+  by_contra h
+  interval_cases t
+  · rw [Nat.cast_zero, mul_zero] at hTt'
+    linarith
+  · rw [Nat.cast_one, mul_one] at hTt'
+    linarith
+
+/-- The bounds on the errors in the dyadic windows [LCCWC24, Appendix C]: `windowBound B r 0 = B`
+and `windowBound B r (j + 1) = √(r max 1 (windowBound B r j))`. -/
+private noncomputable def windowBound (B r : ℝ) : ℕ → ℝ
+  | 0 => B
+  | j + 1 => √(r * max 1 (windowBound B r j))
+
 /-- The final accuracy: if `s ≤ ε ^ 2 / 50000`, then `e √(5476 s) ≤ ε`. -/
 private lemma exp_one_mul_sqrt_le {s ε : ℝ} (hε : 0 < ε)
     (hsε : s ≤ ε ^ 2 / 50000) : Real.exp 1 * √(5476 * s) ≤ ε := by
@@ -499,10 +521,7 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
     linarith
   have hβ₀ : 0 < β := by positivity
   have hS : (1 : ℝ) ≤ Fintype.card 𝓢 := by exact_mod_cast Fintype.card_pos
-  have hρ₀ (k t : ℕ) : 0 ≤ ∏ i ∈ Ioc k t, (1 - η i * (1 - γ)) :=
-    prod_one_sub_mul_nonneg h1γ.le h1γ' fun i hi ↦ by
-      obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-      exact hη j
+  have hρ₀ := prod_one_sub_mul_one_sub_nonneg hγ hη
   -- the quadratic variation is at most `β B ^ 2 (2 + 4 D)`
   have hW := tdNoiseVarBound_le hγ hR hη hQ₀ (m := (t + 1) / 2) (t := t) (by omega) hD₀ hD
     hβ₀.le (fun k hk ↦ mul_prod_le_of_window_of_le hγ hL0 hlo hhi htT (mem_Ico.1 hk).2 hTt
@@ -552,6 +571,75 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
   · rw [hβ_def, hB_def, ← hs]
     field_simp
 
+/-- **The errors on the event of Freedman's inequality** [LCCWC24, Appendix C]. Under the
+assumptions of `abs_syncQLearning_sub_optQValue_le_sqrt`, let `K ≥ 1` with `2 ^ K ≤ log T` and
+`1 / (1 - γ) ≤ e ^ 2 ^ K`, and let the bound of Freedman's inequality hold at every iteration
+`t ≤ T` of the dyadic windows, `T ≤ 2 ^ K t`. Then the error of the `T`-th iterate is at most
+`e √(5476 s)`: by induction on `j`, the errors at the iterations `T ≤ 2 ^ (K - j) t` are at most
+`windowBound (1 / (1 - γ)) (5476 s) j`, which the square-root recursion bounds at `j = K`. -/
+private lemma abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (1 / (1 - (γ : ℝ))))
+    {T : ℕ} (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
+    (hlo : ∀ i ∈ Ioc 0 T, 1 / (1 + (1 - γ) * T / (16 * Real.log T ^ 2)) ≤ η i)
+    (hhi : ∀ i ∈ Ioc 0 T, η i ≤ 1 / (1 + (1 - γ) * i / (16 * Real.log T ^ 2)))
+    (h16 : 16 * Real.log T ^ 2 ≤ (1 - γ) * T) (hL1 : 1 ≤ Real.log T) (hT8 : 8 ≤ (T : ℝ))
+    {δ : ℝ} (hδ : 0 < δ) (hδ₁ : δ < 1) {s : ℝ} (hs₀ : 0 ≤ s) (hs₁ : s ≤ 1 / 50000)
+    (hs : Real.log T ^ 3 * Real.log (Fintype.card 𝓢 * T / δ) / ((1 - γ) ^ 3 * T) = s)
+    (hBs : 1 / (1 - (γ : ℝ)) / (T : ℝ) ^ 2 ≤ √s) {K : ℕ} (hK1 : 1 ≤ K)
+    (hKL : ((2 ^ K : ℕ) : ℝ) ≤ Real.log T) (hBK : 1 / (1 - (γ : ℝ)) ≤ Real.exp 1 ^ 2 ^ K)
+    {ω : ℕ → 𝓢 × 𝓐 → 𝓢}
+    (hgood : ∀ t ≤ T, T ≤ 2 ^ K * t → ∀ q,
+      |syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q| ≤
+        (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (1 / (1 - γ)) +
+          (3 * √(tdNoiseVarBound M γ η Q₀ t ω q * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) /
+            (δ / (2 * Fintype.card 𝓢 * (T + 1)))))) +
+          2 * (32 * Real.log T ^ 3 / ((1 - γ) * T) * (1 / (1 - γ))) *
+            max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1)))))))
+    (p : 𝓢 × 𝓐) :
+    |syncQLearning (meanReward M.R) γ η Q₀ T ω p - M.optQValue γ p| ≤ Real.exp 1 * √(5476 * s) := by
+  set B : ℝ := 1 / (1 - γ) with hB_def
+  set r := 5476 * s with hr_def
+  have hB1 : 1 ≤ B := by
+    rw [hB_def, le_div_iff₀ (sub_pos.2 (by exact_mod_cast hγ))]
+    linarith [γ.coe_nonneg]
+  have hx₀ (j : ℕ) : 0 ≤ windowBound B r j := by
+    cases j with
+    | zero => rw [windowBound]; linarith
+    | succ j => rw [windowBound]; exact Real.sqrt_nonneg _
+  have claim (j : ℕ) (hj : j ≤ K) (t : ℕ) (htT : t ≤ T) (hTt : T ≤ 2 ^ (K - j) * t)
+      (q : 𝓢 × 𝓐) :
+      |syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q| ≤ windowBound B r j := by
+    induction j generalizing t q with
+    | zero =>
+      rw [windowBound]
+      exact abs_syncQLearning_sub_optQValue_le hγ hR hη hQ₀ t ω q
+    | succ j ih =>
+      have hTt' : T ≤ 2 ^ K * t :=
+        hTt.trans (Nat.mul_le_mul_right _ (Nat.pow_le_pow_right two_pos (by omega)))
+      obtain ⟨ht2, hTLt⟩ := two_le_and_le_log_mul_of_le_two_pow_mul hT8 hKL hTt'
+      -- the errors at the late iterations `(t + 1) / 2 ≤ k < t` are at most `windowBound B r j`
+      have hD (k : ℕ) (hk : k ∈ Ico ((t + 1) / 2) t) (s' : 𝓢) :
+          |syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) -
+            M.optQValue γ (s', default)| ≤ windowBound B r j := by
+        obtain ⟨hk₁, hk₂⟩ := mem_Ico.1 hk
+        refine ih (by omega) k (by omega) ?_ (s', default)
+        have h2 : 2 ^ (K - j) = 2 ^ (K - (j + 1)) * 2 := by
+          rw [← pow_succ]
+          congr 1
+          omega
+        calc T ≤ 2 ^ (K - (j + 1)) * t := hTt
+          _ ≤ 2 ^ (K - (j + 1)) * (2 * k) := Nat.mul_le_mul_left _ (by omega)
+          _ = 2 ^ (K - j) * k := by rw [h2]; ring
+      rw [windowBound]
+      exact abs_syncQLearning_sub_optQValue_le_sqrt hγ hR hQ₀ hη hlo hhi h16 hL1 hT8 hδ hδ₁
+        hs₀ (by linarith) hs hBs ht2 htT hTLt (hx₀ j) hD q (hgood t htT hTt' q)
+  refine (claim K le_rfl T le_rfl (by simp) p).trans
+    (Real.le_mul_sqrt_of_le_sqrt_mul_max (by positivity) (by linarith)
+      (Real.one_le_exp zero_le_one) hK1 (fun k _ ↦ ?_) ?_)
+  · rw [windowBound]
+  · rw [windowBound]
+    exact hBK
+
 /-- **The sample complexity of synchronous TD learning** [LCCWC24, Theorem 1]. With one action,
 rewards in `[0, 1]`, `γ < 1`, an initial value in `[0, 1 / (1 - γ)]`, `ε ∈ (0, 1]`,
 `δ ∈ (0, 1)`, `T ≥ 2` and learning rates in the window
@@ -579,8 +667,6 @@ theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ
   set s := L ^ 3 * Real.log (S * T / δ) / ((1 - γ) ^ 3 * T) with hs_def
   set β := 32 * L ^ 3 / ((1 - γ) * T) with hβ_def
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
-  have hT0 : (0 : ℝ) < T := by linarith
-  have hL0 : 0 < L := by linarith
   have hL1 : 1 ≤ L := by linarith
   have hB1 : 1 ≤ B := by
     rw [hB_def, le_div_iff₀ h1γ]
@@ -610,34 +696,18 @@ theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ
     rw [syncQLearning_congr_learningRate hηη']
   -- the iterations of the windows
   set I := (range (T + 1)).filter fun t ↦ T ≤ 2 ^ K * t with hI_def
-  have hI (t : ℕ) (ht : t ∈ I) : t ≤ T ∧ (T : ℝ) ≤ L * t := by
+  have hI (t : ℕ) (ht : t ∈ I) : t ≤ T ∧ 2 ≤ t ∧ (T : ℝ) ≤ L * t := by
     rw [hI_def, mem_filter, mem_range] at ht
-    refine ⟨by omega, ?_⟩
-    have : (T : ℝ) ≤ ((2 ^ K : ℕ) : ℝ) * t := by exact_mod_cast ht.2
-    nlinarith [(Nat.cast_nonneg t : (0 : ℝ) ≤ t)]
-  have hI2 (t : ℕ) (ht : t ∈ I) : 2 ≤ t := by
-    have hLT : L ≤ T - 1 := Real.log_le_sub_one_of_pos hT0
-    by_contra h
-    interval_cases t
-    · have := (hI 0 ht).2
-      simp at this
-      linarith
-    · have := (hI 1 ht).2
-      simp at this
-      linarith
+    exact ⟨by omega, two_le_and_le_log_mul_of_le_two_pow_mul hT8 hKL ht.2⟩
   -- the event of Freedman's inequality at the iterations of the windows
   set δ' := δ / (2 * S * (T + 1)) with hδ'_def
   have hδ' : 0 < δ' := by positivity
   have hβ₀ : 0 < β := by positivity
   have hγ1 : (γ : ℝ) ≤ 1 := by exact_mod_cast hγ.le
-  have h1γ' : (1 : ℝ) - γ ≤ 1 := by linarith [γ.coe_nonneg]
-  have hρ₀ (k t : ℕ) : 0 ≤ ∏ i ∈ Ioc k t, (1 - η' i * (1 - γ)) :=
-    prod_one_sub_mul_nonneg h1γ.le h1γ' fun i hi ↦ by
-      obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-      exact hη' j
   have hvb : ∀ t ∈ I, ∀ k < t, η' (k + 1) * γ * (∏ i ∈ Ioc (k + 1) t, (1 - η' i * (1 - γ))) *
       (1 / (1 - γ)) ≤ β * B := fun t ht k hk ↦ by
-    have h := mul_prod_le_of_window hγ h16 hL1 hlo' hhi' (hI2 t ht) (hI t ht).1 hk (hI t ht).2
+    have h := mul_prod_le_of_window hγ h16 hL1 hlo' hhi' (hI t ht).2.1 (hI t ht).1 hk
+      (hI t ht).2.2
     calc η' (k + 1) * γ * (∏ i ∈ Ioc (k + 1) t, (1 - η' i * (1 - γ))) * (1 / (1 - γ))
         = (η' (k + 1) * ∏ i ∈ Ioc (k + 1) t, (1 - η' i * (1 - γ))) * γ * B := by ring
       _ ≤ β * 1 * B := by gcongr
@@ -646,58 +716,12 @@ theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ
     (η := η') (Q₀ := Q₀) (C := 1) hγ hR hη' hQ₀ hδ' (by positivity : 0 < β * B) I hvb
   refine (measure_mono fun ω hω ↦ ?_).trans (hbad.trans ?_)
   · by_contra hgood
-    have hgood' (t : ℕ) (ht : t ∈ I) (q : 𝓢 × 𝓐) :
-        |syncQLearning (meanReward M.R) γ η' Q₀ t ω q - M.optQValue γ q| ≤
-          (∏ i ∈ Ioc 0 t, (1 - η' i * (1 - γ))) * (1 / (1 - γ)) +
-            (3 * √(tdNoiseVarBound M γ η' Q₀ t ω q *
-              max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ'))) +
-            2 * (β * B) * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ'))) :=
-      not_lt.1 fun h ↦ hgood ⟨t, ht, q, h⟩
     obtain ⟨p, hp⟩ := hω
     rw [hQ] at hp
-    -- the bounds `x j` on the errors in the dyadic windows
-    set r := 5476 * s with hr_def
-    let x : ℕ → ℝ := fun j ↦ Nat.rec B (fun _ y ↦ √(r * max 1 y)) j
-    have hx0 : x 0 = B := rfl
-    have hxs (j : ℕ) : x (j + 1) = √(r * max 1 (x j)) := rfl
-    have hx₀ (j : ℕ) : 0 ≤ x j := by
-      cases j with
-      | zero => exact hx0 ▸ (zero_le_one.trans hB1)
-      | succ j => exact hxs j ▸ Real.sqrt_nonneg _
-    have claim (j : ℕ) (hj : j ≤ K) (t : ℕ) (htT : t ≤ T) (hTt : T ≤ 2 ^ (K - j) * t)
-        (q : 𝓢 × 𝓐) : |syncQLearning (meanReward M.R) γ η' Q₀ t ω q - M.optQValue γ q| ≤ x j := by
-      induction j generalizing t q with
-      | zero =>
-        rw [hx0]
-        exact abs_syncQLearning_sub_optQValue_le hγ hR hη' hQ₀ t ω q
-      | succ j ih =>
-        have htI : t ∈ I := by
-          rw [hI_def, mem_filter, mem_range]
-          refine ⟨by omega, hTt.trans (Nat.mul_le_mul_right _ (Nat.pow_le_pow_right two_pos
-            (by omega)))⟩
-        -- the errors at the late iterations `(t + 1) / 2 ≤ k < t` are at most `x j`
-        have hD (k : ℕ) (hk : k ∈ Ico ((t + 1) / 2) t) (s' : 𝓢) :
-            |syncQLearning (meanReward M.R) γ η' Q₀ k ω (s', default) -
-              M.optQValue γ (s', default)| ≤ x j := by
-          obtain ⟨hk₁, hk₂⟩ := mem_Ico.1 hk
-          refine ih (by omega) k (by omega) ?_ (s', default)
-          have h2 : 2 ^ (K - j) = 2 ^ (K - (j + 1)) * 2 := by
-            rw [← pow_succ]
-            congr 1
-            omega
-          calc T ≤ 2 ^ (K - (j + 1)) * t := hTt
-            _ ≤ 2 ^ (K - (j + 1)) * (2 * k) := Nat.mul_le_mul_left _ (by omega)
-            _ = 2 ^ (K - j) * k := by rw [h2]; ring
-        rw [hxs]
-        exact abs_syncQLearning_sub_optQValue_le_sqrt hγ hR hQ₀ hη' hlo' hhi' h16 hL1 hT8 hδ hδ₁
-          hs₀ (by linarith) hs_def.symm hBs (hI2 t htI) (hI t htI).1 (hI t htI).2 (hx₀ j) hD q
-          (hgood' t htI q)
-    have hfinal := claim K le_rfl T le_rfl (by simp) p
-    have hxK : x K ≤ Real.exp 1 * √r :=
-      le_mul_sqrt_of_le_sqrt_mul_max (by positivity) (by linarith)
-        (Real.one_le_exp zero_le_one) hK1 (fun k _ ↦ (hxs k).le) (hx0 ▸ hBK)
-    have heps : Real.exp 1 * √r ≤ ε := exp_one_mul_sqrt_le hε hsε
-    linarith
+    have h := abs_syncQLearning_sub_optQValue_le_of_window hγ hR hQ₀ hη' hlo' hhi' h16 hL1 hT8 hδ
+      hδ₁ hs₀ hs₁ hs_def.symm hBs hK1 hKL hBK (fun t htT hTt q ↦ not_lt.1 fun h ↦
+        hgood ⟨t, mem_filter.2 ⟨mem_range.2 (by omega), hTt⟩, q, h⟩) p
+    linarith [exp_one_mul_sqrt_le hε hsε]
   · -- `2 S #I δ' ≤ δ`
     refine ENNReal.ofReal_le_ofReal ?_
     have hcard : (#I : ℝ) ≤ T + 1 := by

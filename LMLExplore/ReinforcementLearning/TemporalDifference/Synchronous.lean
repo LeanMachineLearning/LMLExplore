@@ -9,6 +9,7 @@ public import LMLExplore.MarkovDecisionProcess.MarkovPolicy
 public import LMLExplore.Probability.Kernel.Resolvent
 public import LMLExplore.ReinforcementLearning.QLearning.Synchronous
 import LMLExplore.Analysis.Convex.Integral
+import LMLExplore.Analysis.SpecialFunctions.Exp
 import LMLExplore.Probability.Moments.Variance
 
 /-!
@@ -24,7 +25,8 @@ sampling noise. The sharp analysis of TD learning [LCCWC24, Theorem 1 and Append
 recursion with the operators `I - η i (I - γ P)` themselves, rather than with scalar weights as for
 Q-learning, so that the variances of the noise accumulate through the resolvent `(I - γ P)⁻¹`.
 
-This file develops that unrolling and its first probabilistic consequence.
+This file develops that unrolling, its first probabilistic consequence, and the bound on the
+quadratic variation of the noise in terms of the late errors.
 * **The propagators.** For a finite kernel `κ` on a finite space, `κ.tdStep γ c = I - c (I - γ κ)`
   and `κ.tdPropagator γ η k t = (I - η t (I - γ κ)) ⋯ (I - η (k + 1) (I - γ κ))`. For learning
   rates in `[0, 1]`, the propagators are positive operators. For a Markov kernel `κ`, they multiply
@@ -80,8 +82,10 @@ in `LMLExplore.ReinforcementLearning.TemporalDifference.SampleComplexity`.
   Freedman's inequality for each entry of the noise term.
 * `LMLExplore.ReinforcementLearning.measure_exists_lt_abs_syncQLearning_sub_optQValue_le`: the
   high-probability bound on the error of the `t`-th iterate.
-* `ReinforcementLearning.measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le`:
-  the same bound at all the iterations of a finite set.
+* `LMLExplore.ReinforcementLearning.measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le`
+  : the same bound at all the iterations of a finite set.
+* `LMLExplore.ReinforcementLearning.prod_one_sub_mul_one_sub_nonneg`: the products
+  `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` are nonnegative.
 * `LMLExplore.ReinforcementLearning.mul_integral_variance_optQValue_le`:
   `γ ^ 2 (I - γ P)⁻¹ Var_P(V*) ≤ (C / (1 - γ)) ^ 2` with one action.
 * `LMLExplore.ReinforcementLearning.tdNoiseVarBound_le`: the quadratic variation bound in terms of
@@ -322,7 +326,7 @@ theorem sum_sq_mul_prod_mul_tdPropagator_le [IsMarkovKernel κ] (hγ : γ < 1) {
   have hηk (k : ℕ) : ∀ i ∈ Ioc (k + 1) t, η i ∈ Set.Icc (0 : ℝ) 1 := fun i hi ↦
     hη i (Ioc_subset_Ioc_left (Nat.zero_le _) hi)
   have hρ (k : ℕ) : 0 ≤ ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) :=
-    LMLExplore.prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le))
+    Real.prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le))
       (by linarith [γ.coe_nonneg]) (hηk k)
   rw [← sum_range_add_sum_Ico _ hmt]
   refine add_le_add ?_ ?_
@@ -453,6 +457,13 @@ private lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 
     (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
   obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
   exact hη j
+
+/-- For `γ < 1` and learning rates in `[0, 1]` from iteration `1` on, the products
+`ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` are nonnegative. -/
+lemma prod_one_sub_mul_one_sub_nonneg (hγ : γ < 1) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
+    (k t : ℕ) : 0 ≤ ∏ i ∈ Ioc k t, (1 - η i * (1 - γ)) :=
+  Real.prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le))
+    (by linarith [γ.coe_nonneg]) fun _ hi ↦ mem_Icc_of_mem_Ioc hη hi
 
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
@@ -661,8 +672,7 @@ lemma tdNoiseVarBound_nonneg (hγ : γ < 1) (hη : ∀ t, η (t + 1) ∈ Set.Icc
     (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : 0 ≤ tdNoiseVarBound M γ η Q₀ t ω p := by
   rw [tdNoiseVarBound_def]
   refine sum_nonneg fun k _ ↦ mul_nonneg (mul_nonneg (sq_nonneg _)
-    (prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le)) (by linarith [γ.coe_nonneg])
-      fun i hi ↦ mem_Icc_of_mem_Ioc hη hi))
+    (prod_one_sub_mul_one_sub_nonneg hγ hη _ _))
     (Kernel.tdPropagator_nonneg (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi)
       (fun q ↦ variance_nonneg _ _) p)
 
