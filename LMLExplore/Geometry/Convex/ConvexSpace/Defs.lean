@@ -37,6 +37,9 @@ exactly the vectors of `LMLExplore.simplex α`, the vectors with nonnegative ent
   as many support points.
 * `Convexity.StdSimplex.support_weights_convexCombPair_subset`: the support of a convex combination
   of two finitely supported probability measures is contained in the union of their supports.
+* `Convexity.StdSimplex.weights_sum_mul_add_const`, `Convexity.StdSimplex.sum_mul_weights_sum_mul`:
+  expectations `w.weights.sum fun x r ↦ r * f x` under a finitely supported probability measure
+  are affine in `f`.
 * `Convexity.StdSimplex.weights_mem_simplex`, `LMLExplore.simplex_eq_range_weights`: on a finite
   type `α`, the weight vectors of the finitely supported probability measures are exactly the
   vectors of `LMLExplore.simplex α`, so that a vector of the simplex (an allocation of samples to
@@ -112,6 +115,32 @@ theorem support_weights_convexCombPair_subset (s t : R) (hs : 0 ≤ s) (ht : 0 �
 simplex. -/
 theorem weights_mem_simplex [Fintype X] (w : StdSimplex ℝ X) : ⇑w.weights ∈ LMLExplore.simplex X :=
   LMLExplore.mem_simplex_iff.2 ⟨w.weights_nonneg, w.total_of_fintype⟩
+
+section Expectation
+
+/-! ### Expectations
+
+The expectation of `f : X → R` under `w : StdSimplex R X` is `w.weights.sum fun x r ↦ r * f x`. -/
+
+variable {R X ι : Type*} [CommSemiring R] [PartialOrder R]
+
+/-- The expectation of `f + c` is the expectation of `f` plus `c`. -/
+theorem weights_sum_mul_add_const (w : StdSimplex R X) (f : X → R) (c : R) :
+    (w.weights.sum fun x r ↦ r * (f x + c)) = (w.weights.sum fun x r ↦ r * f x) + c := by
+  have h := w.total
+  simp only [Finsupp.sum] at h ⊢
+  simp_rw [mul_add, Finset.sum_add_distrib, ← Finset.sum_mul, h, one_mul]
+
+/-- Expectations commute with finite linear combinations. -/
+theorem sum_mul_weights_sum_mul (w : StdSimplex R X) (s : Finset ι) (c : ι → R)
+    (f : ι → X → R) :
+    ∑ i ∈ s, c i * (w.weights.sum fun x r ↦ r * f i x) =
+      w.weights.sum fun x r ↦ r * ∑ i ∈ s, c i * f i x := by
+  simp only [Finsupp.sum, Finset.mul_sum]
+  rw [Finset.sum_comm]
+  exact Finset.sum_congr rfl fun _ _ ↦ Finset.sum_congr rfl fun _ _ ↦ mul_left_comm _ _ _
+
+end Expectation
 
 end Convexity.StdSimplex
 

@@ -38,6 +38,9 @@ pays an infinite cost against every other alternative.
 
 ## Main statements
 
+* `IdentTask.card_mul_answerValue_le_iSup_sum_sum_klDiv`: weak duality for the distributions
+  `q s` played at the rounds `s ∈ S`, `#S · D(θ, ¬i) ≤ max_a ∑_{s ∈ S} E_{λ ∼ q s}[KL(ν_a(θ),
+  ν_a(λ))]`, the form in which a sampling rule playing the alternative player uses it.
 * `IdentTask.answerValue_le_iSup_sum_klDiv`: weak duality, `D(θ, ¬i)` is at most
   `max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]` for every finitely supported distribution `q` on `¬i`.
 * `IdentTask.answerValue_eq_iInf_iSup_sum_klDiv`: the minimax form of `D(θ, ¬i)`
@@ -60,7 +63,7 @@ public section
 
 open MeasureTheory ProbabilityTheory InformationTheory Convexity
 
-open scoped ENNReal NNReal
+open scoped ENNReal NNReal Finset
 
 namespace LMLExplore.Identification
 
@@ -69,15 +72,13 @@ namespace IdentTask
 variable {α Θ ℐ 𝓨 : Type*} [Fintype α] {mα : MeasurableSpace α} {m𝓨 : MeasurableSpace 𝓨}
   (task : IdentTask α Θ ℐ 𝓨) {θ : Θ} {i : ℐ}
 
-/-- **Weak duality.** The value `D(θ, ¬i)` is at most `max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]` for
-every finitely supported distribution `q` on the alternatives to `i`: against the mixture `q`, an
-allocation `w` collects `∑ a, w a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]`, at least the cost of the
-cheapest alternative. -/
-lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.support ⊆ task.alt i) :
-    task.answerValue θ i ≤
-      ⨆ a, q.weights.sum fun θ' r ↦ ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
-  rw [answerValue_def]
-  refine iSup₂_le fun w hw ↦ ?_
+/-- Against a finitely supported distribution `q` on the alternatives to `i`, an allocation `w`
+collects `∑ a, w a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]`, at least the cost of the cheapest
+alternative. -/
+private lemma altCost_le_sum_ofReal_mul_sum_klDiv {q : StdSimplex ℝ Θ}
+    (hq : ↑q.weights.support ⊆ task.alt i) (w : α → ℝ) :
+    task.altCost θ w i ≤ ∑ a, ENNReal.ofReal (w a) * q.weights.sum fun θ' r ↦
+      ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
   have hq1 : ∑ θ' ∈ q.weights.support, ENNReal.ofReal (q.weights θ') = 1 := by
     rw [← ENNReal.ofReal_sum_of_nonneg fun θ' _ ↦ q.weights_nonneg θ', ← ENNReal.ofReal_one,
       ← q.total, Finsupp.sum]
@@ -86,13 +87,46 @@ lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.s
         rw [← Finset.sum_mul, hq1, one_mul]
     _ ≤ ∑ θ' ∈ q.weights.support, ENNReal.ofReal (q.weights θ') * task.cost w θ θ' :=
         Finset.sum_le_sum fun θ' hθ' ↦ by gcongr; exact task.altCost_le_cost (hq hθ') w
-    _ = ∑ a, ENNReal.ofReal (w a) * q.weights.sum fun θ' r ↦
-          ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
+    _ = _ := by
         simp only [cost_def, Finsupp.sum, Finset.mul_sum]
         rw [Finset.sum_comm]
         congr! 2 with a _ θ' _
         exact mul_left_comm _ _ _
+
+/-- **Weak duality for repeated plays.** If an alternative player plays finitely supported
+distributions `q s` on the alternatives to `i` at the rounds `s ∈ S`, some arm collects, summed
+over the rounds, expected divergences at least `#S` times the value `D(θ, ¬i)`:
+`#S · D(θ, ¬i) ≤ max_a ∑_{s ∈ S} E_{λ ∼ q s}[KL(ν_a(θ), ν_a(λ))]`, which is weak duality at
+the average of the distributions `q s`. -/
+lemma card_mul_answerValue_le_iSup_sum_sum_klDiv {ι : Type*} {S : Finset ι}
+    {q : ι → StdSimplex ℝ Θ} (hq : ∀ s ∈ S, ↑(q s).weights.support ⊆ task.alt i) :
+    (#S : ℝ≥0∞) * task.answerValue θ i ≤
+      ⨆ a, ∑ s ∈ S, (q s).weights.sum fun θ' r ↦
+        ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
+  rw [answerValue_def, ENNReal.mul_iSup]
+  refine iSup_le fun w ↦ ?_
+  rw [ENNReal.mul_iSup]
+  refine iSup_le fun hw ↦ ?_
+  calc (#S : ℝ≥0∞) * task.altCost θ w i = ∑ s ∈ S, task.altCost θ w i := by
+        rw [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ ∑ s ∈ S, ∑ a, ENNReal.ofReal (w a) * (q s).weights.sum fun θ' r ↦
+          ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) :=
+        Finset.sum_le_sum fun s hs ↦ task.altCost_le_sum_ofReal_mul_sum_klDiv (hq s hs) w
+    _ = ∑ a, ENNReal.ofReal (w a) * ∑ s ∈ S, (q s).weights.sum fun θ' r ↦
+          ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
+        rw [Finset.sum_comm]
+        simp_rw [Finset.mul_sum]
     _ ≤ _ := sum_ofReal_mul_le_iSup hw _
+
+/-- **Weak duality.** The value `D(θ, ¬i)` is at most `max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]` for
+every finitely supported distribution `q` on the alternatives to `i`: against the mixture `q`, an
+allocation `w` collects `∑ a, w a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))]`, at least the cost of the
+cheapest alternative. -/
+lemma answerValue_le_iSup_sum_klDiv {q : StdSimplex ℝ Θ} (hq : ↑q.weights.support ⊆ task.alt i) :
+    task.answerValue θ i ≤
+      ⨆ a, q.weights.sum fun θ' r ↦ ENNReal.ofReal r * klDiv (task.ν θ a) (task.ν θ' a) := by
+  simpa using task.card_mul_answerValue_le_iSup_sum_sum_klDiv (S := {()}) (q := fun _ ↦ q)
+    (by simpa using hq)
 
 /-- The minimax inequality `inf_q max_a E_{λ ∼ q}[KL(ν_a(θ), ν_a(λ))] ≤ D(θ, ¬i)` when all the
 alternatives to `i` are at finite divergence from `θ` on every arm: von Neumann's minimax theorem
