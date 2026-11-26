@@ -57,6 +57,12 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
   over the designs `r`, of the bipolar rate of the tables of `r` per observation.
 * `ProbabilityTheory.designRate_unique`: with one source, the rate of the designs is the bipolar
   rate of the law of the source against the laws of the source in `Λ`.
+* `ProbabilityTheory.designValue_eq_maxLogGrowth_of_forall_ne`: if the instances of `Λ` differ
+  from `μ` at the source `a` only, the value of a design `n` is the largest expected logarithm of
+  an e-variable of `n a` observations of the source `a`, against the laws of `a` in `Λ`; the
+  other observations carry no evidence.
+* `ProbabilityTheory.designRate_eq_bipolarRate_of_forall_ne`: in the same setting, the rate of the
+  designs is the bipolar rate of `μ a` against the laws of the source `a` in `Λ`.
 
 ## Implementation notes
 
@@ -66,7 +72,7 @@ paper project `RemyDegenne/evalues_research`, changed to `maxEPower` and `maxLog
 ## References
 
 * [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 41,
-  `results/41-several-arms-bipolar-rate.md`, Sections 1 and 2.
+  `results/41-several-arms-bipolar-rate.md`, Sections 1, 2 and 7.
 -/
 
 public section
@@ -414,5 +420,104 @@ theorem designRate_unique [Unique α] (μ : α → Measure 𝓧) [∀ a, SigmaFi
     · exact maxLogGrowth_div_le_bipolarRate _ _ h.ne'
   · exact le_iSup (fun n : α → ℕ ↦ maxLogGrowth (μ default) ((fun ν ↦ ν default) '' Λ)
       (n default) / ((n default : ℕ) : EReal)) fun _ ↦ k + 1
+
+/-! ### One informative source -/
+
+/-- The table of the design `n`, split into the sample of the `n a` observations of the source `a`
+and the entries of the other sources. -/
+private def designSplitEquiv [DecidableEq α] (n : α → ℕ) (a : α) :
+    ((Σ b, Fin (n b)) → 𝓧) ≃ᵐ
+      (Fin (n a) → 𝓧) × ({p : Σ b, Fin (n b) // ¬p.1 = a} → 𝓧) :=
+  (MeasurableEquiv.piEquivPiSubtypeProd (fun _ ↦ 𝓧) fun p : Σ b, Fin (n b) ↦ p.1 = a).trans
+    (MeasurableEquiv.prodCongr
+      (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) (Equiv.sigmaSubtype (β := fun b ↦ Fin (n b)) a))
+      (MeasurableEquiv.refl _))
+
+/-- Under the instance `ν`, the split table of the design `n` is a sample of `n a` observations of
+law `ν a`, independent of the entries of the other sources. -/
+private lemma map_designLaw_designSplitEquiv [DecidableEq α] (ν : α → Measure 𝓧)
+    [∀ b, SigmaFinite (ν b)] (n : α → ℕ) (a : α) :
+    (designLaw ν n).map (designSplitEquiv (m𝓧 := m𝓧) n a) =
+      (Measure.pi fun _ : Fin (n a) ↦ ν a).prod
+        (Measure.pi fun p : {p : Σ b, Fin (n b) // ¬p.1 = a} ↦ ν p.val.1) := by
+  have h_pi : (Measure.pi fun p : {p : Σ b, Fin (n b) // p.1 = a} ↦ ν p.val.1) =
+      Measure.pi fun _ ↦ ν a :=
+    congrArg Measure.pi (funext fun p ↦ congrArg ν p.property)
+  have h_split := measurePreserving_piEquivPiSubtypeProd (fun p : Σ b, Fin (n b) ↦ ν p.1)
+    fun p ↦ p.1 = a
+  rw [h_pi] at h_split
+  have h_sample := (measurePreserving_piCongrLeft (fun _ : Fin (n a) ↦ ν a)
+    (Equiv.sigmaSubtype (β := fun b ↦ Fin (n b)) a)).prod (MeasurePreserving.id
+      (Measure.pi fun p : {p : Σ b, Fin (n b) // ¬p.1 = a} ↦ ν p.val.1))
+  rw [designLaw_def]
+  exact (h_sample.comp h_split).map_eq
+
+/-- **One informative source.** If the instances of `Λ` give every source other than `a` the
+law it has under `μ`, the value of a design is the largest expected logarithm of an e-variable of
+the `n a` observations of the source `a`, for the i.i.d. null of the laws of the source `a` in
+`Λ`: the observations of the other sources carry no evidence [EVR26, Note 41, Section 7]. -/
+theorem designValue_eq_maxLogGrowth_of_forall_ne [∀ b, IsProbabilityMeasure (μ b)] {a : α}
+    (hΛ : ∀ ν ∈ Λ, ν a Set.univ ≤ 1)
+    (hΛa : ∀ ν ∈ Λ, ∀ b ≠ a, ν b = μ b) (n : α → ℕ) :
+    designValue μ Λ n = maxLogGrowth (μ a) ((fun ν ↦ ν a) '' Λ) (n a) := by
+  classical
+  -- the law of the entries of the other sources, the same under `μ` and under `Λ`
+  set R := Measure.pi fun p : {p : Σ b, Fin (n b) // ¬p.1 = a} ↦ μ p.val.1
+  have h_map (ν : α → Measure 𝓧) (hν : ν ∈ Λ) :
+      (designLaw ν n).map (designSplitEquiv (m𝓧 := m𝓧) n a) =
+        (Measure.pi fun _ : Fin (n a) ↦ ν a).prod R := by
+    have (b : α) : SigmaFinite (ν b) := by
+      rcases eq_or_ne b a with rfl | hb
+      · have : IsFiniteMeasure (ν b) := ⟨(hΛ ν hν).trans_lt ENNReal.one_lt_top⟩
+        infer_instance
+      · rw [hΛa ν hν b hb]
+        infer_instance
+    rw [map_designLaw_designSplitEquiv]
+    congr 1
+    exact congrArg Measure.pi (funext fun p ↦ hΛa ν hν _ p.property)
+  have h_null : mapNull (designSplitEquiv (m𝓧 := m𝓧) n a) ((fun ν ↦ designLaw ν n) '' Λ) =
+      Set.image2 Measure.prod (sampleNull ((fun ν ↦ ν a) '' Λ) (n a)) {R} := by
+    ext P
+    simp only [mem_mapNull, Set.image2_singleton_right, sampleNull_def, Set.image_image,
+      Set.mem_image, exists_exists_and_eq_and]
+    exact exists_congr fun ν ↦ and_congr_right fun hν ↦ by rw [h_map ν hν]
+  have hS := measure_univ_le_one_of_mem_sampleNull (Set.forall_mem_image.2 hΛ) (n a)
+  rw [designValue_def, ← (designSplitEquiv (m𝓧 := m𝓧) n a).maxEPower_map_eq,
+    map_designLaw_designSplitEquiv, h_null, maxEPower_prod_eq_add hS (by simp),
+    maxEPower_singleton_eq_klDiv, klDiv_self, EReal.coe_ennreal_zero, add_zero, maxLogGrowth_def]
+
+/-- With one informative source `a`, the value of a design is at most `n a` times the bipolar rate
+of the source `a` against its laws in `Λ` [EVR26, Note 41, Section 7]. -/
+theorem designValue_le_mul_bipolarRate_of_forall_ne [∀ b, IsProbabilityMeasure (μ b)] {a : α}
+    (hΛ : ∀ ν ∈ Λ, ν a Set.univ ≤ 1) (hne : Λ.Nonempty)
+    (hΛa : ∀ ν ∈ Λ, ∀ b ≠ a, ν b = μ b) (n : α → ℕ) :
+    designValue μ Λ n ≤ (n a : EReal) * bipolarRate (μ a) ((fun ν ↦ ν a) '' Λ) := by
+  rw [designValue_eq_maxLogGrowth_of_forall_ne hΛ hΛa]
+  rcases eq_or_ne (n a) 0 with h | h
+  · -- no observation of the source `a`: the value of the empty design
+    have h0 := designValue_eq_maxLogGrowth_of_forall_ne hΛ hΛa 0
+    rw [designValue_zero μ hne, Pi.zero_apply] at h0
+    simp [h, ← h0]
+  · exact maxLogGrowth_le_mul_bipolarRate _ _ h
+
+/-- **One informative source.** If the instances of `Λ` give every source other than `a` the law
+it has under `μ`, the rate of the designs is the bipolar rate of the source `a` against its laws
+in `Λ` [EVR26, Note 41, Section 7]. -/
+theorem designRate_eq_bipolarRate_of_forall_ne [∀ b, IsProbabilityMeasure (μ b)] {a : α}
+    (hΛ : ∀ ν ∈ Λ, ν a Set.univ ≤ 1)
+    (hΛa : ∀ ν ∈ Λ, ∀ b ≠ a, ν b = μ b) :
+    designRate μ Λ = bipolarRate (μ a) ((fun ν ↦ ν a) '' Λ) := by
+  classical
+  refine le_antisymm ?_ ((bipolarRate_def _ _).trans_le (iSup_le fun k ↦ ?_))
+  · rcases Λ.eq_empty_or_nonempty with rfl | hne
+    · simp
+    have hd := bipolarRate_nonneg (μ a) (Set.forall_mem_image.2 hΛ)
+    refine (designRate_le_iff hd).2 fun n _ ↦
+      (designValue_le_mul_bipolarRate_of_forall_ne hΛ hne hΛa n).trans
+        (mul_le_mul_of_nonneg_right ?_ hd)
+    exact_mod_cast Finset.single_le_sum (fun b _ ↦ Nat.zero_le (n b)) (Finset.mem_univ a)
+  · -- the design that observes the source `a` exactly `k + 1` times
+    simpa [designValue_eq_maxLogGrowth_of_forall_ne hΛ hΛa] using
+      designValue_div_le_designRate μ Λ (Pi.single a (k + 1))
 
 end ProbabilityTheory
