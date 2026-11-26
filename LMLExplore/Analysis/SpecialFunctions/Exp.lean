@@ -62,6 +62,9 @@ the exponential of the mean of the exponents. This spreads a bound on a sum of d
 Mathlib bounds a finite product `∏ i ∈ s, (1 + f i)` of factors with `f ≥ 0` by
 `exp (∑ i ∈ s, f i)`; for summable `f` this gives the uniform bound `exp (∑' i, f i)`, which
 bounds the running products `∏ k < n, (1 + a k)` of the Robbins–Siegmund theorem.
+Conversely, a product `∏ i ∈ s, (1 - x i)` of factors with `x i ≤ 1` is at most
+`exp (-∑ i ∈ s, x i)`, and it is nonnegative. With `x i = η i (1 - γ)`, these bound the
+contraction factors of TD learning with learning rates `η i ∈ [0, 1]`.
 
 ## Main statements
 
@@ -91,6 +94,9 @@ bounds the running products `∏ k < n, (1 + a k)` of the Robbins–Siegmund the
   sub-gamma bound, `L ≤ t (√(2 v L) + b L / 3) - v (exp (t b) - 1 - t b) / b ^ 2` for some `t > 0`.
 * `Real.exp_neg_le_one_sub_add_sq`: `exp (-x) ≤ 1 - x + x ^ 2` for `x ≥ -1`.
 * `Real.prod_one_add_le_exp_tsum`: `∏ i ∈ s, (1 + f i) ≤ exp (∑' i, f i)` for summable `f ≥ 0`.
+* `Real.prod_one_sub_le_exp_neg_sum`: `∏ i ∈ s, (1 - x i) ≤ exp (-∑ i ∈ s, x i)` for `x ≤ 1`
+  on `s`.
+* `Real.prod_one_sub_mul_nonneg`: `0 ≤ ∏ i ∈ s, (1 - η i c)` for `η i, c ∈ [0, 1]`.
 * `Real.card_mul_exp_sum_div_card_le_sum_exp`: `#s exp ((∑ i ∈ s, x i) / #s) ≤ ∑ i ∈ s, exp (x i)`.
 * `Real.one_add_sq_div_two_le_cosh`: `1 + v ^ 2 / 2 ≤ cosh v`.
 * `Real.sum_inv_two_pow_mul_exp_mul_sum_sign`: the moment generating function of a sum of `n`
@@ -409,6 +415,17 @@ theorem card_mul_exp_sum_div_card_le_sum_exp {ι : Type*} (s : Finset ι) (x : �
 theorem prod_one_add_le_exp_tsum {ι : Type*} (s : Finset ι) {f : ι → ℝ} (hf : ∀ i, 0 ≤ f i)
     (hs : Summable f) : ∏ i ∈ s, (1 + f i) ≤ exp (∑' i, f i) :=
   (prod_one_add_le_exp_sum s hf).trans (exp_le_exp.2 (hs.sum_le_tsum s fun i _ ↦ hf i))
+
+/-- A product of factors `1 - x i` with `x i ≤ 1` is at most `exp (-∑ i ∈ s, x i)`. -/
+theorem prod_one_sub_le_exp_neg_sum {ι : Type*} {s : Finset ι} {x : ι → ℝ}
+    (hx : ∀ i ∈ s, x i ≤ 1) : ∏ i ∈ s, (1 - x i) ≤ exp (-∑ i ∈ s, x i) := by
+  rw [← Finset.sum_neg_distrib, exp_sum]
+  exact Finset.prod_le_prod₀ (fun i hi ↦ sub_nonneg.2 (hx i hi)) fun i _ ↦ one_sub_le_exp_neg _
+
+/-- For `0 ≤ c ≤ 1` and `η i ∈ [0, 1]`, the product `∏ i ∈ s, (1 - η i c)` is nonnegative. -/
+theorem prod_one_sub_mul_nonneg {ι : Type*} {s : Finset ι} {η : ι → ℝ} {c : ℝ} (hc₀ : 0 ≤ c)
+    (hc : c ≤ 1) (hη : ∀ i ∈ s, η i ∈ Set.Icc (0 : ℝ) 1) : 0 ≤ ∏ i ∈ s, (1 - η i * c) :=
+  Finset.prod_nonneg fun i hi ↦ sub_nonneg.2 ((mul_le_of_le_one_left hc₀ (hη i hi).2).trans hc)
 
 /-- `cosh v` is at least `1 + v ^ 2 / 2`. -/
 theorem one_add_sq_div_two_le_cosh (v : ℝ) : 1 + v ^ 2 / 2 ≤ cosh v := by

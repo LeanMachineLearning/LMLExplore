@@ -26,10 +26,10 @@ case of Mathlib's `ProbabilityTheory.variance_le_sq_of_bounded`, and standard de
 The standard deviation `√Var[X; μ]` is a seminorm on square-integrable random variables: the
 Cauchy–Schwarz inequality `cov[X, Y] ^ 2 ≤ Var[X] Var[Y]` gives the triangle inequality
 `√Var[X + Y] ≤ √Var[X] + √Var[Y]`. In particular, two random variables within `D` of each other
-almost surely have standard deviations within `D`. This compares the variance of an unknown
-function, such as the optimal value of a Markov decision process, with the variance of a nearby
-computable one, and transfers a Bernstein-type bound on the deviation `∫ Y dμ - ∫ Y dν` of the
-nearby function `Y` to `X`.
+almost surely have standard deviations within `D`, and, if both are bounded by `B`, variances
+within `4 B D`. This compares the variance of an unknown function, such as the optimal value of a
+Markov decision process, with the variance of a nearby computable one, and transfers a
+Bernstein-type bound on the deviation `∫ Y dμ - ∫ Y dν` of the nearby function `Y` to `X`.
 
 The variance is also the least centred second moment, `Var[X; μ] ≤ ∫ (X - c) ^ 2 ∂μ`, which
 transports variances: between two functions within `D` of each other, and between two laws on a
@@ -50,6 +50,8 @@ Apache 2.0).
 * `ProbabilityTheory.sqrt_variance_add_le`: `√Var[X + Y; μ] ≤ √Var[X; μ] + √Var[Y; μ]`.
 * `ProbabilityTheory.sqrt_variance_le_sqrt_variance_add_of_abs_sub_le`: if `|X - Y| ≤ D` almost
   surely, then `√Var[X; μ] ≤ √Var[Y; μ] + D`.
+* `ProbabilityTheory.variance_le_variance_add_of_abs_sub_le`: if `|X|, |Y| ≤ B` and `|X - Y| ≤ d`
+  almost surely, then `Var[X; μ] ≤ Var[Y; μ] + 4 B d`.
 * `ProbabilityTheory.abs_integral_sub_integral_le_of_abs_sub_le`: a Bernstein-type bound
   `|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b` transfers to every `X` uniformly within `d` of `Y`, at
   the cost of `(2 + a) d`.
@@ -152,6 +154,47 @@ theorem sqrt_variance_le_sqrt_variance_add_of_abs_sub_le (hX : MemLp X 2 μ) (hY
   refine h.trans ?_
   gcongr
   exact sqrt_variance_le_of_abs_le (hX.sub hY).aemeasurable hD₀ hD
+
+/-- **Comparison of the variances of two nearby bounded random variables**: if `|X| ≤ B` and
+`|Y| ≤ B` almost surely and `|X - Y| ≤ d` almost surely, then `Var[X; μ] ≤ Var[Y; μ] + 4 B d`.
+The difference `𝔼 (X ^ 2 - Y ^ 2) - (𝔼 X - 𝔼 Y) (𝔼 X + 𝔼 Y)` of the variances has two terms,
+each at most `2 B d`. -/
+theorem variance_le_variance_add_of_abs_sub_le (hX : AEMeasurable X μ) (hY : AEMeasurable Y μ)
+    (hXB : ∀ᵐ b ∂μ, |X b| ≤ B) (hYB : ∀ᵐ b ∂μ, |Y b| ≤ B) {d : ℝ}
+    (hXY : ∀ᵐ b ∂μ, |X b - Y b| ≤ d) :
+    Var[X; μ] ≤ Var[Y; μ] + 4 * B * d := by
+  have hXm : MemLp X 2 μ := .of_bound hX.aestronglyMeasurable B (hXB.mono fun _ h ↦ by
+    rwa [Real.norm_eq_abs])
+  have hYm : MemLp Y 2 μ := .of_bound hY.aestronglyMeasurable B (hYB.mono fun _ h ↦ by
+    rwa [Real.norm_eq_abs])
+  have hd : 0 ≤ d := by
+    obtain ⟨b, hb⟩ := hXY.exists
+    exact (abs_nonneg _).trans hb
+  -- a bound `|f| ≤ c` almost surely bounds `|∫ f dμ|` by `c`
+  have h_int {f : β → ℝ} {c : ℝ} (hf : ∀ᵐ b ∂μ, |f b| ≤ c) : |∫ b, f b ∂μ| ≤ c := by
+    simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
+      norm_integral_le_of_norm_le_const (μ := μ) (f := f)
+        (hf.mono fun b hb ↦ (Real.norm_eq_abs _).trans_le hb)
+  have h₁ : μ[X ^ 2] - μ[Y ^ 2] ≤ 2 * B * d := by
+    simp only [Pi.pow_apply]
+    rw [← integral_sub hXm.integrable_sq hYm.integrable_sq]
+    refine (le_abs_self _).trans (h_int ?_)
+    filter_upwards [hXB, hYB, hXY] with b hXb hYb hXYb
+    rw [sq_sub_sq, abs_mul]
+    exact mul_le_mul ((abs_add_le _ _).trans (by linarith)) hXYb (abs_nonneg _)
+      (by linarith [abs_nonneg (X b)])
+  have h₂ : |μ[X] - μ[Y]| ≤ d := by
+    rw [← integral_sub (hXm.integrable one_le_two) (hYm.integrable one_le_two)]
+    exact h_int hXY
+  have h₃ : |μ[X] + μ[Y]| ≤ 2 * B := by
+    rw [← integral_add (hXm.integrable one_le_two) (hYm.integrable one_le_two)]
+    refine h_int ?_
+    filter_upwards [hXB, hYB] with b hXb hYb
+    exact (abs_add_le _ _).trans (by linarith)
+  have h₄ : -((μ[X] - μ[Y]) * (μ[X] + μ[Y])) ≤ d * (2 * B) :=
+    (neg_le_abs _).trans (by rw [abs_mul]; exact mul_le_mul h₂ h₃ (abs_nonneg _) hd)
+  rw [variance_eq_sub hXm, variance_eq_sub hYm]
+  nlinarith
 
 /-- **Perturbation of a Bernstein-type bound.** If `Y` satisfies the Bernstein-type bound
 `|∫ Y dμ - ∫ Y dν| ≤ a √Var[Y; μ] + b`, with `a ≥ 0`, between two probability measures, and `X` is
