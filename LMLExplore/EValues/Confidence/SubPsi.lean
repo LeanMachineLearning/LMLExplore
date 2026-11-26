@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.Confidence.Sequence
 public import LMLExplore.EValues.SubPsi
+import LMLExplore.Probability.Process.Adapted
 
 /-!
 # Confidence sequences from sub-ψ processes
@@ -122,18 +123,6 @@ end SubPsiProcess
 
 /-! ### The mean under the null of the sub-ψ bets -/
 
-/-- The partial sums `∑ k < n, f k` are `ℱ n`-measurable when each `f k` is
-`ℱ (k + 1)`-measurable. -/
-private lemma measurable_sum_range_of_succ {f : ℕ → Ω → ℝ}
-    (hf : ∀ k, Measurable[ℱ (k + 1)] (f k)) (n : ℕ) :
-    Measurable[ℱ n] fun ω ↦ ∑ k ∈ range n, f k ω :=
-  Finset.measurable_fun_sum _ fun k hk ↦ (hf k).mono (ℱ.mono (mem_range.1 hk)) le_rfl
-
-/-- `∑ k < n, (x k - m) = ∑ k < n, x k - n m`. -/
-private lemma sum_range_sub_const (x : ℕ → ℝ) (m : ℝ) (n : ℕ) :
-    ∑ k ∈ range n, (x k - m) = ∑ k ∈ range n, x k - n * m := by
-  rw [Finset.sum_sub_distrib, sum_const, card_range, nsmul_eq_mul]
-
 /-- **Confidence sequences for the mean under the nulls of the sub-ψ bets** [HRMS21, §3]. Let
 each observation `X k` be `ℱ (k + 1)`-measurable, and for a candidate mean `m` let the null be the
 laws under which every sub-ψ bet `exp (t (X k - m) - ψ t)`, `t ∈ Λ`, is a conditional e-variable
@@ -147,9 +136,10 @@ theorem isConfSeq_lt_log_condEVarNull (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)
     (S := fun m n ω ↦ ∑ k ∈ range n, (X k ω - m)) (V := fun _ n _ ↦ n)
     (fun m ↦ isSubPsiProcess_sum_condEVarNull fun k ↦ (hX k).sub_const m)
     (fun _ _ hP ↦ isProbabilityMeasure_of_mem_condEVarNull hP)
-    (fun m ↦ measurable_sum_range_of_succ fun k ↦ (hX k).sub_const m)
+    (fun m ↦ adapted_sum_range fun k ↦ (hX k).sub_const m)
     (fun _ _ ↦ measurable_const) ht hδ
-  simpa only [sum_range_sub_const, mul_comm (ψ t)] using h
+  simpa only [Finset.sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, mul_comm (ψ t)]
+    using h
 
 /-- **Lower confidence bounds for the mean under the nulls of the sub-ψ bets** [HRMS21, §3]. Let
 each observation `X k` be `ℱ (k + 1)`-measurable. For a parameter `t > 0` of `Λ` and `δ > 0`, the
@@ -272,7 +262,7 @@ private lemma isConfSeq_mul_sum_sub_mul_log_lt_log_of_subset {𝒩 : I → Set (
     (S := fun _ n ω ↦ ∑ k ∈ range n, X k ω) (V := fun _ n _ ↦ n)
     (fun q ↦ (isSubPsiProcess_sum_condEVarNull hX).anti_set (h𝒩 q))
     (fun q _ hP ↦ isProbabilityMeasure_of_mem_condEVarNull (h𝒩 q hP))
-    (fun _ ↦ measurable_sum_range_of_succ hX) (fun _ _ ↦ measurable_const) ht hδ
+    (fun _ ↦ adapted_sum_range hX) (fun _ _ ↦ measurable_const) ht hδ
   simpa only [mul_comm (log _)] using h
 
 /-- **Bernoulli lower confidence bounds for the mean** [HRMS20, Fact 1; HRMS21, §3].
@@ -332,13 +322,14 @@ theorem isConfSeq_sum_sub_div_lt_mul_of_condExp_sq_le (hX : ∀ k, Measurable[�
         P[fun ω ↦ (X k ω - m) ^ 2 | ℱ k] ≤ᵐ[P] v k})
       (ENNReal.ofReal δ) := by
   have h := isConfSeq_lt_log_of_isSubPsiProcess
-    (fun m ↦ isSubPsiProcess_sum_sub_sum_of_condExp_sq_le hX hv hb m) (fun _ _ hP ↦ hP.1)
-    (fun m ↦ measurable_sum_range_of_succ fun k ↦ (hX k).sub_const m)
-    (fun _ ↦ measurable_sum_range_of_succ fun k ↦ (hv k).mono (ℱ.mono k.le_succ) le_rfl)
+    (fun m ↦ isSubPsiProcess_sum_sum_of_condExp_sq_le (X := fun k ω ↦ X k ω - m)
+      (fun k ↦ (hX k).sub_const m) hv hb) (fun _ _ hP ↦ hP.1)
+    (fun m ↦ adapted_sum_range fun k ↦ (hX k).sub_const m)
+    (fun _ ↦ adapted_sum_range fun k ↦ (hv k).mono (ℱ.mono k.le_succ) le_rfl)
     (Set.mem_Ici.2 ht0.le) hδ
   convert h using 4 with n ω
   ext m
-  rw [sum_range_sub_const, sub_lt_comm, lt_div_iff₀ ht0]
+  rw [Finset.sum_sub_distrib, sum_const, card_range, nsmul_eq_mul, sub_lt_comm, lt_div_iff₀ ht0]
   constructor <;> intro h <;> linarith
 
 end Freedman

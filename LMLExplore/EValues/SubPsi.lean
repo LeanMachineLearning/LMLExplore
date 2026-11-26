@@ -96,7 +96,7 @@ line `a + b n`.
   `ProbabilityTheory.isSubPsiProcess_sum_sum_condExp_sq`: the partial sums are sub-ψ for the null
   of the sub-ψ bets, and sub-Poisson with Freedman's intrinsic time.
 * `ProbabilityTheory.isCondEVar_exp_mul_sub_mul_of_condExp_sq_le`,
-  `ProbabilityTheory.isSubPsiProcess_sum_sub_sum_of_condExp_sq_le`: Freedman's bets with a
+  `ProbabilityTheory.isSubPsiProcess_sum_sum_of_condExp_sq_le`: Freedman's bets with a
   predictable bound on the conditional second moment are conditional e-variables, and the partial
   sums are sub-Poisson with that bound as intrinsic time, for a composite null.
 * `ProbabilityTheory.IsSubPsiProcess.isEProcess`: `l₀⁻¹ exp (t S - ψ t V)` is an e-process.
@@ -676,32 +676,30 @@ theorem isCondEVar_exp_mul_sub_mul_of_condExp_sq_le {m : MeasurableSpace Ω} (hm
 
 /-- **Freedman's sums are sub-Poisson for a null** [Fre75; HRMS20, Fact 1(c)]. Let each observation
 `X k` be `ℱ (k + 1)`-measurable and `v k` be `ℱ k`-measurable, and let `b > 0`. Under every
-probability measure under which the centred observations `X k - m` have integrable squares, are
-at most `b`, have nonpositive conditional mean and conditional second moment at most `v k` given
-`ℱ k`, the sums `∑ k < n, (X k - m)` with the intrinsic time `∑ k < n, v k` are a `1`-sub-ψ process
-on `[0, ∞)` for `ψ t = (exp (t b) - 1 - t b) / b ^ 2`. Unlike
+probability measure under which the observations `X k` have integrable squares, are at most `b`,
+have nonpositive conditional mean and conditional second moment at most `v k` given `ℱ k`, the
+sums `∑ k < n, X k` with the intrinsic time `∑ k < n, v k` are a `1`-sub-ψ process on `[0, ∞)`
+for `ψ t = (exp (t b) - 1 - t b) / b ^ 2`. Unlike
 `ProbabilityTheory.isSubPsiProcess_sum_sum_condExp_sq`, the intrinsic time does not depend on the
 law, which makes the statement possible for a composite null. -/
-theorem isSubPsiProcess_sum_sub_sum_of_condExp_sq_le {v : ℕ → Ω → ℝ}
-    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) (hv : ∀ k, Measurable[ℱ k] (v k)) (hb : 0 < b)
-    (m : ℝ) :
-    IsSubPsiProcess (fun n ω ↦ ∑ k ∈ range n, (X k ω - m)) (fun n ω ↦ ∑ k ∈ range n, v k ω)
+theorem isSubPsiProcess_sum_sum_of_condExp_sq_le {v : ℕ → Ω → ℝ}
+    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) (hv : ∀ k, Measurable[ℱ k] (v k)) (hb : 0 < b) :
+    IsSubPsiProcess (fun n ω ↦ ∑ k ∈ range n, X k ω) (fun n ω ↦ ∑ k ∈ range n, v k ω)
       (fun t ↦ (exp (t * b) - 1 - t * b) / b ^ 2) (Ici 0) 1 ℱ
-      {P | IsProbabilityMeasure P ∧ ∀ k, Integrable (fun ω ↦ (X k ω - m) ^ 2) P ∧
-        (∀ᵐ ω ∂P, X k ω - m ≤ b) ∧ P[fun ω ↦ X k ω - m | ℱ k] ≤ᵐ[P] 0 ∧
-        P[fun ω ↦ (X k ω - m) ^ 2 | ℱ k] ≤ᵐ[P] v k} := by
+      {P | IsProbabilityMeasure P ∧ ∀ k, Integrable (fun ω ↦ X k ω ^ 2) P ∧
+        (∀ᵐ ω ∂P, X k ω ≤ b) ∧ P[X k | ℱ k] ≤ᵐ[P] 0 ∧
+        P[fun ω ↦ X k ω ^ 2 | ℱ k] ≤ᵐ[P] v k} := by
   rw [isSubPsiProcess_iff]
   rintro P ⟨hP, hPX⟩ t ht
   set c := (exp (t * b) - 1 - t * b) / b ^ 2
-  have hY (k : ℕ) : Measurable[ℱ (k + 1)] fun ω ↦ X k ω - m := (hX k).sub_const m
   -- the product of Freedman's bets is a test supermartingale under `P`
   have hL := isTestSupermartingale_prod (S := {P})
-    (E := fun k ω ↦ ENNReal.ofReal (exp (t * (X k ω - m) - c * v k ω)))
+    (E := fun k ω ↦ ENNReal.ofReal (exp (t * X k ω - c * v k ω)))
     (fun _ hQ ↦ by rw [mem_singleton_iff.1 hQ, measure_univ])
-    (fun k ↦ (((hY k).const_mul t).sub (((hv k).mono (ℱ.mono k.le_succ) le_rfl).const_mul
+    (fun k ↦ (((hX k).const_mul t).sub (((hv k).mono (ℱ.mono k.le_succ) le_rfl).const_mul
       c)).exp.ennreal_ofReal)
     fun k ↦ isCondEVar_exp_mul_sub_mul_of_condExp_sq_le (ℱ.le k) hb (mem_Ici.1 ht)
-      ((hY k).mono (ℱ.le _) le_rfl) (hv k) (hPX k).1 (hPX k).2.1 (hPX k).2.2.1 (hPX k).2.2.2
+      ((hX k).mono (ℱ.le _) le_rfl) (hv k) (hPX k).1 (hPX k).2.1 (hPX k).2.2.1 (hPX k).2.2.2
   refine ⟨_, hL.toIsENNSupermartingale, .of_forall fun _ ↦ by simp, fun n ↦ .of_forall
     fun ω ↦ le_of_eq ?_⟩
   -- the exponential of the sum is the product of the exponentials
