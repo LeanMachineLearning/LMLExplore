@@ -27,6 +27,8 @@ such that every probability measure `R` whose integrals of the `f i` are within 
 
 ## Main statements
 
+* `ProbabilityTheory.le_bipolarRate_of_forall_le_klInf`: a level `c` up to which the smallest
+  relative entropy to the null is lower semicontinuous at `Q` is a lower bound on the bipolar rate.
 * `ProbabilityTheory.bipolarRate_eq_klInf_of_forall_exists_forall_le`: the bipolar rate
   equals the smallest relative entropy to the null under the semicontinuity above.
 
@@ -58,6 +60,56 @@ namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
+/-- **A lower bound on the bipolar rate from a neighbourhood of the alternative.** If there are
+finitely many bounded measurable functions `f i` and `ε > 0` such that every probability measure
+`R` whose integrals of the `f i` are within `ε` of those of `Q` is at relative entropy at least `c`
+from every member of `S`, then `c ≤ bipolarRate Q S`. This is the lower bound of [RR26,
+Theorem 4.1] at one level `c`; unlike `bipolarRate_eq_klInf_of_forall_exists_forall_le`, it
+applies also when the bipolar rate is smaller than `klInf Q S`. -/
+theorem le_bipolarRate_of_forall_le_klInf (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    (S : Set (Measure 𝓧)) (hS : ∀ P ∈ S, IsProbabilityMeasure P) {c : EReal} {k : ℕ}
+    {f : Fin k → 𝓧 → ℝ} {ε : ℝ} (hε : 0 < ε) (hfm : ∀ i, Measurable (f i))
+    (hfC : ∀ i, ∃ C, ∀ x, |f i x| ≤ C)
+    (h : ∀ R : Measure 𝓧, IsProbabilityMeasure R →
+      (∀ i, |∫ x, f i x ∂R - ∫ x, f i x ∂Q| ≤ ε) → c ≤ klInf R S) :
+    c ≤ bipolarRate Q S := by
+  refine le_of_forall_lt_imp_le_of_dense fun c' hc ↦ ?_
+  rcases le_or_gt c' 0 with hc0 | hc0
+  · exact hc0.trans (bipolarRate_nonneg Q fun P hP ↦ (hS P hP).measure_univ.le)
+  obtain ⟨c', rfl⟩ : ∃ r : ℝ, (r : EReal) = c' :=
+    ⟨c'.toReal, EReal.coe_toReal hc.ne_top (ne_bot_of_gt hc0)⟩
+  have hc0' : 0 < c' := by exact_mod_cast hc0
+  have hcE : ((ENNReal.ofReal c' : ℝ≥0∞) : EReal) = c' := by
+    rw [EReal.coe_ennreal_ofReal, max_eq_left hc0'.le]
+  choose C hC using hfC
+  have hfL (i : Fin k) : MemLp (f i) 2 Q :=
+    .of_bound (hfm i).aestronglyMeasurable (C i) (.of_forall fun x ↦ (hC i x).trans' (by simp))
+  set D := ∑ i, Var[f i; Q] / ε ^ 2
+  refine le_bipolarRate_of_tendsto (r := fun n ↦ (n + 1) * c' * (1 - D / (n + 1)) - Real.log 2)
+    (fun n ↦ ?_) ?_
+  · -- the e-variable `1/2 + (1/2) exp ((n + 1) c') 1_A`, with the law of large numbers under `Q`
+    have hsan (P : Measure 𝓧) (hP : P ∈ S) :=
+      have := hS P hP
+      ofReal_exp_mul_measure_pi_le_one hfm hC hc0'.le
+        (fun R hR hRf ↦ by
+          rw [← EReal.coe_ennreal_le_coe_ennreal_iff, hcE,
+            ← klIntegral_eq_klDiv (μ := R) (ν := P) (by simp)]
+          exact (hc.le.trans (h R hR hRf)).trans (klInf_le_klIntegral hP))
+        (m := n + 1) n.succ_ne_zero
+    refine le_trans ?_ (le_maxLogGrowth_of_ofReal_exp_mul_le_one Q hS
+      (measurableSet_setOf_forall_abs_sum_div_sub_le hfm _ ε (n + 1)) hsan)
+    have h := one_sub_div_le_measureReal_pi_forall_abs_sum_div_sub_le hfL hε n.succ_ne_zero
+    refine EReal.coe_le_coe_iff.2 ?_
+    have hn1 : ((n + 1 : ℕ) : ℝ) = (n : ℝ) + 1 := by push_cast; ring
+    rw [hn1] at h ⊢
+    gcongr
+  · have h0 := tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
+    have h1 := (tendsto_const_nhds (x := c')).sub (h0.const_mul (c' * D + Real.log 2))
+    rw [mul_zero, sub_zero] at h1
+    refine h1.congr fun n ↦ ?_
+    field_simp
+    ring
+
 /-- If the smallest relative entropy to `S` is lower semicontinuous at `Q` for the topology of
 integrals of bounded measurable functions, in the sense of neighbourhoods, then the bipolar rate
 of `Q` against `S` equals the smallest relative entropy from `Q` to `S` [RR26, Theorem 4.1]. The
@@ -72,41 +124,7 @@ theorem bipolarRate_eq_klInf_of_forall_exists_forall_le (Q : Measure 𝓧)
     bipolarRate Q S = klInf Q S := by
   refine le_antisymm (bipolarRate_le_klInf Q hS)
     (le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_)
-  rcases le_or_gt c 0 with hc0 | hc0
-  · exact hc0.trans (bipolarRate_nonneg Q fun P hP ↦ (hS P hP).measure_univ.le)
-  obtain ⟨c, rfl⟩ : ∃ r : ℝ, (r : EReal) = c :=
-    ⟨c.toReal, EReal.coe_toReal hc.ne_top (ne_bot_of_gt hc0)⟩
-  have hc0' : 0 < c := by exact_mod_cast hc0
-  have hcE : ((ENNReal.ofReal c : ℝ≥0∞) : EReal) = c := by
-    rw [EReal.coe_ennreal_ofReal, max_eq_left hc0'.le]
   obtain ⟨k, f, ε, hε, hfm, hfC, hU⟩ := h c hc
-  choose C hC using hfC
-  have hfL (i : Fin k) : MemLp (f i) 2 Q :=
-    .of_bound (hfm i).aestronglyMeasurable (C i) (.of_forall fun x ↦ (hC i x).trans' (by simp))
-  set D := ∑ i, Var[f i; Q] / ε ^ 2
-  refine le_bipolarRate_of_tendsto (r := fun n ↦ (n + 1) * c * (1 - D / (n + 1)) - Real.log 2)
-    (fun n ↦ ?_) ?_
-  · -- the e-variable `1/2 + (1/2) exp ((n + 1) c) 1_A`, with the law of large numbers under `Q`
-    have hsan (P : Measure 𝓧) (hP : P ∈ S) :=
-      have := hS P hP
-      ofReal_exp_mul_measure_pi_le_one hfm hC hc0'.le
-        (fun R hR hRf ↦ by
-          rw [← EReal.coe_ennreal_le_coe_ennreal_iff, hcE,
-            ← klIntegral_eq_klDiv (μ := R) (ν := P) (by simp)]
-          exact (hU R hR hRf).trans (klInf_le_klIntegral hP))
-        (m := n + 1) n.succ_ne_zero
-    refine le_trans ?_ (le_maxLogGrowth_of_ofReal_exp_mul_le_one Q hS
-      (measurableSet_setOf_forall_abs_sum_div_sub_le hfm _ ε (n + 1)) hsan)
-    have h := one_sub_div_le_measureReal_pi_forall_abs_sum_div_sub_le hfL hε n.succ_ne_zero
-    refine EReal.coe_le_coe_iff.2 ?_
-    have hn1 : ((n + 1 : ℕ) : ℝ) = (n : ℝ) + 1 := by push_cast; ring
-    rw [hn1] at h ⊢
-    gcongr
-  · have h0 := tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)
-    have h1 := (tendsto_const_nhds (x := c)).sub (h0.const_mul (c * D + Real.log 2))
-    rw [mul_zero, sub_zero] at h1
-    refine h1.congr fun n ↦ ?_
-    field_simp
-    ring
+  exact le_bipolarRate_of_forall_le_klInf Q S hS hε hfm hfC hU
 
 end ProbabilityTheory
