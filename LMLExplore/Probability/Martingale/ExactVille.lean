@@ -56,6 +56,8 @@ rejects the null as soon as the evidence exceeds `α⁻¹`.
   Ville's inequality holds exactly when overshoot, decrease and remainder vanish.
 * `ProbabilityTheory.IsENNSupermartingale.measure_inter_exists_le_le`: the extended Ville
   inequality from time `m` [WR23, Theorem 4.1].
+* `ProbabilityTheory.IsENNSupermartingale.measure_inter_exists_le_lt`: from an event of time `m` of
+  positive finite measure on which `M m < c`, the supermartingale reaches `c` on a smaller part.
 * `ProbabilityTheory.IsENNSupermartingale.measure_exists_le_le`,
   `ProbabilityTheory.IsTestSupermartingale.measure_exists_le_le`,
   `ProbabilityTheory.IsTestSupermartingale.measure_exists_inv_le_le`: Ville's inequality.
@@ -440,6 +442,22 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
     _ ≤ R / c := by
         rw [hZE, add_zero, hmono.measure_iUnion]
         exact iSup_le hbound
+
+/-- **Supermartingales below a level stay below it with positive probability.** For an
+`ℝ≥0∞`-valued supermartingale, a time `m`, a level `0 < c < ∞` and an `ℱ m`-measurable set `s` of
+positive finite measure on which `M m < c`, the part of `s` on which `M` reaches `c` after `m` has
+measure less than `P s`. -/
+theorem measure_inter_exists_le_lt (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
+    {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) (hs0 : P s ≠ 0)
+    (hs_top : P s ≠ ∞) (hsM : ∀ ω ∈ s, M m ω < c) :
+    P (s ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) < P s := by
+  refine (hM.measure_inter_exists_le_le hP hc0 hc hs).trans_lt (ENNReal.div_lt_of_lt_mul' ?_)
+  rw [← setLIntegral_const]
+  refine setLIntegral_strict_mono (ℱ.le m _ hs) hs0 measurable_const ?_
+    (ae_of_all _ fun ω hω ↦ (min_le_left _ _).trans_lt (hsM ω hω))
+  refine ((setLIntegral_mono measurable_const fun ω _ ↦ min_le_right _ _).trans_lt ?_).ne
+  rw [setLIntegral_const]
+  exact ENNReal.mul_lt_top hc.lt_top hs_top.lt_top
 
 /-- **Ville's inequality** [Vil39; RW, Fact 7.6]. For every `ℝ≥0∞`-valued supermartingale under
 any measure, with no integrability condition, and every level `0 < c < ∞`, the measure of the
