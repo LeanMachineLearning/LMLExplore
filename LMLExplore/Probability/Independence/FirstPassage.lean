@@ -11,6 +11,7 @@ public import Mathlib.Probability.Independence.Basic
 public import Mathlib.Probability.Process.HittingTime
 import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.MeasureTheory.Integral.Bochner.Basic
+import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 import LMLExplore.Probability.Independence.Wald
 import LMLExplore.Probability.Process.Filtration
 import LMLExplore.Probability.Process.Stopping
@@ -90,9 +91,8 @@ theorem iIndepFun.ofReal_le_mul_lintegral_hittingAfter_sum (hX : iIndepFun X μ)
   by_cases htop : ∫⁻ ω, (N ω : ℝ≥0∞) ∂μ = ∞
   · rw [htop, ENNReal.mul_top (tsub_pos_iff_lt.2 hqp).ne']
     exact le_top
-  have hfin : ∀ᵐ ω ∂μ, N ω ≠ ⊤ := by
-    filter_upwards [ae_lt_top (measurable_from_top.comp hN.measurable_enat) htop] with ω hω h
-    simp [h] at hω
+  have hfin : ∀ᵐ ω ∂μ, N ω ≠ ⊤ :=
+    ae_ne_top_of_lintegral_toENNReal_ne_top hN.measurable_enat.aemeasurable htop
   set F : (ℝ → ℝ≥0∞) → Ω → ℝ≥0∞ := fun f ω ↦
     ∑' j : ℕ, {ω | (j : ℕ∞) < N ω}.indicator (fun ω ↦ f (X j ω)) ω
   have hF (f : ℝ → ℝ≥0∞) (ω : Ω) (n : ℕ) (hn : N ω = n) :

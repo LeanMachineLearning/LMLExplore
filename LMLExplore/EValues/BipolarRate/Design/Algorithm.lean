@@ -269,7 +269,8 @@ theorem eintegral_log_le_designGrowth [Fintype α] (κ : Kernel α 𝓧) [IsMark
     ∫ᵉ ω, ENNReal.log (Y ω) ∂arrayMeasure κ ≤
       designGrowth (fun a ↦ κ a) ((fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ) fun a ↦
         (∫⁻ ω, (pullCount (action alg) a (τ ω).untopA ω : ℝ≥0∞) ∂arrayMeasure κ).toNNReal := by
-  -- a time of finite mean is almost surely finite
+  -- a time of finite mean is almost surely finite; the identity map reads the `WithTop ℕ`-valued
+  -- `τ` as `ℕ∞`-valued, which typechecks because `ℕ∞` is defined as `WithTop ℕ`
   have hτμ := ae_ne_top_of_lintegral_toENNReal_ne_top
     ((measurable_of_countable (β := ℕ∞) fun t : WithTop ℕ ↦ t).comp hτ).aemeasurable hτκ
   refine eintegral_log_le_of_forall_designGrowth_le κ hΛ hτ hY hτY hYΛ hτμ fun k ↦
@@ -402,7 +403,8 @@ theorem IsAlgEnvSeq.eintegral_log_le_designGrowth [Fintype α] [DecidableEq α]
     h.measurable_feedback hS
   obtain ⟨hτm', hGm, hGτ, hGΛ'⟩ :=
     Bandits.ArrayModel.measurable_isStoppedVar_setLIntegral_stoppedValue_le hΛ hS hG hGΛ
-  -- a time of finite mean is almost surely finite
+  -- a time of finite mean is almost surely finite; as above, the identity map reads the
+  -- `WithTop ℕ`-valued hitting time as `ℕ∞`-valued, since `ℕ∞` is defined as `WithTop ℕ`
   have hτae := ae_ne_top_of_lintegral_toENNReal_ne_top
     ((measurable_of_countable (β := ℕ∞) fun t : WithTop ℕ ↦ t).comp hτm).aemeasurable hτ
   have hτae' := (h'.ae_hittingAfter_ne_top_iff hS).2 ((h.ae_hittingAfter_ne_top_iff hS).1 hτae)
