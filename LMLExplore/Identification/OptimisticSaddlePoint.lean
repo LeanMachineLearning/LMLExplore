@@ -210,10 +210,10 @@ namespace IdentTask
 variable {ℐ 𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨} (task : IdentTask α Θ ℐ 𝓨) {θ : Θ} {i : ℐ}
 
 /-- **Optimism and weak duality** [DKM19, Appendix D.6]. If the alternative player plays
-distributions on the alternatives to `i` at the rounds `s ∈ S'`, and the nonnegative gains `U s a`
-of these rounds are upper bounds on the expected divergences `E_{λ ∼ q s}[KL(ν_a(θ), ν_a(λ))]`,
-then any common upper bound `G` on the total gains `∑_{s ∈ S} U s a` of the arms, over rounds
-`S ⊇ S'`, is at least `#S'` times the value `D(θ, ¬i)`. -/
+distributions on the alternatives to `i` at the rounds `s ∈ S'`, the gains `U s a` are nonnegative
+on all the rounds of `S ⊇ S'` and optimistic on the rounds of `S'` (upper bounds on the expected
+divergences `E_{λ ∼ q s}[KL(ν_a(θ), ν_a(λ))]`), then any common upper bound `G` on the total gains
+`∑_{s ∈ S} U s a` of the arms is at least `#S'` times the value `D(θ, ¬i)`. -/
 theorem card_mul_answerValue_le_ofReal {S S' : Finset ℕ} (hS' : S' ⊆ S)
     {q : ℕ → StdSimplex ℝ Θ} {U : ℕ → α → ℝ} {G : ℝ}
     (hq : ∀ s ∈ S', ↑(q s).weights.support ⊆ task.alt i) (hU0 : ∀ s ∈ S, ∀ a, 0 ≤ U s a)
@@ -274,8 +274,8 @@ theorem card_mul_answerValue_le_iInf_add {n : ℕ} {S S' : Finset ℕ} (hS : S �
 omit [Fintype α] in
 /-- **A wrong candidate has an arm with a large exploration bonus** [DKM19, Lemma 18]. Let every
 alternative `λ` to `i` be separated from `μ` on some arm `a`, in the sense that
-`ε ≤ d a y λ + d a y μ` for every mean `y` (for divergences of exponential families, that the
-Chernoff information between the arms `a` of `λ` and `μ` is at least `ε`). If an alternative `μ'`
+`ε ≤ d a y λ + d a y μ` for every mean `y` (implied, for divergences of exponential families, by a
+Chernoff information of at least `ε` between the arms `a` of `λ` and `μ`). If an alternative `μ'`
 to `i` (the model of a wrong candidate answer) and the true model `μ` are both in the confidence
 region `{λ | ∀ a, N a d a (x a) λ ≤ f}` around the estimates `x`, then some arm has
 `ε ≤ 2 f / N a`. -/
