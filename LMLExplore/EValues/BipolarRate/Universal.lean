@@ -41,8 +41,15 @@ optimal against all the alternatives dominated by `ρ` at once: a countable fami
 laws with a density with respect to a given σ-finite measure, or all laws on a countable space.
 Nothing is assumed on the null beyond its members being probability measures.
 
+The first step is a statement of its own: countably many bounded functions `g i` of blocks of
+`len i` observations, each the logarithm of an e-variable for the `len i`-sample null, determine
+the bipolar rate of every probability measure `Q ≪ ρ` as the supremum of their normalized means
+`(∫ g i ∂Q ^ len i) / len i`. It holds for every null of measures of mass at most one.
+
 ## Main statements
 
+* `ProbabilityTheory.exists_iSup_integral_div_eq_bipolarRate`: countably many bounded block bets
+  whose normalized means have supremum the bipolar rate of every alternative `Q ≪ ρ`.
 * `ProbabilityTheory.exists_isEProcess_ae_tendsto_log_div_bipolarRate`: one nondecreasing
   e-process for the i.i.d. null grows at the bipolar rate of every alternative `Q₁ ≪ ρ`, almost
   surely.
@@ -59,6 +66,9 @@ The proof has three steps.
   `Q₁ ≪ ρ`, by dominated convergence. Mixing an e-variable with a constant and truncating its
   logarithm shows that these means determine the bipolar rate: for every `t < bipolarRate Q₁ S₁`,
   one member `g` of the countable family, on `m` observations, has `t m < ∫ g ∂Q₁ ^ m`.
+  Conversely `∫ g ∂Q₁ ^ m` is the expected logarithm of the e-variable `exp g`, at most
+  `maxLogGrowth Q₁ S₁ m`, so the supremum of the normalized means is the bipolar rate
+  (`ProbabilityTheory.exists_iSup_integral_div_eq_bipolarRate`).
 * **Products over blocks.** For such a `g` on blocks of `m` observations, the product
   `seqBlockProd m (exp ∘ g) k` of `exp g` over the first `k` consecutive blocks is an e-variable
   for the i.i.d. null, as the blocks are independent (`ProbabilityTheory.isEVar_seqBlockProd`),
@@ -79,7 +89,10 @@ note builds the e-process from the running maxima of the block products, passed 
 adjuster, and Ville's inequality; the proof here uses the mixture over the number of blocks
 instead, which needs neither. The statement and its proof are adapted from
 `EValuesResearch/Results/UniversalEProcess.lean` (commit `a1002bc`) in the paper project
-`RemyDegenne/evalues_research`, rewritten on the API of LMLExplore.
+`RemyDegenne/evalues_research`, rewritten on the API of LMLExplore. The statement of the first
+step, with the supremum and for nulls of measures of mass at most one, is adapted from
+`EValuesResearch/Results/UniversalTests.lean` (commit `83205cb`) in the same project, rewritten on
+the API of LMLExplore.
 
 ## References
 
@@ -87,7 +100,7 @@ instead, which needs neither. The statement and its proof are adapted from
 * [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes 01 to 34 and
   the Lean library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and
   refereed by AI agents: Note 13, *One e-process at the bipolar rate for every dominated
-  alternative*, Theorem.
+  alternative*, Theorem and the first step of its proof.
 -/
 
 public section
@@ -108,18 +121,17 @@ private def boundedLogEVarSet (S₁ : Set (Measure 𝓧)) (m N : ℕ) : Set ((Fi
     ∀ P ∈ S₁, ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P) ≤ 1}
 
 /-- The constant `0` is the logarithm of the e-variable `1`. -/
-private lemma zero_mem_boundedLogEVarSet (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (m N : ℕ) :
+private lemma zero_mem_boundedLogEVarSet (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (m N : ℕ) :
     (0 : (Fin m → 𝓧) → ℝ) ∈ boundedLogEVarSet S₁ m N := by
   refine ⟨measurable_const, fun _ ↦ by simp, fun P hP ↦ ?_⟩
-  have := hS₁ P hP
-  simp
+  simpa using measure_univ_le_one_of_mem_sampleNull hS₁ m _ (pi_mem_sampleNull hP)
 
 /-- **A countable dense family.** On a countably generated space, for an s-finite `ρ`, a sequence
 in `boundedLogEVarSet S₁ m N` approximates the mean under `Q ^ m` of every member, for every
 probability measure `Q ≪ ρ`. It is dense in `L¹` of the finite measure `ρ.toFinite ^ m`, which is
 separable. -/
 private lemma exists_seq_boundedLogEVarSet [MeasurableSpace.CountablyGenerated 𝓧]
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] (m N : ℕ) :
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (ρ : Measure 𝓧) [SFinite ρ] (m N : ℕ) :
     ∃ u : ℕ → (Fin m → 𝓧) → ℝ, (∀ j, u j ∈ boundedLogEVarSet S₁ m N) ∧
       ∀ Q : Measure 𝓧, IsProbabilityMeasure Q → Q ≪ ρ →
         ∀ f ∈ boundedLogEVarSet S₁ m N, ∀ c : ℝ, c < ∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) →
@@ -167,7 +179,7 @@ private lemma exists_log_one_sub_eq_neg {a : ℝ} (ha : 0 < a) :
 /-- **Truncation.** If an `m`-sample e-variable has expected logarithm larger than `c` under
 `Q ^ m`, so has the truncated logarithm of its mixture with a constant, which is bounded. -/
 private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsProbabilityMeasure Q]
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) {m : ℕ}
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {m : ℕ}
     {E : (Fin m → 𝓧) → ℝ≥0∞} (hE : IsEVar E (sampleNull S₁ m))
     {c : ℝ} (hc : (c : EReal) < ∫ᵉ x, ENNReal.log (E x) ∂Measure.pi (fun _ : Fin m ↦ Q)) :
     ∃ N : ℕ, ∃ f ∈ boundedLogEVarSet S₁ m N, c < ∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) := by
@@ -208,9 +220,8 @@ private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsPro
   · calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
     _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
       lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
-    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal
-      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) hε0.le
-        hε1.le).lintegral_le_one (pi_mem_sampleNull hP)
+    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal (measure_univ_le_one_of_mem_sampleNull hS₁ m)
+      hε0.le hε1.le).lintegral_le_one (pi_mem_sampleNull hP)
   · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) :=
       hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
     rw [EReal.coe_lt_coe_iff, hlogε] at h
@@ -237,27 +248,53 @@ private lemma exists_isEVar_lt_eintegral_of_lt_bipolarRate {Q : Measure 𝓧} {t
   rw [h1]
   exact hE'
 
-/-- **A countable family that determines the bipolar rate.** On a countably generated space, for
-an s-finite `ρ`, there are bounded functions `g i` of `len i` observations, the logarithms of
-e-variables for the null of `len i`-samples, such that every exponent `t` below the bipolar rate
-of a probability measure `Q ≪ ρ` is beaten by some `∫ g i ∂Q ^ len i / len i`. -/
-private lemma exists_rateFamily [MeasurableSpace.CountablyGenerated 𝓧]
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
+/-- A function `f` of `m ≠ 0` observations, integrable under `Q ^ m`, with `exp f` an e-variable
+for the `m`-sample null, has normalized mean `(∫ f ∂Q ^ m) / m` at most the bipolar rate: its mean
+is the expected logarithm of `exp f`, at most `maxLogGrowth Q S₁ m`. -/
+private lemma integral_div_le_bipolarRate {Q : Measure 𝓧} {m : ℕ} (hm : m ≠ 0)
+    {f : (Fin m → 𝓧) → ℝ} (hf : Integrable f (Measure.pi fun _ : Fin m ↦ Q))
+    (hfe : IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (f x))) (sampleNull S₁ m)) :
+    (((∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q)) / m : ℝ) : EReal) ≤ bipolarRate Q S₁ := by
+  have h : ((∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) : ℝ) : EReal) ≤ maxLogGrowth Q S₁ m := by
+    rw [← eintegral_eq_integral hf, maxLogGrowth_def]
+    simpa only [ENNReal.log_ofReal_exp] using hfe.eintegral_log_le_maxEPower _
+  rw [EReal.coe_div, EReal.coe_natCast]
+  exact (EReal.div_le_div_right_of_nonneg (Nat.cast_nonneg' m) h).trans
+    (maxLogGrowth_div_le_bipolarRate Q S₁ hm)
+
+/-- **Block bets that determine the bipolar rate.** On a countably generated space, for a null
+`S₁` of measures of mass at most one and an s-finite measure `ρ`, there are bounded measurable
+functions `g i` of blocks of `len i ≥ 1` observations, with `∫ exp (g i) ∂P ^ len i ≤ 1` for every
+`P ∈ S₁` (that is, `exp (g i)` is an e-variable for the `len i`-sample null), such that for every
+probability measure `Q ≪ ρ` the supremum over `i` of the normalized means
+`(∫ g i ∂Q ^ len i) / len i` is the bipolar rate `bipolarRate Q S₁`. Each normalized mean is at
+most the rate by the definition of `maxLogGrowth`; the family, chosen without `Q`, reaches it at
+every `Q ≪ ρ` at once. This is the first step of the proof of the theorem of [EVR26, Note 13]. -/
+theorem exists_iSup_integral_div_eq_bipolarRate [MeasurableSpace.CountablyGenerated 𝓧]
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (ρ : Measure 𝓧) [SFinite ρ] :
     ∃ (len : ℕ → ℕ) (g : (i : ℕ) → (Fin (len i) → 𝓧) → ℝ), (∀ i, 1 ≤ len i) ∧
       (∀ i, Measurable (g i)) ∧ (∀ i, ∃ C, ∀ x, |g i x| ≤ C) ∧
       (∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i))) ∧
-      ∀ Q : Measure 𝓧, IsProbabilityMeasure Q → Q ≪ ρ → ∀ t : ℝ, (t : EReal) < bipolarRate Q S₁ →
-        ∃ i, t * len i < ∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q) := by
+      ∀ (Q : Measure 𝓧) [IsProbabilityMeasure Q], Q ≪ ρ →
+        ⨆ i, (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q)) / len i : ℝ) : EReal) =
+          bipolarRate Q S₁ := by
   choose u hu hdense using fun p : ℕ × ℕ ↦ exists_seq_boundedLogEVarSet hS₁ ρ (p.1 + 1) p.2
   let e : ℕ ≃ (ℕ × ℕ) × ℕ := (Denumerable.eqv _).symm
+  have hge (i : ℕ) : IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (u (e i).1 (e i).2 x)))
+      (sampleNull S₁ ((e i).1.1 + 1)) :=
+    ⟨ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hu _ _).1),
+      forall_mem_sampleNull.2 (hu _ _).2.2⟩
   refine ⟨fun i ↦ (e i).1.1 + 1, fun i ↦ u (e i).1 (e i).2, fun i ↦ Nat.le_add_left 1 _,
-    fun i ↦ (hu _ _).1, fun i ↦ ⟨_, (hu _ _).2.1⟩,
-    fun i ↦ ⟨ENNReal.measurable_ofReal.comp (Real.measurable_exp.comp (hu _ _).1),
-      forall_mem_sampleNull.2 (hu _ _).2.2⟩, fun Q hQ hQρ t ht ↦ ?_⟩
+    fun i ↦ (hu _ _).1, fun i ↦ ⟨_, (hu _ _).2.1⟩, hge, fun Q _ hQρ ↦
+      le_antisymm (iSup_le fun i ↦ integral_div_le_bipolarRate (Nat.succ_ne_zero _)
+        (.of_bound (hu _ _).1.aestronglyMeasurable _ (ae_of_all _ fun x ↦ by
+          simpa [Real.norm_eq_abs] using (hu _ _).2.1 x)) (hge i)) ?_⟩
+  -- every exponent `t` below the bipolar rate is beaten by a member of the family
+  refine EReal.ge_of_forall_gt_iff_ge.1 fun t ht ↦ ?_
   obtain ⟨m, E, hE, hEt⟩ := exists_isEVar_lt_eintegral_of_lt_bipolarRate ht
   obtain ⟨N, f, hf, hft⟩ := exists_mem_boundedLogEVarSet_lt_integral Q hS₁ hE hEt
-  obtain ⟨j, hj⟩ := hdense (m, N) Q hQ hQρ f hf _ hft
-  refine ⟨e.symm ((m, N), j), ?_⟩
+  obtain ⟨j, hj⟩ := hdense (m, N) Q inferInstance hQρ f hf _ hft
+  refine le_iSup_of_le (e.symm ((m, N), j)) ?_
   -- `e (e.symm ((m, N), j))` occurs both in the integrand and in the type `Fin (_ + 1) → 𝓧` of
   -- its argument, so rewriting it with `Equiv.apply_symm_apply` gives an ill-typed motive; we
   -- generalize it to a variable and substitute instead.
@@ -265,8 +302,9 @@ private lemma exists_rateFamily [MeasurableSpace.CountablyGenerated 𝓧]
   generalize hp : e (e.symm ((m, N), j)) = p
   rw [Equiv.apply_symm_apply] at hp
   subst hp
+  rw [EReal.coe_le_coe_iff, le_div_iff₀ (by positivity)]
   push_cast
-  exact hj
+  exact hj.le
 
 /-! ### Products of an exponential over consecutive blocks -/
 
@@ -473,9 +511,10 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
         ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
           Tendsto (fun n : ℕ ↦ ENNReal.log (E n ω) / (n : EReal)) atTop
             (𝓝 (bipolarRate Q₁ S₁)) := by
-  obtain ⟨len, g, hlen, hgm, hgb, hge, hrate⟩ := exists_rateFamily hS₁ ρ
+  obtain ⟨len, g, hlen, hgm, hgb, hge, hsup⟩ :=
+    exists_iSup_integral_div_eq_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) ρ
   have hE := isEProcess_blockMixture (S₁ := S₁) hgm hge
-  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ hQ₁ hQ₁ρ ↦ ?_⟩
+  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ _ hQ₁ρ ↦ ?_⟩
   -- the lower bound, from each member of the family
   have hlow : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ i,
       (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) ≤
@@ -484,11 +523,8 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
       le_liminf_log_blockMixture Q₁ (hlen i) (hgm i) (hgb i).choose_spec
   -- the upper bound holds for every e-process
   filter_upwards [hE.ae_limsup_log_div_le_bipolarRate Q₁ hS₁, hlow] with ω hωup hωlow
-  refine tendsto_of_le_liminf_of_limsup_le (EReal.ge_of_forall_gt_iff_ge.1 fun t ht ↦ ?_) hωup
-  obtain ⟨i, hi⟩ := hrate Q₁ hQ₁ hQ₁ρ t ht
-  have hL : (0 : ℝ) < len i := by exact_mod_cast hlen i
-  refine le_trans ?_ (hωlow i)
-  rw [EReal.coe_le_coe_iff, le_div_iff₀ hL]
-  exact hi.le
+  refine tendsto_of_le_liminf_of_limsup_le ?_ hωup
+  rw [← hsup Q₁ hQ₁ρ]
+  exact iSup_le hωlow
 
 end ProbabilityTheory
