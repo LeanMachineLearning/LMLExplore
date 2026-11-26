@@ -62,6 +62,8 @@ uses the statistics of the first `s` observations, which [DKM19] index by `s - 1
   arm with a large exploration bonus [DKM19, Lemma 18].
 * `LMLExplore.Identification.mul_card_le_sum_of_le_div`: the linear increase of the gains of an
   arm with a large bonus.
+* `LMLExplore.Identification.IdentTask.mul_card_le_add_sum_of_mem_alt`: the rounds of one wrong
+  answer [DKM19, Appendix D.5].
 * `LMLExplore.Identification.IdentTask.mul_card_filter_notMem_correct_le`: the rounds of the wrong
   answers [DKM19, Appendix D.5].
 
@@ -309,6 +311,30 @@ namespace IdentTask
 
 variable {ℐ 𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨} (task : IdentTask α Θ ℐ 𝓨)
 
+/-- **The rounds of one wrong answer** [DKM19, Appendix D.5]. Let the learners of an answer `j`
+satisfy the saddle-point inequality of slack `y` on the rounds `S`, against every alternative to
+`j`, for the losses `d b (xs s b) λ` at the estimates `xs s`, and let the true model `μ` be an
+alternative to `j`, with losses at most `e s b` on `S`. On the rounds `S' ⊆ S`, let the gains of
+an arm `a`, nonnegative on `S`, be at least its exploration bonuses `g s / N s a` (with positive
+counts at most `N t a`, nonnegative `g` and `c g t ≤ g s`), and let the bonus of `a` at the round
+`t` be at least `ε`. Then `c ε #S' ≤ y + ∑_{s ∈ S} ∑ b, w s b e s b`. -/
+theorem mul_card_le_add_sum_of_mem_alt {j : ℐ} {μ : Θ} (hμ : μ ∈ task.alt j) {S S' : Finset ℕ}
+    (hS' : S' ⊆ S) {w U : ℕ → α → ℝ} {d : α → ℝ → Θ → ℝ} {xs : ℕ → α → ℝ} {y : ℝ}
+    (hsaddle : ∀ θ' ∈ task.alt j, ∀ a, ∑ s ∈ S, U s a ≤ ∑ s ∈ S, ∑ b, w s b * d b (xs s b) θ' + y)
+    (hw : ∀ s ∈ S, ∀ b, 0 ≤ w s b) {e : ℕ → α → ℝ} (he : ∀ s ∈ S, ∀ b, d b (xs s b) μ ≤ e s b)
+    {a : α} (hU0 : ∀ s ∈ S, 0 ≤ U s a) {g : ℕ → ℝ} {N : ℕ → α → ℝ} {t : ℕ} {c ε : ℝ}
+    (hc : 0 ≤ c) (hg : ∀ s ∈ S', 0 ≤ g s) (hcg : ∀ s ∈ S', c * g t ≤ g s)
+    (hN : ∀ s ∈ S', 0 < N s a) (hNt : ∀ s ∈ S', N s a ≤ N t a)
+    (hU : ∀ s ∈ S', g s / N s a ≤ U s a) (ha : ε ≤ g t / N t a) :
+    c * ε * #S' ≤ y + ∑ s ∈ S, ∑ b, w s b * e s b := by
+  have hlin := mul_card_le_sum_of_le_div (N := (N · a)) (U := (U · a)) hc hg hcg hN hNt hU ha
+  have hsub : ∑ s ∈ S', U s a ≤ ∑ s ∈ S, U s a :=
+    Finset.sum_le_sum_of_subset_of_nonneg hS' fun s hs _ ↦ hU0 s hs
+  have hloss : ∑ s ∈ S, ∑ b, w s b * d b (xs s b) μ ≤ ∑ s ∈ S, ∑ b, w s b * e s b :=
+    Finset.sum_le_sum fun s hs ↦ Finset.sum_le_sum fun b _ ↦
+      mul_le_mul_of_nonneg_left (he s hs b) (hw s hs b)
+  linarith [hsaddle μ hμ a]
+
 /-- **The rounds of the wrong answers** [DKM19, Appendix D.5]. Let the learners of each answer `j`
 satisfy the saddle-point inequality of slack `y j` on the rounds of `R` whose candidate answer is
 `j`, against every alternative to `j`, for the losses `d b (xs s b) λ` at the estimates `xs s`,
@@ -322,7 +348,8 @@ wrong answers plus `∑_s ∑ b, w s b e s b` over the rounds of `R` with a wron
 
 For a wrong answer `j`, the true model `μ` is an alternative to `j`, so that the gains of the
 rounds of `j` are bounded by the losses at `μ`, while the gains of the arm with a large bonus at
-the last round of `j` grow linearly with the number of rounds of `j`. -/
+the last round of `j` grow linearly with the number of rounds of `j`
+(`LMLExplore.Identification.IdentTask.mul_card_le_add_sum_of_mem_alt`). -/
 theorem mul_card_filter_notMem_correct_le {μ : Θ} (hμ : μ ∈ task.M) {R R' : Finset ℕ}
     (hR' : R' ⊆ R) {cand : ℕ → ℐ} [DecidablePred (· ∈ task.correct μ)] [DecidableEq ℐ]
     {w U : ℕ → α → ℝ} {d : α → ℝ → Θ → ℝ} {xs : ℕ → α → ℝ} {y : ℐ → ℝ}
@@ -359,23 +386,15 @@ theorem mul_card_filter_notMem_correct_le {μ : Θ} (hμ : μ ∈ task.M) {R R' 
     have hne : S'.Nonempty := ⟨t₀, Finset.mem_filter.2 ⟨(Finset.mem_filter.1 ht₀W).1, rfl⟩⟩
     -- The last round `t` of `S'` has an arm `a` with a bonus at least `ε`.
     set t := S'.max' hne
-    have htS : t ∈ S' := S'.max'_mem hne
-    have htR : t ∈ R' := hS'R htS
-    have hct : cand t = cand t₀ := (Finset.mem_filter.1 htS).2
+    have htR : t ∈ R' := hS'R (S'.max'_mem hne)
+    have hct : cand t = cand t₀ := (Finset.mem_filter.1 (S'.max'_mem hne)).2
     obtain ⟨a, ha⟩ := hwit t htR (hct ▸ hj)
-    have hlin := mul_card_le_sum_of_le_div (S := S') (N := (N · a)) (U := (U · a)) hc
+    -- The true model is an alternative to the wrong answer.
+    exact task.mul_card_le_add_sum_of_mem_alt (task.mem_alt_iff.2 ⟨hμ, hj⟩) hS'S (hsaddle _)
+      (fun s hs ↦ hw s (hSR hs)) (fun s hs ↦ he s (hSR hs)) (fun s hs ↦ hU0 s (hSR hs) a) hc
       (fun s hs ↦ hg s (hS'R hs)) (fun s hs ↦ hcg s (hS'R hs) t htR)
       (fun s hs ↦ hN s (hS'R hs) a) (fun s hs ↦ hNmono s (hS'R hs) t htR (S'.le_max' s hs) a)
       (fun s hs ↦ hU s (hS'R hs) a) ha
-    have hsub : ∑ s ∈ S', U s a ≤ ∑ s ∈ S, U s a :=
-      Finset.sum_le_sum_of_subset_of_nonneg hS'S fun s hs _ ↦ hU0 s (hSR hs) a
-    -- The true model is an alternative to the wrong answer, so the saddle-point inequality
-    -- applies at `μ`.
-    have hsad := hsaddle (cand t₀) μ (task.mem_alt_iff.2 ⟨hμ, hj⟩) a
-    have hloss : ∑ s ∈ S, ∑ b, w s b * d b (xs s b) μ ≤ ∑ s ∈ S, F s :=
-      Finset.sum_le_sum fun s hs ↦ Finset.sum_le_sum fun b _ ↦
-        mul_le_mul_of_nonneg_left (he s (hSR hs) b) (hw s (hSR hs) b)
-    linarith
   -- The rounds of `R` whose candidate is a wrong answer met in `R'` have a wrong candidate.
   have hfib' : ∑ j ∈ W'.image cand, ∑ s ∈ R with cand s = j, F s ≤
       ∑ s ∈ R with cand s ∉ task.correct μ, F s := by
@@ -386,11 +405,8 @@ theorem mul_card_filter_notMem_correct_le {μ : Θ} (hμ : μ ∈ task.M) {R R' 
     obtain ⟨hsR, hsW⟩ := Finset.mem_filter.1 hs
     obtain ⟨t, htW, hts⟩ := Finset.mem_image.1 hsW
     exact Finset.mem_filter.2 ⟨hsR, hts ▸ (Finset.mem_filter.1 htW).2⟩
-  have hmaps : ∀ s ∈ W', cand s ∈ W'.image cand := fun s hs ↦ Finset.mem_image_of_mem cand hs
   calc c * ε * #W' = ∑ j ∈ W'.image cand, c * ε * #{s ∈ W' | cand s = j} := by
-        rw [← Finset.mul_sum, Finset.card_eq_sum_card_image cand W']
-        push_cast
-        rfl
+        rw [Finset.card_eq_sum_card_image cand W', Nat.cast_sum, Finset.mul_sum]
     _ ≤ ∑ j ∈ W'.image cand, (y j + ∑ s ∈ R with cand s = j, F s) := Finset.sum_le_sum hj
     _ ≤ _ := by rw [Finset.sum_add_distrib]; exact add_le_add le_rfl hfib'
 
