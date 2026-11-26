@@ -11,6 +11,7 @@ import LMLExplore.Bandits.ArrayModel.AlgEnvSeq
 import LMLExplore.Data.ENat.Basic
 import LMLExplore.EValues.EVariable
 import LMLExplore.MeasureTheory.Integral.EReal
+import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 import LMLExplore.Probability.HasLaw
 import LMLExplore.SequentialLearning.StoppedHistory
 
@@ -169,6 +170,37 @@ private lemma eintegral_log_le_of_forall_integral_truncLog_mix_le (μ : α → M
     exact_mod_cast hk
   rw [Set.indicator_of_mem (s := {ω | τ ω ≤ k}) hle]
 
+omit [DecidableEq α] [Nonempty α] [StandardBorelSpace α] in
+/-- The instances of a set of Markov kernels are probability measures. -/
+private lemma isProbabilityMeasure_of_mem_image {Λ : Set (Kernel α 𝓧)}
+    (hΛ : ∀ ν ∈ Λ, IsMarkovKernel ν) :
+    ∀ ν ∈ (fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ, ∀ a, IsProbabilityMeasure (ν a) := by
+  rintro _ ⟨ν, hν, rfl⟩ a
+  have := hΛ ν hν
+  infer_instance
+
+/-- The Wald inequality with a design in the array model, for any bound `B` on the growth of the
+designs at the expected numbers of observations of each source by the times `min τ k`. -/
+private lemma eintegral_log_le_of_forall_designGrowth_le [Fintype α] (κ : Kernel α 𝓧)
+    [IsMarkovKernel κ] {Λ : Set (Kernel α 𝓧)} (hΛ : ∀ ν ∈ Λ, IsMarkovKernel ν)
+    (hτ : Measurable τ) (hY : Measurable Y) (hτY : IsStoppedVar alg τ Y)
+    (hYΛ : ∀ ν ∈ Λ, ∫⁻ ω in {ω | τ ω ≠ ⊤}, Y ω ∂arrayMeasure ν ≤ 1)
+    (hτκ : ∀ᵐ ω ∂arrayMeasure κ, τ ω ≠ ⊤) {B : EReal}
+    (h : ∀ k : ℕ, designGrowth (fun a ↦ κ a) ((fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ) (fun a ↦
+      (∫⁻ ω, (pullCount (action alg) a (min (τ ω) k).untopA ω : ℝ≥0∞)
+        ∂arrayMeasure κ).toNNReal) ≤ B) :
+    ∫ᵉ ω, ENNReal.log (Y ω) ∂arrayMeasure κ ≤ B := by
+  simp only [arrayMeasure_eq_arrayLaw] at hYΛ hτκ h ⊢
+  have hΛ' := isProbabilityMeasure_of_mem_image hΛ
+  have hYΛ' : ∀ ν ∈ (fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ,
+      ∫⁻ ω in {ω | τ ω ≠ ⊤}, Y ω ∂arrayLaw volume ν ≤ 1 := by
+    rintro _ ⟨ν, hν, rfl⟩
+    exact hYΛ ν hν
+  refine eintegral_log_le_of_forall_integral_truncLog_mix_le _ hτ hY hτκ
+    ((designGrowth_nonneg _ (fun ν hν a ↦ (hΛ' ν hν a).measure_univ.le) _).trans (h 0))
+    fun k c ε hε0 hε1 ↦ ?_
+  exact (integral_truncLog_mix_le_designGrowth _ hΛ' hτ hY hτY hYΛ' k c hε0 hε1).trans (h k)
+
 /-- **The Wald inequality with a design** [EVR26, Note 41, Theorem 1], in the array model. Let
 `alg` be an algorithm on finitely many sources, `κ` an instance and `Λ` a nonempty set of
 instances. Let `τ` be a stopping time of the run and `Y` a variable known at that time
@@ -189,21 +221,11 @@ theorem eintegral_log_le_designRate_mul_lintegral [Fintype α] (κ : Kernel α �
     ∫ᵉ ω, ENNReal.log (Y ω) ∂arrayMeasure κ ≤
       designRate (fun a ↦ κ a) ((fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ) *
         ((∫⁻ ω, ENat.toENNReal (τ ω) ∂arrayMeasure κ : ℝ≥0∞) : EReal) := by
-  simp only [arrayMeasure_eq_arrayLaw] at hYΛ hτκ ⊢
+  refine eintegral_log_le_of_forall_designGrowth_le κ hΛ hτ hY hτY hYΛ hτκ fun k ↦
+    (designGrowth_le_designRate_mul (hΛne.image _) _).trans
+      (mul_le_mul_of_nonneg_left ?_ (designRate_nonneg _ _))
+  simp only [arrayMeasure_eq_arrayLaw]
   set μ : α → Measure 𝓧 := fun a ↦ κ a
-  set Λ' : Set (α → Measure 𝓧) := (fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ
-  have hΛ' : ∀ ν ∈ Λ', ∀ a, IsProbabilityMeasure (ν a) := by
-    rintro _ ⟨ν, hν, rfl⟩ a
-    have := hΛ ν hν
-    infer_instance
-  have hYΛ' : ∀ ν ∈ Λ', ∫⁻ ω in {ω | τ ω ≠ ⊤}, Y ω ∂arrayLaw volume ν ≤ 1 := by
-    rintro _ ⟨ν, hν, rfl⟩
-    exact hYΛ ν hν
-  refine eintegral_log_le_of_forall_integral_truncLog_mix_le μ hτ hY hτκ
-    (mul_nonneg (designRate_nonneg μ Λ') (EReal.coe_ennreal_nonneg _)) fun k c ε hε0 hε1 ↦ ?_
-  refine (integral_truncLog_mix_le_designGrowth μ hΛ' hτ hY hτY hYΛ' k c hε0 hε1).trans
-    ((designGrowth_le_designRate_mul (hΛne.image _) _).trans
-      (mul_le_mul_of_nonneg_left ?_ (designRate_nonneg μ Λ')))
   -- the expected number `𝔼_μ[min τ k]` of observations of the stopped run is at most `𝔼_μ[τ]`
   set N : α → ProbSpace α 𝓧 → ℝ≥0∞ := fun a ω ↦
     (pullCount (action alg) a (min (τ ω) k).untopA ω : ℝ≥0∞)
@@ -247,25 +269,11 @@ theorem eintegral_log_le_designGrowth [Fintype α] (κ : Kernel α 𝓧) [IsMark
     ∫ᵉ ω, ENNReal.log (Y ω) ∂arrayMeasure κ ≤
       designGrowth (fun a ↦ κ a) ((fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ) fun a ↦
         (∫⁻ ω, (pullCount (action alg) a (τ ω).untopA ω : ℝ≥0∞) ∂arrayMeasure κ).toNNReal := by
-  simp only [arrayMeasure_eq_arrayLaw] at hYΛ hτκ ⊢
-  set μ : α → Measure 𝓧 := fun a ↦ κ a
-  set Λ' : Set (α → Measure 𝓧) := (fun (ν : Kernel α 𝓧) a ↦ ν a) '' Λ
-  have hΛ' : ∀ ν ∈ Λ', ∀ a, IsProbabilityMeasure (ν a) := by
-    rintro _ ⟨ν, hν, rfl⟩ a
-    have := hΛ ν hν
-    infer_instance
-  have hYΛ' : ∀ ν ∈ Λ', ∫⁻ ω in {ω | τ ω ≠ ⊤}, Y ω ∂arrayLaw volume ν ≤ 1 := by
-    rintro _ ⟨ν, hν, rfl⟩
-    exact hYΛ ν hν
   -- a time of finite mean is almost surely finite
-  have hτμ : ∀ᵐ ω ∂arrayLaw volume μ, τ ω ≠ ⊤ := by
-    filter_upwards [ae_lt_top' ((measurable_of_countable _).comp hτ).aemeasurable hτκ] with ω hω
-    exact ENat.toENNReal_ne_top.1 hω.ne
-  refine eintegral_log_le_of_forall_integral_truncLog_mix_le μ hτ hY hτμ
-    (designGrowth_nonneg μ (fun ν hν a ↦ (hΛ' ν hν a).measure_univ.le) _)
-    fun k c ε hε0 hε1 ↦ ?_
-  refine (integral_truncLog_mix_le_designGrowth μ hΛ' hτ hY hτY hYΛ' k c hε0 hε1).trans
-    (designGrowth_mono hΛ' fun a ↦ ?_)
+  have hτμ := ae_ne_top_of_lintegral_toENNReal_ne_top
+    ((measurable_of_countable (β := ℕ∞) fun t : WithTop ℕ ↦ t).comp hτ).aemeasurable hτκ
+  refine eintegral_log_le_of_forall_designGrowth_le κ hΛ hτ hY hτY hYΛ hτμ fun k ↦
+    designGrowth_mono (isProbabilityMeasure_of_mem_image hΛ) fun a ↦ ?_
   -- the run stopped at `min τ k` observes each source at most as often as the run stopped at `τ`
   refine ENNReal.toNNReal_mono (ne_top_of_le_ne_top hτκ (lintegral_mono fun ω ↦ ?_))
     (lintegral_mono_ae ?_)
@@ -277,6 +285,36 @@ theorem eintegral_log_le_designGrowth [Fintype α] (κ : Kernel α 𝓧) [IsMark
     exact ENat.toENNReal_le.2 (Nat.cast_le.2 (pullCount_le a t ω))
   · filter_upwards [hτμ] with ω hω
     exact_mod_cast pullCount_mono a (WithTop.untopA_mono hω (min_le_left _ _)) ω
+
+/-- In the array model, a function `G` of the history stopped at the hitting time of a stopping
+rule `S` which is an e-variable at that time for `Λ`, under the laws of the stopped history, gives
+a measurable hitting time and a measurable stopped variable which is an e-variable at the hitting
+time for `Λ`: these are the hypotheses of the Wald inequalities with a design in the array model. -/
+private lemma measurable_isStoppedVar_setLIntegral_stoppedValue_le [Countable α]
+    {Λ : Set (Kernel α 𝓧)} (hΛ : ∀ ν ∈ Λ, IsMarkovKernel ν) {S : Set (Σ n, Hist Unit α 𝓧 n)}
+    (hS : MeasurableSet S) {G : (Σ n, Hist Unit α 𝓧 n) → ℝ≥0∞} (hG : Measurable G)
+    (hGΛ : ∀ (ν : Kernel α 𝓧) [IsMarkovKernel ν], ν ∈ Λ →
+      ∫⁻ x in S, G x ∂stoppedHistMeasure alg (Environment.bandit ν) S ≤ 1) :
+    Measurable (hittingAfter (sigmaHistory (noObs (ProbSpace α 𝓧)) (action alg) (reward alg))
+      S 0) ∧
+    Measurable (fun ω ↦ G (stoppedValue (sigmaHistory (noObs _) (action alg) (reward alg))
+      (hittingAfter (sigmaHistory (noObs _) (action alg) (reward alg)) S 0) ω)) ∧
+    IsStoppedVar alg (hittingAfter (sigmaHistory (noObs _) (action alg) (reward alg)) S 0)
+      (fun ω ↦ G (stoppedValue (sigmaHistory (noObs _) (action alg) (reward alg))
+        (hittingAfter (sigmaHistory (noObs _) (action alg) (reward alg)) S 0) ω)) ∧
+    ∀ ν ∈ Λ, ∫⁻ ω in {ω | hittingAfter (sigmaHistory (noObs _) (action alg) (reward alg))
+      S 0 ω ≠ ⊤}, G (stoppedValue (sigmaHistory (noObs _) (action alg) (reward alg))
+        (hittingAfter (sigmaHistory (noObs _) (action alg) (reward alg)) S 0) ω)
+        ∂arrayMeasure ν ≤ 1 := by
+  have hO (n : ℕ) : Measurable (noObs (ProbSpace α 𝓧) n) := measurable_const
+  have hτ := measurable_hittingAfter_sigmaHistory hO (measurable_action alg)
+    (measurable_reward alg) hS
+  refine ⟨hτ, hG.comp (measurable_stoppedValue_sigmaHistory hO
+    (measurable_action alg) (measurable_reward alg) hτ),
+    (isStoppedVar_hittingAfter alg S).comp G, fun ν hν ↦ ?_⟩
+  have := hΛ ν hν
+  exact ((LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg
+    ν).setLIntegral_comp_stoppedValue_sigmaHistory hS hG).trans_le (hGΛ ν hν)
 
 end Bandits.ArrayModel
 
@@ -322,19 +360,14 @@ theorem IsAlgEnvSeq.eintegral_log_le_designRate_mul_lintegral [Fintype α] [Stan
   have hlog : AEMeasurable (fun x ↦ ENNReal.log (G x))
       (stoppedHistMeasure alg (Environment.bandit κ) S) :=
     (ENNReal.measurable_log.comp hG).aemeasurable
-  have hτm := measurable_hittingAfter_sigmaHistory h'.measurable_obs h'.measurable_action
-    h'.measurable_feedback hS
   rw [(h.hasLaw_stoppedValue_sigmaHistory hS).eintegral_comp hlog,
     h.lintegral_toENNReal_hittingAfter hS hτ,
     ← (h'.hasLaw_stoppedValue_sigmaHistory hS).eintegral_comp hlog,
     ← h'.lintegral_toENNReal_hittingAfter hS hτ']
-  refine Bandits.ArrayModel.eintegral_log_le_designRate_mul_lintegral κ hΛ hΛne hτm
-    (hG.comp (measurable_stoppedValue_sigmaHistory h'.measurable_obs h'.measurable_action
-      h'.measurable_feedback hτm))
-    ((Bandits.ArrayModel.isStoppedVar_hittingAfter alg S).comp G) (fun ν hν ↦ ?_) hτ'
-  have := hΛ ν hν
-  exact ((LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg
-    ν).setLIntegral_comp_stoppedValue_sigmaHistory hS hG).trans_le (hGΛ ν hν)
+  obtain ⟨hτm, hGm, hGτ, hGΛ'⟩ :=
+    Bandits.ArrayModel.measurable_isStoppedVar_setLIntegral_stoppedValue_le hΛ hS hG hGΛ
+  exact Bandits.ArrayModel.eintegral_log_le_designRate_mul_lintegral κ hΛ hΛne hτm hGm hGτ hGΛ'
+    hτ'
 
 /-- **The Wald inequality with a design, with the growth of the designs** [EVR26, Note 41,
 Theorem 1], for an algorithm and the hitting time `τ` of a stopping rule. Let `alg` be an
@@ -367,12 +400,11 @@ theorem IsAlgEnvSeq.eintegral_log_le_designGrowth [Fintype α] [DecidableEq α]
   have h' := LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg κ
   have hτm := measurable_hittingAfter_sigmaHistory h.measurable_obs h.measurable_action
     h.measurable_feedback hS
-  have hτm' := measurable_hittingAfter_sigmaHistory h'.measurable_obs h'.measurable_action
-    h'.measurable_feedback hS
+  obtain ⟨hτm', hGm, hGτ, hGΛ'⟩ :=
+    Bandits.ArrayModel.measurable_isStoppedVar_setLIntegral_stoppedValue_le hΛ hS hG hGΛ
   -- a time of finite mean is almost surely finite
-  have hτae : ∀ᵐ ω ∂P, hittingAfter (sigmaHistory O A R) S 0 ω ≠ ⊤ := by
-    filter_upwards [ae_lt_top' ((measurable_of_countable _).comp hτm).aemeasurable hτ] with ω hω
-    exact ENat.toENNReal_ne_top.1 hω.ne
+  have hτae := ae_ne_top_of_lintegral_toENNReal_ne_top
+    ((measurable_of_countable (β := ℕ∞) fun t : WithTop ℕ ↦ t).comp hτm).aemeasurable hτ
   have hτae' := (h'.ae_hittingAfter_ne_top_iff hS).2 ((h.ae_hittingAfter_ne_top_iff hS).1 hτae)
   have hlog : AEMeasurable (fun x ↦ ENNReal.log (G x))
       (stoppedHistMeasure alg (Environment.bandit κ) S) :=
@@ -382,12 +414,6 @@ theorem IsAlgEnvSeq.eintegral_log_le_designGrowth [Fintype α] [DecidableEq α]
   rw [(h.hasLaw_stoppedValue_sigmaHistory hS).eintegral_comp hlog,
     ← (h'.hasLaw_stoppedValue_sigmaHistory hS).eintegral_comp hlog]
   simp only [h.lintegral_pullCount_hittingAfter hS, ← h'.lintegral_pullCount_hittingAfter hS]
-  refine Bandits.ArrayModel.eintegral_log_le_designGrowth κ hΛ hτm'
-    (hG.comp (measurable_stoppedValue_sigmaHistory h'.measurable_obs h'.measurable_action
-      h'.measurable_feedback hτm'))
-    ((Bandits.ArrayModel.isStoppedVar_hittingAfter alg S).comp G) (fun ν hν ↦ ?_) hτ
-  have := hΛ ν hν
-  exact ((LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit alg
-    ν).setLIntegral_comp_stoppedValue_sigmaHistory hS hG).trans_le (hGΛ ν hν)
+  exact Bandits.ArrayModel.eintegral_log_le_designGrowth κ hΛ hτm' hGm hGτ hGΛ' hτ
 
 end Learning
