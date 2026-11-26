@@ -10,6 +10,8 @@ public import LMLExplore.EValues.SubGaussian.SequentialCompleteClass
 public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Martingale.ExactVille
 public import LMLExplore.Probability.Martingale.Freedman
+public import LMLExplore.Probability.Martingale.Hoeffding
+public import LMLExplore.Probability.Martingale.KLChernoff
 public import LMLExplore.Probability.Martingale.MGFBound
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import LMLExplore.MeasureTheory.Constructions.BorelSpace.Order
@@ -40,12 +42,19 @@ e-variable given `ℱ k` when `θ` has countably many values, or when `ψ` is up
 `Λ`. For an upper semicontinuous `ψ` and adapted weights `w` with `t w k ∈ Λ`, the process
 `exp (t ∑ k < n, w k X k - ∑ k < n, ψ (t w k))` is then a test supermartingale for the null, on any
 measurable space. The laws with a conditional bound on the moment generating function
-(LMLExplore's `HasCondMGFBound`) are members of the null, and the one-sided conditionally
-`1`-sub-Gaussian null is the case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Under a fixed finite measure
-`μ` (the null `{μ}`), Freedman's exponential supermartingale makes the partial sums of
-supermartingale differences, square integrable and bounded above by some `b > 0`, sub-Poisson,
+(LMLExplore's `HasCondMGFBound`) are members of the null. So are, for the matching `ψ` [HRMS20,
+Fact 1], the laws with conditionally `c`-sub-Gaussian observations (`ψ t = c t ^ 2 / 2`), with
+observations in `[a, b]` of conditional mean `m`, centred at `m` (Hoeffding,
+`ψ t = (b - a) ^ 2 t ^ 2 / 8`),
+and with observations in `[0, 1]` of conditional mean at most `q`, for `t ≥ 0`, or at least `q`, for
+`t ≤ 0` (Bernoulli, `ψ t = log (1 - q + q exp t)`). The one-sided conditionally `1`-sub-Gaussian
+null is the case `ψ t = t ^ 2 / 2`, `Λ = [0, ∞)`. Under a fixed finite measure `μ` (the null
+`{μ}`), Freedman's exponential supermartingale makes the partial sums of supermartingale
+differences, square integrable and bounded above by some `b > 0`, sub-Poisson,
 `ψ t = (exp (t b) - 1 - t b) / b ^ 2`, with the sum of the conditional second moments as intrinsic
-time.
+time. For the composite null of the laws whose conditional second moments are below a predictable
+bound `v`, the partial sums are sub-Poisson with the intrinsic time `∑ k < n, v k`, which does not
+depend on the law.
 
 Ville's inequality applied to the supermartingales `L` gives the bounds of [HRMS20, Theorem 1(a)],
 conditionally on `ℱ 0`: for a nonnegative intrinsic time, the probability that `S` ever crosses
@@ -69,6 +78,11 @@ line `a + b n`.
   `exp (t ∑ k < n, X k - n ψ t)` is a test supermartingale for the null of the sub-ψ bets.
 * `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_hasCondMGFBound`: a law with conditional
   moment generating functions bounded by `exp ψ` on `Λ` belongs to that null.
+* `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_hasCondSubgaussianMGF`,
+  `ProbabilityTheory.mem_condEVarNull_subPsiBets_of_mem_Icc`,
+  `ProbabilityTheory.mem_condEVarNull_subPsiBets_log_of_condExp_le`,
+  `ProbabilityTheory.mem_condEVarNull_subPsiBets_log_of_le_condExp`: the sub-Gaussian, Hoeffding
+  and Bernoulli members of the null.
 * `ProbabilityTheory.isCondEVar_exp_mul_sub_condEVarNull_of_countable`,
   `ProbabilityTheory.isCondEVar_exp_mul_sub_condEVarNull`: under that null, the bets at a
   predictable parameter with countably many values, or with an upper semicontinuous `ψ`, are
@@ -81,6 +95,10 @@ line `a + b n`.
 * `ProbabilityTheory.isSubPsiProcess_sum_condEVarNull`,
   `ProbabilityTheory.isSubPsiProcess_sum_sum_condExp_sq`: the partial sums are sub-ψ for the null
   of the sub-ψ bets, and sub-Poisson with Freedman's intrinsic time.
+* `ProbabilityTheory.isCondEVar_exp_mul_sub_mul_of_condExp_sq_le`,
+  `ProbabilityTheory.isSubPsiProcess_sum_sum_of_condExp_sq_le`: Freedman's bets with a
+  predictable bound on the conditional second moment are conditional e-variables, and the partial
+  sums are sub-Poisson with that bound as intrinsic time, for a composite null.
 * `ProbabilityTheory.IsSubPsiProcess.isEProcess`: `l₀⁻¹ exp (t S - ψ t V)` is an e-process.
 * `ProbabilityTheory.IsSubPsiProcess.measure_inter_exists_le_mul_sub_mul_le`: Ville's inequality
   for the exponential process, conditionally on `ℱ 0`.
@@ -113,7 +131,7 @@ adapted processes and a null of probability measures.
 public section
 
 open MeasureTheory Set Finset Real Filter Topology
-open scoped ENNReal
+open scoped ENNReal NNReal unitInterval
 
 namespace ProbabilityTheory
 
@@ -171,6 +189,66 @@ theorem mem_condEVarNull_subPsiBets_of_hasCondMGFBound [StandardBorelSpace Ω]
   obtain ⟨t, ht, rfl⟩ := he
   exact (hψ k).isCondEVar_exp_mul_sub (hX k) measurable_const (ae_of_all _ fun _ ↦ ht)
     measurable_const
+
+/-! ### Sub-Gaussian, Hoeffding and Bernoulli members of the null -/
+
+/-- **Sub-Gaussian laws are members of the null of the sub-Gaussian bets** [HRMS20, Fact 1].
+A probability measure under which every measurable observation `X k` is conditionally
+`c`-sub-Gaussian given `ℱ k` belongs to the null of the bets `exp (t x - c t ^ 2 / 2)`, `t ∈ ℝ`. -/
+theorem mem_condEVarNull_subPsiBets_of_hasCondSubgaussianMGF [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P] {c : ℝ≥0} (hX : ∀ k, Measurable (X k))
+    (h : ∀ k, HasCondSubgaussianMGF (ℱ k) (ℱ.le k) (X k) c P) :
+    P ∈ condEVarNull (subPsiBets (fun t ↦ c * t ^ 2 / 2) univ) X ℱ :=
+  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
+    LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF.2 (h k)
+
+/-- **Bounded observations are members of the null of the Hoeffding bets** [HRMS20, Fact 1].
+A probability measure under which every measurable observation `X k` has values in `[a, b]` and
+conditional mean `m` given `ℱ k` belongs to the null of the bets
+`exp (t (x - m) - (b - a) ^ 2 t ^ 2 / 8)`, `t ∈ ℝ`, on the observations. This is the conditional
+Hoeffding lemma. -/
+theorem mem_condEVarNull_subPsiBets_of_mem_Icc [StandardBorelSpace Ω] [IsProbabilityMeasure P]
+    {m : ℝ} (hX : ∀ k, Measurable (X k)) (hab : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Icc a b)
+    (hm : ∀ k, P[X k | ℱ k] =ᵐ[P] fun _ ↦ m) :
+    P ∈ condEVarNull (subPsiBets (fun t ↦ (b - a) ^ 2 * t ^ 2 / 8) univ)
+      (fun k ω ↦ X k ω - m) ℱ := by
+  refine mem_condEVarNull_subPsiBets_of_hasCondMGFBound (fun k ↦ (hX k).sub_const m) fun k ↦ ?_
+  -- the conditional Hoeffding lemma, with the conditional mean replaced by `m`
+  have h := LMLExplore.hasCondSubgaussianMGF_of_mem_Icc (ℱ.le k) (hX k).aemeasurable (hab k)
+  have h' : HasCondSubgaussianMGF (ℱ k) (ℱ.le k) (fun ω ↦ X k ω - m) ((‖b - a‖₊ / 2) ^ 2) P := by
+    refine Kernel.HasSubgaussianMGF.congr h ?_
+    rw [condExpKernel_comp_trim]
+    filter_upwards [hm k] with ω hω
+    simp [hω]
+  refine (LMLExplore.hasCondMGFBound_iff_hasCondSubgaussianMGF.2 h').mono subset_rfl
+    fun t _ ↦ le_of_eq ?_
+  simp only [NNReal.coe_pow, NNReal.coe_div, coe_nnNorm, Real.norm_eq_abs, NNReal.coe_ofNat,
+    div_pow, sq_abs]
+  ring
+
+/-- **Observations in `[0, 1]` with conditional mean at most `q` are members of the null of the
+Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
+observation `X k` has values in `[0, 1]` and conditional mean at most `q` given `ℱ k` belongs to
+the null of the bets `exp (t x - log (1 - q + q exp t))`, `t ≥ 0`, on the observations. -/
+theorem mem_condEVarNull_subPsiBets_log_of_condExp_le [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P] {q : I} (hX : ∀ k, Measurable (X k))
+    (h01 : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Set.Icc 0 1) (hq : ∀ k, P[X k | ℱ k] ≤ᵐ[P] fun _ ↦ (q : ℝ)) :
+    P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Ici 0)) X ℱ :=
+  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
+    (LMLExplore.hasCondMGFBound_Ici_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
+      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
+
+/-- **Observations in `[0, 1]` with conditional mean at least `q` are members of the null of the
+Bernoulli bets** [HRMS20, Fact 1]. A probability measure under which every measurable
+observation `X k` has values in `[0, 1]` and conditional mean at least `q` given `ℱ k` belongs to
+the null of the bets `exp (t x - log (1 - q + q exp t))`, `t ≤ 0`, on the observations. -/
+theorem mem_condEVarNull_subPsiBets_log_of_le_condExp [StandardBorelSpace Ω]
+    [IsProbabilityMeasure P] {q : I} (hX : ∀ k, Measurable (X k))
+    (h01 : ∀ k, ∀ᵐ ω ∂P, X k ω ∈ Set.Icc 0 1) (hq : ∀ k, (fun _ ↦ (q : ℝ)) ≤ᵐ[P] P[X k | ℱ k]) :
+    P ∈ condEVarNull (subPsiBets (fun t ↦ log (1 - q + q * exp t)) (Iic 0)) X ℱ :=
+  mem_condEVarNull_subPsiBets_of_hasCondMGFBound hX fun k ↦
+    (LMLExplore.hasCondMGFBound_Iic_cgf_bernoulliMeasure (hm := ℱ.le k) (hX k) (h01 k)
+      (hq k)).mono subset_rfl fun t _ ↦ (TauCeti.Probability.cgf_id_bernoulliMeasure q t).le
 
 /-! ### Bets at a predictable parameter -/
 
@@ -559,6 +637,75 @@ theorem isSubPsiProcess_sum_sum_condExp_sq {μ : Measure Ω} [IsFiniteMeasure μ
   exact ⟨_, (LMLExplore.supermartingale_exp_mul_sum_sub_mul_sum_condExp_sq hb (mem_Ici.1 ht) le_rfl
       hX hX2 h_mean h_bdd).isENNSupermartingale_ofReal fun n ↦ ae_of_all _ fun _ ↦ (exp_pos _).le,
     ae_of_all _ fun _ ↦ by simp, fun n ↦ ae_of_all _ fun _ ↦ le_rfl⟩
+
+/-- **Freedman's bet is a conditional e-variable** [Fre75; HRMS20, Fact 1(c)]. Let `Y` be
+measurable with `Y ^ 2` integrable, `Y ≤ b` almost surely with `b > 0` and `E[Y | m] ≤ 0`, and let
+`w` be an `m`-measurable bound on the conditional second moment `E[Y ^ 2 | m]`. For `t ≥ 0`, the
+bet `exp (t Y - ψ_b t w)`, with `ψ_b t = (exp (t b) - 1 - t b) / b ^ 2`, is a conditional e-variable
+given `m` under the finite measure `P`. -/
+theorem isCondEVar_exp_mul_sub_mul_of_condExp_sq_le {m : MeasurableSpace Ω} (hm : m ≤ mΩ)
+    [IsFiniteMeasure P] {Y w : Ω → ℝ} (hb : 0 < b) (ht : 0 ≤ t)
+    (hY : Measurable[mΩ] Y) (hw : Measurable[m] w) (hY2 : Integrable (fun ω ↦ Y ω ^ 2) P)
+    (h_bdd : ∀ᵐ ω ∂P, Y ω ≤ b) (h_mean : P[Y | m] ≤ᵐ[P] 0)
+    (h_var : P[fun ω ↦ Y ω ^ 2 | m] ≤ᵐ[P] w) :
+    IsCondEVar (fun ω ↦ ENNReal.ofReal (exp (t * Y ω - (exp (t * b) - 1 - t * b) / b ^ 2 * w ω)))
+      m {P} := by
+  set c := (exp (t * b) - 1 - t * b) / b ^ 2 with hc_def
+  have hc0 : 0 ≤ c := exp_sub_one_sub_id_div_sq_nonneg (t * b) b
+  -- the bet with the conditional second moment in place of `w` has conditional mean at most `1`
+  have hZ : IsCondEVar
+      (fun ω ↦ ENNReal.ofReal (exp (t * Y ω - c * P[fun ω ↦ Y ω ^ 2 | m] ω))) m {P} := by
+    refine (isCondEVar_ofReal_iff_condExp_le hm
+      (fun _ hQ ↦ by rw [mem_singleton_iff.1 hQ]; infer_instance)
+      (fun _ hQ ↦ by
+        rw [mem_singleton_iff.1 hQ]
+        exact LMLExplore.integrable_exp_mul_sub_mul_condExp_sq hm ht hc0 hY.aestronglyMeasurable
+          h_bdd)
+      fun _ _ ↦ .of_forall fun _ ↦ (exp_pos _).le).2 ⟨?_, fun _ hQ ↦ ?_⟩
+    · exact ((hY.const_mul t).sub
+        ((stronglyMeasurable_condExp.measurable.mono hm le_rfl).const_mul c)).exp.ennreal_ofReal
+    · rw [mem_singleton_iff.1 hQ]
+      exact LMLExplore.condExp_exp_mul_sub_mul_condExp_sq_le_one hm hb ht le_rfl
+        hY.aestronglyMeasurable hY2 h_mean h_bdd
+  -- a larger bound `w` makes a smaller bet
+  refine hZ.mono_ae (((hY.const_mul t).sub ((hw.mono hm le_rfl).const_mul c)).exp.ennreal_ofReal)
+    ?_
+  rw [quasiSure_singleton]
+  filter_upwards [h_var] with ω hω
+  exact ENNReal.ofReal_le_ofReal (exp_le_exp.2 (by nlinarith))
+
+/-- **Freedman's sums are sub-Poisson for a null** [Fre75; HRMS20, Fact 1(c)]. Let each observation
+`X k` be `ℱ (k + 1)`-measurable and `v k` be `ℱ k`-measurable, and let `b > 0`. Under every
+probability measure under which the observations `X k` have integrable squares, are at most `b`,
+have nonpositive conditional mean and conditional second moment at most `v k` given `ℱ k`, the
+sums `∑ k < n, X k` with the intrinsic time `∑ k < n, v k` are a `1`-sub-ψ process on `[0, ∞)`
+for `ψ t = (exp (t b) - 1 - t b) / b ^ 2`. Unlike
+`ProbabilityTheory.isSubPsiProcess_sum_sum_condExp_sq`, the intrinsic time does not depend on the
+law, which makes the statement possible for a composite null. -/
+theorem isSubPsiProcess_sum_sum_of_condExp_sq_le {v : ℕ → Ω → ℝ}
+    (hX : ∀ k, Measurable[ℱ (k + 1)] (X k)) (hv : ∀ k, Measurable[ℱ k] (v k)) (hb : 0 < b) :
+    IsSubPsiProcess (fun n ω ↦ ∑ k ∈ range n, X k ω) (fun n ω ↦ ∑ k ∈ range n, v k ω)
+      (fun t ↦ (exp (t * b) - 1 - t * b) / b ^ 2) (Ici 0) 1 ℱ
+      {P | IsProbabilityMeasure P ∧ ∀ k, Integrable (fun ω ↦ X k ω ^ 2) P ∧
+        (∀ᵐ ω ∂P, X k ω ≤ b) ∧ P[X k | ℱ k] ≤ᵐ[P] 0 ∧
+        P[fun ω ↦ X k ω ^ 2 | ℱ k] ≤ᵐ[P] v k} := by
+  rw [isSubPsiProcess_iff]
+  rintro P ⟨hP, hPX⟩ t ht
+  set c := (exp (t * b) - 1 - t * b) / b ^ 2
+  -- the product of Freedman's bets is a test supermartingale under `P`
+  have hL := isTestSupermartingale_prod (S := {P})
+    (E := fun k ω ↦ ENNReal.ofReal (exp (t * X k ω - c * v k ω)))
+    (fun _ hQ ↦ by rw [mem_singleton_iff.1 hQ, measure_univ])
+    (fun k ↦ (((hX k).const_mul t).sub (((hv k).mono (ℱ.mono k.le_succ) le_rfl).const_mul
+      c)).exp.ennreal_ofReal)
+    fun k ↦ isCondEVar_exp_mul_sub_mul_of_condExp_sq_le (ℱ.le k) hb (mem_Ici.1 ht)
+      ((hX k).mono (ℱ.le _) le_rfl) (hv k) (hPX k).1 (hPX k).2.1 (hPX k).2.2.1 (hPX k).2.2.2
+  refine ⟨_, hL.toIsENNSupermartingale, .of_forall fun _ ↦ by simp, fun n ↦ .of_forall
+    fun ω ↦ le_of_eq ?_⟩
+  -- the exponential of the sum is the product of the exponentials
+  dsimp only
+  rw [← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (exp_pos _).le, ← exp_sum]
+  simp only [mul_sum, ← sum_sub_distrib]
 
 /-- **The line-crossing inequality for the one-sided conditionally sub-Gaussian null**
 [HRMS20, Theorem 1(a)]. Under every member of `oneSidedCondSubgaussianNull`, for an intercept
