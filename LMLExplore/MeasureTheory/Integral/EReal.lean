@@ -12,7 +12,7 @@ import Mathlib.MeasureTheory.Integral.DominatedConvergence
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
 /-!
-# Monotone convergence for the truncations of an extended integral
+# Finite sums and monotone convergence for the truncations of an extended integral
 
 Statlib's extended integral `∫ᵉ x, f x ∂μ` of a function `f` with values in `EReal` is the
 difference of the lower Lebesgue integrals of its positive and negative parts. Truncating `f`
@@ -23,8 +23,15 @@ bound on the extended integral of `f`.
 For `f = log E` with `E` nonnegative, the truncations are bounded by real integrals: mixing `E`
 with a constant `ε ∈ (0, 1)` bounds its logarithm below, at a cost of at most `- log (1 - ε)`.
 
+The extended integral of a finite sum is the sum of the extended integrals when none of them is
+`⊥`, by induction from Statlib's `eintegral_add`. This lemma is adapted from
+`EValuesResearch/Results/SaturationAux.lean` (commit `83205cb`) in the paper project
+`RemyDegenne/evalues_research`.
+
 ## Main statements
 
+* `MeasureTheory.eintegral_finsetSum`: the extended integral of a finite sum of functions whose
+  extended integrals are not `⊥` is the sum of their extended integrals.
 * `MeasureTheory.eintegral_le_of_forall_min_le`: if the extended integrals of the truncations
   `min f k`, `k ∈ ℕ`, are at most `D`, so is the extended integral of `f`.
 * `MeasureTheory.eintegral_min_log_le_integral_truncLog_sub`: under a probability measure, the
@@ -62,6 +69,25 @@ lemma le_of_forall_le_sub_log_one_sub {x : EReal} {D : ℝ}
 end EReal
 
 namespace MeasureTheory
+
+/-- **The extended integral of a finite sum** is the sum of the extended integrals, when none of
+them is `⊥`: no sum `⊥ + ⊤` then arises. -/
+theorem eintegral_finsetSum {Ω ι : Type*} [MeasurableSpace Ω] {μ : Measure Ω} (s : Finset ι)
+    {f : ι → Ω → EReal} (hf : ∀ i ∈ s, AEMeasurable (f i) μ)
+    (hf_bot : ∀ i ∈ s, ∫ᵉ x, f i x ∂μ ≠ ⊥) :
+    ∫ᵉ x, ∑ i ∈ s, f i x ∂μ = ∑ i ∈ s, ∫ᵉ x, f i x ∂μ := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp [eintegral_zero]
+  | insert a s ha ih =>
+    simp only [Finset.mem_insert, forall_eq_or_imp] at hf hf_bot
+    have hsum_bot : ∫ᵉ x, ∑ i ∈ s, f i x ∂μ ≠ ⊥ := by
+      rw [ih hf.2 hf_bot.2]
+      exact Finset.sum_induction _ (· ≠ ⊥) (fun _ _ h₁ h₂ ↦ EReal.add_ne_bot_iff.2 ⟨h₁, h₂⟩)
+        EReal.zero_ne_bot hf_bot.2
+    simp_rw [Finset.sum_insert ha]
+    rw [eintegral_add hf.1 (Finset.aemeasurable_fun_sum s hf.2)
+      (eintegrable_of_eintegral_ne_bot hsum_bot) (.inl hf_bot.1) (.inr hsum_bot), ih hf.2 hf_bot.2]
 
 /-- **Monotone convergence for truncations.** If the extended integrals of the truncations
 `min f k`, `k ∈ ℕ`, are at most `D`, so is the extended integral of `f`. -/
