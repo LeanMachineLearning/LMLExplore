@@ -338,9 +338,10 @@ theorem mul_card_le_add_sum_of_mem_alt {j : ℐ} {μ : Θ} (hμ : μ ∈ task.al
 /-- **The rounds of the wrong answers** [DKM19, Appendix D.5]. Let the learners of each answer `j`
 satisfy the saddle-point inequality of slack `y j` on the rounds of `R` whose candidate answer is
 `j`, against every alternative to `j`, for the losses `d b (xs s b) λ` at the estimates `xs s`,
-and let the losses at the true model `μ ∈ M` be at most `e s b ≥ 0` on `R`. On the later rounds
-`R' ⊆ R`, let the nonnegative gains be at least the exploration bonuses `g s / N s a` (with
-positive counts, monotone in the round, nonnegative `g` and `c g t ≤ g s`), and at every round of
+and let the losses at the true model `μ ∈ M` be at most `e s b ≥ 0` on `R`. Let the gains be
+nonnegative on `R`, and on the later rounds `R' ⊆ R` at least the exploration bonuses
+`g s / N s a` (with positive counts, monotone in the round, nonnegative `g` and `c g t ≤ g s`
+on `R'`), and at every round of
 `R'` whose candidate is not a correct answer of `μ`, let some arm have a bonus at least `ε` (for
 instance by `LMLExplore.Identification.IdentTask.exists_le_two_mul_div_of_mem_alt`). Then
 `c ε` times the number of rounds of `R'` with a wrong candidate is at most the slacks of the
