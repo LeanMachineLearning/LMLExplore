@@ -61,6 +61,8 @@ of `π` in `M` and `M'` are close [LWCGC24, Lemmas 1 and 2].
   `∫ s', Var_{π s'}(Q^π (s', ·)) dP (s, a) + Var_P(v^π) (s, a)`; in particular
   `Var_P(v^π) ≤ Var_{P^π_SA}(Q^π)` (`Learning.MDP.variance_value_le_variance_qValue`), with
   equality for deterministic policies (`Learning.MDP.variance_qValue_saKernel_deterministic`).
+* `Learning.MDP.variance_saKernel_deterministic`: for a deterministic policy `d`,
+  `Var_{P^d_SA}(f) (s, a)` is the variance of `s' ↦ f (s', d s')` under `M.P (s, a)`.
 * `Learning.MDP.returnVariance_deterministic_eq_add`: for a deterministic policy,
   `Σ^π = γ ^ 2 Var_P(v^π) + γ ^ 2 P^π_SA Σ^π` [AJKS, Lemma 2.11].
 * `Learning.MDP.integral_sqrt_variance_value_resolvent_le`: the total-variance lemma
@@ -180,6 +182,15 @@ theorem variance_value_le_variance_qValue (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x �
 section Deterministic
 
 variable {d : 𝓢 → 𝓐} (hd : Measurable d)
+
+/-- For a measurable deterministic stationary policy `d`, the variance under the state-action
+kernel of `d` from `p` is the variance at the next state: `Var_{P^d_SA}(f) p` is the variance of
+`s ↦ f (s, d s)` under `M.P p`. -/
+lemma variance_saKernel_deterministic {p : 𝓢 × 𝓐} {f : 𝓢 × 𝓐 → ℝ}
+    (hf : AEMeasurable f (M.saKernel (Kernel.deterministic d hd) p)) :
+    Var[f; M.saKernel (Kernel.deterministic d hd) p] = Var[fun s ↦ f (s, d s); M.P p] := by
+  rw [saKernel_apply, Measure.compProd_deterministic] at hf ⊢
+  exact variance_map hf (measurable_id.prodMk hd).aemeasurable
 
 /-- For a measurable deterministic stationary policy `d`, with bounded rewards and `γ < 1`, the
 one-step variance `Var_{P^d_SA}(Q^d) p` of the action value is the variance `Var_P(v^d) p` of the
