@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Analysis.InnerProductSpace.EllipticalPotential
 public import LMLExplore.Analysis.InnerProductSpace.Ridge
+public import LMLExplore.OnlineLearning.FTRL.Equality
 public import LMLExplore.OnlineLearning.Learner.Basic
 
 /-!
@@ -47,6 +48,10 @@ square losses are neither strongly convex nor exp-concave on `E`.
 
 * `isMinOn_vovkAzouryWarmuth`: the play minimizes the regularized cumulative loss with the
   current feature and the label `0` [Ora, Algorithm 7.7].
+* `vovkAzouryWarmuth_objective_eq_add`: around the play, the objective is its value at the play
+  plus half the quadratic form of `S_t`.
+* `eq_vovkAzouryWarmuth_of_objective_le`, `eq_vovkAzouryWarmuth_of_designOp_apply_eq`: the play is
+  the unique minimizer of the objective and the unique solution of the normal equations.
 * `vovkAzouryWarmuth_smul_one_eq_ridgeEstimate`: for `V₀ = λ • 1`, the play is a ridge estimate.
 * `regret_vovkAzouryWarmuth_le`: [Ora, Section 7.11] the regret through the weighted norms
   `‖z t‖²_{S_t⁻¹}`.
@@ -61,7 +66,8 @@ square losses are neither strongly convex nor exp-concave on `E`.
 regularizers `⟪S_t w, w⟫ / 2`. Here the same stability argument is run directly on the regularized
 cumulative losses `L_t w = ⟪V₀ w, w⟫ / 2 + ∑ s < t, (⟪z s, w⟫ - y s) ^ 2 / 2`: for every `w`,
 `L_t (x t) + (⟪z t, x t⟫ - y t) ^ 2 / 2 - L_{t+1} w ≤ y t ^ 2 ‖z t‖²_{S_t⁻¹} / 2`, and these
-inequalities telescope, ending at the comparator.
+inequalities are the stability terms of the FTRL inequality `regret_le_ftrl`, with the comparator
+as the last point.
 
 ## References
 
@@ -129,7 +135,7 @@ theorem vovkAzouryWarmuth_smul_one_eq_ridgeEstimate (lam : ℝ) (z : ℕ → E) 
 Hessian `S_t = designOp V₀ z (t + 1)`:
 `⟪V₀ w, w⟫ / 2 + ∑ s < t, (⟪z s, w⟫ - y s) ^ 2 / 2 + ⟪z t, w⟫ ^ 2 / 2 =
   ⟪w, S_t w⟫ / 2 - ⟪∑ s < t, y s • z s, w⟫ + ∑ s < t, y s ^ 2 / 2`. -/
-private lemma vovkAzouryWarmuth_objective_eq (z : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (w : E) :
+theorem vovkAzouryWarmuth_objective_eq (z : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (w : E) :
     ⟪V₀ w, w⟫ / 2 + ∑ s ∈ range t, (⟪z s, w⟫ - y s) ^ 2 / 2 + ⟪z t, w⟫ ^ 2 / 2 =
       ⟪w, designOp V₀ z (t + 1) w⟫ / 2 - ⟪∑ s ∈ range t, y s • z s, w⟫ +
         ∑ s ∈ range t, y s ^ 2 / 2 := by
@@ -141,28 +147,48 @@ private lemma vovkAzouryWarmuth_objective_eq (z : ℕ → E) (y : ℕ → ℝ) (
   simp only [real_inner_smul_left]
   ring
 
+/-- Around any `θ₀` satisfying the normal equations `S_t θ₀ = ∑ s < t, y s • z s`, with
+`S_t = designOp V₀ z (t + 1)`, the objective of the Vovk–Azoury–Warmuth forecaster at round `t` is
+`F t w = F t θ₀ + ⟪w - θ₀, S_t (w - θ₀)⟫ / 2`. -/
+theorem vovkAzouryWarmuth_objective_eq_add_of_designOp_apply_eq (hV₀ : V₀.IsPositive)
+    {z : ℕ → E} {y : ℕ → ℝ} {t : ℕ} {θ₀ : E}
+    (h₀ : designOp V₀ z (t + 1) θ₀ = ∑ s ∈ range t, y s • z s) (w : E) :
+    ⟪V₀ w, w⟫ / 2 + ∑ s ∈ range t, (⟪z s, w⟫ - y s) ^ 2 / 2 + ⟪z t, w⟫ ^ 2 / 2 =
+      ⟪V₀ θ₀, θ₀⟫ / 2 + ∑ s ∈ range t, (⟪z s, θ₀⟫ - y s) ^ 2 / 2 + ⟪z t, θ₀⟫ ^ 2 / 2 +
+        ⟪w - θ₀, designOp V₀ z (t + 1) (w - θ₀)⟫ / 2 := by
+  set S := designOp V₀ z (t + 1)
+  -- expand the quadratic form of `S` around `θ₀`, by its symmetry
+  have h_symm : ⟪θ₀, S w⟫ = ⟪S θ₀, w⟫ :=
+    ((isPositive_designOp hV₀ z (t + 1)).inner_left_eq_inner_right θ₀ w).symm
+  have h_exp : ⟪w - θ₀, S (w - θ₀)⟫ = ⟪w, S w⟫ - 2 * ⟪S θ₀, w⟫ + ⟪θ₀, S θ₀⟫ := by
+    simp only [map_sub, inner_sub_left, inner_sub_right, h_symm, real_inner_comm w (S θ₀)]
+    ring
+  rw [vovkAzouryWarmuth_objective_eq z y t w, vovkAzouryWarmuth_objective_eq z y t θ₀, h_exp,
+    ← h₀, real_inner_comm θ₀ (S θ₀)]
+  ring
+
 /-- Around its play `x t`, the objective of the Vovk–Azoury–Warmuth forecaster at round `t` is
 `F t w = F t (x t) + ⟪w - x t, S_t (w - x t)⟫ / 2`, with `S_t = designOp V₀ z (t + 1)`. -/
-private lemma vovkAzouryWarmuth_objective_eq_add (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
+theorem vovkAzouryWarmuth_objective_eq_add (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
     (z : ℕ → E) (y : ℕ → ℝ) (t : ℕ) (w : E) :
     ⟪V₀ w, w⟫ / 2 + ∑ s ∈ range t, (⟪z s, w⟫ - y s) ^ 2 / 2 + ⟪z t, w⟫ ^ 2 / 2 =
       ⟪V₀ (vovkAzouryWarmuth V₀ z y t), vovkAzouryWarmuth V₀ z y t⟫ / 2 +
         ∑ s ∈ range t, (⟪z s, vovkAzouryWarmuth V₀ z y t⟫ - y s) ^ 2 / 2 +
         ⟪z t, vovkAzouryWarmuth V₀ z y t⟫ ^ 2 / 2 +
         ⟪w - vovkAzouryWarmuth V₀ z y t,
-          designOp V₀ z (t + 1) (w - vovkAzouryWarmuth V₀ z y t)⟫ / 2 := by
-  set x := vovkAzouryWarmuth V₀ z y t
-  set S := designOp V₀ z (t + 1)
-  have hS : S x = ∑ s ∈ range t, y s • z s := designOp_vovkAzouryWarmuth hV₀ hV₀u z y t
-  -- expand the quadratic form of `S` around `x`, by its symmetry
-  have h_symm : ⟪x, S w⟫ = ⟪S x, w⟫ :=
-    ((isPositive_designOp hV₀ z (t + 1)).inner_left_eq_inner_right x w).symm
-  have h_exp : ⟪w - x, S (w - x)⟫ = ⟪w, S w⟫ - 2 * ⟪S x, w⟫ + ⟪x, S x⟫ := by
-    simp only [map_sub, inner_sub_left, inner_sub_right, h_symm, real_inner_comm w (S x)]
-    ring
-  rw [vovkAzouryWarmuth_objective_eq z y t w, vovkAzouryWarmuth_objective_eq z y t x, h_exp, ← hS,
-    real_inner_comm x (S x)]
-  ring
+          designOp V₀ z (t + 1) (w - vovkAzouryWarmuth V₀ z y t)⟫ / 2 :=
+  vovkAzouryWarmuth_objective_eq_add_of_designOp_apply_eq hV₀
+    (designOp_vovkAzouryWarmuth hV₀ hV₀u z y t) w
+
+/-- For a positive definite `V₀`, the play of round `t` of the Vovk–Azoury–Warmuth forecaster is
+the unique solution of its normal equations `S_t θ = ∑ s < t, y s • z s`, with
+`S_t = designOp V₀ z (t + 1)`. -/
+theorem eq_vovkAzouryWarmuth_of_designOp_apply_eq (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
+    {z : ℕ → E} {y : ℕ → ℝ} {t : ℕ} {θ : E}
+    (h : designOp V₀ z (t + 1) θ = ∑ s ∈ range t, y s • z s) :
+    θ = vovkAzouryWarmuth V₀ z y t := by
+  rw [vovkAzouryWarmuth_def, ← h,
+    ContinuousLinearMap.ringInverse_apply_apply (isUnit_designOp hV₀ hV₀u z (t + 1))]
 
 /-- **The Vovk–Azoury–Warmuth forecaster is FTRL with the current feature** [Ora, Algorithm 7.7]:
 for a positive definite `V₀`, its play of round `t` minimizes over `E` the regularized cumulative
@@ -176,6 +202,26 @@ theorem isMinOn_vovkAzouryWarmuth (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V�
   rw [vovkAzouryWarmuth_objective_eq_add hV₀ hV₀u z y t w]
   have h := (isPositive_designOp hV₀ z (t + 1)).inner_nonneg_right (w - vovkAzouryWarmuth V₀ z y t)
   linarith
+
+/-- For a positive definite `V₀`, the play of round `t` of the Vovk–Azoury–Warmuth forecaster is
+the unique minimizer over `E` of its objective
+`⟪V₀ w, w⟫ / 2 + ∑ s < t, (⟪z s, w⟫ - y s) ^ 2 / 2 + ⟪z t, w⟫ ^ 2 / 2`. -/
+theorem eq_vovkAzouryWarmuth_of_objective_le (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V₀)
+    {z : ℕ → E} {y : ℕ → ℝ} {t : ℕ} {θ : E}
+    (h : ⟪V₀ θ, θ⟫ / 2 + ∑ s ∈ range t, (⟪z s, θ⟫ - y s) ^ 2 / 2 + ⟪z t, θ⟫ ^ 2 / 2 ≤
+      ⟪V₀ (vovkAzouryWarmuth V₀ z y t), vovkAzouryWarmuth V₀ z y t⟫ / 2 +
+        ∑ s ∈ range t, (⟪z s, vovkAzouryWarmuth V₀ z y t⟫ - y s) ^ 2 / 2 +
+        ⟪z t, vovkAzouryWarmuth V₀ z y t⟫ ^ 2 / 2) :
+    θ = vovkAzouryWarmuth V₀ z y t := by
+  set d := θ - vovkAzouryWarmuth V₀ z y t
+  set S := designOp V₀ z (t + 1)
+  have hS := isPositive_designOp hV₀ z (t + 1)
+  rw [vovkAzouryWarmuth_objective_eq_add hV₀ hV₀u z y t θ] at h
+  -- the quadratic form of `S` vanishes at `d`, so by Cauchy–Schwarz `⟪d, d⟫ = 0`
+  have hd : ⟪d, S d⟫ = 0 := le_antisymm (by linarith) (hS.inner_nonneg_right d)
+  have h_cs := hS.abs_inner_le_sqrt_mul_sqrt_ringInverse (isUnit_designOp hV₀ hV₀u z (t + 1)) d d
+  rw [hd, Real.sqrt_zero, zero_mul, abs_nonpos_iff] at h_cs
+  exact sub_eq_zero.1 (inner_self_eq_zero.1 h_cs)
 
 /-- **Stability of the Vovk–Azoury–Warmuth forecaster.** For the regularized cumulative losses
 `L t w = ⟪V₀ w, w⟫ / 2 + ∑ s < t, (⟪z s, w⟫ - y s) ^ 2 / 2` and every `w`, the play `x t` satisfies
@@ -207,8 +253,10 @@ private lemma vovkAzouryWarmuth_stability (hV₀ : V₀.IsPositive) (hV₀u : Is
         _ ≤ _ := by gcongr
     nlinarith [sq_nonneg (√⟪w - x, S (w - x)⟫ - |y t| * √⟪z t, Ring.inverse S (z t)⟫),
       sq_sqrt ha, sq_sqrt hb, sq_abs (y t)]
-  rw [sum_range_succ, inner_sub_right] at *
-  nlinarith
+  rw [sum_range_succ]
+  rw [inner_sub_right] at h_lin
+  -- expanding `(⟪z t, x⟫ - y t) ^ 2 - (⟪z t, w⟫ - y t) ^ 2`, the goal is `h_eq` plus `h_lin`
+  nlinarith [h_eq, h_lin]
 
 /-- **The regret of the Vovk–Azoury–Warmuth forecaster** [Ora, Section 7.11]. For a positive
 definite `V₀` (positive and invertible), any features `z`, labels `y` and comparator `u ∈ E`,
@@ -220,25 +268,24 @@ theorem regret_vovkAzouryWarmuth_le (hV₀ : V₀.IsPositive) (hV₀u : IsUnit V
     regret (fun t w ↦ (⟪z t, w⟫ - y t) ^ 2 / 2) (vovkAzouryWarmuth V₀ z y) u n ≤
       ⟪V₀ u, u⟫ / 2 +
         ∑ t ∈ range n, y t ^ 2 * ⟪z t, Ring.inverse (designOp V₀ z (t + 1)) (z t)⟫ / 2 := by
-  -- the cumulative loss of the plays exceeds the regularized cumulative loss of any point by at
-  -- most the sum of the stability terms, by induction on the horizon
-  have key (m : ℕ) (w : E) :
-      ∑ t ∈ range m, (⟪z t, vovkAzouryWarmuth V₀ z y t⟫ - y t) ^ 2 / 2 -
-          (⟪V₀ w, w⟫ / 2 + ∑ t ∈ range m, (⟪z t, w⟫ - y t) ^ 2 / 2) ≤
-        ∑ t ∈ range m, y t ^ 2 * ⟪z t, Ring.inverse (designOp V₀ z (t + 1)) (z t)⟫ / 2 := by
-    induction m generalizing w with
-    | zero =>
-      have h := hV₀.inner_nonneg_left w
-      simp only [range_zero, sum_empty]
-      linarith
-    | succ m ih =>
-      have h_ih := ih (vovkAzouryWarmuth V₀ z y m)
-      have h_step := vovkAzouryWarmuth_stability hV₀ hV₀u z y m w
-      rw [sum_range_succ (fun t ↦ (⟪z t, vovkAzouryWarmuth V₀ z y t⟫ - y t) ^ 2 / 2),
-        sum_range_succ (fun t ↦ y t ^ 2 * ⟪z t, Ring.inverse (designOp V₀ z (t + 1)) (z t)⟫ / 2)]
-      linarith
-  rw [regret_eq_sum_sub_sum]
-  linarith [key n u]
+  -- the FTRL inequality for the regularizer `⟪V₀ w, w⟫ / 2`, with the plays in the stability terms
+  -- and the comparator as the last point, bounded round by round by the stability lemma
+  set x := vovkAzouryWarmuth V₀ z y
+  set x' := Function.update x n u
+  have hx' : ∀ t < n, x' t = x t := fun t ht ↦ Function.update_of_ne ht.ne _ _
+  have hx'n : x' n = u := Function.update_self _ _ _
+  have h := regret_le_ftrl (fun _ w ↦ ⟪V₀ w, w⟫ / 2) (fun t w ↦ (⟪z t, w⟫ - y t) ^ 2 / 2) x' x
+    (u := u) (n := n) (by rw [hx'n])
+  have h_round : ∀ t ∈ range n,
+      (⟪V₀ (x' t), x' t⟫ / 2 + ∑ s ∈ range t, (⟪z s, x' t⟫ - y s) ^ 2 / 2) -
+          (⟪V₀ (x' (t + 1)), x' (t + 1)⟫ / 2 +
+            ∑ s ∈ range (t + 1), (⟪z s, x' (t + 1)⟫ - y s) ^ 2 / 2) +
+          (⟪z t, x t⟫ - y t) ^ 2 / 2 ≤
+        y t ^ 2 * ⟪z t, Ring.inverse (designOp V₀ z (t + 1)) (z t)⟫ / 2 := by
+    intro t ht
+    rw [hx' t (mem_range.1 ht)]
+    linarith [vovkAzouryWarmuth_stability hV₀ hV₀u z y t (x' (t + 1))]
+  linarith [sum_le_sum h_round, hV₀.inner_nonneg_left (x' 0)]
 
 /-- **The regret of the Vovk–Azoury–Warmuth forecaster, log-determinant form**
 [Ora, Section 7.11, Lemma 7.29]. In finite dimension, for a positive definite `V₀` and labels
