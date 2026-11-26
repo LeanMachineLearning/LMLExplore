@@ -125,7 +125,7 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {𝒢 ℱ : Filtration ℕ mΩ} {S T : Set (Measure Ω)}
-  {P : Measure Ω} {p q E M : ℕ → Ω → ℝ≥0∞} {φ : ℕ → Ω → ℝ≥0∞} {α β : ℝ≥0∞}
+  {P : Measure Ω} {p q E M : ℕ → Ω → ℝ≥0∞} {φ ψ : ℕ → Ω → ℝ≥0∞} {α β : ℝ≥0∞}
 
 /-! ### P-processes -/
 
@@ -429,14 +429,18 @@ abbrev IsAdmissibleSequentialTest (φ : ℕ → Ω → ℝ≥0∞) (ℱ : Filtra
 dominates it quasi-surely at every time is quasi-surely at most it at every time. -/
 theorem isAdmissibleSequentialTest_iff :
     IsAdmissibleSequentialTest φ ℱ S α ↔ IsSequentialTest φ ℱ S α ∧ ∀ ψ, IsSequentialTest ψ ℱ S α →
-      (∀ n, φ n ≤ᶠ[quasiSure S] ψ n) → ∀ n, ψ n ≤ᶠ[quasiSure S] φ n := by
-  -- the quasi-sure order on paths compares the processes quasi-surely at every time
-  have hle (φ ψ : ℕ → Ω → ℝ≥0∞) :
-      Function.swap φ ≤ᶠ[quasiSure S] Function.swap ψ ↔ ∀ n, φ n ≤ᶠ[quasiSure S] ψ n := by
-    simp only [Filter.EventuallyLE, Pi.le_def, Function.swap]
-    exact eventually_countable_forall
-  exact ⟨fun hφ ↦ ⟨hφ.mem, fun ψ hψ hφψ ↦ (hle ψ φ).1 (hφ.eventuallyLE hψ ((hle φ ψ).2 hφψ))⟩,
-    fun ⟨hφ, h⟩ ↦ ⟨hφ, fun X hX hφX ↦ (hle _ φ).2 (h _ hX ((hle φ _).1 hφX))⟩⟩
+      (∀ n, φ n ≤ᶠ[quasiSure S] ψ n) → ∀ n, ψ n ≤ᶠ[quasiSure S] φ n :=
+  Filter.isAdmissible_swap_iff (p := (IsSequentialTest · ℱ S α))
+
+/-- A level-`α` sequential test `ψ` that rejects quasi-surely wherever a process `φ` equals `1`,
+at every time, rejects at some time almost surely wherever `φ` equals `1` at some time, under every
+member of the null. -/
+theorem IsSequentialTest.ae_exists_eq_one_le (hψ : IsSequentialTest ψ ℱ S α) (hP : P ∈ S)
+    (h : ∀ k, φ k ≤ᶠ[quasiSure S] ψ k) :
+    {ω | ∃ k, φ k ω = 1} ≤ᵐ[P] {ω | ∃ k, ψ k ω = 1} := by
+  filter_upwards [ae_all_iff.2 fun k ↦ ae_of_eventually_quasiSure (h k) hP] with ω hω ⟨k, hk⟩
+  refine ⟨k, (hψ.eq_zero_or_eq_one k ω).resolve_left fun h0 ↦ ?_⟩
+  simpa [hk, h0] using hω k
 
 /-- **A sufficient condition for admissible sequential tests** [RRLK, Theorem 18 (3) and
 Corollary 29 (3)]. For a level `α ≠ ∞`, a level-`α` sequential test `φ` is admissible as soon as
@@ -468,11 +472,9 @@ theorem IsSequentialTest.isAdmissibleSequentialTest_of_forall_exists
   set A := {ω | ∃ k, φ k ω = 1}
   set B := s ∩ {ω | ∀ k, φ k ω = 0}
   have hAB : A ∪ B ≤ᵐ[P] {ω | ∃ k, ψ k ω = 1} := by
-    filter_upwards [ae_all_iff.2 fun k ↦ ae_of_eventually_quasiSure (hφψ k) hP]
-      with ω hω hmem
-    rcases hmem with ⟨k, hk⟩ | ⟨⟨h1, -⟩, -⟩
-    · refine ⟨k, (hψ.eq_zero_or_eq_one k ω).resolve_left fun h0 ↦ ?_⟩
-      simpa [hk, h0] using hω k
+    filter_upwards [hψ.ae_exists_eq_one_le hP hφψ] with ω hω hmem
+    rcases hmem with hA | ⟨⟨h1, -⟩, -⟩
+    · exact hω hA
     · exact ⟨n, h1⟩
   have hdisj : Disjoint A B :=
     disjoint_left.2 fun ω ⟨k, hk⟩ ⟨_, h0⟩ ↦ by simp [h0 k] at hk
@@ -510,13 +512,13 @@ theorem IsTestSupermartingale.isSequentialTest (hM : IsTestSupermartingale M ℱ
 /-- **Admissible sequential tests from test supermartingales** [RRLK, Theorem 18 (3) and
 Corollary 29 (3)]. For a test supermartingale `M` for the null `S` and a level `α ≠ ∞`, rejecting
 the null from the first time `M` reaches `α⁻¹` on is an admissible level-`α` sequential test as soon
-as every event of time `n` charged by a member of the null is charged by a member under which `M`
-reaches `α⁻¹` with probability exactly `α`, that is, under which Ville's inequality is an
-equality. [RRLK, Corollary 29 (3)] states the case of test martingales that do not overshoot
-`α⁻¹`. -/
+as every event of time `n` on which `M` has stayed below `α⁻¹`, charged by a member of the null, is
+charged by a member under which `M` reaches `α⁻¹` with probability exactly `α`, that is, under
+which Ville's inequality is an equality. [RRLK, Corollary 29 (3)] states the case of test
+martingales that do not overshoot `α⁻¹`. -/
 theorem IsTestSupermartingale.isAdmissibleSequentialTest (hM : IsTestSupermartingale M ℱ S)
-    (hα : α ≠ ∞) (hMα : ∀ n s, MeasurableSet[ℱ n] s → (∃ P ∈ S, P s ≠ 0) →
-      ∃ P ∈ S, P s ≠ 0 ∧ P {ω | ∃ n, α⁻¹ ≤ M n ω} = α) :
+    (hα : α ≠ ∞) (hMα : ∀ n s, MeasurableSet[ℱ n] s → s ⊆ {ω | ∀ k ≤ n, M k ω < α⁻¹} →
+      (∃ P ∈ S, P s ≠ 0) → ∃ P ∈ S, P s ≠ 0 ∧ P {ω | ∃ n, α⁻¹ ≤ M n ω} = α) :
     IsAdmissibleSequentialTest (fun n ↦ {ω | ∃ k ≤ n, α⁻¹ ≤ M k ω}.indicator 1) ℱ S α := by
   have h1 (n : ℕ) (ω : Ω) :
       {ω | ∃ k ≤ n, α⁻¹ ≤ M k ω}.indicator (1 : Ω → ℝ≥0∞) ω = 1 ↔ ∃ k ≤ n, α⁻¹ ≤ M k ω := by
@@ -526,7 +528,7 @@ theorem IsTestSupermartingale.isAdmissibleSequentialTest (hM : IsTestSupermartin
     simp [indicator_apply_eq_zero]
   refine (hM.isSequentialTest α).isAdmissibleSequentialTest_of_forall_exists hα
     fun n s hs hs0 hP₀ ↦ ?_
-  obtain ⟨P, hP, hPs, hPα⟩ := hMα n s hs hP₀
+  obtain ⟨P, hP, hPs, hPα⟩ := hMα n s hs (fun ω hω ↦ (h0 n ω).1 (hs0 hω)) hP₀
   refine ⟨P, hP, ?_, ?_⟩
   · -- the test rejects at some time exactly where `M` reaches `α⁻¹`
     have h_eq : {ω | ∃ k, {ω | ∃ j ≤ k, α⁻¹ ≤ M j ω}.indicator (1 : Ω → ℝ≥0∞) ω = 1} =
@@ -551,14 +553,13 @@ theorem IsTestSupermartingale.isAdmissibleSequentialTest (hM : IsTestSupermartin
   -- by the extended Ville inequality from time `n` on `s`, where `M` has stayed below `α⁻¹`,
   -- `M` reaches `α⁻¹` after `n` on a part of `s` of probability less than that of `s`
   set t := {ω | ∃ k ≥ n, α⁻¹ ≤ M k ω}
-  have hc0 : α⁻¹ ≠ 0 := ENNReal.inv_ne_zero.2 hα
   have hc : α⁻¹ ≠ ∞ := ENNReal.inv_ne_top.2 hα0
   have hlt : P (s ∩ t) < P s := by
     rcases eq_or_ne (P s) ∞ with hs_top | hs_top
     · calc P (s ∩ t) ≤ P {ω | ∃ n, α⁻¹ ≤ M n ω} := measure_mono fun ω ⟨_, k, _, hk⟩ ↦ ⟨k, hk⟩
         _ = α := hPα
         _ < P s := hs_top ▸ hα.lt_top
-    exact hM.measure_inter_exists_le_lt hP hc0 hc hs hPs hs_top fun ω hω ↦ hs0 hω n le_rfl
+    exact hM.measure_inter_exists_le_lt hP hc hs hPs hs_top fun ω hω ↦ hs0 hω n le_rfl
   -- on `s \ t`, `M` stays below `α⁻¹` before `n` and after `n`
   have hsub : s \ t ⊆ s ∩ {ω | ∀ k, M k ω < α⁻¹} := fun ω ⟨hωs, hωt⟩ ↦ ⟨hωs, fun k ↦ by
     rcases le_total k n with hk | hk

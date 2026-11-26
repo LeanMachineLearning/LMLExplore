@@ -444,13 +444,18 @@ theorem measure_inter_exists_le_le (hM : IsENNSupermartingale M ℱ S) (hP : P �
         exact iSup_le hbound
 
 /-- **Supermartingales below a level stay below it with positive probability.** For an
-`ℝ≥0∞`-valued supermartingale, a time `m`, a level `0 < c < ∞` and an `ℱ m`-measurable set `s` of
+`ℝ≥0∞`-valued supermartingale, a time `m`, a level `c < ∞` and an `ℱ m`-measurable set `s` of
 positive finite measure on which `M m < c`, the part of `s` on which `M` reaches `c` after `m` has
 measure less than `P s`. -/
 theorem measure_inter_exists_le_lt (hM : IsENNSupermartingale M ℱ S) (hP : P ∈ S)
-    {c : ℝ≥0∞} (hc0 : c ≠ 0) (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) (hs0 : P s ≠ 0)
-    (hs_top : P s ≠ ∞) (hsM : ∀ ω ∈ s, M m ω < c) :
+    {c : ℝ≥0∞} (hc : c ≠ ∞) (hs : MeasurableSet[ℱ m] s) (hs0 : P s ≠ 0) (hs_top : P s ≠ ∞)
+    (hsM : ∀ ω ∈ s, M m ω < c) :
     P (s ∩ {ω | ∃ n ≥ m, c ≤ M n ω}) < P s := by
+  -- `c ≠ 0`, since `M m < c` on the nonempty set `s`
+  have hc0 : c ≠ 0 := by
+    rintro rfl
+    obtain ⟨ω, hω⟩ := nonempty_of_measure_ne_zero hs0
+    exact ENNReal.not_lt_zero (hsM ω hω)
   refine (hM.measure_inter_exists_le_le hP hc0 hc hs).trans_lt (ENNReal.div_lt_of_lt_mul' ?_)
   rw [← setLIntegral_const]
   refine setLIntegral_strict_mono (ℱ.le m _ hs) hs0 measurable_const ?_

@@ -27,9 +27,10 @@ an admissible confidence sequence, when the parameters are countable and every e
 that is null under every law of `S θ` is null under every law of the model: [RRLK] assumes the
 second condition throughout (its standing assumption of §4.2). Neither condition can be dropped.
 At level `0` the constant tests `0` are admissible, and their confidence sequence is the constant
-set of all parameters. For the parameters `Θ = ℝ` and an `ℱ 0`-measurable random parameter `U`
-with no atom under any law of the model, the confidence sequence `ℝ \ {U}` improves on it,
-although each of its tests differs from `0` only on a null set. For two parameters whose nulls are
+set of all parameters. For the parameters `Θ = ℝ`, the same null `S θ = {P}` for every `θ`, for a
+probability measure `P`, so that the second condition holds, and an `ℱ 0`-measurable random
+parameter `U` with no atom under `P`, the confidence sequence `ℝ \ {U}` improves on it, although
+each of its tests differs from `0` only on a `P`-null set. For two parameters whose nulls are
 the point masses `{δ a}` and `{δ b}` on a two-point space `{a, b}`, the confidence sequence that is
 `{0}` at `a` and `{1}` at `b` improves on it, since the event `{b}` is null for the first null but
 not for the model.
@@ -97,21 +98,17 @@ theorem isAdmissibleConfSeq_iff :
     IsAdmissibleConfSeq C ℱ S α ↔ IsConfSeq C ℱ S α ∧ ∀ D, IsConfSeq D ℱ S α →
       (∀ n, ∀ᶠ ω in quasiSure (⋃ θ, S θ), D n ω ⊆ C n ω) →
         ∀ n, ∀ᶠ ω in quasiSure (⋃ θ, S θ), C n ω ⊆ D n ω := by
-  -- the quasi-sure order on the rejected sets is the reverse inclusion at every time
-  have hle (C D : ℕ → Ω → Set Θ) :
-      (fun ω n ↦ (C n ω)ᶜ) ≤ᶠ[quasiSure (⋃ θ, S θ)] (fun ω n ↦ (D n ω)ᶜ) ↔
-        ∀ n, ∀ᶠ ω in quasiSure (⋃ θ, S θ), D n ω ⊆ C n ω := by
-    simp only [EventuallyLE, Pi.le_def, compl_subset_compl]
-    exact eventually_countable_forall
-  -- every family of rejected sets is the family of complements of a family of sets
-  have hcompl (R : Ω → ℕ → Set Θ) : (fun ω n ↦ ((fun n ω ↦ (R ω n)ᶜ) n ω)ᶜ) = R := by
-    ext
-    simp
-  refine ⟨fun hC ↦ ⟨by simpa using hC.mem, fun D hD hDC ↦
-    (hle D C).1 (hC.eventuallyLE (by simpa using hD) ((hle C D).2 hDC))⟩, fun ⟨hC, h⟩ ↦
-    ⟨by simpa using hC, fun R hR hCR ↦ ?_⟩⟩
-  rw [← hcompl R] at hCR ⊢
-  exact (hle _ C).2 (h _ hR ((hle C _).1 hCR))
+  -- admissibility compares the processes of rejected sets `n ↦ (C n)ᶜ` at every time, and the
+  -- rejected sets of `D` contain those of `C` exactly when `D ⊆ C`
+  refine (Filter.isAdmissible_swap_iff (p := fun R ↦ IsConfSeq (fun n ω ↦ (R n ω)ᶜ) ℱ S α)
+    (f := fun n ω ↦ (C n ω)ᶜ)).trans ⟨fun ⟨hC, h⟩ ↦ ⟨by simpa using hC, fun D hD hDC n ↦ ?_⟩,
+    fun ⟨hC, h⟩ ↦ ⟨by simpa using hC, fun R hR hCR n ↦ ?_⟩⟩
+  · filter_upwards [h (fun n ω ↦ (D n ω)ᶜ) (by simpa using hD)
+      (fun k ↦ (hDC k).mono fun _ ↦ compl_subset_compl.2) n] with ω hω
+    exact compl_subset_compl.1 hω
+  · filter_upwards [h (fun n ω ↦ (R n ω)ᶜ) hR
+      (fun k ↦ (hCR k).mono fun _ ↦ compl_subset_comm.1) n] with ω hω
+    exact subset_compl_comm.1 hω
 
 /-- **Admissible confidence sequences give admissible tests** [RRLK, Theorem 30]. For an
 admissible confidence sequence `C` at level `α`, rejecting `θ` at the times at which `C` misses it
@@ -134,11 +131,11 @@ theorem IsAdmissibleConfSeq.isAdmissibleSequentialTest (hC : IsAdmissibleConfSeq
     · -- `D` misses `θ` only where `ψ` rejects, since `ψ` rejects wherever `C` misses `θ`
       subst h
       refine (hψ.measure_exists_eq_one_le P hP).trans' (measure_mono_ae ?_)
-      filter_upwards [ae_all_iff.2 fun k ↦ ae_of_eventually_quasiSure (hCψ k) hP]
-        with ω hω ⟨k, hk⟩
-      refine ⟨k, (hψ.eq_zero_or_eq_one k ω).resolve_left fun h0 ↦ ?_⟩
-      simp only [hD_def, h0, mem_ofPred_eq, forall_const, and_true] at hk
-      simpa [hk, h0] using hω k
+      filter_upwards [hψ.ae_exists_eq_one_le hP hCψ] with ω hω ⟨k, hk⟩
+      rcases hψ.eq_zero_or_eq_one k ω with h0 | h1
+      · simp only [hD_def, h0, mem_ofPred_eq, forall_const, and_true] at hk
+        exact hω ⟨k, by simp [hk]⟩
+      · exact ⟨k, h1⟩
     · simpa [hD_def, h] using hC.measure_exists_notMem_le θ' P hP
   -- by admissibility, `C n ⊆ D n` quasi-surely, so `ψ` does not reject `θ` where `C n` has it
   have hCD := (hCmax D hD (fun _ ↦ .of_forall fun _ _ h ↦ h.1) n).filter_mono
@@ -202,14 +199,15 @@ theorem isAdmissibleConfSeq_iff_forall_isAdmissibleSequentialTest [Countable Θ]
 /-- **Admissible confidence sequences from test supermartingales** [RRLK, Theorem 30 (2)]. For
 countably many parameters, nulls `S θ` such that every event of time `n` that is null under every
 law of `S θ` is null under every law of the model `⋃ θ, S θ`, a level `α ≠ ∞`, and test
-supermartingales `M θ` for the nulls `S θ` such that every event of time `n` charged by a law of
-`S θ` is charged by a law of `S θ` under which `M θ` reaches `α⁻¹` with probability exactly `α`,
+supermartingales `M θ` for the nulls `S θ` such that every event of time `n` on which `M θ` has
+stayed below `α⁻¹`, charged by a law of `S θ`, is charged by a law of `S θ` under which `M θ`
+reaches `α⁻¹` with probability exactly `α`,
 the parameters `θ` for which `M θ` has stayed below `α⁻¹` up to time `n` form an admissible
 confidence sequence at level `α`. -/
 theorem isAdmissibleConfSeq_of_isTestSupermartingale [Countable Θ] {M : Θ → ℕ → Ω → ℝ≥0∞}
     (hM : ∀ θ, IsTestSupermartingale (M θ) ℱ (S θ)) (hα : α ≠ ∞)
-    (hMα : ∀ θ n s, MeasurableSet[ℱ n] s → (∃ P ∈ S θ, P s ≠ 0) →
-      ∃ P ∈ S θ, P s ≠ 0 ∧ P {ω | ∃ n, α⁻¹ ≤ M θ n ω} = α)
+    (hMα : ∀ θ n s, MeasurableSet[ℱ n] s → s ⊆ {ω | ∀ k ≤ n, M θ k ω < α⁻¹} →
+      (∃ P ∈ S θ, P s ≠ 0) → ∃ P ∈ S θ, P s ≠ 0 ∧ P {ω | ∃ n, α⁻¹ ≤ M θ n ω} = α)
     (hS : ∀ θ θ' n s, MeasurableSet[ℱ n] s → (∀ P ∈ S θ, P s = 0) → ∀ P ∈ S θ', P s = 0) :
     IsAdmissibleConfSeq (fun n ω ↦ {θ | ∀ k ≤ n, M θ k ω < α⁻¹}) ℱ S α := by
   -- the parameters not rejected by the tests of the test supermartingales

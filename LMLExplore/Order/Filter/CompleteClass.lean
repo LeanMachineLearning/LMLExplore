@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import Mathlib.Order.Filter.CountableInter
 public import Mathlib.Order.Filter.Germ.Basic
 public import Mathlib.Order.Minimal
 
@@ -47,6 +48,9 @@ property of germs.
   member of a minimal complete class `l`-eventually.
 * `Filter.IsMinimalCompleteClass.exists_eventuallyEq`: two minimal complete classes are equal up to
   versions.
+* `Filter.isAdmissible_swap_iff`: for a family of processes indexed by a countable set and a filter
+  closed under countable intersections, the admissibility of the paths of a process compares the
+  processes eventually at every index.
 
 ## References
 
@@ -194,5 +198,36 @@ theorem IsMinimalCompleteClass.exists_eventuallyEq (h𝓒 : IsMinimalCompleteCla
   h𝓒'.exists_eventuallyEq_of_isAdmissible (h𝓒.isAdmissible hg)
 
 end PartialOrder
+
+/-! ### Processes indexed by a countable set
+
+A process `f : ι → α → β` is compared with another through its paths `a ↦ (i ↦ f i a)`. When `ι`
+is countable and `l` is closed under countable intersections, such as the quasi-sure filter of a
+null, the eventual order of the paths compares the processes eventually at every index. -/
+
+section Countable
+
+variable {ι : Type*} [Countable ι] [CountableInterFilter l] [Preorder β]
+
+/-- For a countable index and a filter closed under countable intersections, the paths of `f` are
+eventually below those of `g` exactly when `f i` is eventually below `g i` at every index `i`. -/
+theorem eventuallyLE_swap_iff {f g : ι → α → β} :
+    Function.swap f ≤ᶠ[l] Function.swap g ↔ ∀ i, f i ≤ᶠ[l] g i := by
+  simp only [EventuallyLE, Pi.le_def, Function.swap]
+  exact eventually_countable_forall
+
+/-- For a countable index and a filter closed under countable intersections, the paths of a
+process `f` are admissible among the paths of the processes satisfying `p` exactly when `f`
+satisfies `p` and every process satisfying `p` that is eventually above `f` at every index is
+eventually below it at every index. -/
+theorem isAdmissible_swap_iff {p : (ι → α → β) → Prop} {f : ι → α → β} :
+    IsAdmissible l {X | p (Function.swap X)} (Function.swap f) ↔
+      p f ∧ ∀ g, p g → (∀ i, f i ≤ᶠ[l] g i) → ∀ i, g i ≤ᶠ[l] f i :=
+  ⟨fun hf ↦ ⟨hf.mem, fun _ hg hfg ↦
+      eventuallyLE_swap_iff.1 (hf.eventuallyLE hg (eventuallyLE_swap_iff.2 hfg))⟩,
+    fun ⟨hf, h⟩ ↦ ⟨hf, fun _ hX hfX ↦
+      eventuallyLE_swap_iff.2 (h _ hX (eventuallyLE_swap_iff.1 hfX))⟩⟩
+
+end Countable
 
 end Filter

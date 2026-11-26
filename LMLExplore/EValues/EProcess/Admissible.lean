@@ -113,14 +113,8 @@ abbrev IsAdmissibleEProcess (E : ℕ → Ω → ℝ≥0∞) (ℱ : Filtration �
 every time is quasi-surely at most it at every time. -/
 theorem isAdmissibleEProcess_iff :
     IsAdmissibleEProcess E ℱ S ↔ IsEProcess E ℱ S ∧ ∀ F, IsEProcess F ℱ S →
-      (∀ n, E n ≤ᶠ[quasiSure S] F n) → ∀ n, F n ≤ᶠ[quasiSure S] E n := by
-  -- the quasi-sure order on paths compares the processes quasi-surely at every time
-  have hle (E F : ℕ → Ω → ℝ≥0∞) :
-      Function.swap E ≤ᶠ[quasiSure S] Function.swap F ↔ ∀ n, E n ≤ᶠ[quasiSure S] F n := by
-    simp only [Filter.EventuallyLE, Pi.le_def, Function.swap]
-    exact eventually_countable_forall
-  exact ⟨fun hE ↦ ⟨hE.mem, fun F hF hEF ↦ (hle F E).1 (hE.eventuallyLE hF ((hle E F).2 hEF))⟩,
-    fun ⟨hE, h⟩ ↦ ⟨hE, fun X hX hEX ↦ (hle _ E).2 (h _ hX ((hle E _).1 hEX))⟩⟩
+      (∀ n, E n ≤ᶠ[quasiSure S] F n) → ∀ n, F n ≤ᶠ[quasiSure S] E n :=
+  Filter.isAdmissible_swap_iff (p := (IsEProcess · ℱ S))
 
 /-- An adapted process quasi-surely equal at every time to an admissible e-process is an
 admissible e-process. -/
