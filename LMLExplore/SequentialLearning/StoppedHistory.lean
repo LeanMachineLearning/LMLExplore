@@ -64,7 +64,8 @@ most `M` rounds.
   expectations under the law of the stopped history.
 * `Learning.stoppedHistMeasure_setOf_fst_eq`: the law of the history stopped by the rule
   `{x | x.1 = n}`, which stops after exactly `n` rounds, is the law of the history of the first
-  `n` rounds.
+  `n` rounds; `Learning.stoppedHistMeasure_setOf_fst_eq_image_sigmaMk` reads it on an event of
+  the histories of `n` rounds.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_add`,
   `Learning.map_stoppedProcess_sigmaHistory_succ_eq_add`: the laws of the histories stopped at the
   times `M` and `M + 1` split according to whether round `M` is played.
@@ -631,7 +632,7 @@ lemma hittingAfter_sigmaHistory_setOf_fst_eq (n : ℕ) (ω : Ω) :
 /-- The history stopped by the stopping rule `{x | x.1 = n}` is the history of the first `n`
 rounds. -/
 @[simp]
-lemma stoppedValue_hittingAfter_setOf_fst_eq (n : ℕ) :
+lemma stoppedValue_sigmaHistory_hittingAfter_setOf_fst_eq (n : ℕ) :
     stoppedValue (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) {x | x.1 = n} 0) =
       sigmaHistory O X Y n := by
   ext1 ω
@@ -645,8 +646,22 @@ lemma stoppedHistMeasure_setOf_fst_eq (alg : Algorithm 𝓞 𝓐 𝓨) (env : En
       (trajMeasure alg env).map (sigmaHistory IT.obs IT.action IT.feedback n) := by
   have h := (IT.isAlgEnvSeq_trajMeasure alg env).hasLaw_stoppedValue_sigmaHistory
     (S := {x | x.1 = n}) (measurable_sigma_fst (measurableSet_singleton n))
-  rw [stoppedValue_hittingAfter_setOf_fst_eq] at h
+  rw [stoppedValue_sigmaHistory_hittingAfter_setOf_fst_eq] at h
   exact h.map_eq.symm
+
+/-- Under the law of the history stopped by the stopping rule `{x | x.1 = n}`, an event `E` of
+the histories of `n` rounds has the probability that the history of the first `n` rounds lies in
+`E`. -/
+lemma stoppedHistMeasure_setOf_fst_eq_image_sigmaMk (alg : Algorithm 𝓞 𝓐 𝓨)
+    (env : Environment 𝓞 𝓐 𝓨) {n : ℕ} {E : Set (Hist 𝓞 𝓐 𝓨 n)} (hE : MeasurableSet E) :
+    stoppedHistMeasure alg env {x | x.1 = n} (Sigma.mk n '' E) =
+      trajMeasure alg env (history IT.obs IT.action IT.feedback n ⁻¹' E) := by
+  rw [stoppedHistMeasure_setOf_fst_eq, Measure.map_apply
+    (measurable_sigmaHistory IT.measurable_obs IT.measurable_action IT.measurable_feedback n)
+    ((measurableEmbedding_sigmaMk n).measurableSet_image.2 hE)]
+  congr 1
+  ext ω
+  simp [sigmaHistory_apply]
 
 /-- The hitting time of `S` is almost surely finite exactly when the stopped history lies in `S`
 almost surely under its law. -/

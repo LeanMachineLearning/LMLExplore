@@ -36,7 +36,7 @@ singletons, while the bipolar rate of a countable null can be smaller [EVR26, No
 * `ProbabilityTheory.bipolarRate_le_sigmaBipolarRate`: `d(Q, S) ≤ d_σ(Q, S)`.
 * `ProbabilityTheory.sigmaBipolarRate_le_klInf`: `d_σ(Q, S) ≤ klInf Q S`.
 * `ProbabilityTheory.sigmaBipolarRate_eq_klInf_of_countable`: `d_σ(Q, S) = klInf Q S` for a
-  countable null `S`.
+  countable null `S`, the countable case of [EVR26, Note 47, Theorem 4].
 
 ## References
 
@@ -88,6 +88,18 @@ lemma bipolarRate_le_sigmaBipolarRate (Q : Measure 𝓧) (S : Set (Measure 𝓧)
   simpa using iInf_bipolarRate_le_sigmaBipolarRate (Q := Q) (c := fun _ ↦ S)
     (by rw [Set.iUnion_const])
 
+/-- The rate along countable covers is nonnegative against a null of measures of mass at most
+one, as is the bipolar rate. -/
+lemma sigmaBipolarRate_nonneg (Q : Measure 𝓧) (hS : ∀ P ∈ S, P Set.univ ≤ 1) :
+    0 ≤ sigmaBipolarRate Q S :=
+  (bipolarRate_nonneg Q hS).trans (bipolarRate_le_sigmaBipolarRate Q S)
+
+/-- Against the empty null, the rate along countable covers is `⊤`, as is the bipolar rate. -/
+@[simp]
+lemma sigmaBipolarRate_empty (Q : Measure 𝓧) [IsProbabilityMeasure Q] :
+    sigmaBipolarRate Q ∅ = ⊤ :=
+  eq_top_iff.2 ((bipolarRate_empty Q).symm.le.trans (bipolarRate_le_sigmaBipolarRate Q ∅))
+
 /-- The rate along countable covers is antitone in the null. -/
 @[gcongr]
 lemma sigmaBipolarRate_anti (h : S ⊆ T) : sigmaBipolarRate Q T ≤ sigmaBipolarRate Q S :=
@@ -105,17 +117,17 @@ theorem sigmaBipolarRate_le_klInf (Q : Measure 𝓧) [IsProbabilityMeasure Q]
   have := hS P hP
   exact (iInf_le _ m).trans (bipolarRate_le_klDiv Q hm)
 
-/-- **The rate along countable covers of a countable null** [EVR26, Note 47, Theorem 4]: for a
-countable null `S` of probability measures, `d_σ(Q, S) = klInf Q S`, from the cover of `S` by its
-singletons. The bipolar rate `d(Q, S)` of a countable null can be smaller [EVR26, Note 44]. -/
+/-- **The rate along countable covers of a countable null**, the case of a countable null of
+[EVR26, Note 47, Theorem 4]: for a countable null `S` of probability measures,
+`d_σ(Q, S) = klInf Q S`, from the cover of `S` by its singletons. The general statement of that
+theorem, on countably generated spaces, is not proved here. The bipolar rate `d(Q, S)` of a
+countable null can be smaller [EVR26, Note 44]. -/
 theorem sigmaBipolarRate_eq_klInf_of_countable (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     (hS : ∀ P ∈ S, IsProbabilityMeasure P) (hSc : S.Countable) :
     sigmaBipolarRate Q S = klInf Q S := by
   refine le_antisymm (sigmaBipolarRate_le_klInf Q hS) ?_
   rcases S.eq_empty_or_nonempty with rfl | hne
-  · -- the empty null is covered by empty pieces, whose rates are `⊤`
-    simpa using iInf_bipolarRate_le_sigmaBipolarRate (Q := Q) (S := ∅) (c := fun _ ↦ ∅)
-      (Set.empty_subset _)
+  · simp
   obtain ⟨f, rfl⟩ := hSc.exists_eq_range hne
   have hf (m : ℕ) : IsProbabilityMeasure (f m) := hS _ (Set.mem_range_self m)
   rw [klInf_eq_iInf_klDiv fun P hP ↦ by simp [(hS P hP).measure_univ], iInf_range]
