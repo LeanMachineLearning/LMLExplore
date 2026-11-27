@@ -12,10 +12,11 @@ public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
-import LMLExplore.EValues.Betting.FollowTheLeader
+import LMLExplore.EValues.Betting.FollowTheLeader.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.ConstraintNull.KLInf
 import LMLExplore.EValues.TestSupermartingale.SequentialNull
+import LMLExplore.Probability.ProductMeasure
 
 /-!
 # Follow-the-leader betting with a cap, and its log-optimality
@@ -24,8 +25,8 @@ A bettor observes i.i.d. e-values `E 0, E 1, …` with law `Q` on `[0, ∞)` and
 fraction `l k` of its wealth on `E k`, so that the wealth after `n` rounds is
 `∏ k < n, (1 + l k * (E k - 1))`. The follow-the-leader bettor with cap `γ` bets at round `n + 1`
 a fraction that maximizes over `[0, γ]` the wealth that a constant fraction would have produced on
-`E 0, …, E n`. `LMLExplore.EValues.Betting.FollowTheLeader` treats the uncapped bettor `γ = 1`.
-Write `ℓ γ = ⨆ c ∈ [0, γ], 𝔼_Q log (1 + c (E - 1))` for the best growth rate of a constant
+`E 0, …, E n`. `LMLExplore.EValues.Betting.FollowTheLeader.Basic` treats the uncapped bettor
+`γ = 1`. Write `ℓ γ = ⨆ c ∈ [0, γ], 𝔼_Q log (1 + c (E - 1))` for the best growth rate of a constant
 fraction in `[0, γ]`, which may be `+∞`. The answers below to [WSJ26, Remark 2.3] are those of
 [EVR26, Note 07].
 
@@ -131,33 +132,13 @@ private lemma klInf_le_iSup_eintegral_log (Q : Measure ℝ≥0) [IsProbabilityMe
   simp
 
 /-- When `log (1 + E)` has an infinite mean, the best growth rate of a constant fraction in
-`[0, 1]` is infinite, already for the fraction `1 / 2`, whose factor is `(1 + E) / 2`. -/
+`[0, 1]` is infinite, already for the fraction `1 / 2`
+(`eintegral_log_ofReal_one_half_eq_top`). -/
 private lemma iSup_eintegral_log_eq_top (Q : Measure ℝ≥0) [IsProbabilityMeasure Q]
     (hlog : ¬ Integrable (fun e : ℝ≥0 ↦ Real.log (1 + e)) Q) :
-    ⨆ c ∈ Icc (0 : ℝ) 1, ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + c * ((e : ℝ) - 1))) ∂Q = ⊤ := by
-  have hnn (e : ℝ≥0) : 0 ≤ Real.log (1 + e) := Real.log_nonneg (by simp)
-  have htop : ∫ᵉ e, (Real.log (1 + e) : EReal) ∂Q = ⊤ := by
-    rw [eintegral_eq_lintegral_of_nonneg fun e ↦ EReal.coe_nonneg.2 (hnn e),
-      EReal.coe_ennreal_eq_top_iff]
-    simp only [EReal.real_coe_toENNReal]
-    by_contra h
-    exact hlog ((lintegral_ofReal_ne_top_iff_integrable
-      (by fun_prop : Measurable fun e : ℝ≥0 ↦ Real.log (1 + e)).aestronglyMeasurable
-      (ae_of_all _ hnn)).1 h)
-  have heq (e : ℝ≥0) : ENNReal.log (ENNReal.ofReal (1 + 1 / 2 * ((e : ℝ) - 1))) =
-      (Real.log (1 + e) : EReal) - (Real.log 2 : EReal) := by
-    rw [ENNReal.log_ofReal_of_pos (by linarith [e.coe_nonneg]), ← EReal.coe_sub,
-      ← Real.log_div (by linarith [e.coe_nonneg]) two_ne_zero]
-    congr 2
-    ring
-  have h : ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + 1 / 2 * ((e : ℝ) - 1))) ∂Q = ⊤ := by
-    have hc : ∫ᵉ _, (Real.log 2 : EReal) ∂Q = (Real.log 2 : EReal) := by
-      simp [eintegral_const]
-    rw [eintegral_congr heq, eintegral_sub (f := fun e : ℝ≥0 ↦ (Real.log (1 + e) : EReal))
-      (g := fun _ ↦ (Real.log 2 : EReal)) (by fun_prop) aemeasurable_const
-      (eintegrable_const _) (.inr (by simp [hc])) (.inr (by simp [hc])), htop, hc]
-    simp
-  exact eq_top_iff.2 (le_iSup₂_of_le (1 / 2 : ℝ) ⟨by norm_num, by norm_num⟩ h.ge)
+    ⨆ c ∈ Icc (0 : ℝ) 1, ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + c * ((e : ℝ) - 1))) ∂Q = ⊤ :=
+  eq_top_iff.2 (le_iSup₂_of_le (1 / 2 : ℝ) ⟨by norm_num, by norm_num⟩
+    (eintegral_log_ofReal_one_half_eq_top hlog).ge)
 
 /-- **No e-process for the laws of mean at most one grows faster than the best constant
 fraction**, the case of one e-value of [WSJ26, Proposition 2.2]. Let `Q` be a probability measure
@@ -232,6 +213,21 @@ private lemma one_add_mul_capMap {γ : ℝ} (hγ : γ ∈ Icc (0 : ℝ) 1) (c : 
   rw [coe_capMap hγ]
   ring
 
+/-- A bet on the affine image with the fraction divided by `γ` is the bet on the e-value. -/
+private lemma one_add_div_mul_capMap {γ : ℝ} (hγ : γ ∈ Ioc (0 : ℝ) 1) (c : ℝ) (e : ℝ≥0) :
+    1 + c / γ * ((capMap γ e : ℝ) - 1) = 1 + c * ((e : ℝ) - 1) := by
+  rw [one_add_mul_capMap ⟨hγ.1.le, hγ.2⟩, div_mul_cancel₀ c hγ.1.ne']
+
+/-- A fraction in `[0, γ]` divided by `γ > 0` lies in `[0, 1]`. -/
+private lemma div_mem_Icc_zero_one {γ c : ℝ} (hγ : 0 < γ) (hc : c ∈ Icc (0 : ℝ) γ) :
+    c / γ ∈ Icc (0 : ℝ) 1 :=
+  ⟨div_nonneg hc.1 hγ.le, div_le_one_of_le₀ hc.2 hγ.le⟩
+
+/-- A fraction in `[0, 1]` multiplied by `γ ≥ 0` lies in `[0, γ]`. -/
+private lemma mul_mem_Icc_zero {γ c : ℝ} (hγ : 0 ≤ γ) (hc : c ∈ Icc (0 : ℝ) 1) :
+    c * γ ∈ Icc (0 : ℝ) γ :=
+  ⟨mul_nonneg hc.1 hγ, mul_le_of_le_one_left hγ hc.2⟩
+
 /-- The best rate of a constant fraction in `[0, 1]` on the affine image is the best rate of a
 constant fraction in `[0, γ]` on the e-value. -/
 private lemma iSup_eintegral_map_capMap {γ : ℝ} (hγ : γ ∈ Ioc (0 : ℝ) 1) (Q : Measure ℝ≥0) :
@@ -245,20 +241,9 @@ private lemma iSup_eintegral_map_capMap {γ : ℝ} (hγ : γ ∈ Ioc (0 : ℝ) 1
     exact eintegral_congr fun e ↦ by rw [one_add_mul_capMap ⟨hγ.1.le, hγ.2⟩]
   simp_rw [hmap]
   refine le_antisymm (iSup₂_le fun c hc ↦ ?_) (iSup₂_le fun c hc ↦ ?_)
-  · exact le_iSup₂_of_le (c * γ) ⟨mul_nonneg hc.1 hγ.1.le, mul_le_of_le_one_left hγ.1.le hc.2⟩
-      le_rfl
-  · refine le_iSup₂_of_le (c / γ) ⟨div_nonneg hc.1 hγ.1.le, div_le_one_of_le₀ hc.2 hγ.1.le⟩
-      (le_of_eq ?_)
+  · exact le_iSup₂_of_le (c * γ) (mul_mem_Icc_zero hγ.1.le hc) le_rfl
+  · refine le_iSup₂_of_le (c / γ) (div_mem_Icc_zero_one hγ.1 hc) (le_of_eq ?_)
     rw [div_mul_cancel₀ c hγ.1.ne']
-
-/-- A property of almost every i.i.d. sequence of law the image of `Q` by `capMap γ` holds for
-the affine images of almost every i.i.d. sequence of law `Q`, since the i.i.d. law of the images
-is the image of the i.i.d. law. -/
-private lemma ae_of_ae_infinitePi_map_capMap (γ : ℝ) (Q : Measure ℝ≥0) [IsProbabilityMeasure Q]
-    {p : (ℕ → ℝ≥0) → Prop} (h : ∀ᵐ ω' ∂Measure.infinitePi (fun _ : ℕ ↦ Q.map (capMap γ)), p ω') :
-    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q), p fun k ↦ capMap γ (ω k) := by
-  rw [← Measure.infinitePi_map_pi (fun _ : ℕ ↦ Q) fun _ ↦ measurable_capMap γ] at h
-  exact ae_of_ae_map (Measurable.aemeasurable (by fun_prop)) h
 
 /-! ### Main results -/
 
@@ -293,21 +278,18 @@ theorem ae_tendsto_log_prod_followTheLeader_capped_div (Q : Measure ℝ≥0) [Is
     convert measure_empty (μ := Q)
     refine eq_empty_of_forall_notMem fun e he ↦ ?_
     have h := coe_capMap hγ' e
-    rw [show capMap γ e = 0 from he, NNReal.coe_zero] at h
+    rw [Set.mem_preimage, Set.mem_singleton_iff] at he
+    rw [he, NNReal.coe_zero] at h
     nlinarith [mul_nonneg hγ0.le e.coe_nonneg]
-  filter_upwards [ae_of_ae_infinitePi_map_capMap γ Q
+  filter_upwards [Measure.ae_of_ae_infinitePi_map (fun _ : ℕ ↦ Q) (fun _ ↦ measurable_capMap γ)
     (ae_tendsto_log_prod_followTheLeader_div _ hQ0)] with ω hω l hl hmax
-  have hfac (c : ℝ) (e : ℝ≥0) : 1 + c / γ * ((capMap γ e : ℝ) - 1) = 1 + c * ((e : ℝ) - 1) := by
-    rw [one_add_mul_capMap hγ', div_mul_cancel₀ c hγ0.ne']
   have hmax' (n : ℕ) : IsMaxOn (fun c : ℝ ↦ ∏ k ∈ Finset.range (n + 1),
       ENNReal.ofReal (1 + c * ((capMap γ (ω k) : ℝ) - 1))) (Icc 0 1) (l (n + 1) / γ) := by
     refine isMaxOn_iff.2 fun c hc ↦ ?_
-    have h := isMaxOn_iff.1 (hmax n) (c * γ)
-      ⟨mul_nonneg hc.1 hγ0.le, mul_le_of_le_one_left hγ0.le hc.2⟩
+    have h := isMaxOn_iff.1 (hmax n) (c * γ) (mul_mem_Icc_zero hγ0.le hc)
     simpa only [one_add_mul_capMap hγ', div_mul_cancel₀ _ hγ0.ne'] using h
-  have hlim := hω (fun n ↦ l n / γ)
-    (fun n ↦ ⟨div_nonneg (hl n).1 hγ0.le, div_le_one_of_le₀ (hl n).2 hγ0.le⟩) hmax'
-  simp_rw [hfac] at hlim
+  have hlim := hω (fun n ↦ l n / γ) (fun n ↦ div_mem_Icc_zero_one hγ0 (hl n)) hmax'
+  simp_rw [one_add_div_mul_capMap ⟨hγ0, hγ.le⟩] at hlim
   rwa [iSup_eintegral_map_capMap ⟨hγ0, hγ.le⟩] at hlim
 
 /-- **No predictable bettor with fractions in `[0, γ]` grows faster than the best constant
@@ -351,13 +333,13 @@ theorem ae_limsup_log_prod_div_le_iSup_eintegral_log (Q : Measure ℝ≥0) [IsPr
     · simp only [l']
       congr 1
       exact (hl n).dependsOn_of_piLT fun j hj ↦ by simp [h j hj]
-  filter_upwards [ae_of_ae_infinitePi_map_capMap γ Q
+  filter_upwards [Measure.ae_of_ae_infinitePi_map (fun _ : ℕ ↦ Q) (fun _ ↦ measurable_capMap γ)
     (ae_limsup_log_prod_div_le_iSup_eintegral_log_one _ hl' fun n ω' ↦
-      ⟨div_nonneg (hlγ _ _).1 hγ0.le, div_le_one_of_le₀ (hlγ _ _).2 hγ0.le⟩)] with ω hω
+      div_mem_Icc_zero_one hγ0 (hlγ _ _))] with ω hω
   have hfac (k : ℕ) : 1 + l' k (fun j ↦ capMap γ (ω j)) * ((capMap γ (ω k) : ℝ) - 1) =
       1 + l k ω * ((ω k : ℝ) - 1) := by
     simp only [l', huncap]
-    rw [one_add_mul_capMap hγ', div_mul_cancel₀ _ hγ0.ne']
+    exact one_add_div_mul_capMap ⟨hγ0, hγ⟩ _ _
   simp_rw [hfac, iSup_eintegral_map_capMap ⟨hγ0, hγ⟩] at hω
   exact hω
 
@@ -389,9 +371,7 @@ theorem ae_le_liminf_log_prod_followTheLeader_sub_log_div (Q : Measure ℝ≥0)
     refine ne_top_of_le_ne_top (EReal.coe_ne_top (∫ e, Real.log (1 + e) ∂Q))
       (iSup₂_le fun c hc ↦ ?_)
     rw [← eintegral_eq_integral hlog]
-    refine eintegral_mono fun e ↦ ?_
-    rw [← ENNReal.log_ofReal_of_pos (by positivity)]
-    exact ENNReal.log_le_log (ENNReal.ofReal_le_ofReal (by nlinarith [hc.1, hc.2, e.coe_nonneg]))
+    exact eintegral_mono fun e ↦ log_ofReal_one_add_mul_le hc e
   filter_upwards [ae_tendsto_log_prod_followTheLeader_div Q hQ0,
     hW.ae_limsup_log_div_le_iSup_eintegral_log Q] with ω hFTL hω l hl hmax
   -- the difference is the follow-the-leader rate minus the rate of `W`

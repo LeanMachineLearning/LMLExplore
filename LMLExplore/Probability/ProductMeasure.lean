@@ -52,6 +52,9 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   coordinate `x i` satisfies `p i`.
 * `MeasureTheory.Measure.ae_forall_notMem_infinitePi`: if each `N i` is `μ i`-null, then almost
   surely under `Measure.infinitePi μ` no coordinate `x i` is in `N i`.
+* `MeasureTheory.Measure.ae_of_ae_infinitePi_map`: a property of almost every point of the
+  product of the images `(μ i).map (f i)` holds for the coordinatewise image of almost every point
+  of the product of the `μ i`.
 * `MeasureTheory.Measure.infinitePi_fin_mem_and_forall_add_mem`: for an i.i.d. sequence, the
   first `n` terms and the next `m` terms are independent.
 * `MeasureTheory.measurePreserving_shift`, `MeasureTheory.measurePreserving_shift_iterate`: the
@@ -266,6 +269,18 @@ theorem ae_forall_notMem_infinitePi {ι : Type*} [Countable ι] {X : ι → Type
     {N : ∀ i, Set (X i)} (h : ∀ i, μ i (N i) = 0) :
     ∀ᵐ x ∂Measure.infinitePi μ, ∀ i, x i ∉ N i :=
   ae_forall_apply_infinitePi μ fun i ↦ measure_eq_zero_iff_ae_notMem.1 (h i)
+
+/-- If almost every point of the product of the images `(μ i).map (f i)` satisfies a property,
+then so does the image `fun i ↦ f i (x i)` of almost every point of the product of the `μ i`:
+the product of the images is the image of the product. -/
+theorem ae_of_ae_infinitePi_map {ι : Type*} {X Y : ι → Type*} [∀ i, MeasurableSpace (X i)]
+    [∀ i, MeasurableSpace (Y i)] (μ : ∀ i, Measure (X i)) [∀ i, IsProbabilityMeasure (μ i)]
+    {f : ∀ i, X i → Y i} (hf : ∀ i, Measurable (f i)) {p : (∀ i, Y i) → Prop}
+    (h : ∀ᵐ y ∂Measure.infinitePi (fun i ↦ (μ i).map (f i)), p y) :
+    ∀ᵐ x ∂Measure.infinitePi μ, p fun i ↦ f i (x i) := by
+  rw [← infinitePi_map_pi μ hf] at h
+  exact ae_of_ae_map (Measurable.of_eval fun i ↦ (hf i).comp (measurable_pi_apply i)).aemeasurable
+    h
 
 open ProbabilityTheory Finset in
 /-- **The first terms of an i.i.d. sequence and the next terms are independent.** For an i.i.d.

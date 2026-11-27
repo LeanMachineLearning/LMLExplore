@@ -418,12 +418,7 @@ theorem ae_eventually_le_exp_of_lintegral_bind_le (Q : Measure 𝓧) [IsProbabil
   -- the bound on the images, pulled back to the observations
   have h1 := ae_eventually_le_exp_of_lintegral_bind_le_of_countablyGenerated (Q.map φ) ν' hν'
     hν'_supp hψ' hC hbound hε
-  have heq : (Measure.infinitePi fun _ : ℕ ↦ Q).map (fun (ω : ℕ → 𝓧) i ↦ φ (ω i)) =
-      Measure.infinitePi fun _ : ℕ ↦ Q.map φ := Measure.infinitePi_map_pi _ fun _ ↦ hφ
-  rw [← heq] at h1
-  have hΦ : Measurable fun (ω : ℕ → 𝓧) i ↦ φ (ω i) :=
-    .of_eval fun i ↦ hφ.comp (measurable_pi_apply i)
-  filter_upwards [ae_of_ae_map hΦ.aemeasurable h1] with ω hω
+  filter_upwards [Measure.ae_of_ae_infinitePi_map (fun _ : ℕ ↦ Q) (fun _ ↦ hφ) h1] with ω hω
   filter_upwards [hω] with n hn
   have hseg : (fun i ↦ φ (initSeg n ω i)) = initSeg n fun i ↦ φ (ω i) :=
     funext fun i ↦ by simp only [initSeg_apply]
