@@ -7,9 +7,10 @@ module
 
 public import Mathlib.MeasureTheory.Measure.LogLikelihoodRatio
 import Mathlib.MeasureTheory.Measure.Decomposition.IntegralRNDeriv
+import TauCeti.InformationTheory.KullbackLeibler.ChangeOfReference
 
 /-!
-# The mean of the absolute value of a log-likelihood ratio
+# The mean of the absolute value of a log-likelihood ratio, and a change of reference
 
 For a σ-finite `μ` and a finite `ν` with `μ ≪ ν` and `llr μ ν` integrable under `μ`, the mean
 under `μ` of `|llr μ ν|` is at most the mean of `llr μ ν` plus twice the mass of `ν`: the
@@ -18,21 +19,30 @@ mean at most the mass of `ν`. For probability measures, the mean of `|llr μ ν
 `(klDiv μ ν).toReal + 2`: a bound on the relative entropy controls the whole log-likelihood
 ratio in `L¹`, not only its mean.
 
+Against a measure `ν.withDensity f` with a density, the log-likelihood ratio of `μ` is that
+against `ν` minus `log f`, `μ`-almost everywhere, by Tau Ceti's chain rule `TauCeti.llr_add_llr`.
+
 ## Main statements
 
 * `MeasureTheory.integral_abs_llr_le`:
   `∫ x, |llr μ ν x| ∂μ ≤ ∫ x, llr μ ν x ∂μ + 2 * ν.real univ`.
+* `MeasureTheory.llr_withDensity_ae_eq`: `llr μ (ν.withDensity f) = llr μ ν - log f`,
+  `μ`-almost everywhere, when `μ ≪ ν.withDensity f`.
 
 ## Implementation notes
 
 The bound is adapted from the helper `log_toReal_density_facts` of
 `EValuesResearch/Results/NumeraireBarronAux.lean` (commit `dd4072f`) in the paper project
-`RemyDegenne/evalues_research`, rewritten with Mathlib's log-likelihood ratio.
+`RemyDegenne/evalues_research`, rewritten with Mathlib's log-likelihood ratio. The change of
+reference `llr_withDensity_ae_eq` is extracted from the proof of
+`ProbabilityTheory.klIntegral_withDensity_prod_rpow`, adapted from the same paper project at
+commit `83205cb` (see `LMLExplore/EValues/BipolarRate/Saturation.lean` for its sources).
 -/
 
 public section
 
 open Real
+open scoped ENNReal
 
 namespace MeasureTheory
 
@@ -66,5 +76,20 @@ theorem integral_abs_llr_le [SigmaFinite μ] [IsFiniteMeasure ν] (hμν : μ �
     rw [Measure.integral_toReal_rnDeriv']
     have : 0 ≤ (ν.singularPart μ).real Set.univ := measureReal_nonneg
     linarith
+
+/-- **The log-likelihood ratio against a measure with a density.** If `μ ≪ ν.withDensity f`,
+then `llr μ (ν.withDensity f) = llr μ ν - log f`, `μ`-almost everywhere: by the chain rule
+`TauCeti.llr_add_llr`, the log-likelihood ratio against `ν` is that against `ν.withDensity f`
+plus `llr (ν.withDensity f) ν`, and the latter is `log f` (`Measure.rnDeriv_withDensity₀`). -/
+theorem llr_withDensity_ae_eq [SigmaFinite μ] [SigmaFinite ν] {f : α → ℝ≥0∞}
+    (hf : AEMeasurable f ν) [SigmaFinite (ν.withDensity f)] (hμf : μ ≪ ν.withDensity f) :
+    llr μ (ν.withDensity f) =ᵐ[μ] fun x ↦ llr μ ν x - log (f x).toReal := by
+  have hμν : μ ≪ ν := hμf.trans (withDensity_absolutelyContinuous _ _)
+  filter_upwards [TauCeti.llr_add_llr hμf hμν,
+    hμν.ae_le (Measure.rnDeriv_withDensity₀ ν hf)] with x h1 h2
+  rw [← h1, Pi.add_apply, llr_def (ν.withDensity f)]
+  beta_reduce
+  rw [h2]
+  ring
 
 end MeasureTheory

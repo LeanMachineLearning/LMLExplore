@@ -6,13 +6,13 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Basic
+import LMLExplore.Data.EReal.BigOperators
 import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.MeasureTheory.Constructions.Pi
 import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.MeasureTheory.Integral.MeanInequalities
-import LMLExplore.MeasureTheory.Measure.WithDensity
+import LMLExplore.MeasureTheory.Measure.LogLikelihoodRatio
 import Mathlib.Data.EReal.BigOperators
-import TauCeti.InformationTheory.KullbackLeibler.ChangeOfReference
 import TauCeti.MeasureTheory.Measure.PiWithDensity
 
 /-!
@@ -26,22 +26,24 @@ at most `1`. The **i.i.d. saturation** `iidSaturation S₁` is the set of the fi
 `n ≥ 1` [EVR26, Note 43]: under the `n`-fold product of a member, no level-`α` test for the
 `n`-sample null has an expectation larger than `α` (`exists_powered_test_iff`), for any `n`.
 
-The saturation contains `S₁`, is solid, and its members have mass at most one when those of `S₁`
-have. It is closed under geometric mixtures: if the measures `ρ.withDensity (s i)` are in it, `ρ`
-σ-finite, and the weights `w i ≥ 0` sum to one, then so is `ρ.withDensity (∏ i, s i ^ w i)`. On
-`n` observations its density is the geometric mixture of the densities of the `n`-fold
-products, and Hölder's inequality bounds the expectation of an `n`-sample e-variable under it by
-the weighted geometric mean of its expectations under the products. Along geometric mixtures the
-divergence `klIntegral Q` is affine, since the log-likelihood ratios are.
+The saturation contains `S₁` when the members of `S₁` are finite measures, is solid, and its
+members have mass at most one when those of `S₁` have. It is closed under geometric mixtures: if
+the measures `ρ.withDensity (s i)` are in it, `ρ` σ-finite, and the weights `w i ≥ 0` sum to one,
+then so is `ρ.withDensity (∏ i, s i ^ w i)`. On `n` observations its density is the geometric
+mixture of the densities of the `n`-fold products, and Hölder's inequality bounds the expectation
+of an `n`-sample e-variable under it by the weighted geometric mean of its expectations under the
+products. Along geometric mixtures the divergence `klIntegral Q` is affine, since the
+log-likelihood ratios are (`llr_withDensity_ae_eq`).
 
 For a null of probability measures, the `n`-sample nulls of `S₁` and of the probability measures
 of its saturation have the same e-variables, for every `n`. For a probability measure `Q₁` and a
 null of measures of mass at most one, the bipolar rate `d = bipolarRate Q₁ S₁` is at most
 `klIntegral Q₁ R` for every member `R` of the saturation, since `R ^ n` is in the effective null
-of the `n`-sample null and the growth of the simple null `{R}` is `n * klIntegral Q₁ R`. The rate
-is zero exactly when `Q₁` is in the saturation, since the largest e-power under a probability
-measure vanishes exactly on the effective null (`maxEPower_eq_zero_iff_mem_effectiveSet`): this
-is the case of one alternative of [RR26, Theorem 3.14], written with the saturation.
+of the `n`-sample null and the growth of the simple null `{R}` is `n * klIntegral Q₁ R`
+(`maxLogGrowth_singleton`). The rate is zero exactly when `Q₁` is in the saturation, since the
+largest e-power under a probability measure vanishes exactly on the effective null
+(`maxEPower_eq_zero_iff_mem_effectiveSet`): this is the case of one alternative of
+[RR26, Theorem 3.14], written with the saturation.
 
 ## Main definitions
 
@@ -50,8 +52,8 @@ is the case of one alternative of [RR26, Theorem 3.14], written with the saturat
 ## Main statements
 
 * `ProbabilityTheory.subset_iidSaturation`, `ProbabilityTheory.isLowerSet_iidSaturation`,
-  `ProbabilityTheory.measure_univ_le_one_of_mem_iidSaturation`: the saturation contains the null,
-  is solid, and has members of mass at most one when the null has.
+  `ProbabilityTheory.measure_univ_le_one_of_mem_iidSaturation`: the saturation contains a null of
+  finite measures, is solid, and has members of mass at most one when the null has.
 * `ProbabilityTheory.withDensity_prod_rpow_mem_iidSaturation`: the saturation is closed under
   geometric mixtures.
 * `ProbabilityTheory.klIntegral_withDensity_prod_rpow`: `klIntegral Q` is affine along geometric
@@ -59,8 +61,6 @@ is the case of one alternative of [RR26, Theorem 3.14], written with the saturat
 * `ProbabilityTheory.isEVar_sampleNull_iidSaturation_iff`: the `n`-sample nulls of a null of
   probability measures and of the probability measures of its saturation have the same
   e-variables.
-* `ProbabilityTheory.maxLogGrowth_singleton`: the growth of `n` observations against the simple
-  null of a measure of mass at most one.
 * `ProbabilityTheory.bipolarRate_le_klIntegral_of_mem_iidSaturation`,
   `ProbabilityTheory.bipolarRate_le_klInf_iidSaturation`: the bipolar rate is at most the
   divergence to every member of the saturation.
@@ -95,40 +95,6 @@ open scoped ENNReal
 namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {P R R' : Measure 𝓧} {S₁ : Set (Measure 𝓧)}
-
-/-! ### The simple null of a measure of mass at most one -/
-
-/-- For a probability measure `Q₁` and a measure `P` of mass at most one, the largest expected
-logarithm of an `n`-sample e-variable for the simple null `{P}` is `n * klIntegral Q₁ P`: the
-largest e-power is additive on products (`maxEPower_prod_eq_add`) and is `klIntegral Q₁ P` for one
-observation (`maxEPower_singleton`). -/
-theorem maxLogGrowth_singleton (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁] (hP : P univ ≤ 1)
-    (n : ℕ) : maxLogGrowth Q₁ {P} n = n * klIntegral Q₁ P := by
-  have : IsFiniteMeasure P := ⟨hP.trans_lt ENNReal.one_lt_top⟩
-  have hPn (k : ℕ) : ∀ μ ∈ ({Measure.pi fun _ : Fin k ↦ P} : Set (Measure (Fin k → 𝓧))),
-      μ univ ≤ 1 := by
-    simpa only [sampleNull_singleton] using
-      measure_univ_le_one_of_mem_sampleNull (S₁ := {P}) (by simpa using hP) k
-  induction n with
-  | zero =>
-    rw [maxLogGrowth_def, sampleNull_singleton, Measure.pi_of_empty, Measure.pi_of_empty,
-      maxEPower_singleton_eq_klDiv, klDiv_self, Nat.cast_zero, zero_mul, EReal.coe_ennreal_zero]
-  | succ n ih =>
-    -- split the first `n + 1` observations into the first `n` and the last one
-    let e : (Fin (n + 1) → 𝓧) ≃ᵐ (Fin n → 𝓧) × (Fin 1 → 𝓧) :=
-      (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) finSumFinEquiv).symm.trans
-        (MeasurableEquiv.sumPiEquivProdPi fun _ ↦ 𝓧)
-    have h_map (μ : Measure 𝓧) [SigmaFinite μ] :
-        (Measure.pi fun _ : Fin (n + 1) ↦ μ).map e =
-          (Measure.pi fun _ : Fin n ↦ μ).prod (Measure.pi fun _ : Fin 1 ↦ μ) :=
-      ((measurePreserving_sumPiEquivProdPi fun _ ↦ μ).comp
-        ((measurePreserving_piCongrLeft (fun _ ↦ μ) finSumFinEquiv).symm _)).map_eq
-    have h_add : maxLogGrowth Q₁ {P} (n + 1) = maxLogGrowth Q₁ {P} n + maxLogGrowth Q₁ {P} 1 := by
-      rw [maxLogGrowth_def, maxLogGrowth_def, maxLogGrowth_def, sampleNull_singleton,
-        sampleNull_singleton, sampleNull_singleton, ← e.maxEPower_map_eq, mapNull_singleton,
-        h_map, h_map, ← image2_singleton, maxEPower_prod_eq_add (hPn n) (hPn 1)]
-    rw [h_add, ih, maxLogGrowth_one, maxEPower_singleton hP, Nat.cast_succ,
-      EReal.right_distrib_of_nonneg (by exact_mod_cast n.zero_le) zero_le_one, one_mul]
 
 /-! ### The saturation -/
 
@@ -237,9 +203,6 @@ theorem klIntegral_withDensity_prod_rpow (Q : Measure 𝓧) [IsFiniteMeasure Q] 
   have hgm : AEMeasurable g ρ := Finset.aemeasurable_fun_prod _ fun i hi ↦ (hs i hi).pow_const _
   have hG : IsFiniteMeasure (ρ.withDensity g) :=
     isFiniteMeasure_withDensity_prod_rpow t hs hw hw0 hfin
-  obtain ⟨j, hjt, hj⟩ : ∃ j ∈ t, 0 < w j := by
-    by_contra! h
-    linarith [Finset.sum_nonpos h]
   -- the terms of the mixture of the divergences are not `⊥`
   have hlow (i : ι) (hi : i ∈ t) : (w i : EReal) * klIntegral Q (ρ.withDensity (s i)) ≠ ⊥ := by
     have := hfin i hi
@@ -247,57 +210,22 @@ theorem klIntegral_withDensity_prod_rpow (Q : Measure 𝓧) [IsFiniteMeasure Q] 
       ne_bot_of_le_ne_bot (EReal.coe_ne_bot _) measureReal_univ_sub_le_klIntegral
     exact (EReal.mul_ne_bot _ _).2 ⟨.inl (EReal.coe_ne_bot _), .inr hk, .inl (EReal.coe_ne_top _),
       .inl (EReal.coe_nonneg.2 (hw0 i hi))⟩
-  -- the mixture vanishes where a factor of positive weight vanishes, and only there
-  have hg0 (x : 𝓧) (hx : g x ≠ 0) (i : ι) (hi : i ∈ t) (hwi : 0 < w i) : s i x ≠ 0 := by
-    intro h0
-    exact hx (Finset.prod_eq_zero hi (by rw [h0, ENNReal.zero_rpow_of_pos hwi]))
-  have hg_ne (x : 𝓧) (hx : ∀ i ∈ t, 0 < w i → s i x ≠ 0) : g x ≠ 0 := by
-    refine Finset.prod_ne_zero_iff.2 fun i hi h ↦ ?_
-    rcases ENNReal.rpow_eq_zero_iff.1 h with ⟨h0, hpos⟩ | ⟨-, hneg⟩
-    · exact hx i hi hpos h0
-    · linarith [hw0 i hi]
   have hs_ne (i : ι) (hi : i ∈ t) : ∀ᵐ x ∂ρ.withDensity (s i), s i x ≠ 0 :=
     (ae_withDensity_iff' (hs i hi)).2 (ae_of_all _ fun _ h ↦ h)
-  -- the mixture is absolutely continuous with respect to every factor of positive weight
-  have hGT (i : ι) (hi : i ∈ t) (hwi : 0 < w i) : ρ.withDensity g ≪ ρ.withDensity (s i) := by
-    refine Measure.ae_le_iff_absolutelyContinuous.1 fun A hA ↦ ?_
-    have hA' := (ae_withDensity_iff' (hs i hi)).1 (show ∀ᵐ x ∂ρ.withDensity (s i), x ∈ A from hA)
-    refine (ae_withDensity_iff' hgm).2 ?_
-    filter_upwards [hA'] with x hx hgx using hx (hg0 x hgx i hi hwi)
+  have hac := absolutelyContinuous_withDensity_prod_rpow_iff t hs hw hw0 (ν := Q)
   by_cases hQG : Q ≪ ρ.withDensity g
   swap
   · -- some factor of positive weight does not dominate `Q`: both sides are `⊤`
     obtain ⟨k, hk, hwk, hQk⟩ : ∃ k ∈ t, 0 < w k ∧ ¬ Q ≪ ρ.withDensity (s k) := by
       by_contra! h
-      refine hQG (Measure.ae_le_iff_absolutelyContinuous.1 fun A hA ↦ ?_)
-      have hQρ : Q ≪ ρ := (h j hjt hj).trans (withDensity_absolutelyContinuous _ _)
-      have hA' := (ae_withDensity_iff' hgm).1 (show ∀ᵐ x ∂ρ.withDensity g, x ∈ A from hA)
-      have hall : ∀ᵐ x ∂Q, ∀ i ∈ t, 0 < w i → s i x ≠ 0 := by
-        rw [eventually_all_finset]
-        intro i hi
-        by_cases hwi : 0 < w i
-        · filter_upwards [(h i hi hwi).ae_le (hs_ne i hi)] with x hx _ using hx
-        · exact ae_of_all _ fun _ h' ↦ absurd h' hwi
-      filter_upwards [hQρ.ae_le hA', hall] with x hx hx' using hx (hg_ne x hx')
+      exact hQG (hac.2 h)
     rw [klIntegral_of_not_ac hQG, ← Finset.add_sum_erase t _ hk, klIntegral_of_not_ac hQk,
       EReal.coe_mul_top_of_pos hwk]
-    exact (EReal.top_add_of_ne_bot (Finset.sum_induction _ (· ≠ ⊥)
-      (fun _ _ h₁ h₂ ↦ EReal.add_ne_bot_iff.2 ⟨h₁, h₂⟩) EReal.zero_ne_bot
-      fun i hi ↦ hlow i (Finset.mem_of_mem_erase hi))).symm
+    exact (EReal.top_add_of_ne_bot
+      (EReal.sum_ne_bot.2 fun i hi ↦ hlow i (Finset.mem_of_mem_erase hi))).symm
   -- the main case: all the divergences are integrals of log-likelihood ratios
-  have hQT (i : ι) (hi : i ∈ t) (hwi : 0 < w i) : Q ≪ ρ.withDensity (s i) :=
-    hQG.trans (hGT i hi hwi)
+  have hQT : ∀ i ∈ t, 0 < w i → Q ≪ ρ.withDensity (s i) := hac.1 hQG
   have hQρ : Q ≪ ρ := hQG.trans (withDensity_absolutelyContinuous _ _)
-  -- the log-likelihood ratio against a measure with a density, by the chain rule
-  have hllr {f : 𝓧 → ℝ≥0∞} (hf : AEMeasurable f ρ) [IsFiniteMeasure (ρ.withDensity f)]
-      (hQf : Q ≪ ρ.withDensity f) :
-      ∀ᵐ x ∂Q, llr Q (ρ.withDensity f) x = llr Q ρ x - Real.log (f x).toReal := by
-    filter_upwards [TauCeti.llr_add_llr hQf hQρ,
-      hQρ.ae_le (Measure.rnDeriv_withDensity₀ ρ hf)] with x h1 h2
-    rw [← h1, Pi.add_apply, llr_def (ρ.withDensity f)]
-    beta_reduce
-    rw [h2]
-    ring
   -- the factors of positive weight are positive and finite, `Q`-almost everywhere
   have hpos : ∀ᵐ x ∂Q, ∀ i ∈ t, 0 < w i → s i x ≠ 0 ∧ s i x ≠ ∞ ∧
       llr Q (ρ.withDensity (s i)) x = llr Q ρ x - Real.log (s i x).toReal := by
@@ -309,12 +237,12 @@ theorem klIntegral_withDensity_prod_rpow (Q : Measure 𝓧) [IsFiniteMeasure Q] 
         rw [← setLIntegral_univ, ← withDensity_apply _ MeasurableSet.univ]
         exact measure_ne_top _ _)
       filter_upwards [(hQT i hi hwi).ae_le (hs_ne i hi), hQρ.ae_le htop,
-        hllr (hs i hi) (hQT i hi hwi)] with x h1 h2 h3 _ using ⟨h1, h2.ne, h3⟩
+        llr_withDensity_ae_eq (hs i hi) (hQT i hi hwi)] with x h1 h2 h3 _ using ⟨h1, h2.ne, h3⟩
     · exact ae_of_all _ fun _ h' ↦ absurd h' hwi
   -- the log-likelihood ratio against the mixture is the mixture of the log-likelihood ratios
   have hsum : ∀ᵐ x ∂Q,
       llr Q (ρ.withDensity g) x = ∑ i ∈ t, w i * llr Q (ρ.withDensity (s i)) x := by
-    filter_upwards [hllr hgm hQG, hpos] with x hGx hp
+    filter_upwards [llr_withDensity_ae_eq hgm hQG, hpos] with x hGx hp
     have hfac (i : ι) (hi : i ∈ t) :
         Real.log ((s i x ^ w i).toReal) = w i * Real.log (s i x).toReal := by
       rcases (hw0 i hi).eq_or_lt with h | h

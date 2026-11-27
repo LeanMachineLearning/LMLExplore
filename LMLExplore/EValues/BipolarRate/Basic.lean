@@ -39,6 +39,8 @@ else: no domination, convexity or compactness.
 
 ## Main statements
 
+* `ProbabilityTheory.maxLogGrowth_add_eq_maxEPower_prod`: the growth of `m + n` observations is
+  the largest e-power, under `Q₁ ^ m ⊗ Q₁ ^ n`, of the products `P ^ m ⊗ P ^ n`, `P ∈ S₁`.
 * `ProbabilityTheory.maxLogGrowth_add_le`: `maxLogGrowth Q₁ S₁` is superadditive [RR26, Lemma 3.2].
 * `ProbabilityTheory.tendsto_maxLogGrowth_div_bipolarRate`: `maxLogGrowth Q₁ S₁ n / n` tends to
   the bipolar rate [RR26, Lemma 3.2].
@@ -52,6 +54,8 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
+* `ProbabilityTheory.maxLogGrowth_singleton`: the growth of `n` observations against the simple
+  null `{P}` of a measure of mass at most one is `n * klIntegral Q₁ P`.
 * `ProbabilityTheory.bipolarRate_singleton`: for a simple null `{P}`, the bipolar rate is
   `klDiv Q₁ P`.
 * `ProbabilityTheory.le_bipolarRate_of_tendsto`: a lower bound on the bipolar rate from real lower
@@ -145,14 +149,15 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
   ext μ
   simp only [mem_sampleNull, mem_mapNull, h_map]
 
-/-- **Superadditivity** of the maximal expected logarithm of e-variables for an i.i.d. null
-[RR26, Lemma 3.2]: the product of an `m`-sample e-variable and an `n`-sample e-variable, on
-disjoint blocks of observations, is an `m + n`-sample e-variable (Statlib's `IsEVar.prod`, through
-`maxEPower_prod_eq_add`). -/
-theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (m n : ℕ) :
-    maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n ≤ maxLogGrowth Q₁ S₁ (m + n) := by
-  -- split the first `m + n` observations into the first `m` and the last `n`
+/-- **Splitting the observations**: sending the first `m + n` observations to the pair of the
+first `m` and the last `n` carries `Q₁ ^ (m + n)` to `Q₁ ^ m ⊗ Q₁ ^ n` and the `(m + n)`-sample
+null to the null of the products `P ^ m ⊗ P ^ n`, `P ∈ S₁`, so that the growth of `m + n`
+observations is the largest e-power of that null. -/
+theorem maxLogGrowth_add_eq_maxEPower_prod (Q₁ : Measure 𝓧) [SigmaFinite Q₁]
+    (hS₁ : ∀ P ∈ S₁, SigmaFinite P) (m n : ℕ) :
+    maxLogGrowth Q₁ S₁ (m + n) =
+      maxEPower ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
+        ((fun P ↦ (Measure.pi fun _ : Fin m ↦ P).prod (Measure.pi fun _ : Fin n ↦ P)) '' S₁) := by
   let e : (Fin (m + n) → 𝓧) ≃ᵐ (Fin m → 𝓧) × (Fin n → 𝓧) :=
     (MeasurableEquiv.piCongrLeft (fun _ ↦ 𝓧) finSumFinEquiv).symm.trans
       (MeasurableEquiv.sumPiEquivProdPi fun _ ↦ 𝓧)
@@ -161,23 +166,26 @@ theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
         (Measure.pi fun _ : Fin m ↦ P).prod (Measure.pi fun _ : Fin n ↦ P) :=
     ((measurePreserving_sumPiEquivProdPi fun _ ↦ P).comp
       ((measurePreserving_piCongrLeft (fun _ ↦ P) finSumFinEquiv).symm _)).map_eq
-  calc maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n
-  _ = maxEPower ((Measure.pi fun _ : Fin m ↦ Q₁).prod (Measure.pi fun _ : Fin n ↦ Q₁))
-      (Set.image2 Measure.prod (sampleNull S₁ m) (sampleNull S₁ n)) := by
-    rw [maxLogGrowth_def, maxLogGrowth_def]
-    exact (maxEPower_prod_eq_add (measure_univ_le_one_of_mem_sampleNull hS₁ m)
-      (measure_univ_le_one_of_mem_sampleNull hS₁ n)).symm
-  _ ≤ maxEPower ((Measure.pi fun _ : Fin (m + n) ↦ Q₁).map e)
-      (mapNull e (sampleNull S₁ (m + n))) := by
-    rw [h_map]
-    refine maxEPower_anti fun μ hμ ↦ ?_
-    obtain ⟨_, hν, rfl⟩ := mem_mapNull.1 hμ
-    obtain ⟨P, hP, rfl⟩ := mem_sampleNull.1 hν
-    have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
-    exact ⟨_, pi_mem_sampleNull hP, _, pi_mem_sampleNull hP, (h_map P).symm⟩
-  _ ≤ maxLogGrowth Q₁ S₁ (m + n) := by
-    rw [maxLogGrowth_def]
-    exact maxEPower_map_le _ e.measurable
+  have h_null := mapNull_sampleNull_image (f := fun P ↦ P) (I := S₁) (φ := e)
+    (g := fun P ↦ (Measure.pi fun _ : Fin m ↦ P).prod (Measure.pi fun _ : Fin n ↦ P))
+    fun P hP ↦ have := hS₁ P hP; h_map P
+  rw [Set.image_id'] at h_null
+  rw [maxLogGrowth_def, ← e.maxEPower_map_eq, h_map, h_null]
+
+/-- **Superadditivity** of the maximal expected logarithm of e-variables for an i.i.d. null
+[RR26, Lemma 3.2]: the product of an `m`-sample e-variable and an `n`-sample e-variable, on
+disjoint blocks of observations, is an `m + n`-sample e-variable (Statlib's `IsEVar.prod`, through
+`maxEPower_prod_eq_add`). -/
+theorem maxLogGrowth_add_le (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (m n : ℕ) :
+    maxLogGrowth Q₁ S₁ m + maxLogGrowth Q₁ S₁ n ≤ maxLogGrowth Q₁ S₁ (m + n) := by
+  rw [maxLogGrowth_def, maxLogGrowth_def, ← maxEPower_prod_eq_add
+    (measure_univ_le_one_of_mem_sampleNull hS₁ m) (measure_univ_le_one_of_mem_sampleNull hS₁ n),
+    maxLogGrowth_add_eq_maxEPower_prod Q₁
+      (fun P hP ↦ have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
+        inferInstance) m n]
+  exact maxEPower_anti (Set.image_subset_iff.2 fun P hP ↦
+    Set.mem_image2_of_mem (pi_mem_sampleNull hP) (pi_mem_sampleNull hP))
 
 /-- The maximal expected logarithm of an `n`-sample e-variable is at most `n` times the bipolar
 rate, for `n ≠ 0`. -/
@@ -250,6 +258,30 @@ lemma maxLogGrowth_le_mul_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁
   _ = n * (klDiv Q₁ P : EReal) := by
     rw [maxEPower_singleton_eq_klDiv, klDiv_pi_const]
     simp
+
+/-- For a probability measure `Q₁` and a measure `P` of mass at most one, the largest expected
+logarithm of an `n`-sample e-variable for the simple null `{P}` is `n * klIntegral Q₁ P`: the
+largest e-power is additive on products (`maxLogGrowth_add_eq_maxEPower_prod` and
+`maxEPower_prod_eq_add`) and is `klIntegral Q₁ P` for one observation (`maxEPower_singleton`). -/
+theorem maxLogGrowth_singleton (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁] (hP : P Set.univ ≤ 1)
+    (n : ℕ) : maxLogGrowth Q₁ {P} n = n * klIntegral Q₁ P := by
+  have : IsFiniteMeasure P := ⟨hP.trans_lt ENNReal.one_lt_top⟩
+  have hPn (k : ℕ) : ∀ μ ∈ ({Measure.pi fun _ : Fin k ↦ P} : Set (Measure (Fin k → 𝓧))),
+      μ Set.univ ≤ 1 := by
+    simpa only [sampleNull_singleton] using
+      measure_univ_le_one_of_mem_sampleNull (S₁ := {P}) (by simpa using hP) k
+  induction n with
+  | zero =>
+    rw [maxLogGrowth_def, sampleNull_singleton, Measure.pi_of_empty, Measure.pi_of_empty,
+      maxEPower_singleton_eq_klDiv, klDiv_self, Nat.cast_zero, zero_mul, EReal.coe_ennreal_zero]
+  | succ n ih =>
+    have h_add : maxLogGrowth Q₁ {P} (n + 1) = maxLogGrowth Q₁ {P} n + maxLogGrowth Q₁ {P} 1 := by
+      rw [maxLogGrowth_add_eq_maxEPower_prod Q₁
+        (by simp only [Set.mem_singleton_iff, forall_eq]; infer_instance) n 1,
+        Set.image_singleton, ← Set.image2_singleton, maxEPower_prod_eq_add (hPn n) (hPn 1),
+        maxLogGrowth_def, maxLogGrowth_def, sampleNull_singleton, sampleNull_singleton]
+    rw [h_add, ih, maxLogGrowth_one, maxEPower_singleton hP, Nat.cast_succ,
+      EReal.right_distrib_of_nonneg (by exact_mod_cast n.zero_le) zero_le_one, one_mul]
 
 /-- The bipolar rate is at most the relative entropy from `Q₁` to any member of the null. -/
 lemma bipolarRate_le_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁] (hP : P ∈ S₁)

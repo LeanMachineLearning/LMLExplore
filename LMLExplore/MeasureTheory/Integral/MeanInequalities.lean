@@ -25,7 +25,10 @@ against the measures `μ.withDensity (f i)`. In particular a geometric mixture o
 is finite. These two lemmas are extracted from the proof of
 `EValuesResearch.mem_iidSaturation_withDensity_prod_rpow` in
 `EValuesResearch/Results/Saturation.lean` (commit `83205cb`) in the paper project
-`RemyDegenne/evalues_research`.
+`RemyDegenne/evalues_research`. A measure is absolutely continuous with respect to a geometric
+mixture exactly when it is with respect to every factor of positive weight, since the mixture
+vanishes exactly where such a factor does; this is extracted from the proof of
+`ProbabilityTheory.klIntegral_withDensity_prod_rpow`, adapted from the same paper project.
 
 ## Main statements
 
@@ -36,6 +39,9 @@ is finite. These two lemmas are extracted from the proof of
   `∫⁻ g ∂μ.withDensity (∏ i ∈ s, f i ^ w i) ≤ ∏ i ∈ s, (∫⁻ g ∂μ.withDensity (f i)) ^ w i`.
 * `MeasureTheory.isFiniteMeasure_withDensity_prod_rpow`: a geometric mixture of finite measures is
   finite.
+* `MeasureTheory.absolutelyContinuous_withDensity_prod_rpow_iff`: `ν` is absolutely continuous
+  with respect to a geometric mixture exactly when it is with respect to every factor of positive
+  weight.
 -/
 
 public section
@@ -99,5 +105,47 @@ theorem isFiniteMeasure_withDensity_prod_rpow {ι : Type*} (s : Finset ι) {f : 
   refine h.trans_lt (ENNReal.prod_lt_top fun i hi ↦ ?_)
   have := hfin i hi
   exact ENNReal.rpow_lt_top_of_nonneg (hw0 i hi) (measure_ne_top _ _)
+
+/-- A measure `ν` is absolutely continuous with respect to a geometric mixture
+`μ.withDensity (∏ i ∈ s, f i ^ w i)`, for weights `w i ≥ 0` summing to one over `s`, exactly when
+it is absolutely continuous with respect to every factor `μ.withDensity (f i)` of positive weight:
+the density of the mixture vanishes exactly where the density of such a factor does. -/
+theorem absolutelyContinuous_withDensity_prod_rpow_iff {ι : Type*} (s : Finset ι)
+    {f : ι → α → ℝ≥0∞} (hf : ∀ i ∈ s, AEMeasurable (f i) μ) {w : ι → ℝ} (hw : ∑ i ∈ s, w i = 1)
+    (hw0 : ∀ i ∈ s, 0 ≤ w i) {ν : Measure α} :
+    ν ≪ μ.withDensity (fun x ↦ ∏ i ∈ s, f i x ^ w i) ↔
+      ∀ i ∈ s, 0 < w i → ν ≪ μ.withDensity (f i) := by
+  have hgm : AEMeasurable (fun x ↦ ∏ i ∈ s, f i x ^ w i) μ :=
+    Finset.aemeasurable_fun_prod _ fun i hi ↦ (hf i hi).pow_const _
+  -- the mixture vanishes where a factor of positive weight vanishes, and only there
+  have hg0 (x : α) (hx : ∏ i ∈ s, f i x ^ w i ≠ 0) (i : ι) (hi : i ∈ s) (hwi : 0 < w i) :
+      f i x ≠ 0 := fun h0 ↦
+    hx (Finset.prod_eq_zero hi (by rw [h0, ENNReal.zero_rpow_of_pos hwi]))
+  have hg_ne (x : α) (hx : ∀ i ∈ s, 0 < w i → f i x ≠ 0) : ∏ i ∈ s, f i x ^ w i ≠ 0 := by
+    refine Finset.prod_ne_zero_iff.2 fun i hi h ↦ ?_
+    rcases ENNReal.rpow_eq_zero_iff.1 h with ⟨h0, hpos⟩ | ⟨-, hneg⟩
+    · exact hx i hi hpos h0
+    · linarith [hw0 i hi]
+  constructor
+  · -- the mixture is absolutely continuous with respect to every factor of positive weight
+    refine fun hν i hi hwi ↦ hν.trans (Measure.ae_le_iff_absolutelyContinuous.1 fun A hA ↦ ?_)
+    have hA' := (ae_withDensity_iff' (hf i hi)).1 (Filter.eventually_mem_set.2 hA)
+    refine Filter.eventually_mem_set.1 ((ae_withDensity_iff' hgm).2 ?_)
+    filter_upwards [hA'] with x hx hgx using hx (hg0 x hgx i hi hwi)
+  · intro h
+    obtain ⟨j, hjs, hj⟩ : ∃ j ∈ s, 0 < w j := by
+      by_contra! h'
+      linarith [Finset.sum_nonpos h']
+    have hνμ : ν ≪ μ := (h j hjs hj).trans (withDensity_absolutelyContinuous _ _)
+    refine Measure.ae_le_iff_absolutelyContinuous.1 fun A hA ↦ Filter.eventually_mem_set.1 ?_
+    have hA' := (ae_withDensity_iff' hgm).1 (Filter.eventually_mem_set.2 hA)
+    have hall : ∀ᵐ x ∂ν, ∀ i ∈ s, 0 < w i → f i x ≠ 0 := by
+      rw [Filter.eventually_all_finset]
+      intro i hi
+      by_cases hwi : 0 < w i
+      · filter_upwards [(h i hi hwi).ae_le
+          ((ae_withDensity_iff' (hf i hi)).2 (ae_of_all _ fun _ h ↦ h))] with x hx _ using hx
+      · exact ae_of_all _ fun _ h' ↦ absurd h' hwi
+    filter_upwards [hνμ.ae_le hA', hall] with x hx hx' using hx (hg_ne x hx')
 
 end MeasureTheory

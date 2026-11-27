@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
+import LMLExplore.Data.EReal.BigOperators
 import Mathlib.MeasureTheory.Integral.DominatedConvergence
 import Statlib.ForMathlib.MeasureTheory.Integral.EReal.Bochner
 
@@ -83,8 +84,7 @@ theorem eintegral_finsetSum {Ω ι : Type*} [MeasurableSpace Ω] {μ : Measure �
     simp only [Finset.mem_insert, forall_eq_or_imp] at hf hf_bot
     have hsum_bot : ∫ᵉ x, ∑ i ∈ s, f i x ∂μ ≠ ⊥ := by
       rw [ih hf.2 hf_bot.2]
-      exact Finset.sum_induction _ (· ≠ ⊥) (fun _ _ h₁ h₂ ↦ EReal.add_ne_bot_iff.2 ⟨h₁, h₂⟩)
-        EReal.zero_ne_bot hf_bot.2
+      exact EReal.sum_ne_bot.2 hf_bot.2
     simp_rw [Finset.sum_insert ha]
     rw [eintegral_add hf.1 (Finset.aemeasurable_fun_sum s hf.2)
       (eintegrable_of_eintegral_ne_bot hsum_bot) (.inl hf_bot.1) (.inr hsum_bot), ih hf.2 hf_bot.2]
