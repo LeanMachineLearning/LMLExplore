@@ -13,16 +13,14 @@ import Mathlib.Tactic.Linarith
 # Bounds in linearly ordered fields
 
 For nonnegative `x` and `y` in a linearly ordered semifield, `x y / (x + y)` (half the harmonic
-mean of `x` and `y`) is at most `x` and at most `y`, and dividing by `γ > 0` and multiplying by
-`γ ≥ 0` exchange the intervals `[0, γ]` and `[0, 1]`. In a linearly ordered field, an affine
-function `t ↦ A + t * B` that is bounded below on `t ≥ 0` has a nonnegative slope `B`, and
-`g / L ∈ [-1, 1]` when `|g| ≤ L`.
+mean of `x` and `y`) is at most `x` and at most `y`, and multiplying by `γ ≥ 0` maps `[0, 1]` into
+`[0, γ]`. In a linearly ordered field, an affine function `t ↦ A + t * B` that is bounded below on
+`t ≥ 0` has a nonnegative slope `B`, and `g / L ∈ [-1, 1]` when `|g| ≤ L`.
 
 ## Main statements
 
 * `mul_div_add_le_left`: `x y / (x + y) ≤ x` for `0 ≤ x` and `0 ≤ y`.
 * `mul_div_add_le_right`: `x y / (x + y) ≤ y` for `0 ≤ x` and `0 ≤ y`.
-* `Set.div_mem_Icc_zero_one`: `c / γ ∈ [0, 1]` for `c ∈ [0, γ]` and `0 < γ`.
 * `Set.mul_mem_Icc_zero`: `c * γ ∈ [0, γ]` for `c ∈ [0, 1]` and `0 ≤ γ`.
 * `nonneg_of_forall_lt_add_mul`: if `v < A + t * B` for every `t ≥ 0`, then `0 ≤ B`.
 * `LMLExplore.abs_div_le_one_of_abs_le`: `|g / L| ≤ 1` for `|g| ≤ L`.
@@ -43,10 +41,6 @@ theorem mul_div_add_le_right (hx : 0 ≤ x) (hy : 0 ≤ y) : x * y / (x + y) ≤
   exact mul_div_add_le_left hy hx
 
 namespace Set
-
-/-- An element of `[0, γ]` divided by `γ > 0` lies in `[0, 1]`. -/
-theorem div_mem_Icc_zero_one {γ c : K} (hγ : 0 < γ) (hc : c ∈ Icc 0 γ) : c / γ ∈ Icc (0 : K) 1 :=
-  ⟨div_nonneg hc.1 hγ.le, div_le_one_of_le₀ hc.2 hγ.le⟩
 
 /-- An element of `[0, 1]` multiplied by `γ ≥ 0` lies in `[0, γ]`. -/
 theorem mul_mem_Icc_zero {γ c : K} (hγ : 0 ≤ γ) (hc : c ∈ Icc (0 : K) 1) : c * γ ∈ Icc 0 γ :=

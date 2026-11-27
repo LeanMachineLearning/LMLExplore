@@ -50,7 +50,7 @@ fraction in `[0, γ]`, which may be `+∞`. The answers below to [WSJ26, Remark 
   predictable fractions in `[0, γ]` has `limsup (1/n) log` of its wealth at most `ℓ γ`.
 * `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_iSup_eintegral_log`: an e-process for the
   i.i.d. null of the laws of mean at most one has `limsup (1/n) log` at most `ℓ 1`.
-* `ProbabilityTheory.ae_le_liminf_log_prod_followTheLeader_sub_log_div`: if `Q {0} = 0` and
+* `ProbabilityTheory.ae_liminf_log_prod_followTheLeader_sub_log_div_nonneg`: if `Q {0} = 0` and
   `log (1 + E)` is integrable, uncapped follow-the-leader does at least as well as every such
   e-process.
 
@@ -233,7 +233,7 @@ private lemma iSup_eintegral_map_capMap {γ : ℝ} (hγ : γ ∈ Ioc (0 : ℝ) 1
   simp_rw [hmap]
   refine le_antisymm (iSup₂_le fun c hc ↦ ?_) (iSup₂_le fun c hc ↦ ?_)
   · exact le_iSup₂_of_le (c * γ) (mul_mem_Icc_zero hγ.1.le hc) le_rfl
-  · refine le_iSup₂_of_le (c / γ) (div_mem_Icc_zero_one hγ.1 hc) (le_of_eq ?_)
+  · refine le_iSup₂_of_le (c / γ) (unitInterval.div_mem hc.1 hγ.1.le hc.2) (le_of_eq ?_)
     rw [div_mul_cancel₀ c hγ.1.ne']
 
 /-! ### Main results -/
@@ -279,7 +279,7 @@ theorem ae_tendsto_log_prod_followTheLeader_capped_div (Q : Measure ℝ≥0) [Is
     refine isMaxOn_iff.2 fun c hc ↦ ?_
     have h := isMaxOn_iff.1 (hmax n) (c * γ) (mul_mem_Icc_zero hγ0.le hc)
     simpa only [one_add_mul_capMap hγ', div_mul_cancel₀ _ hγ0.ne'] using h
-  have hlim := hω (fun n ↦ l n / γ) (fun n ↦ div_mem_Icc_zero_one hγ0 (hl n)) hmax'
+  have hlim := hω (fun n ↦ l n / γ) (fun n ↦ unitInterval.div_mem (hl n).1 hγ0.le (hl n).2) hmax'
   simp_rw [one_add_div_mul_capMap ⟨hγ0, hγ.le⟩] at hlim
   rwa [iSup_eintegral_map_capMap ⟨hγ0, hγ.le⟩] at hlim
 
@@ -326,7 +326,7 @@ theorem ae_limsup_log_prod_div_le_iSup_eintegral_log (Q : Measure ℝ≥0) [IsPr
       exact (hl n).dependsOn_of_piLT fun j hj ↦ by simp [h j hj]
   filter_upwards [Measure.ae_of_ae_infinitePi_map (fun _ : ℕ ↦ Q) (fun _ ↦ measurable_capMap γ)
     (ae_limsup_log_prod_div_le_iSup_eintegral_log_one _ hl' fun n ω' ↦
-      div_mem_Icc_zero_one hγ0 (hlγ _ _))] with ω hω
+      unitInterval.div_mem (hlγ _ _).1 hγ0.le (hlγ _ _).2)] with ω hω
   have hfac (k : ℕ) : 1 + l' k (fun j ↦ capMap γ (ω j)) * ((capMap γ (ω k) : ℝ) - 1) =
       1 + l k ω * ((ω k : ℝ) - 1) := by
     simp only [l', huncap]
@@ -343,7 +343,7 @@ at most one (`constraintNull {fun e ↦ e - 1}`). Almost surely under `Q^ℕ`, f
 `∏ k ≤ n, (1 + c * (ω k - 1))` of a constant fraction `c`, the difference between the logarithms
 of the wealth `∏ k < n, (1 + l k * (ω k - 1))` and of `W n`, divided by `n`, has a nonnegative
 `liminf`. -/
-theorem ae_le_liminf_log_prod_followTheLeader_sub_log_div (Q : Measure ℝ≥0)
+theorem ae_liminf_log_prod_followTheLeader_sub_log_div_nonneg (Q : Measure ℝ≥0)
     [IsProbabilityMeasure Q] (hQ0 : Q {0} = 0)
     (hlog : Integrable (fun e : ℝ≥0 ↦ Real.log (1 + e)) Q) {W : ℕ → (ℕ → ℝ≥0) → ℝ≥0∞}
     (hW : IsEProcess W (Filtration.piLT (X := fun _ : ℕ ↦ ℝ≥0))
