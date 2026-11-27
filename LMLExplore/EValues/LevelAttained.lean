@@ -119,6 +119,7 @@ theorem levelAttained_le_one (hS : ∀ P ∈ S, P univ ≤ 1) (ω : Ω) : levelA
   levelAttained_le_iff.2 fun P hP ↦ (measure_mono (subset_univ _)).trans (hS P hP)
 
 /-- Composing the statistic with an order embedding does not change its level attained. -/
+@[simp]
 theorem levelAttained_comp [LE γ] (f : β ↪o γ) (T : Ω → β) (S : Set (Measure Ω)) :
     levelAttained (f ∘ T) S = levelAttained T S := by
   ext ω
@@ -163,7 +164,8 @@ theorem isPVar_levelAttained [HereditarilyLindelofSpace β] (hT : Measurable T)
   set A : Set β := {t | ⨆ P' ∈ S, P' {ω' | t ≤ T ω'} ≤ α}
   have hle (t : β) (ht : t ∈ A) : P {ω | t ≤ T ω} ≤ α :=
     (le_biSup (fun P' ↦ P' {ω' | t ≤ T ω'}) hP).trans ht
-  change P (T ⁻¹' A) ≤ α
+  have hA : {ω | levelAttained T S ω ≤ α} = T ⁻¹' A := by ext; simp [levelAttained_def, A]
+  rw [hA]
   by_cases hmin : ∃ t₀ ∈ A, ∀ t ∈ A, t₀ ≤ t
   · obtain ⟨t₀, ht₀, hmin⟩ := hmin
     exact (measure_mono (t := {ω | t₀ ≤ T ω}) fun ω hω ↦ hmin _ hω).trans (hle t₀ ht₀)

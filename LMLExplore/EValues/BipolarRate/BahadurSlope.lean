@@ -118,8 +118,14 @@ theorem ae_limsup_log_inv_div_le_bipolarRate (Q₁ : Measure 𝓧)
   rw [ENNReal.log_inv]
   refine ENNReal.neg_log_div_le_of_ofReal_exp_le hn0 (not_le.1 fun hpn ↦ hn.not_ge ?_).le
   -- where `p n ≤ exp (-(n r))`, the e-variable is `exp (n r)`
-  rw [EReal.coe_le_div_natCast_iff hn0, Set.indicator_of_mem hpn, Pi.one_apply, one_div,
-    ENNReal.log_inv, ENNReal.log_ofReal_exp, EReal.coe_neg, neg_neg]
+  rw [EReal.coe_le_div_natCast_iff hn0, Set.indicator_of_mem hpn]
+  simp [ENNReal.log_inv, (Real.exp_pos _).not_ge]
+
+/-- The numeraire of the `n`-sample null under `Q₁ ^ n` is an e-variable for the `n`-sample null,
+for a null `S₁` of measures of mass at most one. -/
+theorem isEVar_numeraire_sampleNull (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
+    IsEVar (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n)) (sampleNull S₁ n) :=
+  isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
 
 /-- The inverse of the numeraire of the `n`-sample null under `Q₁ ^ n` is a p-variable for the
 `n`-sample null, for a null `S₁` of measures of mass at most one
@@ -127,7 +133,7 @@ theorem ae_limsup_log_inv_div_le_bipolarRate (Q₁ : Measure 𝓧)
 theorem isPVar_inv_numeraire (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
     IsPVar (fun x ↦ (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n) x)⁻¹)
       (sampleNull S₁ n) :=
-  (isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)).isPVar_inv
+  (isEVar_numeraire_sampleNull Q₁ hS₁ n).isPVar_inv
 
 /-- **No exact slope exceeds twice the bipolar rate.** For measurable statistics `T n` of `n`
 observations, with values in a linear order whose topology is order-closed and hereditarily
@@ -166,9 +172,7 @@ theorem ae_tendsto_two_mul_log_inv_levelAttained_numeraire_div (Q₁ : Measure �
   swap
   · simp [Measure.infinitePi_eq_zero_of_not_isProbabilityMeasure (μ := fun _ : ℕ ↦ Q₁) (i := 0)
       hQ₁]
-  have hX (n : ℕ) : IsEVar (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n))
-      (sampleNull S₁ n) := isEVar_numeraire _
-    (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)
+  have hX := isEVar_numeraire_sampleNull Q₁ fun P hP ↦ (hS₁ P hP).measure_univ.le
   filter_upwards [ae_limsup_log_inv_div_le_bipolarRate Q₁ hS₁
       fun n ↦ isPVar_levelAttained (hX n).measurable _,
     ae_tendsto_log_numeraire_div_bipolarRate Q₁ hS₁] with ω hup hlow
@@ -200,8 +204,7 @@ theorem isGreatest_exactSlope (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
             (levelAttained (T n) (sampleNull S₁ n) (initSeg n ω))⁻¹ / (n : EReal)) atTop (𝓝 c)}
       (2 * bipolarRate Q₁ S₁) := by
   refine ⟨⟨fun n ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n),
-    fun n ↦ (isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull
-      (fun P hP ↦ (hS₁ P hP).measure_univ.le) n)).measurable,
+    fun n ↦ (isEVar_numeraire_sampleNull Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le) n).measurable,
     ae_tendsto_two_mul_log_inv_levelAttained_numeraire_div Q₁ hS₁⟩, ?_⟩
   rintro c ⟨T, hT, hc⟩
   obtain ⟨ω, hω, hω'⟩ := (hc.and (ae_limsup_two_mul_log_inv_levelAttained_div_le Q₁ hS₁ hT)).exists
