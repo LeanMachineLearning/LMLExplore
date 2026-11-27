@@ -168,8 +168,10 @@ theorem mixLoss_le_integral_add_mul_toReal_klDiv [IsProbabilityMeasure μ] [IsPr
   rw [integral_add_mul_toReal_klDiv_eq_mixLoss_add hlam.ne' hexp hLQ hQ]
   exact le_add_of_nonneg_right (mul_nonneg hlam.le ENNReal.toReal_nonneg)
 
-/-- **The Gibbs measure is the unique minimizer** [Ora, Problem 11.1]: for `lam ≠ 0`,
-`∫ L dQ + lam * KL(Q, μ)` equals the mix loss exactly when `Q` is the Gibbs measure. -/
+/-- **Equality in the change of reference holds exactly at the Gibbs measure**: for `lam ≠ 0`,
+`∫ L dQ + lam * KL(Q, μ)` equals the mix loss exactly when `Q` is the Gibbs measure. For
+`lam > 0` this says that the Gibbs measure is the unique minimizer of the variational formula
+[Ora, Problem 11.1]. -/
 theorem integral_add_mul_toReal_klDiv_eq_mixLoss_iff [IsProbabilityMeasure μ]
     [IsProbabilityMeasure Q] (hlam : lam ≠ 0) (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ)
     (hLQ : Integrable L Q) (hQ : klDiv Q μ ≠ ∞) :
@@ -182,8 +184,9 @@ theorem integral_add_mul_toReal_klDiv_eq_mixLoss_iff [IsProbabilityMeasure μ]
   rw [integral_add_mul_toReal_klDiv_eq_mixLoss_add hlam hexp hLQ hQ, add_eq_left, mul_eq_zero,
     or_iff_right hlam, ENNReal.toReal_eq_zero_iff, or_iff_left hQG, klDiv_eq_zero_iff]
 
-/-- **The Gibbs measure attains the variational formula**: for `lam ≠ 0` and losses integrable
-under the Gibbs measure, `∫ L d(μ.gibbs L lam) + lam * KL(μ.gibbs L lam, μ) = μ.mixLoss L lam`. -/
+/-- **The Gibbs measure gives equality in the change of reference**: for `lam ≠ 0` and losses
+integrable under the Gibbs measure,
+`∫ L d(μ.gibbs L lam) + lam * KL(μ.gibbs L lam, μ) = μ.mixLoss L lam`. -/
 theorem integral_add_mul_toReal_klDiv_gibbs [IsProbabilityMeasure μ] (hlam : lam ≠ 0)
     (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) (hLG : Integrable L (μ.gibbs L lam)) :
     ∫ θ, L θ ∂(μ.gibbs L lam) + lam * (klDiv (μ.gibbs L lam) μ).toReal = μ.mixLoss L lam :=
