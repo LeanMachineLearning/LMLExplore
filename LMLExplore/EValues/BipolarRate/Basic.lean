@@ -152,6 +152,7 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
 
 /-- With no observation, `maxLogGrowth` vanishes for a nonempty null: every `0`-sample law is the
 Dirac mass at the empty sample. -/
+@[simp]
 lemma maxLogGrowth_zero (Q₁ : Measure 𝓧) (hS₁ : S₁.Nonempty) : maxLogGrowth Q₁ S₁ 0 = 0 := by
   have h_pi (P : Measure 𝓧) : (Measure.pi fun _ : Fin 0 ↦ P) = Measure.dirac isEmptyElim :=
     Measure.pi_of_empty _
