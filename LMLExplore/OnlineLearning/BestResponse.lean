@@ -5,7 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
-public import Mathlib.Basic.Real.Basic
+public import LMLExplore.OnlineLearning.Learner.Basic
 public import Mathlib.Geometry.Convex.ConvexSpace.Defs
 
 /-!
@@ -18,13 +18,13 @@ games of [DKM19, Lemma 3].
 
 ## Main definitions
 
-* `LMLExplore.OnlineLearning.bestResponse br t ℓ`: the point mass at `br (ℓ t)`, played at round
-  `t` given the losses `ℓ` of the rounds up to and including `t`.
+* `LMLExplore.OnlineLearning.bestResponse br`: the online learner that plays the point mass at
+  `br ℓ_t`, given the loss `ℓ_t` of the current round as context.
 
 ## Main statements
 
-* `LMLExplore.OnlineLearning.sum_sum_bestResponse_le`: if the selected models minimize the losses
-  against a model `θ`, the cumulative expected loss of Best-Response is at most that of `θ`.
+* `LMLExplore.OnlineLearning.hasRegretBound_bestResponse`: if the selected models minimize the
+  losses against a model `θ`, the regret of Best-Response against `θ` is nonpositive.
 
 ## References
 
@@ -34,38 +34,39 @@ games of [DKM19, Lemma 3].
 
 public section
 
-open Convexity Finset
+open Convexity
 
 namespace LMLExplore.OnlineLearning
 
-variable {Θ : Type*}
+variable {Θ G : Type*}
 
-/-- **Best-Response**, for a selection `br` of models: at round `t`, the point mass at the model
-`br ℓ_t` chosen for the loss `ℓ_t` of the current round. For a selection of minimizers of the
-losses, it has no regret (`sum_sum_bestResponse_le`). -/
-noncomputable def bestResponse (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ) :
-    StdSimplex ℝ Θ :=
-  StdSimplex.single (br (ℓ (Fin.last t)))
+/-- **Best-Response**, for a selection `br` of models, as an online learner whose context is the
+loss of the current round: at round `t`, the point mass at the model `br ℓ_t` chosen for the loss
+`ℓ_t` of the round. For a selection of minimizers of the losses, it has no regret
+(`hasRegretBound_bestResponse`). -/
+noncomputable def bestResponse (br : (Θ → ℝ) → Θ) : OnlineLearner (Θ → ℝ) G (StdSimplex ℝ Θ) where
+  play _ _ ℓ := StdSimplex.single (br ℓ)
 
-lemma bestResponse_def (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ) :
-    bestResponse br t ℓ = StdSimplex.single (br (ℓ (Fin.last t))) := (rfl)
+lemma play_bestResponse (br : (Θ → ℝ) → Θ) (t : ℕ) (h : Fin t → (Θ → ℝ) × G) (ℓ : Θ → ℝ) :
+    (bestResponse br).play t h ℓ = StdSimplex.single (br ℓ) := (rfl)
 
-/-- The expected loss of Best-Response is the loss of the selected model. -/
+/-- Best-Response plays the point mass at the model selected for the loss of the current round. -/
 @[simp]
-lemma bestResponse_weights_sum_mul (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ)
-    (f : Θ → ℝ) :
-    ((bestResponse br t ℓ).weights.sum fun θ r ↦ r * f θ) = f (br (ℓ (Fin.last t))) := by
-  rw [bestResponse_def, StdSimplex.weights_single, Finsupp.sum_single_index (zero_mul _), one_mul]
+lemma run_bestResponse (br : (Θ → ℝ) → Θ) (c : ℕ → Θ → ℝ) (g : ℕ → G) (t : ℕ) :
+    (bestResponse br).run c g t = StdSimplex.single (br (c t)) := by
+  rw [OnlineLearner.run_def, play_bestResponse]
 
-/-- **Best-Response has no regret**: on a sequence of losses `ℓ`, if the selected models minimize
-the losses `ℓ s` against the model `θ` at the rounds `s < t`, then
-`∑_{s < t} E_{θ' ∼ q_s} ℓ s θ' ≤ ∑_{s < t} ℓ s θ`. -/
-theorem sum_sum_bestResponse_le (br : (Θ → ℝ) → Θ) (ℓ : ℕ → Θ → ℝ) {t : ℕ} {θ : Θ}
-    (hbr : ∀ s < t, ℓ s (br (ℓ s)) ≤ ℓ s θ) :
-    ∑ s ∈ range t, ((bestResponse br s fun i ↦ ℓ i).weights.sum fun θ' r ↦ r * ℓ s θ') ≤
-      ∑ s ∈ range t, ℓ s θ := by
-  refine Finset.sum_le_sum fun s hs ↦ ?_
-  rw [bestResponse_weights_sum_mul, Fin.val_last]
-  exact hbr s (Finset.mem_range.1 hs)
+/-- **Best-Response has no regret**: for the expected losses `q ↦ E_{θ' ∼ q} ℓ θ'`, the regret of
+Best-Response against the model `θ` is nonpositive on every sequence of losses `ℓ` such that the
+model selected for the context of each round has a loss at most that of `θ`. With the losses as
+contexts, this holds when the selected models minimize the losses against `θ`. -/
+theorem hasRegretBound_bestResponse (br : (Θ → ℝ) → Θ) (θ : Θ) :
+    (bestResponse (G := Θ → ℝ) br).HasRegretBound
+      (fun ℓ q ↦ q.weights.sum fun θ' r ↦ r * ℓ θ') (fun c ℓ ↦ ℓ (br c) ≤ ℓ θ)
+      {StdSimplex.single θ} fun _ _ _ _ ↦ 0 := by
+  rw [OnlineLearner.hasRegretBound_iff]
+  rintro c ℓ n hbr _ rfl
+  refine regret_le_sum_of_le_add (ε := 0) (fun t ht ↦ ?_) |>.trans_eq (by simp)
+  simpa [run_bestResponse, StdSimplex.weights_single, Finsupp.sum_single_index] using hbr t ht
 
 end LMLExplore.OnlineLearning

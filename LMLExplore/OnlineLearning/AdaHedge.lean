@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.OnlineLearning.ExponentialWeights
+public import LMLExplore.OnlineLearning.Learner.Basic
 public import LMLExplore.Probability.Moments.SubGaussian.Simplex
 
 /-!
@@ -54,7 +55,7 @@ pure exploration games of [DKM19, Lemma 3].
 * `adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
 * `adaHedgeGap_le`: `Δ_n ≤ B + √((∑ t < n, b t ^ 2) log K) / 2` for loss ranges `b t ≤ B`.
 * `adaHedge_regret_le`: the regret bound `√((∑ t < n, b t ^ 2) log K) + 2 B`.
-* `sum_le_sum_sum_adaHedgeAlloc_mul_add`: the regret of AdaHedge on gains is at most `2 Δ_t`.
+* `hasRegretBound_adaHedgeAlloc`: the regret of AdaHedge on gains is at most `2 Δ_n`.
 
 The definitions of AdaHedge (its state, the follow-the-leader weights and the mix loss at an
 infinite learning rate) are adapted from the formalization of [DKM19] in the LMLPapers project
@@ -534,37 +535,49 @@ theorem adaHedge_regret_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} 
 
 /-! ### AdaHedge on gains -/
 
-/-- **AdaHedge on gains**: at round `t`, the weights of AdaHedge on the losses `-g` opposite to the
-gains `g` of the rounds before `t`. This is the allocation player of the pure exploration games of
-[DKM19, Lemma 3]. -/
-noncomputable def adaHedgeAlloc (t : ℕ) (g : Fin t → α → ℝ) : α → ℝ :=
-  adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t
+variable {C : Type*}
 
-lemma adaHedgeAlloc_def (t : ℕ) (g : Fin t → α → ℝ) :
-    adaHedgeAlloc t g = adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t :=
+/-- **AdaHedge on gains**, as an online learner whose feedback are gains: at round `t`, the weights
+of AdaHedge on the losses `-g` opposite to the gains `g` of the rounds before `t`. It ignores the
+contexts. This is the allocation player of the pure exploration games of [DKM19, Lemma 3]. -/
+noncomputable def adaHedgeAlloc : OnlineLearner C (α → ℝ) (α → ℝ) where
+  play t h _ := adaHedge (fun s ↦ if hs : s < t then -(h ⟨s, hs⟩).2 else 0) t
+
+lemma play_adaHedgeAlloc (t : ℕ) (h : Fin t → C × (α → ℝ)) (c : C) :
+    adaHedgeAlloc.play t h c = adaHedge (fun s ↦ if hs : s < t then -(h ⟨s, hs⟩).2 else 0) t :=
   (rfl)
 
-/-- At round `t`, AdaHedge on gains plays the weights of AdaHedge on the losses `-g` of the first
-`t` gains of the sequence `g`. -/
-lemma adaHedgeAlloc_eq_adaHedge (t : ℕ) (g : ℕ → α → ℝ) :
-    adaHedgeAlloc t (fun i ↦ g i) = adaHedge (fun s ↦ -g s) t := by
-  rw [adaHedgeAlloc_def]
+/-- On every sequence of gains `g`, AdaHedge on gains plays at round `t` the weights of AdaHedge on
+the losses `-g`. -/
+@[simp]
+lemma run_adaHedgeAlloc (c : ℕ → C) (g : ℕ → α → ℝ) (t : ℕ) :
+    adaHedgeAlloc.run c g t = adaHedge (fun s ↦ -g s) t := by
+  rw [OnlineLearner.run_def, play_adaHedgeAlloc]
   exact adaHedge_congr fun s hs ↦ by simp [hs]
 
-lemma adaHedgeAlloc_mem_simplex (t : ℕ) (g : Fin t → α → ℝ) : adaHedgeAlloc t g ∈ simplex α := by
-  rw [adaHedgeAlloc_def]
-  exact adaHedge_mem_simplex _ _
-
-/-- **Regret of AdaHedge on gains**: on every sequence of gains `g`, after `t` rounds,
-`∑_{s < t} g s a ≤ ∑_{s < t} ∑ b, w_s b g s b + 2 Δ_t` for every expert `a`, with `Δ_t` the
-cumulative mixability gap of AdaHedge on the losses `-g` (bounded by `adaHedgeGap_le`). -/
-theorem sum_le_sum_sum_adaHedgeAlloc_mul_add (g : ℕ → α → ℝ) (t : ℕ) (a : α) :
-    ∑ s ∈ range t, g s a ≤ ∑ s ∈ range t, ∑ b, adaHedgeAlloc s (fun i ↦ g i) b * g s b +
-      2 * adaHedgeGap (fun s ↦ -g s) t := by
-  have h := adaHedge_regret_le_two_mul_adaHedgeGap (fun s ↦ -g s) t a
-  simp only [Pi.neg_apply, mul_neg, Finset.sum_neg_distrib, sub_neg_eq_add] at h
-  simp_rw [adaHedgeAlloc_eq_adaHedge]
-  rw [Finset.sum_add_distrib, Finset.sum_neg_distrib] at h
+/-- **Regret of AdaHedge on gains**: for the losses `w ↦ -∑ b, w b * g b` of the gains `g`, the
+regret after `n` rounds of AdaHedge on gains against every probability vector is at most `2 Δ_n`,
+with `Δ_n` the cumulative mixability gap of AdaHedge on the losses `-g` (bounded by
+`adaHedgeGap_le`). -/
+theorem hasRegretBound_adaHedgeAlloc :
+    (adaHedgeAlloc (C := C) (α := α)).HasRegretBound (fun g w ↦ -∑ b, w b * g b)
+      (fun _ _ ↦ True) (simplex α) fun n _ g _ ↦ 2 * adaHedgeGap (fun s ↦ -g s) n := by
+  rw [OnlineLearner.hasRegretBound_iff]
+  intro c g n _ u hu
+  obtain ⟨hu0, hu1⟩ := mem_simplex_iff.1 hu
+  have h a := adaHedge_regret_le_two_mul_adaHedgeGap (fun s ↦ -g s) n a
+  simp only [Pi.neg_apply, mul_neg, Finset.sum_neg_distrib, sub_neg_eq_add,
+    Finset.sum_add_distrib] at h
+  have key : ∑ a, u a * ∑ t ∈ range n, g t a ≤
+      ∑ a, u a * (∑ t ∈ range n, ∑ b, adaHedge (fun s ↦ -g s) t b * g t b +
+        2 * adaHedgeGap (fun s ↦ -g s) n) :=
+    Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left (by linarith [h a]) (hu0 a)
+  rw [← Finset.sum_mul, hu1, one_mul] at key
+  have hcomm : ∑ t ∈ range n, ∑ b, u b * g t b = ∑ b, u b * ∑ t ∈ range n, g t b := by
+    rw [Finset.sum_comm]
+    simp only [Finset.mul_sum]
+  simp only [regret_eq_sum_sub_sum, run_adaHedgeAlloc, Finset.sum_neg_distrib, sub_neg_eq_add,
+    hcomm]
   linarith
 
 end AdaHedge

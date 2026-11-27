@@ -104,10 +104,10 @@ namespace LMLExplore.Identification
 models `Θ`, answers `ℐ` and observations `𝓨`. The candidate answer, the estimates of the means, the
 confidence intervals and the exploration bonuses are functions of the history `h` of the first `n`
 rounds, and each answer `j` has two learners:
-* the allocation player `alloc j t g`, the weights on the arms that it plays at round `t` given
-  the gains `g` of the rounds before `t`;
-* the alternative player `alt j t ℓ`, the finitely supported distribution on the models that it
-  plays at round `t` given the losses `ℓ` of the rounds up to and including `t`. -/
+* the allocation player `alloc j`, an online learner that plays weights on the arms and gets the
+  gains of the arms as feedback;
+* the alternative player `alt j`, an online learner that plays finitely supported distributions on
+  the models, sees the loss of the current round as context and gets it as feedback. -/
 structure GameSamplingRule (α Θ ℐ 𝓨 : Type*) where
   /-- The candidate answer after `n` rounds with history `h`. -/
   cand : (n : ℕ) → Hist Unit α 𝓨 n → ℐ
@@ -121,12 +121,12 @@ structure GameSamplingRule (α Θ ℐ 𝓨 : Type*) where
   bonus : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ
   /-- The divergence `divergence a y θ` from the mean `y` to the arm `a` of the model `θ`. -/
   divergence : α → ℝ → Θ → ℝ
-  /-- The allocation player of each answer: its weights at round `t`, given the gains of the
-  rounds before `t`. -/
-  alloc : ℐ → (t : ℕ) → (Fin t → α → ℝ) → α → ℝ
-  /-- The alternative player of each answer: its distribution on the models at round `t`, given
-  the losses of the rounds up to and including `t`. -/
-  alt : ℐ → (t : ℕ) → (Fin (t + 1) → Θ → ℝ) → StdSimplex ℝ Θ
+  /-- The allocation player of each answer: an online learner of weights on the arms, with the
+  gains of the arms as feedback. -/
+  alloc : ℐ → OnlineLearning.OnlineLearner Unit (α → ℝ) (α → ℝ)
+  /-- The alternative player of each answer: an online learner of distributions on the models,
+  with the loss of the current round as context and as feedback. -/
+  alt : ℐ → OnlineLearning.OnlineLearner (Θ → ℝ) (Θ → ℝ) (StdSimplex ℝ Θ)
 
 namespace GameSamplingRule
 
@@ -213,10 +213,11 @@ losses in `F`, and they get the optimistic gains and the loss of round `n`, the 
 other answers get zero. -/
 noncomputable def roundFeedback (n : ℕ) (h : Hist Unit α 𝓨 n)
     (F : Fin n → (ℐ → α → ℝ) × (ℐ → Θ → ℝ)) : (ℐ → α → ℝ) × (ℐ → Θ → ℝ) :=
-  (Pi.single (G.cand n h) (G.optimisticGain n h (G.alt (G.cand n h) n
-      (Fin.snoc (fun i ↦ (F i).2 (G.cand n h))
-        (G.loss n h (G.alloc (G.cand n h) n fun i ↦ (F i).1 (G.cand n h)))))),
-    Pi.single (G.cand n h) (G.loss n h (G.alloc (G.cand n h) n fun i ↦ (F i).1 (G.cand n h))))
+  (Pi.single (G.cand n h) (G.optimisticGain n h ((G.alt (G.cand n h)).play n
+      (fun i ↦ ((F i).2 (G.cand n h), (F i).2 (G.cand n h)))
+        (G.loss n h ((G.alloc (G.cand n h)).play n (fun i ↦ ((), (F i).1 (G.cand n h))) ())))),
+    Pi.single (G.cand n h)
+      (G.loss n h ((G.alloc (G.cand n h)).play n (fun i ↦ ((), (F i).1 (G.cand n h))) ())))
 
 /-- The gains and losses fed to the learners of every answer at the rounds of the history `h` of
 the first `n` rounds, computed round by round with `roundFeedback`. -/
@@ -233,26 +234,29 @@ lemma feedback_succ (n : ℕ) (h : Hist Unit α 𝓨 (n + 1)) :
 /-- The weights played by the allocation player of the candidate answer after `n` rounds with
 history `h`. -/
 noncomputable def weights (n : ℕ) (h : Hist Unit α 𝓨 n) : α → ℝ :=
-  G.alloc (G.cand n h) n fun i ↦ (G.feedback n h i).1 (G.cand n h)
+  (G.alloc (G.cand n h)).play n (fun i ↦ ((), (G.feedback n h i).1 (G.cand n h))) ()
 
 lemma weights_def (n : ℕ) (h : Hist Unit α 𝓨 n) :
-    G.weights n h = G.alloc (G.cand n h) n fun i ↦ (G.feedback n h i).1 (G.cand n h) := (rfl)
+    G.weights n h =
+      (G.alloc (G.cand n h)).play n (fun i ↦ ((), (G.feedback n h i).1 (G.cand n h))) () := (rfl)
 
 /-- If the allocation players play allocations, so do the weights of the candidate answer. -/
-lemma weights_mem_simplex (halloc : ∀ j t g, G.alloc j t g ∈ simplex α) (n : ℕ)
+lemma weights_mem_simplex (halloc : ∀ j t g c, (G.alloc j).play t g c ∈ simplex α) (n : ℕ)
     (h : Hist Unit α 𝓨 n) : G.weights n h ∈ simplex α := by
   rw [weights_def]
-  exact halloc _ _ _
+  exact halloc _ _ _ _
 
 /-- The distribution on the models played by the alternative player of the candidate answer after
 `n` rounds with history `h`, which also sees the loss of the current weights. -/
 noncomputable def altDist (n : ℕ) (h : Hist Unit α 𝓨 n) : StdSimplex ℝ Θ :=
-  G.alt (G.cand n h) n
-    (Fin.snoc (fun i ↦ (G.feedback n h i).2 (G.cand n h)) (G.loss n h (G.weights n h)))
+  (G.alt (G.cand n h)).play n
+    (fun i ↦ ((G.feedback n h i).2 (G.cand n h), (G.feedback n h i).2 (G.cand n h)))
+    (G.loss n h (G.weights n h))
 
 lemma altDist_def (n : ℕ) (h : Hist Unit α 𝓨 n) :
-    G.altDist n h = G.alt (G.cand n h) n
-      (Fin.snoc (fun i ↦ (G.feedback n h i).2 (G.cand n h)) (G.loss n h (G.weights n h))) := (rfl)
+    G.altDist n h = (G.alt (G.cand n h)).play n
+      (fun i ↦ ((G.feedback n h i).2 (G.cand n h), (G.feedback n h i).2 (G.cand n h)))
+      (G.loss n h (G.weights n h)) := (rfl)
 
 /-- The optimistic gains of the arms after `n` rounds with history `h`, against the distribution
 played by the alternative player. -/
@@ -332,24 +336,21 @@ lemma feedback_history (n : ℕ) (i : Fin n) :
       ext j <;> simp [gainSeq_def, lossSeq_def, Pi.single_apply, eq_comm]
     | cast i => rw [Fin.snoc_castSucc, ih, Fin.val_castSucc]
 
-/-- Along a trajectory, the allocation player of the candidate answer `j` plays from the gains
-`gainSeq` of `j` of the previous rounds. -/
+/-- Along a trajectory, the weights are the play of the run of the allocation player of the
+candidate answer `j` on the gains `gainSeq` of `j`. -/
 lemma weights_history (n : ℕ) :
-    G.weights n (history O A Y n ω) = G.alloc (G.cand n (history O A Y n ω)) n
-      fun i ↦ G.gainSeq O A Y ω (G.cand n (history O A Y n ω)) i := by
-  simp_rw [weights_def, feedback_history]
+    G.weights n (history O A Y n ω) = (G.alloc (G.cand n (history O A Y n ω))).run (fun _ ↦ ())
+      (G.gainSeq O A Y ω (G.cand n (history O A Y n ω))) n := by
+  simp_rw [weights_def, feedback_history, OnlineLearning.OnlineLearner.run_def]
 
-/-- Along a trajectory, the alternative player of the candidate answer `j` plays from the losses
-`lossSeq` of `j` of the rounds up to and including the current one. -/
+/-- Along a trajectory, the distribution on the models is the play of the run of the alternative
+player of the candidate answer `j` on the losses `lossSeq` of `j`, as contexts and as feedback. -/
 lemma altDist_history (n : ℕ) :
-    G.altDist n (history O A Y n ω) = G.alt (G.cand n (history O A Y n ω)) n
-      fun i ↦ G.lossSeq O A Y ω (G.cand n (history O A Y n ω)) i := by
-  rw [altDist_def]
-  congr 1
-  funext i
-  induction i using Fin.lastCases with
-  | last => rw [Fin.snoc_last, Fin.val_last, lossSeq_of_cand_eq _ rfl]
-  | cast i => rw [Fin.snoc_castSucc, feedback_history, Fin.val_castSucc]
+    G.altDist n (history O A Y n ω) = (G.alt (G.cand n (history O A Y n ω))).run
+      (G.lossSeq O A Y ω (G.cand n (history O A Y n ω)))
+      (G.lossSeq O A Y ω (G.cand n (history O A Y n ω))) n := by
+  rw [altDist_def, OnlineLearning.OnlineLearner.run_def, lossSeq_of_cand_eq _ rfl]
+  simp_rw [feedback_history]
 
 /-- Along a trajectory, the cumulative gains fed to the learners of `j` are the cumulative
 optimistic gains of the rounds whose candidate answer is `j`. -/
@@ -370,11 +371,11 @@ lemma sum_lossSeq_apply (t : ℕ) (j : ℐ) (θ : Θ) :
   refine Finset.sum_congr rfl fun s _ ↦ ?_
   by_cases hs : G.cand s (history O A Y s ω) = j <;> simp [hs]
 
-/-- Along a trajectory, the cumulative gain of the allocation player of `j` on the gains fed to it
-is the cumulative gain of the weights on the rounds whose candidate answer is `j`. -/
+/-- Along a trajectory, the cumulative gain of the run of the allocation player of `j` on the gains
+fed to it is the cumulative gain of the weights on the rounds whose candidate answer is `j`. -/
 lemma sum_sum_alloc_mul_gainSeq (t : ℕ) (j : ℐ) :
     ∑ s ∈ range t,
-        ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b =
+        ∑ b, (G.alloc j).run (fun _ ↦ ()) (G.gainSeq O A Y ω j) s b * G.gainSeq O A Y ω j s b =
       ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
         ∑ b, G.weights s (history O A Y s ω) b * G.gains s (history O A Y s ω) b := by
   rw [Finset.sum_filter]
@@ -384,12 +385,12 @@ lemma sum_sum_alloc_mul_gainSeq (t : ℕ) (j : ℐ) :
     simp [hs]
   · simp [hs]
 
-/-- Along a trajectory, the cumulative expected loss of the alternative player of `j` on the
-losses fed to it is the cumulative expected loss of `altDist` on the rounds whose candidate answer
-is `j`. -/
+/-- Along a trajectory, the cumulative expected loss of the run of the alternative player of `j` on
+the losses fed to it is the cumulative expected loss of `altDist` on the rounds whose candidate
+answer is `j`. -/
 lemma sum_alt_weights_sum_mul_lossSeq (t : ℕ) (j : ℐ) :
-    ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
-        r * G.lossSeq O A Y ω j s θ') =
+    ∑ s ∈ range t, (((G.alt j).run (G.lossSeq O A Y ω j) (G.lossSeq O A Y ω j) s).weights.sum
+        fun θ' r ↦ r * G.lossSeq O A Y ω j s θ') =
       ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
         ((G.altDist s (history O A Y s ω)).weights.sum fun θ' r ↦
           r * G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)) θ') := by
@@ -401,9 +402,10 @@ lemma sum_alt_weights_sum_mul_lossSeq (t : ℕ) (j : ℐ) :
   · simp [hs]
 
 /-- **The meta-algorithm is an approximate optimistic saddle point algorithm**
-[DKM19, Definition 2, Appendix D.2]. Along a trajectory, let the allocation player of the answer
-`j` have regret at most `Rk` after `t` rounds on the gains `gainSeq` fed to it, and its alternative
-player have regret at most `Rl` against the model `θ` on the losses `lossSeq`. If the weights are
+[DKM19, Definition 2, Appendix D.2]. Along a trajectory, let the run of the allocation player of
+the answer `j` have regret at most `Rk` after `t` rounds against every arm for the losses
+`w ↦ -∑ b, w b * gainSeq s b` of the gains fed to it, and the run of its alternative player have
+regret at most `Rl` against the model `θ` for the expected losses of `lossSeq`. If the weights are
 nonnegative and the optimistic gains of the rounds of `j` exceed the expected divergences
 `E_{θ' ∼ q_s} divergence a (x_{s,a}) θ'` at the estimates by at most `C s a`, then on the rounds
 `s < t` whose candidate answer is `j`,
@@ -413,31 +415,38 @@ arm `a`.
 This is the saddle-point inequality `sum_le_sum_sum_mul_add_of_regret` on the rounds of `j`, and
 the hypothesis of `IdentTask.card_mul_answerValue_le_iInf_add` and
 `IdentTask.mul_card_filter_notMem_correct_le` on these rounds. -/
-theorem sum_gains_le_sum_sum_mul_add_of_regret {t : ℕ} (j : ℐ) {θ : Θ} {C : ℕ → α → ℝ}
-    {Rk Rl : ℝ}
+theorem sum_gains_le_sum_sum_mul_add_of_regret [DecidableEq α] {t : ℕ} (j : ℐ) {θ : Θ}
+    {C : ℕ → α → ℝ} {Rk Rl : ℝ}
     (hw : ∀ s < t, G.cand s (history O A Y s ω) = j → ∀ a, 0 ≤ G.weights s (history O A Y s ω) a)
     (hUC : ∀ s < t, G.cand s (history O A Y s ω) = j → ∀ a, G.gains s (history O A Y s ω) a ≤
       ((G.altDist s (history O A Y s ω)).weights.sum fun θ' r ↦
         r * G.divergence a (G.est s (history O A Y s ω) a) θ') + C s a)
-    (hRk : ∀ a, ∑ s ∈ range t, G.gainSeq O A Y ω j s a ≤ ∑ s ∈ range t,
-      ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b + Rk)
-    (hRl : ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
-      r * G.lossSeq O A Y ω j s θ') ≤ ∑ s ∈ range t, G.lossSeq O A Y ω j s θ + Rl) (a : α) :
+    (hRk : ∀ a, OnlineLearning.regret (fun s w ↦ -∑ b, w b * G.gainSeq O A Y ω j s b)
+      ((G.alloc j).run (fun _ ↦ ()) (G.gainSeq O A Y ω j)) (Pi.single a 1) t ≤ Rk)
+    (hRl : OnlineLearning.regret
+      (fun s q ↦ q.weights.sum fun θ' r ↦ r * G.lossSeq O A Y ω j s θ')
+      ((G.alt j).run (G.lossSeq O A Y ω j) (G.lossSeq O A Y ω j)) (StdSimplex.single θ) t ≤ Rl)
+    (a : α) :
     ∑ s ∈ range t with G.cand s (history O A Y s ω) = j, G.gains s (history O A Y s ω) a ≤
       ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
         ∑ b, G.weights s (history O A Y s ω) b *
           G.divergence b (G.est s (history O A Y s ω) b) θ +
       (Rk + Rl + ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
         ∑ b, G.weights s (history O A Y s ω) b * C s b) := by
-  rw [sum_alt_weights_sum_mul_lossSeq, sum_lossSeq_apply] at hRl
+  simp only [OnlineLearning.regret_eq_sum_sub_sum, StdSimplex.weights_single,
+    Finsupp.sum_single_index, zero_mul, one_mul] at hRl
+  rw [sub_le_iff_le_add', sum_alt_weights_sum_mul_lossSeq, sum_lossSeq_apply] at hRl
   simp only [loss_def] at hRl
   refine sum_le_sum_sum_mul_add_of_regret (w := fun s ↦ G.weights s (history O A Y s ω))
     (U := fun s ↦ G.gains s (history O A Y s ω)) (q := fun s ↦ G.altDist s (history O A Y s ω))
     (ℓ := fun s b θ' ↦ G.divergence b (G.est s (history O A Y s ω) b) θ')
     (fun s hs ↦ hw s (mem_range.1 (mem_filter.1 hs).1) (mem_filter.1 hs).2)
-    (fun s hs ↦ hUC s (mem_range.1 (mem_filter.1 hs).1) (mem_filter.1 hs).2) (fun a ↦ ?_) hRl a
+    (fun s hs ↦ hUC s (mem_range.1 (mem_filter.1 hs).1) (mem_filter.1 hs).2) (fun a ↦ ?_)
+    (by linarith) a
   rw [← sum_gainSeq_apply, ← sum_sum_alloc_mul_gainSeq]
-  exact hRk a
+  have h := hRk a
+  simp [OnlineLearning.regret_eq_sum_sub_sum, Pi.single_apply] at h
+  linarith
 
 end Trajectory
 
@@ -527,23 +536,27 @@ theorem sum_gains_le_sum_sum_mul_add_of_adaHedge (j : ℐ)
       (2 * OnlineLearning.adaHedgeGap (fun s ↦ -G.gainSeq O A Y ω j s) t +
         ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
           ∑ b, G.weights s (history O A Y s ω) b * C s b) := by
+  classical
   have hw : ∀ s < t, G.cand s (history O A Y s ω) = j →
       ∀ a, 0 ≤ G.weights s (history O A Y s ω) a := fun s _ hs ↦ by
-    rw [weights_history, hs, halloc]
-    exact (mem_simplex_iff.1 (OnlineLearning.adaHedgeAlloc_mem_simplex _ _)).1
-  have hRl : ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
-      r * G.lossSeq O A Y ω j s θ') ≤ ∑ s ∈ range t, G.lossSeq O A Y ω j s θ + 0 := by
-    rw [halt, add_zero]
-    refine OnlineLearning.sum_sum_bestResponse_le br _ fun s hs ↦ ?_
+    rw [weights_history, hs, halloc, OnlineLearning.run_adaHedgeAlloc]
+    exact (mem_simplex_iff.1 (OnlineLearning.adaHedge_mem_simplex _ _)).1
+  have hRl : OnlineLearning.regret
+      (fun s q ↦ q.weights.sum fun θ' r ↦ r * G.lossSeq O A Y ω j s θ')
+      ((G.alt j).run (G.lossSeq O A Y ω j) (G.lossSeq O A Y ω j)) (StdSimplex.single θ) t ≤ 0 := by
+    rw [halt]
+    refine (OnlineLearning.hasRegretBound_bestResponse br θ).regret_le (fun s hs ↦ ?_)
+      (Set.mem_singleton _)
     by_cases hj : G.cand s (history O A Y s ω) = j
     · rw [lossSeq_of_cand_eq _ hj]
       exact hbr s hs hj
     · simp [lossSeq_of_cand_ne _ hj]
-  have hRk : ∀ a, ∑ s ∈ range t, G.gainSeq O A Y ω j s a ≤ ∑ s ∈ range t,
-      ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b +
+  have hRk : ∀ a, OnlineLearning.regret (fun s w ↦ -∑ b, w b * G.gainSeq O A Y ω j s b)
+      ((G.alloc j).run (fun _ ↦ ()) (G.gainSeq O A Y ω j)) (Pi.single a 1) t ≤
         2 * OnlineLearning.adaHedgeGap (fun s ↦ -G.gainSeq O A Y ω j s) t := fun a ↦ by
     rw [halloc]
-    exact OnlineLearning.sum_le_sum_sum_adaHedgeAlloc_mul_add _ t a
+    exact OnlineLearning.hasRegretBound_adaHedgeAlloc.regret_le (fun _ _ ↦ trivial)
+      (mem_simplex_iff.2 ⟨fun b ↦ by by_cases hb : b = a <;> simp [hb], by simp⟩)
   have key := G.sum_gains_le_sum_sum_mul_add_of_regret O A Y ω j hw hUC hRk hRl a
   rwa [add_zero] at key
 
