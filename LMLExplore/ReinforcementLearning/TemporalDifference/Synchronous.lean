@@ -512,18 +512,12 @@ theorem syncQLearning_sub_optQValue_eq_tdPropagator [Unique 𝓐] (hγ : γ < 1)
   rw [congrFun h p, Pi.add_apply, tdNoise_eq_sum_apply]
   simp only [syncQLearning_zero]
 
-/-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` on every `Ioc k t`. -/
-lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
-    (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
-  obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-  exact hη j
-
 /-- For `γ < 1` and learning rates in `[0, 1]` from iteration `1` on, the products
 `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` are nonnegative. -/
 lemma prod_one_sub_mul_one_sub_nonneg (hγ : γ < 1) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
     (k t : ℕ) : 0 ≤ ∏ i ∈ Ioc k t, (1 - η i * (1 - γ)) :=
   Real.prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le))
-    (by linarith [γ.coe_nonneg]) fun _ hi ↦ mem_Icc_of_mem_Ioc hη hi
+    (by linarith [γ.coe_nonneg]) fun _ hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi
 
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
@@ -582,7 +576,7 @@ theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le [Nonempty 𝓐]
     field_simp
     ring
   have hηk (k : ℕ) : ∀ i ∈ Ioc (k + 1) t, η i ∈ Set.Icc (0 : ℝ) 1 := fun i hi ↦
-    mem_Icc_of_mem_Ioc hη hi
+    learningRate_mem_Icc_of_mem_Ioc hη hi
   have hc (k : ℕ) : |σ * (η (k + 1) * γ)| = η (k + 1) * γ := by
     rw [abs_mul, hσ, one_mul, abs_of_nonneg (mul_nonneg (hη k).1 γ.coe_nonneg)]
   -- the weights of the noises are `σ η (k + 1) γ` times the entries of `Φ (k + 1) t`
@@ -628,7 +622,8 @@ private lemma lt_abs_tdNoise_of_lt_abs_syncQLearning_sub_optQValue [Unique 𝓐]
     abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
   have h₀ := Kernel.abs_tdPropagator_le
     (κ := M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) (γ := γ)
-    (k := 0) (t := t) (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (f := fun q ↦ Q₀ q - M.optQValue γ q)
+    (k := 0) (t := t) (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
+    (f := fun q ↦ Q₀ q - M.optQValue γ q)
     (fun q ↦ by simpa using abs_syncQLearning_sub_optQValue_le (η := η) hγ hR hη hQ₀ 0 ω q) p
   rw [syncQLearning_sub_optQValue_eq_tdPropagator hγ hRabs] at h
   linarith [(abs_add_le _ _).trans_lt' h]
@@ -729,7 +724,7 @@ lemma tdNoiseVarBound_nonneg {κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)} [IsFini
   rw [tdNoiseVarBound_def]
   refine sum_nonneg fun k _ ↦ mul_nonneg (mul_nonneg (sq_nonneg _)
     (prod_one_sub_mul_one_sub_nonneg hγ hη _ _))
-    (Kernel.tdPropagator_nonneg (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi)
+    (Kernel.tdPropagator_nonneg (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
       (fun q ↦ variance_nonneg _ _) p)
 
 /-- **The quadratic variation of the noise in terms of the errors** [LCCWC24, (117), (95) and
@@ -777,7 +772,7 @@ theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x �
     (κ := M.saKernel (Kernel.deterministic π (measurable_of_finite π))) hγ
   rw [tdNoiseVarBound_def]
   refine (Kernel.sum_sq_mul_prod_mul_tdPropagator_le hγ hmt
-    (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (G := B ^ 2)
+    (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi) (G := B ^ 2)
     (v := fun q ↦ Var[M.optValue γ; M.P q] + 4 * B * D)
     (fun k _ q ↦ variance_nonneg _ _)
     (fun k _ q ↦ by

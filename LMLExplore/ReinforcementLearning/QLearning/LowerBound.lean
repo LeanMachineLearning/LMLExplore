@@ -99,7 +99,8 @@ private lemma lt_neg_tdNoise_of_lt_optQValue_sub_syncQLearning (hγ : γ < 1)
   have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
   have h₀ := Kernel.abs_tdPropagator_le
     (κ := M.saKernel (Kernel.deterministic π (measurable_of_finite π))) (γ := γ)
-    (k := 0) (t := t) (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (f := fun q ↦ Q₀ q - M.optQValue γ q)
+    (k := 0) (t := t) (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
+    (f := fun q ↦ Q₀ q - M.optQValue γ q)
     (fun q ↦ by simpa using abs_syncQLearning_sub_optQValue_le (η := η) hγ hR hη hQ₀ 0 ω q) p
   have h₁ := tdPropagator_add_tdNoise_le_syncQLearning_sub_optQValue (Q₀ := Q₀) hη ω hπ t p
   linarith [neg_abs_le (Kernel.tdPropagator
