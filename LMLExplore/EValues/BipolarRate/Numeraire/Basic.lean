@@ -49,6 +49,8 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
 
 * `ProbabilityTheory.ae_tendsto_log_numeraire_div_bipolarRate`: `(1/n) log (X* n)` tends to the
   bipolar rate almost surely.
+* `ProbabilityTheory.isEVar_numeraire_sampleNull`: `X* n` is an e-variable for the `n`-sample
+  null.
 * `ProbabilityTheory.ae_eventually_log_le_log_numeraire_add`,
   `ProbabilityTheory.ae_eventually_log_le_log_numeraire_add_of_adapted`: the comparison of
   `n`-sample e-variables, and of e-variables of the i.i.d. null adapted to the filtration
@@ -116,6 +118,12 @@ private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) �
   exact Finset.prod_le_prod fun j _ ↦ ENNReal.ofReal_exp_truncLog_le (h j)
 
 /-! ### Comparison with the numeraire -/
+
+/-- The numeraire of the `n`-sample null under `Q₁ ^ n` is an e-variable for the `n`-sample null,
+for a null `S₁` of measures of mass at most one. -/
+theorem isEVar_numeraire_sampleNull (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
+    IsEVar (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n)) (sampleNull S₁ n) :=
+  isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
 
 /-- **Comparison of an `n`-sample e-variable with the numeraire.** For every sequence of
 e-variables `M n` for the `n`-fold products of the members of `S₁` and every `ε > 0`, almost
@@ -239,8 +247,8 @@ private lemma ae_eventually_mul_le_log_of_forall_ae_eventually_log_le (Q₁ : Me
   have h2 := hT (fun n ↦ seqBlockProd m Em (n / m))
     (fun n ↦ Filtration.measurable_piLT_of_dependsOn (measurable_seqBlockProd hEm _)
       ((dependsOn_seqBlockProd Em _).mono (Set.Iio_subset_Iio (Nat.div_mul_le_self n m))))
-    (fun n ↦ isEVar_seqBlockProd (isEVar_numeraire _
-      (measure_univ_le_one_of_mem_sampleNull (fun P hP ↦ (hS₁ P hP).measure_univ.le) m)) _)
+    (fun n ↦ isEVar_seqBlockProd
+      (isEVar_numeraire_sampleNull Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le) m) _)
     (L' - L) (sub_pos.2 (EReal.coe_lt_coe_iff.1 hLL'))
   filter_upwards [h1, h2] with ω hω1 hω2
   filter_upwards [hω1, hω2] with n hn1 hn2
@@ -294,9 +302,8 @@ theorem ae_tendsto_log_numeraire_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbab
       Tendsto (fun n : ℕ ↦ ENNReal.log (numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         (sampleNull S₁ n) (initSeg n ω)) / (n : EReal)) atTop
         (𝓝 (bipolarRate Q₁ S₁)) := by
-  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦ isEVar_numeraire _
-      (measure_univ_le_one_of_mem_sampleNull
-        (fun P hP ↦ (hS₁ P hP).measure_univ.le) n),
+  filter_upwards [ae_limsup_log_div_le_bipolarRate Q₁ hS₁ fun n ↦
+      isEVar_numeraire_sampleNull Q₁ (fun P hP ↦ (hS₁ P hP).measure_univ.le) n,
     ae_bipolarRate_le_liminf_log_div_of_forall_ae_eventually_log_le Q₁ hS₁
       (T := fun n ω ↦ numeraire (Measure.pi fun _ : Fin n ↦ Q₁)
         (sampleNull S₁ n) (initSeg n ω))
