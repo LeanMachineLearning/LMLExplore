@@ -104,9 +104,11 @@ in `env`. -/
 lemma StopsAS.of_expectedStoppingTime_ne_top (h : expectedStoppingTime A env ≠ ∞) :
     StopsAS A env := by
   rw [stopsAS_iff_ae_stoppingTime_ne_top (IT.isAlgEnvSeq_trajMeasure A.alg env)]
-  filter_upwards [ae_lt_top (Measurable.of_discrete.comp (A.measurable_stoppingTime
-    IT.measurable_obs IT.measurable_action IT.measurable_feedback)) h] with ω hω
-  exact ENat.toENNReal_ne_top.mp hω.ne
+  -- the identity map reads the `WithTop ℕ`-valued stopping time as `ℕ∞`-valued, which typechecks
+  -- because `ℕ∞` is defined as `WithTop ℕ`
+  exact ae_ne_top_of_lintegral_toENNReal_ne_top
+    ((measurable_of_countable (β := ℕ∞) fun t : WithTop ℕ ↦ t).comp (A.measurable_stoppingTime
+      IT.measurable_obs IT.measurable_action IT.measurable_feedback)).aemeasurable h
 
 /-- **Stopping earlier lowers the expected stopping time.** If the identification algorithm `A'`
 has the same sampling rule as `A` and stops after every history after which `A` stops, then

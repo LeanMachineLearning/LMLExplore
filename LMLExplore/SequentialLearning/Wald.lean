@@ -149,9 +149,8 @@ theorem IsAlgEnvSeq.integral_sum_feedback_eq_integral_sum_means [IsFiniteMeasure
   have hS_F (t : ℕ) : MeasurableSet[h.filtrationAction t] (S t) := hτ.measurableSet_gt t
   have hS (t : ℕ) : MeasurableSet (S t) := h.filtrationAction.le t _ (hS_F t)
   have hτ_meas := hτ.measurable_enat
-  have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ := by
-    filter_upwards [ae_lt_top (Measurable.of_discrete.comp hτ_meas) hτ_int] with ω hω
-    exact ENat.toENNReal_ne_top.1 hω.ne
+  have hτ_fin : ∀ᵐ ω ∂P, τ ω ≠ ⊤ :=
+    ae_ne_top_of_lintegral_toENNReal_ne_top hτ_meas.aemeasurable hτ_int
   set m : ℕ → Ω → 𝓨 := fun t ω ↦ env.means O A Y (A t ω) t ω
   set c : ℕ → Ω → ℝ≥0∞ := fun t ω ↦ ∫⁻ y, ‖y‖ₑ ∂(env.feedbackKernel O A Y t ω (A t ω))
   have hY_int (t : ℕ) : Integrable (Y t) P := by

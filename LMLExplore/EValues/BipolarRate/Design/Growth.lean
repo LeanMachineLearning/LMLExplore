@@ -23,7 +23,8 @@ is the constant of the sharp form of the Wald inequality with a design [EVR26, N
 Theorem 1]: an e-variable at a stopping time `τ` of finite mean of an algorithm has expected
 logarithm at most `G (𝔼_μ[N τ])`, with `N τ` the vector of the numbers of observations of each
 source. `ProbabilityTheory.integral_truncLog_le_designGrowth` proves it for a round that reads a
-bounded number of observations. The growth refines
+bounded number of observations, and `Learning.IsAlgEnvSeq.eintegral_log_le_designGrowth` for an
+algorithm and the hitting time of a stopping rule. The growth refines
 the rate of the designs: `G x ≤ D* * ∑ a, x a` with `D* = designRate μ Λ`, and it is also at most
 the entropy bound `⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)`.
 

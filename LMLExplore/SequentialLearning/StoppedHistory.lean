@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LeanMachineLearning.SequentialLearning.FiniteActions
 public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LeanMachineLearning.SequentialLearning.StoppedHistory
 public import Mathlib.Data.Fin.Tuple.Take
@@ -56,9 +57,11 @@ most `M` rounds.
   the law of the history stopped at the time `M` is the image of the law of the stopped history by
   `truncHist M`.
 * `Learning.IsAlgEnvSeq.setLIntegral_comp_stoppedValue_sigmaHistory`,
-  `Learning.IsAlgEnvSeq.lintegral_toENNReal_hittingAfter`: the expectation of a function of the
-  stopped history on the event that `S` stops, and the expected hitting time of `S` when it is
-  almost surely finite, are expectations under the law of the stopped history.
+  `Learning.IsAlgEnvSeq.lintegral_toENNReal_hittingAfter`,
+  `Learning.IsAlgEnvSeq.lintegral_pullCount_hittingAfter`: the expectation of a function of the
+  stopped history on the event that `S` stops, the expected hitting time of `S` when it is
+  almost surely finite, and the expected number of times that an action is chosen before it, are
+  expectations under the law of the stopped history.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_add`,
   `Learning.map_stoppedProcess_sigmaHistory_succ_eq_add`: the laws of the histories stopped at the
   times `M` and `M + 1` split according to whether round `M` is played.
@@ -656,6 +659,19 @@ lemma IsAlgEnvSeq.lintegral_toENNReal_hittingAfter (h : IsAlgEnvSeq O X Y alg en
   rw [fst_stoppedValue_sigmaHistory]
   conv_lhs => rw [← WithTop.natCast_untopA hω]
   exact ENat.toENNReal_coe _
+
+/-- The expected number of times that the action `a` is chosen before the hitting time of `S` is
+its expected number of occurrences in the stopped history, under the law of the stopped
+history. Where `S` never stops, the hitting time is `⊤` and both counts are `0`. -/
+lemma IsAlgEnvSeq.lintegral_pullCount_hittingAfter [DecidableEq 𝓐] [MeasurableSingletonClass 𝓐]
+    (h : IsAlgEnvSeq O X Y alg env P) (hS : MeasurableSet S) (a : 𝓐) :
+    ∫⁻ ω, (pullCount X a (hittingAfter (sigmaHistory O X Y) S 0 ω).untopA ω : ℝ≥0∞) ∂P =
+      ∫⁻ x, (pullCount' x.1 x.2 a : ℝ≥0∞) ∂stoppedHistMeasure alg env S := by
+  have hf : Measurable fun x : (Σ n, Hist 𝓞 𝓐 𝓨 n) ↦ (pullCount' x.1 x.2 a : ℝ≥0∞) :=
+    measurable_sigma fun n ↦ measurable_from_nat.comp (measurable_pullCount' n a)
+  refine Eq.trans ?_ ((h.hasLaw_stoppedValue_sigmaHistory hS).lintegral_comp hf.aemeasurable)
+  refine lintegral_congr fun ω ↦ ?_
+  rw [pullCount_eq_pullCount' (O := O) (R' := Y), stoppedValue, sigmaHistory_apply]
 
 end HittingTime
 

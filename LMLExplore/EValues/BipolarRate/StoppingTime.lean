@@ -13,6 +13,7 @@ import LMLExplore.Bandits.ArrayModel.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.BipolarRate.Design.Algorithm
 import LMLExplore.EValues.EProcess.Closure
+import LMLExplore.MeasureTheory.Integral.Lebesgue.ENat
 import LMLExplore.Probability.HasLaw
 import LMLExplore.Probability.Process.Filtration
 
@@ -245,10 +246,8 @@ theorem toENNReal_log_inv_div_bipolarRate_le_lintegral (Q₁ : Measure 𝓧)
   · rw [hm]
     exact le_top
   -- a test with a finite expected number of observations stops almost surely
-  have hτQ : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), τ ω ≠ ⊤ := by
-    filter_upwards [ae_lt_top (measurable_from_top.comp hτ.isStoppingTime.measurable_enat) hm]
-      with ω hω
-    exact ENat.toENNReal_ne_top.1 hω.ne
+  have hτQ : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), τ ω ≠ ⊤ :=
+    ae_ne_top_of_lintegral_toENNReal_ne_top hτ.isStoppingTime.measurable_enat.aemeasurable hm
   -- the Wald inequality for the constant `1/α`
   have h := eintegral_log_le_lintegral_mul_bipolarRate Q₁ hS₁ hS₁ne hτ.isStoppingTime
     (Y := fun _ ↦ α⁻¹) measurable_const (fun P hP ↦ ?_) hτQ

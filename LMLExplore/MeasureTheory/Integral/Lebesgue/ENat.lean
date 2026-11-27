@@ -72,4 +72,11 @@ lemma lintegral_toENNReal_eq_top_of_measure_ne_zero (hf : AEMeasurable f μ)
   lintegral_eq_top_of_measure_eq_top_ne_zero ((measurable_of_countable _).comp_aemeasurable hf)
     (by simpa using h)
 
+/-- An a.e.-measurable function with values in `ℕ∞` with finite integral, such as a random time
+with finite mean, is almost everywhere finite. -/
+lemma ae_ne_top_of_lintegral_toENNReal_ne_top (hf : AEMeasurable f μ)
+    (h : ∫⁻ ω, (f ω : ℝ≥0∞) ∂μ ≠ ∞) : ∀ᵐ ω ∂μ, f ω ≠ ⊤ := by
+  filter_upwards [ae_lt_top' ((measurable_of_countable _).comp_aemeasurable hf) h] with ω hω
+  exact ENat.toENNReal_ne_top.1 hω.ne
+
 end MeasureTheory
