@@ -315,7 +315,7 @@ lemma weightedMeasure_softmax [MeasurableSpace α] [MeasurableSingletonClass α]
   have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
   have hZ : 0 < ∑ b, exp (-(η * L b)) := Finset.sum_pos (fun b _ ↦ exp_pos _) univ_nonempty
   refine Measure.ext_iff_singleton.2 fun a ↦ ?_
-  rw [weightedMeasure_singleton, Measure.gibbs_def, tilted_apply, lintegral_singleton,
+  rw [weightedMeasure_singleton, Measure.gibbs_apply, lintegral_singleton,
     weightedMeasure_singleton, integral_weightedMeasure_eq_sum fun _ ↦ inv_nonneg.2 hK.le,
     ← ENNReal.ofReal_mul (by positivity)]
   congr 1

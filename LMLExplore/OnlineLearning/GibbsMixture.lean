@@ -102,6 +102,25 @@ noncomputable def gibbs (μ : Measure Θ) (L : Θ → ℝ) (lam : ℝ) : Measure
 lemma gibbs_def (μ : Measure Θ) (L : Θ → ℝ) (lam : ℝ) :
     μ.gibbs L lam = μ.tilted fun θ ↦ -L θ / lam := (rfl)
 
+/-- The mass of a set under the Gibbs measure: the integral over it of the density
+`exp (-L θ / lam) / ∫ exp (-L θ' / lam) ∂μ` against the prior. -/
+lemma gibbs_apply (μ : Measure Θ) [SFinite μ] (L : Θ → ℝ) (lam : ℝ) (s : Set Θ) :
+    μ.gibbs L lam s =
+      ∫⁻ θ in s, ENNReal.ofReal (exp (-L θ / lam) / ∫ θ', exp (-L θ' / lam) ∂μ) ∂μ :=
+  tilted_apply μ _ s
+
+/-- The density of the Gibbs measure against the prior is
+`exp (-L θ / lam) / ∫ exp (-L θ' / lam) ∂μ`. -/
+lemma rnDeriv_gibbs [SigmaFinite μ] (hL : AEMeasurable (fun θ ↦ -L θ / lam) μ) :
+    (μ.gibbs L lam).rnDeriv μ =ᵐ[μ]
+      fun θ ↦ ENNReal.ofReal (exp (-L θ / lam) / ∫ θ', exp (-L θ' / lam) ∂μ) :=
+  rnDeriv_tilted_left_self hL
+
+/-- The Gibbs measure is the zero measure or a probability measure, like every tilted measure. -/
+instance isZeroOrProbabilityMeasure_gibbs (μ : Measure Θ) (L : Θ → ℝ) (lam : ℝ) :
+    IsZeroOrProbabilityMeasure (μ.gibbs L lam) :=
+  isZeroOrProbabilityMeasure_tilted
+
 /-- The Gibbs measure of a nonzero prior, when `exp (-L / lam)` is `μ`-integrable, is a
 probability measure. -/
 lemma isProbabilityMeasure_gibbs [NeZero μ] (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) :
@@ -126,10 +145,9 @@ lemma integral_gibbs {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] (g :
 
 /-- The relative entropy of the Gibbs measure against the prior is finite when the losses are
 integrable under the Gibbs measure. -/
-lemma klDiv_gibbs_ne_top [SigmaFinite μ] [NeZero μ]
+lemma klDiv_gibbs_ne_top [SigmaFinite μ]
     (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) (hLG : Integrable L (μ.gibbs L lam)) :
     klDiv (μ.gibbs L lam) μ ≠ ∞ := by
-  have := isProbabilityMeasure_gibbs hexp
   refine klDiv_ne_top (gibbs_absolutelyContinuous μ L lam) ?_
   -- the log-likelihood ratio is `-L θ / lam - log Z`
   have hllr : llr (μ.gibbs L lam) μ =ᵐ[μ.gibbs L lam]
