@@ -10,6 +10,7 @@ public import LMLExplore.Identification.CumulativeTracking
 public import LMLExplore.Identification.GLR
 public import LMLExplore.Identification.OptimisticSaddlePoint
 public import LMLExplore.OnlineLearning.AdaHedge
+public import LMLExplore.OnlineLearning.BestResponse
 
 /-!
 # Pure exploration by solving games
@@ -40,13 +41,14 @@ losses at the rounds whose candidate is not `j`: these rounds contribute nothing
 the learners of `j`, and for AdaHedge they do not change the cumulative losses.
 
 This file defines the meta-algorithm as an identification algorithm for any choice of these
-ingredients, proves that it is `δ`-PAC whenever the deviations of the evidence at the true model
-are controlled ([DKM19, Theorem 1], from `IdentTask.isDeltaPAC_glrt`), and proves that the regret
-bounds of the learners make it an approximate optimistic saddle point algorithm along every
-trajectory [DKM19, Definition 2, Appendix D.2], which is the input of the analysis of
-`Identification/OptimisticSaddlePoint.lean`. AdaHedge is an allocation player of regret
-`2 Δ_t` (`adaHedgeAlloc`) and Best-Response is an alternative player without regret
-(`bestResponse`), the instance of [DKM19, Lemma 3].
+ingredients, proves that it is `δ`-PAC whenever it stops almost surely and the deviations of the
+evidence at the true model are controlled ([DKM19, Theorem 1], from `IdentTask.isDeltaPAC_glrt`),
+and proves that the regret bounds of the learners make it an approximate optimistic saddle point
+algorithm along every trajectory [DKM19, Definition 2, Appendix D.2], which is the input of the
+analysis of `Identification/OptimisticSaddlePoint.lean`. AdaHedge on gains
+(`OnlineLearning.adaHedgeAlloc`) is an allocation player of regret `2 Δ_t` and Best-Response
+(`OnlineLearning.bestResponse`) is an alternative player without regret, the instance of
+[DKM19, Lemma 3].
 
 ## Main definitions
 
@@ -63,8 +65,6 @@ trajectory [DKM19, Definition 2, Appendix D.2], which is the input of the analys
   fed to the learners of an answer.
 * `GameSamplingRule.evidence`: the evidence `∑ a, N_a d_a(x_a, λ)` of the GLRT.
 * `LMLExplore.Identification.IdentTask.gameExploration`: the meta-algorithm [DKM19, Algorithm 1].
-* `LMLExplore.Identification.adaHedgeAlloc`, `LMLExplore.Identification.bestResponse`: AdaHedge
-  as an allocation player and Best-Response as an alternative player.
 
 ## Main statements
 
@@ -79,14 +79,12 @@ trajectory [DKM19, Definition 2, Appendix D.2], which is the input of the analys
   the optimism `U_s a - E_{λ ∼ q_s} d_a(x_{s,a}, λ)`.
 * `GameSamplingRule.sum_gains_le_sum_sum_mul_add_of_adaHedge`: the same inequality for AdaHedge
   against Best-Response, with slack `2 Δ_t + ∑ ∑ b, w_s b C_s b` [DKM19, Lemma 3].
-* `GameSamplingRule.bonus_le_optimisticGain`, `GameSamplingRule.sum_mul_div_le_optimisticGain`:
-  the optimistic gains are at least the exploration bonus, and at least the expected divergence
-  at every mean of the confidence interval when the divergences are convex in the mean.
+* `GameSamplingRule.bonus_le_optimisticGain`,
+  `GameSamplingRule.sum_mul_divergence_le_optimisticGain`: the optimistic gains are at least the
+  exploration bonus, and at least the expected divergence at every mean of the confidence interval
+  when the divergences are convex in the mean.
 * `LMLExplore.Identification.IdentTask.isDeltaPAC_gameExploration`: the meta-algorithm is `δ`-PAC
   [DKM19, Theorem 1].
-* `LMLExplore.Identification.sum_le_sum_sum_adaHedgeAlloc_mul_add`,
-  `LMLExplore.Identification.sum_sum_bestResponse_le`: the regrets of AdaHedge and of
-  Best-Response.
 
 ## References
 
@@ -121,8 +119,8 @@ structure GameSamplingRule (α Θ ℐ 𝓨 : Type*) where
   upper : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ
   /-- The exploration bonuses of the arms. -/
   bonus : (n : ℕ) → Hist Unit α 𝓨 n → α → ℝ
-  /-- The divergence `div a y θ` from the mean `y` to the arm `a` of the model `θ`. -/
-  div : α → ℝ → Θ → ℝ
+  /-- The divergence `divergence a y θ` from the mean `y` to the arm `a` of the model `θ`. -/
+  divergence : α → ℝ → Θ → ℝ
   /-- The allocation player of each answer: its weights at round `t`, given the gains of the
   rounds before `t`. -/
   alloc : ℐ → (t : ℕ) → (Fin t → α → ℝ) → α → ℝ
@@ -140,35 +138,37 @@ section Gain
 
 /-- The optimistic gains of the arms after `n` rounds with history `h`, against the distribution
 `q` on the models: the gain of the arm `a` is the largest of its exploration bonus and of the
-expected divergences `E_{θ ∼ q} div a ξ θ` at the two ends `ξ` of its confidence interval. -/
+expected divergences `E_{θ ∼ q} divergence a ξ θ` at the two ends `ξ` of its confidence interval. -/
 noncomputable def optimisticGain (n : ℕ) (h : Hist Unit α 𝓨 n) (q : StdSimplex ℝ Θ) (a : α) : ℝ :=
-  max (G.bonus n h a) (max (q.weights.sum fun θ r ↦ r * G.div a (G.lower n h a) θ)
-    (q.weights.sum fun θ r ↦ r * G.div a (G.upper n h a) θ))
+  max (G.bonus n h a) (max (q.weights.sum fun θ r ↦ r * G.divergence a (G.lower n h a) θ)
+    (q.weights.sum fun θ r ↦ r * G.divergence a (G.upper n h a) θ))
 
 lemma optimisticGain_def (n : ℕ) (h : Hist Unit α 𝓨 n) (q : StdSimplex ℝ Θ) (a : α) :
     G.optimisticGain n h q a = max (G.bonus n h a)
-      (max (q.weights.sum fun θ r ↦ r * G.div a (G.lower n h a) θ)
-        (q.weights.sum fun θ r ↦ r * G.div a (G.upper n h a) θ)) := (rfl)
+      (max (q.weights.sum fun θ r ↦ r * G.divergence a (G.lower n h a) θ)
+        (q.weights.sum fun θ r ↦ r * G.divergence a (G.upper n h a) θ)) := (rfl)
 
 /-- The optimistic gain of an arm is at least its exploration bonus. -/
 lemma bonus_le_optimisticGain (n : ℕ) (h : Hist Unit α 𝓨 n) (q : StdSimplex ℝ Θ) (a : α) :
     G.bonus n h a ≤ G.optimisticGain n h q a :=
   le_max_left _ _
 
-/-- **Optimism of the gains.** If the divergences `div a · θ` of the models in the support of `q`
-are convex on the confidence interval of the arm `a`, then the optimistic gain of `a` is at least
-the expected divergence `E_{θ ∼ q} div a ξ θ` at every mean `ξ` of the confidence interval. -/
-lemma sum_mul_div_le_optimisticGain {n : ℕ} {h : Hist Unit α 𝓨 n} {q : StdSimplex ℝ Θ} {a : α}
+/-- **Optimism of the gains.** If the divergences `divergence a · θ` of the models in the support of
+`q` are convex on the confidence interval of the arm `a`, then the optimistic gain of `a` is at
+least the expected divergence `E_{θ ∼ q} divergence a ξ θ` at every mean `ξ` of the confidence
+interval. -/
+lemma sum_mul_divergence_le_optimisticGain {n : ℕ} {h : Hist Unit α 𝓨 n} {q : StdSimplex ℝ Θ}
+    {a : α}
     (hconv : ∀ θ ∈ q.weights.support,
-      ConvexOn ℝ (Set.Icc (G.lower n h a) (G.upper n h a)) (G.div a · θ))
+      ConvexOn ℝ (Set.Icc (G.lower n h a) (G.upper n h a)) (G.divergence a · θ))
     {ξ : ℝ} (hξ : ξ ∈ Set.Icc (G.lower n h a) (G.upper n h a)) :
-    (q.weights.sum fun θ r ↦ r * G.div a ξ θ) ≤ G.optimisticGain n h q a := by
+    (q.weights.sum fun θ r ↦ r * G.divergence a ξ θ) ≤ G.optimisticGain n h q a := by
   have hlu : G.lower n h a ≤ G.upper n h a := hξ.1.trans hξ.2
   -- the expected divergence is convex in the mean, as a combination with nonnegative weights
   have hconv' : ConvexOn ℝ (Set.Icc (G.lower n h a) (G.upper n h a))
-      fun ξ ↦ q.weights.sum fun θ r ↦ r * G.div a ξ θ := by
+      fun ξ ↦ q.weights.sum fun θ r ↦ r * G.divergence a ξ θ := by
     have h := StrongConvexOn.fun_sum (m := fun _ ↦ 0)
-      (f := fun θ ξ ↦ q.weights θ • G.div a ξ θ) (convex_Icc _ _) fun θ hθ ↦
+      (f := fun θ ξ ↦ q.weights θ • G.divergence a ξ θ) (convex_Icc _ _) fun θ hθ ↦
         strongConvexOn_zero.2 ((hconv θ hθ).smul (StdSimplex.weights_nonneg (w := q) θ))
     rw [Finset.sum_const_zero, strongConvexOn_zero] at h
     simpa only [Finsupp.sum, smul_eq_mul] using h
@@ -178,12 +178,12 @@ lemma sum_mul_div_le_optimisticGain {n : ℕ} {h : Hist Unit α 𝓨 n} {q : Std
 variable [Fintype α]
 
 /-- The loss of the alternative player after `n` rounds with history `h`, for the weights `w` of
-the allocation player: the model `θ` costs `∑ a, w a * div a (est a) θ`. -/
+the allocation player: the model `θ` costs `∑ a, w a * divergence a (est a) θ`. -/
 noncomputable def loss (n : ℕ) (h : Hist Unit α 𝓨 n) (w : α → ℝ) (θ : Θ) : ℝ :=
-  ∑ a, w a * G.div a (G.est n h a) θ
+  ∑ a, w a * G.divergence a (G.est n h a) θ
 
 lemma loss_def (n : ℕ) (h : Hist Unit α 𝓨 n) (w : α → ℝ) (θ : Θ) :
-    G.loss n h w θ = ∑ a, w a * G.div a (G.est n h a) θ := (rfl)
+    G.loss n h w θ = ∑ a, w a * G.divergence a (G.est n h a) θ := (rfl)
 
 end Gain
 
@@ -195,11 +195,11 @@ variable [Fintype α] [DecidableEq α]
 model `θ`: `∑ a, N_a d_a(x_a, θ)`, with `N_a` the number of pulls of the arm `a` and `x_a` its
 estimated mean. -/
 noncomputable def evidence (n : ℕ) (h : Hist Unit α 𝓨 n) (θ : Θ) : ℝ≥0∞ :=
-  ENNReal.ofReal (∑ a, (pullCount' n h a : ℝ) * G.div a (G.est n h a) θ)
+  ENNReal.ofReal (∑ a, (pullCount' n h a : ℝ) * G.divergence a (G.est n h a) θ)
 
 lemma evidence_def (n : ℕ) (h : Hist Unit α 𝓨 n) (θ : Θ) :
-    G.evidence n h θ = ENNReal.ofReal (∑ a, (pullCount' n h a : ℝ) * G.div a (G.est n h a) θ) :=
-  (rfl)
+    G.evidence n h θ =
+      ENNReal.ofReal (∑ a, (pullCount' n h a : ℝ) * G.divergence a (G.est n h a) θ) := (rfl)
 
 end Evidence
 
@@ -351,14 +351,64 @@ lemma altDist_history (n : ℕ) :
   | last => rw [Fin.snoc_last, Fin.val_last, lossSeq_of_cand_eq _ rfl]
   | cast i => rw [Fin.snoc_castSucc, feedback_history, Fin.val_castSucc]
 
+/-- Along a trajectory, the cumulative gains fed to the learners of `j` are the cumulative
+optimistic gains of the rounds whose candidate answer is `j`. -/
+lemma sum_gainSeq_apply (t : ℕ) (j : ℐ) (a : α) :
+    ∑ s ∈ range t, G.gainSeq O A Y ω j s a =
+      ∑ s ∈ range t with G.cand s (history O A Y s ω) = j, G.gains s (history O A Y s ω) a := by
+  rw [Finset.sum_filter]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  by_cases hs : G.cand s (history O A Y s ω) = j <;> simp [hs]
+
+/-- Along a trajectory, the cumulative losses fed to the learners of `j` are the cumulative losses
+of the weights of the rounds whose candidate answer is `j`. -/
+lemma sum_lossSeq_apply (t : ℕ) (j : ℐ) (θ : Θ) :
+    ∑ s ∈ range t, G.lossSeq O A Y ω j s θ =
+      ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
+        G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)) θ := by
+  rw [Finset.sum_filter]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  by_cases hs : G.cand s (history O A Y s ω) = j <;> simp [hs]
+
+/-- Along a trajectory, the cumulative gain of the allocation player of `j` on the gains fed to it
+is the cumulative gain of the weights on the rounds whose candidate answer is `j`. -/
+lemma sum_sum_alloc_mul_gainSeq (t : ℕ) (j : ℐ) :
+    ∑ s ∈ range t,
+        ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b =
+      ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
+        ∑ b, G.weights s (history O A Y s ω) b * G.gains s (history O A Y s ω) b := by
+  rw [Finset.sum_filter]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  by_cases hs : G.cand s (history O A Y s ω) = j
+  · rw [G.weights_history, hs]
+    simp [hs]
+  · simp [hs]
+
+/-- Along a trajectory, the cumulative expected loss of the alternative player of `j` on the
+losses fed to it is the cumulative expected loss of `altDist` on the rounds whose candidate answer
+is `j`. -/
+lemma sum_alt_weights_sum_mul_lossSeq (t : ℕ) (j : ℐ) :
+    ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
+        r * G.lossSeq O A Y ω j s θ') =
+      ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
+        ((G.altDist s (history O A Y s ω)).weights.sum fun θ' r ↦
+          r * G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)) θ') := by
+  rw [Finset.sum_filter]
+  refine Finset.sum_congr rfl fun s _ ↦ ?_
+  by_cases hs : G.cand s (history O A Y s ω) = j
+  · rw [G.altDist_history, hs]
+    simp [hs]
+  · simp [hs]
+
 /-- **The meta-algorithm is an approximate optimistic saddle point algorithm**
 [DKM19, Definition 2, Appendix D.2]. Along a trajectory, let the allocation player of the answer
 `j` have regret at most `Rk` after `t` rounds on the gains `gainSeq` fed to it, and its alternative
 player have regret at most `Rl` against the model `θ` on the losses `lossSeq`. If the weights are
 nonnegative and the optimistic gains of the rounds of `j` exceed the expected divergences
-`E_{θ' ∼ q_s} div a (x_{s,a}) θ'` at the estimates by at most `C s a`, then on the rounds `s < t`
-whose candidate answer is `j`,
-`∑ U_s a ≤ ∑ ∑ b, w_s b div b (x_{s,b}) θ + (Rk + Rl + ∑ ∑ b, w_s b C s b)` for every arm `a`.
+`E_{θ' ∼ q_s} divergence a (x_{s,a}) θ'` at the estimates by at most `C s a`, then on the rounds
+`s < t` whose candidate answer is `j`,
+`∑ U_s a ≤ ∑ ∑ b, w_s b divergence b (x_{s,b}) θ + (Rk + Rl + ∑ ∑ b, w_s b C s b)` for every
+arm `a`.
 
 This is the saddle-point inequality `sum_le_sum_sum_mul_add_of_regret` on the rounds of `j`, and
 the hypothesis of `IdentTask.card_mul_answerValue_le_iInf_add` and
@@ -368,61 +418,28 @@ theorem sum_gains_le_sum_sum_mul_add_of_regret {t : ℕ} (j : ℐ) {θ : Θ} {C 
     (hw : ∀ s < t, G.cand s (history O A Y s ω) = j → ∀ a, 0 ≤ G.weights s (history O A Y s ω) a)
     (hUC : ∀ s < t, G.cand s (history O A Y s ω) = j → ∀ a, G.gains s (history O A Y s ω) a ≤
       ((G.altDist s (history O A Y s ω)).weights.sum fun θ' r ↦
-        r * G.div a (G.est s (history O A Y s ω) a) θ') + C s a)
+        r * G.divergence a (G.est s (history O A Y s ω) a) θ') + C s a)
     (hRk : ∀ a, ∑ s ∈ range t, G.gainSeq O A Y ω j s a ≤ ∑ s ∈ range t,
       ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b + Rk)
     (hRl : ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
       r * G.lossSeq O A Y ω j s θ') ≤ ∑ s ∈ range t, G.lossSeq O A Y ω j s θ + Rl) (a : α) :
     ∑ s ∈ range t with G.cand s (history O A Y s ω) = j, G.gains s (history O A Y s ω) a ≤
       ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
-        ∑ b, G.weights s (history O A Y s ω) b * G.div b (G.est s (history O A Y s ω) b) θ +
+        ∑ b, G.weights s (history O A Y s ω) b *
+          G.divergence b (G.est s (history O A Y s ω) b) θ +
       (Rk + Rl + ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
         ∑ b, G.weights s (history O A Y s ω) b * C s b) := by
-  set S := (range t).filter fun s ↦ G.cand s (history O A Y s ω) = j with hS
-  have hmem : ∀ s ∈ S, s < t ∧ G.cand s (history O A Y s ω) = j := fun s hs ↦ by
-    simpa [hS] using hs
-  refine sum_le_sum_sum_mul_add_of_regret (S := S) (w := fun s ↦ G.weights s (history O A Y s ω))
+  rw [sum_alt_weights_sum_mul_lossSeq, sum_lossSeq_apply] at hRl
+  simp only [loss_def] at hRl
+  refine sum_le_sum_sum_mul_add_of_regret (w := fun s ↦ G.weights s (history O A Y s ω))
     (U := fun s ↦ G.gains s (history O A Y s ω)) (q := fun s ↦ G.altDist s (history O A Y s ω))
-    (ℓ := fun s b θ' ↦ G.div b (G.est s (history O A Y s ω) b) θ')
-    (fun s hs ↦ hw s (hmem s hs).1 (hmem s hs).2) (fun s hs ↦ hUC s (hmem s hs).1 (hmem s hs).2)
-    (fun a ↦ ?_) ?_ a
-  · -- the regret of the allocation player of `j`, on the rounds of `j`
-    have h1 : ∑ s ∈ range t, G.gainSeq O A Y ω j s a =
-        ∑ s ∈ S, G.gains s (history O A Y s ω) a := by
-      rw [hS, Finset.sum_filter]
-      refine Finset.sum_congr rfl fun s _ ↦ ?_
-      by_cases hs : G.cand s (history O A Y s ω) = j <;> simp [hs]
-    have h2 : ∑ s ∈ range t,
-        ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b =
-        ∑ s ∈ S, ∑ b, G.weights s (history O A Y s ω) b * G.gains s (history O A Y s ω) b := by
-      rw [hS, Finset.sum_filter]
-      refine Finset.sum_congr rfl fun s _ ↦ ?_
-      by_cases hs : G.cand s (history O A Y s ω) = j
-      · rw [G.weights_history, hs]
-        simp [hs]
-      · simp [hs]
-    linarith [hRk a]
-  · -- the regret of the alternative player of `j`, on the rounds of `j`
-    have h3 : ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
-        r * G.lossSeq O A Y ω j s θ') = ∑ s ∈ S, ((G.altDist s (history O A Y s ω)).weights.sum
-          fun θ' r ↦ r * ∑ b, G.weights s (history O A Y s ω) b *
-            G.div b (G.est s (history O A Y s ω) b) θ') := by
-      rw [hS, Finset.sum_filter]
-      refine Finset.sum_congr rfl fun s _ ↦ ?_
-      by_cases hs : G.cand s (history O A Y s ω) = j
-      · rw [G.altDist_history, hs]
-        simp [hs, loss_def]
-      · simp [hs]
-    have h4 : ∑ s ∈ range t, G.lossSeq O A Y ω j s θ = ∑ s ∈ S,
-        ∑ b, G.weights s (history O A Y s ω) b * G.div b (G.est s (history O A Y s ω) b) θ := by
-      rw [hS, Finset.sum_filter]
-      refine Finset.sum_congr rfl fun s _ ↦ ?_
-      by_cases hs : G.cand s (history O A Y s ω) = j <;> simp [hs, loss_def]
-    rw [← h3, ← h4]
-    exact hRl
+    (ℓ := fun s b θ' ↦ G.divergence b (G.est s (history O A Y s ω) b) θ')
+    (fun s hs ↦ hw s (mem_range.1 (mem_filter.1 hs).1) (mem_filter.1 hs).2)
+    (fun s hs ↦ hUC s (mem_range.1 (mem_filter.1 hs).1) (mem_filter.1 hs).2) (fun a ↦ ?_) hRl a
+  rw [← sum_gainSeq_apply, ← sum_sum_alloc_mul_gainSeq]
+  exact hRk a
 
 end Trajectory
-
 
 end GameSamplingRule
 
@@ -480,115 +497,44 @@ theorem isDeltaPAC_gameExploration {δ : ℝ} (hc : ∀ θ ∈ task.M, Measurabl
 
 end IdentTask
 
-/-! ### AdaHedge and Best-Response -/
-
-section Learners
-
-variable {α Θ : Type*}
-
-/-- **AdaHedge as an allocation player**: at round `t`, the weights of AdaHedge
-(`OnlineLearning.adaHedge`) on the losses `-g` opposite to the gains `g` of the rounds before
-`t`. -/
-noncomputable def adaHedgeAlloc [Fintype α] [Nonempty α] (t : ℕ) (g : Fin t → α → ℝ) : α → ℝ :=
-  OnlineLearning.adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t
-
-lemma adaHedgeAlloc_def [Fintype α] [Nonempty α] (t : ℕ) (g : Fin t → α → ℝ) :
-    adaHedgeAlloc t g = OnlineLearning.adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t :=
-  (rfl)
-
-/-- At round `t`, AdaHedge plays its weights on the losses `-g` of the first `t` gains of the
-sequence `g`. -/
-lemma adaHedgeAlloc_eq_adaHedge [Fintype α] [Nonempty α] (t : ℕ) (g : ℕ → α → ℝ) :
-    adaHedgeAlloc t (fun i ↦ g i) = OnlineLearning.adaHedge (fun s ↦ -g s) t := by
-  rw [adaHedgeAlloc_def]
-  exact OnlineLearning.adaHedge_congr fun s hs ↦ by simp [hs]
-
-lemma adaHedgeAlloc_mem_simplex [Fintype α] [Nonempty α] (t : ℕ) (g : Fin t → α → ℝ) :
-    adaHedgeAlloc t g ∈ simplex α := by
-  rw [adaHedgeAlloc_def]
-  exact OnlineLearning.adaHedge_mem_simplex _ _
-
-/-- **Regret of AdaHedge as an allocation player**: on every sequence of gains `g`, after `t`
-rounds, `∑_{s < t} g s a ≤ ∑_{s < t} ∑ b, w_s b g s b + 2 Δ_t` for every arm `a`, with `Δ_t` the
-cumulative mixability gap of AdaHedge on the losses `-g` (bounded by
-`OnlineLearning.adaHedgeGap_le`). -/
-theorem sum_le_sum_sum_adaHedgeAlloc_mul_add [Fintype α] [Nonempty α] (g : ℕ → α → ℝ) (t : ℕ)
-    (a : α) :
-    ∑ s ∈ range t, g s a ≤ ∑ s ∈ range t, ∑ b, adaHedgeAlloc s (fun i ↦ g i) b * g s b +
-      2 * OnlineLearning.adaHedgeGap (fun s ↦ -g s) t := by
-  have h := OnlineLearning.adaHedge_regret_le_two_mul_adaHedgeGap (fun s ↦ -g s) t a
-  simp only [Pi.neg_apply, mul_neg, Finset.sum_neg_distrib, sub_neg_eq_add] at h
-  simp_rw [adaHedgeAlloc_eq_adaHedge]
-  rw [Finset.sum_add_distrib, Finset.sum_neg_distrib] at h
-  linarith
-
-/-- **Best-Response as an alternative player**, for a selection `br` of models: at round `t`, the
-point mass at the model `br ℓ_t` chosen for the loss `ℓ_t` of the current round. For a selection
-of minimizers of the losses over the alternatives, it has no regret
-(`sum_sum_bestResponse_le`). -/
-noncomputable def bestResponse (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ) :
-    StdSimplex ℝ Θ :=
-  StdSimplex.single (br (ℓ (Fin.last t)))
-
-lemma bestResponse_def (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ) :
-    bestResponse br t ℓ = StdSimplex.single (br (ℓ (Fin.last t))) := (rfl)
-
-/-- The expected loss of Best-Response is the loss of the selected model. -/
-lemma bestResponse_weights_sum_mul (br : (Θ → ℝ) → Θ) (t : ℕ) (ℓ : Fin (t + 1) → Θ → ℝ)
-    (f : Θ → ℝ) :
-    ((bestResponse br t ℓ).weights.sum fun θ r ↦ r * f θ) = f (br (ℓ (Fin.last t))) := by
-  rw [bestResponse_def, StdSimplex.weights_single, Finsupp.sum_single_index (zero_mul _), one_mul]
-
-/-- **Best-Response has no regret**: on a sequence of losses `ℓ`, if the selected models minimize
-the losses `ℓ s` against the model `θ` at the rounds `s < t`, then
-`∑_{s < t} E_{θ' ∼ q_s} ℓ s θ' ≤ ∑_{s < t} ℓ s θ`. -/
-theorem sum_sum_bestResponse_le (br : (Θ → ℝ) → Θ) (ℓ : ℕ → Θ → ℝ) {t : ℕ} {θ : Θ}
-    (hbr : ∀ s < t, ℓ s (br (ℓ s)) ≤ ℓ s θ) :
-    ∑ s ∈ range t, ((bestResponse br s fun i ↦ ℓ i).weights.sum fun θ' r ↦ r * ℓ s θ') ≤
-      ∑ s ∈ range t, ℓ s θ := by
-  refine Finset.sum_le_sum fun s hs ↦ ?_
-  rw [bestResponse_weights_sum_mul, Fin.val_last]
-  exact hbr s (Finset.mem_range.1 hs)
-
-end Learners
-
 namespace GameSamplingRule
 
 variable {α Θ ℐ 𝓨 : Type*} [Fintype α] [Nonempty α] [DecidableEq ℐ] (G : GameSamplingRule α Θ ℐ 𝓨)
   {Ω : Type*} {O : ℕ → Ω → Unit} {A : ℕ → Ω → α} {Y : ℕ → Ω → 𝓨} {ω : Ω}
 
 /-- **AdaHedge against Best-Response is an approximate optimistic saddle point algorithm**
-[DKM19, Lemma 3]. If the allocation players are AdaHedge and the alternative players are
-Best-Response for selections `br j`, then along a trajectory, if the selected models minimize the
-losses of the rounds of `j` against the model `θ` and the optimistic gains of these rounds exceed
-the expected divergences at the estimates by at most `C s a`, then on the rounds `s < t` whose
-candidate answer is `j`,
-`∑ U_s a ≤ ∑ ∑ b, w_s b div b (x_{s,b}) θ + (2 Δ_t + ∑ ∑ b, w_s b C s b)` for every arm `a`, with
-`Δ_t` the cumulative mixability gap of AdaHedge on the opposite of the gains of `j`. -/
-theorem sum_gains_le_sum_sum_mul_add_of_adaHedge (halloc : G.alloc = fun _ ↦ adaHedgeAlloc)
-    {br : ℐ → (Θ → ℝ) → Θ} (halt : G.alt = fun j ↦ bestResponse (br j)) {t : ℕ} (j : ℐ) {θ : Θ}
-    {C : ℕ → α → ℝ}
+[DKM19, Lemma 3]. If the allocation player of the answer `j` is AdaHedge on gains and its
+alternative player is Best-Response for a selection `br`, then along a trajectory, if the selected
+models minimize the losses of the rounds of `j` against the model `θ` and the optimistic gains of
+these rounds exceed the expected divergences at the estimates by at most `C s a`, then on the
+rounds `s < t` whose candidate answer is `j`,
+`∑ U_s a ≤ ∑ ∑ b, w_s b divergence b (x_{s,b}) θ + (2 Δ_t + ∑ ∑ b, w_s b C s b)` for every arm
+`a`, with `Δ_t` the cumulative mixability gap of AdaHedge on the opposite of the gains of `j`. -/
+theorem sum_gains_le_sum_sum_mul_add_of_adaHedge (j : ℐ)
+    (halloc : G.alloc j = OnlineLearning.adaHedgeAlloc) {br : (Θ → ℝ) → Θ}
+    (halt : G.alt j = OnlineLearning.bestResponse br) {t : ℕ} {θ : Θ} {C : ℕ → α → ℝ}
     (hbr : ∀ s < t, G.cand s (history O A Y s ω) = j →
       G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω))
-          (br j (G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)))) ≤
+          (br (G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)))) ≤
         G.loss s (history O A Y s ω) (G.weights s (history O A Y s ω)) θ)
     (hUC : ∀ s < t, G.cand s (history O A Y s ω) = j → ∀ a, G.gains s (history O A Y s ω) a ≤
       ((G.altDist s (history O A Y s ω)).weights.sum fun θ' r ↦
-        r * G.div a (G.est s (history O A Y s ω) a) θ') + C s a) (a : α) :
+        r * G.divergence a (G.est s (history O A Y s ω) a) θ') + C s a) (a : α) :
     ∑ s ∈ range t with G.cand s (history O A Y s ω) = j, G.gains s (history O A Y s ω) a ≤
       ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
-        ∑ b, G.weights s (history O A Y s ω) b * G.div b (G.est s (history O A Y s ω) b) θ +
+        ∑ b, G.weights s (history O A Y s ω) b *
+          G.divergence b (G.est s (history O A Y s ω) b) θ +
       (2 * OnlineLearning.adaHedgeGap (fun s ↦ -G.gainSeq O A Y ω j s) t +
         ∑ s ∈ range t with G.cand s (history O A Y s ω) = j,
           ∑ b, G.weights s (history O A Y s ω) b * C s b) := by
   have hw : ∀ s < t, G.cand s (history O A Y s ω) = j →
       ∀ a, 0 ≤ G.weights s (history O A Y s ω) a := fun s _ hs ↦ by
     rw [weights_history, hs, halloc]
-    exact (mem_simplex_iff.1 (adaHedgeAlloc_mem_simplex _ _)).1
+    exact (mem_simplex_iff.1 (OnlineLearning.adaHedgeAlloc_mem_simplex _ _)).1
   have hRl : ∑ s ∈ range t, ((G.alt j s fun i ↦ G.lossSeq O A Y ω j i).weights.sum fun θ' r ↦
       r * G.lossSeq O A Y ω j s θ') ≤ ∑ s ∈ range t, G.lossSeq O A Y ω j s θ + 0 := by
     rw [halt, add_zero]
-    refine sum_sum_bestResponse_le (br j) _ fun s hs ↦ ?_
+    refine OnlineLearning.sum_sum_bestResponse_le br _ fun s hs ↦ ?_
     by_cases hj : G.cand s (history O A Y s ω) = j
     · rw [lossSeq_of_cand_eq _ hj]
       exact hbr s hs hj
@@ -597,7 +543,7 @@ theorem sum_gains_le_sum_sum_mul_add_of_adaHedge (halloc : G.alloc = fun _ ↦ a
       ∑ b, G.alloc j s (fun i ↦ G.gainSeq O A Y ω j i) b * G.gainSeq O A Y ω j s b +
         2 * OnlineLearning.adaHedgeGap (fun s ↦ -G.gainSeq O A Y ω j s) t := fun a ↦ by
     rw [halloc]
-    exact sum_le_sum_sum_adaHedgeAlloc_mul_add _ t a
+    exact OnlineLearning.sum_le_sum_sum_adaHedgeAlloc_mul_add _ t a
   have key := G.sum_gains_le_sum_sum_mul_add_of_regret O A Y ω j hw hUC hRk hRl a
   rwa [add_zero] at key
 

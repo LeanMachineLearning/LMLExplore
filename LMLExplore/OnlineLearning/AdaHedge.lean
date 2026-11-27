@@ -42,6 +42,8 @@ pure exploration games of [DKM19, Lemma 3].
 * `LMLExplore.OnlineLearning.adaHedgeGap y t`: the cumulative mixability gap `Δ_t` of AdaHedge
   after `t` rounds with the losses `y`.
 * `LMLExplore.OnlineLearning.adaHedge y t`: the weights played by AdaHedge at round `t`.
+* `LMLExplore.OnlineLearning.adaHedgeAlloc t g`: AdaHedge on the gains `g` of the rounds before
+  `t`, the allocation player of [DKM19, Lemma 3].
 
 ## Main statements
 
@@ -52,6 +54,7 @@ pure exploration games of [DKM19, Lemma 3].
 * `adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
 * `adaHedgeGap_le`: `Δ_n ≤ B + √((∑ t < n, b t ^ 2) log K) / 2` for loss ranges `b t ≤ B`.
 * `adaHedge_regret_le`: the regret bound `√((∑ t < n, b t ^ 2) log K) + 2 B`.
+* `sum_le_sum_sum_adaHedgeAlloc_mul_add`: the regret of AdaHedge on gains is at most `2 Δ_t`.
 
 The definitions of AdaHedge (its state, the follow-the-leader weights and the mix loss at an
 infinite learning rate) are adapted from the formalization of [DKM19] in the LMLPapers project
@@ -527,6 +530,41 @@ theorem adaHedge_regret_le (y : ℕ → α → ℝ) {n : ℕ} {b : ℕ → ℝ} 
       √((∑ t ∈ range n, b t ^ 2) * log (Fintype.card α)) + 2 * B := by
   have h1 := adaHedge_regret_le_two_mul_adaHedgeGap y n a
   have h2 := adaHedgeGap_le y hb hB hB0
+  linarith
+
+/-! ### AdaHedge on gains -/
+
+/-- **AdaHedge on gains**: at round `t`, the weights of AdaHedge on the losses `-g` opposite to the
+gains `g` of the rounds before `t`. This is the allocation player of the pure exploration games of
+[DKM19, Lemma 3]. -/
+noncomputable def adaHedgeAlloc (t : ℕ) (g : Fin t → α → ℝ) : α → ℝ :=
+  adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t
+
+lemma adaHedgeAlloc_def (t : ℕ) (g : Fin t → α → ℝ) :
+    adaHedgeAlloc t g = adaHedge (fun s ↦ if hs : s < t then -g ⟨s, hs⟩ else 0) t :=
+  (rfl)
+
+/-- At round `t`, AdaHedge on gains plays the weights of AdaHedge on the losses `-g` of the first
+`t` gains of the sequence `g`. -/
+lemma adaHedgeAlloc_eq_adaHedge (t : ℕ) (g : ℕ → α → ℝ) :
+    adaHedgeAlloc t (fun i ↦ g i) = adaHedge (fun s ↦ -g s) t := by
+  rw [adaHedgeAlloc_def]
+  exact adaHedge_congr fun s hs ↦ by simp [hs]
+
+lemma adaHedgeAlloc_mem_simplex (t : ℕ) (g : Fin t → α → ℝ) : adaHedgeAlloc t g ∈ simplex α := by
+  rw [adaHedgeAlloc_def]
+  exact adaHedge_mem_simplex _ _
+
+/-- **Regret of AdaHedge on gains**: on every sequence of gains `g`, after `t` rounds,
+`∑_{s < t} g s a ≤ ∑_{s < t} ∑ b, w_s b g s b + 2 Δ_t` for every expert `a`, with `Δ_t` the
+cumulative mixability gap of AdaHedge on the losses `-g` (bounded by `adaHedgeGap_le`). -/
+theorem sum_le_sum_sum_adaHedgeAlloc_mul_add (g : ℕ → α → ℝ) (t : ℕ) (a : α) :
+    ∑ s ∈ range t, g s a ≤ ∑ s ∈ range t, ∑ b, adaHedgeAlloc s (fun i ↦ g i) b * g s b +
+      2 * adaHedgeGap (fun s ↦ -g s) t := by
+  have h := adaHedge_regret_le_two_mul_adaHedgeGap (fun s ↦ -g s) t a
+  simp only [Pi.neg_apply, mul_neg, Finset.sum_neg_distrib, sub_neg_eq_add] at h
+  simp_rw [adaHedgeAlloc_eq_adaHedge]
+  rw [Finset.sum_add_distrib, Finset.sum_neg_distrib] at h
   linarith
 
 end AdaHedge
