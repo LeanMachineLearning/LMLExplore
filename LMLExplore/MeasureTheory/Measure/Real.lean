@@ -17,10 +17,11 @@ at least `1 - δ` none of them happens. The events need not be measurable. It al
 intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a`
 and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`. Finally, it records that a set of
 nonzero finite mass has positive real mass, so that the products of the real masses of points
-under a finite measure that charges every point are positive, that the real masses of the points
-of a finite space sum to `1` under a probability measure, as do the products of the real masses
-of the coordinates of the samples `x : ι → α`, and that the real mass is monotone under
-almost-everywhere inclusion.
+under a finite measure that charges every point are positive, that finite products of ratios of
+masses are the `ofReal` of the products of the ratios of the real masses, that the real masses
+of the points of a finite space sum to `1` under a probability measure, as do the products of the
+real masses of the coordinates of the samples `x : ι → α`, and that the real mass is monotone
+under almost-everywhere inclusion.
 
 ## Main statements
 
@@ -31,6 +32,8 @@ almost-everywhere inclusion.
 * `MeasureTheory.measureReal_pos_of_ne_zero`: a set of nonzero finite mass has positive real mass.
 * `MeasureTheory.prod_measureReal_singleton_pos`: `0 < ∏ i, μ.real {x i}` for a finite measure `μ`
   that charges every point.
+* `MeasureTheory.prod_measure_div_eq_ofReal_prod`: a finite product of ratios of masses of finite
+  measures is the `ofReal` of the product of the ratios of the real masses.
 * `MeasureTheory.sum_measureReal_singleton_eq_one`: the real masses of the points of a finite
   space sum to `1` under a probability measure.
 * `MeasureTheory.sum_prod_measureReal_singleton_eq_one`: `∑ x : ι → α, ∏ i, μ.real {x i} = 1` for
@@ -91,6 +94,16 @@ point are positive. -/
 lemma prod_measureReal_singleton_pos {ι : Type*} [Fintype ι] [IsFiniteMeasure μ]
     (hμ : ∀ x, μ {x} ≠ 0) (x : ι → α) : 0 < ∏ i, μ.real {x i} :=
   Finset.prod_pos fun _ _ ↦ measureReal_pos_of_ne_zero (hμ _)
+
+/-- A finite product of ratios of the masses of sets under two finite measures is the `ofReal` of
+the product of the ratios of their real masses, when the second measure charges the sets. -/
+lemma prod_measure_div_eq_ofReal_prod {ι : Type*} {s : Finset ι} {ν : Measure α}
+    [IsFiniteMeasure μ] [IsFiniteMeasure ν] {t : ι → Set α} (ht : ∀ i ∈ s, ν (t i) ≠ 0) :
+    ∏ i ∈ s, μ (t i) / ν (t i) = ENNReal.ofReal (∏ i ∈ s, μ.real (t i) / ν.real (t i)) := by
+  rw [ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ div_nonneg measureReal_nonneg measureReal_nonneg]
+  refine Finset.prod_congr rfl fun i hi ↦ ?_
+  rw [ENNReal.ofReal_div_of_pos (measureReal_pos_of_ne_zero (ht i hi)), ofReal_measureReal,
+    ofReal_measureReal]
 
 /-- The real masses of the points of a finite space sum to `1` under a probability measure. -/
 lemma sum_measureReal_singleton_eq_one [MeasurableSingletonClass α] [Fintype α]
