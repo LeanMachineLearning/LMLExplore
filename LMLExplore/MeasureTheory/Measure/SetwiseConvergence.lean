@@ -72,6 +72,32 @@ namespace MeasureTheory
 variable {α β ι : Type*} {mα : MeasurableSpace α} {mβ : MeasurableSpace β} {l : Filter ι}
   {μ : Measure α} {μs : ι → Measure α}
 
+section Setwise
+
+/-- Setwise convergence gives the liminf lower bound of Fatou's lemma along varying measures. -/
+private lemma measure_le_liminf_of_tendsto_measure [l.NeBot]
+    (hμ : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) :
+    ∀ s, MeasurableSet s → μ s ≤ liminf (fun i ↦ μs i s) l :=
+  fun s hs ↦ (hμ s hs).liminf_eq.ge
+
+/-- A set that is eventually `μs i`-null is `μ`-null when `μs i s → μ s`. -/
+private lemma measure_eq_zero_of_tendsto_measure [l.NeBot] {s : Set α}
+    (hμ : Tendsto (fun i ↦ μs i s) l (𝓝 (μ s))) (h : ∀ᶠ i in l, μs i s = 0) : μ s = 0 :=
+  tendsto_nhds_unique hμ (tendsto_const_nhds.congr' (h.mono fun _ hi ↦ hi.symm))
+
+/-- If `μs i univ → μ univ < ∞`, then eventually `μs i univ < μ univ + 1`. -/
+private lemma eventually_measure_univ_lt [IsFiniteMeasure μ]
+    (hμ : Tendsto (fun i ↦ μs i univ) l (𝓝 (μ univ))) : ∀ᶠ i in l, μs i univ < μ univ + 1 :=
+  hμ.eventually (gt_mem_nhds (ENNReal.lt_add_right (measure_ne_top μ univ) one_ne_zero))
+
+/-- A bound `‖f i x‖ ≤ C` gives the bound `ofReal (f i x) ≤ ofReal C` of the positive part. -/
+private lemma eventually_ae_ofReal_le {f : ι → α → ℝ} {C : ℝ}
+    (hfC : ∀ᶠ i in l, ∀ᵐ x ∂μs i, ‖f i x‖ ≤ C) :
+    ∀ᶠ i in l, ∀ᵐ x ∂μs i, ENNReal.ofReal (f i x) ≤ ENNReal.ofReal C :=
+  hfC.mono fun _ hi ↦ hi.mono fun _ hx ↦ ENNReal.ofReal_le_ofReal ((le_abs_self _).trans hx)
+
+end Setwise
+
 section Fatou
 
 /-- Fatou's lemma along a sequence of measures whose values on measurable sets are lower
@@ -156,8 +182,7 @@ theorem tendsto_lintegral_of_tendsto_measure [IsFiniteMeasure μ]
     Tendsto (fun i ↦ ∫⁻ x, f x ∂μs i) l (𝓝 (∫⁻ x, f x ∂μ)) := by
   rcases l.eq_or_neBot with rfl | hl
   · exact tendsto_bot
-  have hle (s : Set α) (hs : MeasurableSet s) : μ s ≤ liminf (fun i ↦ μs i s) l :=
-    (hμ s hs).liminf_eq.ge
+  have hle := measure_le_liminf_of_tendsto_measure hμ
   refine tendsto_lintegral_of_le_liminf (hμ _ .univ) (fun _ ↦ hf) hC hfC
     (lintegral_le_liminf_lintegral_of_forall_measurableSet_measure_le_liminf_measure hf hle)
     (lintegral_le_liminf_lintegral_of_forall_measurableSet_measure_le_liminf_measure
@@ -177,8 +202,7 @@ theorem tendsto_lintegral_of_tendsto_measure_of_tendsto [l.IsCountablyGenerated]
     Tendsto (fun i ↦ ∫⁻ x, f i x ∂μs i) l (𝓝 (∫⁻ x, g x ∂μ)) := by
   rcases l.eq_or_neBot with rfl | hl
   · exact tendsto_bot
-  have hle (s : Set α) (hs : MeasurableSet s) : μ s ≤ liminf (fun i ↦ μs i s) l :=
-    (hμ s hs).liminf_eq.ge
+  have hle := measure_le_liminf_of_tendsto_measure hμ
   have hga : ∫⁻ x, g x ∂μ ≤ liminf (fun i ↦ ∫⁻ x, f i x ∂μs i) l :=
     (lintegral_congr_ae (hfg.mono fun x hx ↦ hx.liminf_eq.symm)).trans_le
       (lintegral_liminf_le_of_forall_measurableSet_measure_le_liminf_measure hle hf)
@@ -223,18 +247,41 @@ theorem tendsto_integral_of_tendsto_measure [IsFiniteMeasure μ]
   have hfμ : ∀ᵐ x ∂μ, ‖f x‖ ≤ C := by
     have hs : MeasurableSet {x | ¬‖f x‖ ≤ C} := (measurableSet_le hf.norm measurable_const).compl
     rw [ae_iff]
-    exact tendsto_nhds_unique (hμ _ hs)
-      (tendsto_const_nhds.congr' (hfC.mono fun i hi ↦ (ae_iff.1 hi).symm))
+    exact measure_eq_zero_of_tendsto_measure (hμ _ hs) (hfC.mono fun _ hi ↦ ae_iff.1 hi)
   refine tendsto_integral_of_tendsto_lintegral_ofReal (hμ _ .univ) (fun _ ↦ hf) hfC
     (.of_bound hf.aestronglyMeasurable C hfμ) ?_ ?_
-  · refine tendsto_lintegral_of_tendsto_measure hμ hf.ennreal_ofReal (C := ENNReal.ofReal C)
-      ENNReal.ofReal_ne_top
-      (hfC.mono fun i hi ↦ hi.mono fun x hx ↦ ENNReal.ofReal_le_ofReal ?_)
-    exact (le_abs_self _).trans hx
-  · refine tendsto_lintegral_of_tendsto_measure hμ hf.neg.ennreal_ofReal (C := ENNReal.ofReal C)
-      ENNReal.ofReal_ne_top
-      (hfC.mono fun i hi ↦ hi.mono fun x hx ↦ ENNReal.ofReal_le_ofReal ?_)
-    exact (neg_le_abs _).trans hx
+  · exact tendsto_lintegral_of_tendsto_measure hμ hf.ennreal_ofReal ENNReal.ofReal_ne_top
+      (eventually_ae_ofReal_le (f := fun _ ↦ f) hfC)
+  · exact tendsto_lintegral_of_tendsto_measure hμ hf.neg.ennreal_ofReal ENNReal.ofReal_ne_top
+      (eventually_ae_ofReal_le (f := fun _ x ↦ -f x) (by simpa only [norm_neg] using hfC))
+
+/-- The almost everywhere limit `g` of measurable real functions `f i`, eventually bounded by a
+constant `μs i`-almost everywhere, is `μ`-integrable when `μs i → μ` setwise, by Fatou's lemma for
+`‖f i‖ₑ`. -/
+private lemma integrable_of_tendsto_measure_of_tendsto [l.IsCountablyGenerated] [l.NeBot]
+    [IsFiniteMeasure μ] (hμ : ∀ s, MeasurableSet s → Tendsto (fun i ↦ μs i s) l (𝓝 (μ s)))
+    {f : ι → α → ℝ} {g : α → ℝ} (hf : ∀ i, Measurable (f i)) {C : ℝ}
+    (hfC : ∀ᶠ i in l, ∀ᵐ x ∂μs i, ‖f i x‖ ≤ C)
+    (hfg : ∀ᵐ x ∂μ, Tendsto (fun i ↦ f i x) l (𝓝 (g x))) : Integrable g μ := by
+  refine ⟨aestronglyMeasurable_of_tendsto_ae l (fun i ↦ (hf i).aestronglyMeasurable) hfg, ?_⟩
+  have hbd : ∀ᶠ i in l, ∫⁻ x, ‖f i x‖ₑ ∂μs i ≤ ENNReal.ofReal C * (μ univ + 1) := by
+    filter_upwards [hfC, eventually_measure_univ_lt (hμ _ .univ)] with i hi hμi
+    calc ∫⁻ x, ‖f i x‖ₑ ∂μs i
+    _ ≤ ∫⁻ _, ENNReal.ofReal C ∂μs i := lintegral_mono_ae (hi.mono fun x hx ↦ by
+      rw [Real.eNorm_eq_ofReal_abs]
+      exact ENNReal.ofReal_le_ofReal hx)
+    _ ≤ ENNReal.ofReal C * (μ univ + 1) := by
+      rw [lintegral_const]
+      gcongr
+  calc ∫⁻ x, ‖g x‖ₑ ∂μ
+  _ = ∫⁻ x, liminf (fun i ↦ ‖f i x‖ₑ) l ∂μ :=
+    lintegral_congr_ae (hfg.mono fun x hx ↦ hx.eNorm.liminf_eq.symm)
+  _ ≤ liminf (fun i ↦ ∫⁻ x, ‖f i x‖ₑ ∂μs i) l :=
+    lintegral_liminf_le_of_forall_measurableSet_measure_le_liminf_measure
+      (measure_le_liminf_of_tendsto_measure hμ) fun i ↦ (hf i).eNorm
+  _ ≤ ENNReal.ofReal C * (μ univ + 1) := liminf_le_of_frequently_le' hbd.frequently
+  _ < ∞ := ENNReal.mul_lt_top ENNReal.ofReal_lt_top
+    (ENNReal.add_lt_top.2 ⟨measure_lt_top μ univ, ENNReal.one_lt_top⟩)
 
 /-- **Dominated convergence along setwise convergent measures.** If measures `μs i` converge
 setwise to a finite measure `μ` along a countably generated filter, and measurable real functions
@@ -248,39 +295,15 @@ theorem tendsto_integral_of_tendsto_measure_of_tendsto [l.IsCountablyGenerated]
     Tendsto (fun i ↦ ∫ x, f i x ∂μs i) l (𝓝 (∫ x, g x ∂μ)) := by
   rcases l.eq_or_neBot with rfl | hl
   · exact tendsto_bot
-  -- `g` is integrable, by Fatou's lemma for `‖f i‖ₑ`
-  have hg : Integrable g μ := by
-    refine ⟨aestronglyMeasurable_of_tendsto_ae l (fun i ↦ (hf i).aestronglyMeasurable) hfg, ?_⟩
-    have hbd : ∀ᶠ i in l, ∫⁻ x, ‖f i x‖ₑ ∂μs i ≤ ENNReal.ofReal C * (μ univ + 1) := by
-      filter_upwards [hfC, (hμ _ .univ).eventually
-        (gt_mem_nhds (ENNReal.lt_add_right (measure_ne_top μ univ) one_ne_zero))] with i hi hμi
-      calc ∫⁻ x, ‖f i x‖ₑ ∂μs i
-      _ ≤ ∫⁻ _, ENNReal.ofReal C ∂μs i := lintegral_mono_ae (hi.mono fun x hx ↦ by
-        rw [Real.eNorm_eq_ofReal_abs]
-        exact ENNReal.ofReal_le_ofReal hx)
-      _ ≤ ENNReal.ofReal C * (μ univ + 1) := by
-        rw [lintegral_const]
-        gcongr
-    calc ∫⁻ x, ‖g x‖ₑ ∂μ
-    _ = ∫⁻ x, liminf (fun i ↦ ‖f i x‖ₑ) l ∂μ :=
-      lintegral_congr_ae (hfg.mono fun x hx ↦ hx.eNorm.liminf_eq.symm)
-    _ ≤ liminf (fun i ↦ ∫⁻ x, ‖f i x‖ₑ ∂μs i) l :=
-      lintegral_liminf_le_of_forall_measurableSet_measure_le_liminf_measure
-        (fun s hs ↦ (hμ s hs).liminf_eq.ge) fun i ↦ (hf i).eNorm
-    _ ≤ ENNReal.ofReal C * (μ univ + 1) := liminf_le_of_frequently_le' hbd.frequently
-    _ < ∞ := ENNReal.mul_lt_top ENNReal.ofReal_lt_top
-      (ENNReal.add_lt_top.2 ⟨measure_lt_top μ univ, ENNReal.one_lt_top⟩)
+  have hg := integrable_of_tendsto_measure_of_tendsto hμ hf hfC hfg
   refine tendsto_integral_of_tendsto_lintegral_ofReal (hμ _ .univ) hf hfC hg ?_ ?_
-  · refine tendsto_lintegral_of_tendsto_measure_of_tendsto hμ (fun i ↦ (hf i).ennreal_ofReal)
-      (C := ENNReal.ofReal C) ENNReal.ofReal_ne_top
-      (hfC.mono fun i hi ↦ hi.mono fun x hx ↦ ENNReal.ofReal_le_ofReal ?_)
+  · exact tendsto_lintegral_of_tendsto_measure_of_tendsto hμ (fun i ↦ (hf i).ennreal_ofReal)
+      ENNReal.ofReal_ne_top (eventually_ae_ofReal_le hfC)
       (hfg.mono fun x hx ↦ ENNReal.tendsto_ofReal hx)
-    exact (le_abs_self _).trans hx
-  · refine tendsto_lintegral_of_tendsto_measure_of_tendsto hμ
-      (fun i ↦ (hf i).neg.ennreal_ofReal) (C := ENNReal.ofReal C) ENNReal.ofReal_ne_top
-      (hfC.mono fun i hi ↦ hi.mono fun x hx ↦ ENNReal.ofReal_le_ofReal ?_)
+  · exact tendsto_lintegral_of_tendsto_measure_of_tendsto hμ (fun i ↦ (hf i).neg.ennreal_ofReal)
+      ENNReal.ofReal_ne_top
+      (eventually_ae_ofReal_le (f := fun i x ↦ -f i x) (by simpa only [norm_neg] using hfC))
       (hfg.mono fun x hx ↦ ENNReal.tendsto_ofReal hx.neg)
-    exact (neg_le_abs _).trans hx
 
 end Convergence
 
@@ -299,8 +322,7 @@ theorem tendsto_measure_prod_of_tendsto_measure [l.IsCountablyGenerated] {νs : 
     (fun i ↦ measurable_measure_prodMk_left hs)
     (ENNReal.add_ne_top.2 ⟨measure_ne_top ν univ, ENNReal.one_ne_top⟩) ?_
     (.of_forall fun x ↦ hν _ (measurable_prodMk_left hs))
-  filter_upwards [(hν _ .univ).eventually
-    (gt_mem_nhds (ENNReal.lt_add_right (measure_ne_top ν univ) one_ne_zero))] with i hi
+  filter_upwards [eventually_measure_univ_lt (hν _ .univ)] with i hi
   exact .of_forall fun x ↦ (measure_mono (subset_univ _)).trans hi.le
 
 /-- Setwise convergence of the products indexed by `Fin n`. -/
