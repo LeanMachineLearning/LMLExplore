@@ -48,6 +48,7 @@ pure exploration games of [DKM19, Lemma 3].
 * `sum_mul_le_mixLoss_add`: `⟨w, ℓ⟩ - η (hi - lo) ^ 2 / 8 ≤ mixLoss η w ℓ` for losses in
   `[lo, hi]`.
 * `adaHedge_mem_simplex`: AdaHedge plays probability vectors.
+* `adaHedge_congr`: the weights of AdaHedge at round `t` depend only on the losses before `t`.
 * `adaHedge_regret_le_two_mul_adaHedgeGap`: the regret of AdaHedge is at most `2 Δ_n`.
 * `adaHedgeGap_le`: `Δ_n ≤ B + √((∑ t < n, b t ^ 2) log K) / 2` for loss ranges `b t ≤ B`.
 * `adaHedge_regret_le`: the regret bound `√((∑ t < n, b t ^ 2) log K) + 2 B`.
@@ -231,6 +232,26 @@ lemma adaHedgeGap_eq_sum (y : ℕ → α → ℝ) (n : ℕ) :
 
 lemma adaHedge_mem_simplex (y : ℕ → α → ℝ) (t : ℕ) : adaHedge y t ∈ simplex α :=
   adaHedgeWeights_mem_simplex _ _
+
+/-- The cumulative mixability gap of AdaHedge after `t` rounds depends only on the losses of these
+rounds. -/
+lemma adaHedgeGap_congr {y y' : ℕ → α → ℝ} {t : ℕ} (h : ∀ s < t, y s = y' s) :
+    adaHedgeGap y t = adaHedgeGap y' t := by
+  induction t with
+  | zero => rfl
+  | succ t ih =>
+    have h' : ∀ s < t, y s = y' s := fun s hs ↦ h s (Nat.lt_succ_of_lt hs)
+    have hsum : ∑ s ∈ range t, y s = ∑ s ∈ range t, y' s :=
+      Finset.sum_congr rfl fun s hs ↦ h' s (Finset.mem_range.1 hs)
+    rw [adaHedgeGap_succ, adaHedgeGap_succ, adaHedge_def, adaHedge_def, ih h', hsum,
+      h t (Nat.lt_succ_self t)]
+
+/-- The weights played by AdaHedge at round `t` depend only on the losses of the rounds before
+`t`. -/
+lemma adaHedge_congr {y y' : ℕ → α → ℝ} {t : ℕ} (h : ∀ s < t, y s = y' s) :
+    adaHedge y t = adaHedge y' t := by
+  rw [adaHedge_def, adaHedge_def, adaHedgeGap_congr h,
+    Finset.sum_congr rfl fun s hs ↦ h s (Finset.mem_range.1 hs)]
 
 /-- The mixability gap of a round of follow the leader is nonnegative. -/
 private lemma sum_ftlWeights_mul_sub_inf'_nonneg (L ℓ : α → ℝ) :
