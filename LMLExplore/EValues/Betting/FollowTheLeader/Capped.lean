@@ -12,7 +12,7 @@ public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
-import LMLExplore.Algebra.Order.Field.Basic
+import LMLExplore.Algebra.Order.Interval.Set.Instances
 import LMLExplore.EValues.Betting.FollowTheLeader.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.ConstraintNull.KLInf
