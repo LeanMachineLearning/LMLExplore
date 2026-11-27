@@ -10,6 +10,7 @@ public import LMLExplore.Probability.Kernel.Resolvent
 public import LMLExplore.ReinforcementLearning.QLearning.Synchronous
 import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.Analysis.SpecialFunctions.Exp
+import LMLExplore.MarkovDecisionProcess.ReturnVariance
 import LMLExplore.Probability.Moments.Variance
 
 /-!
@@ -25,6 +26,12 @@ sampling noise. The sharp analysis of TD learning [LCCWC24, Theorem 1 and Append
 recursion with the operators `I - η i (I - γ P)` themselves, rather than with scalar weights as for
 Q-learning, so that the variances of the noise accumulate through the resolvent `(I - γ P)⁻¹`.
 
+The noise term, Freedman's inequality for it and the bound on its quadratic variation are stated
+along the propagators of any kernel on the state-action pairs, so that they also control the lower
+bound on the errors of synchronous Q-learning [LCCWC24, Lemma 2] along the state-action kernel of
+a policy greedy for the optimal action value, in
+`LMLExplore.ReinforcementLearning.QLearning.LowerBound`.
+
 This file develops that unrolling, its first probabilistic consequence, and the bound on the
 quadratic variation of the noise in terms of the late errors.
 * **The propagators.** For a finite kernel `κ` on a finite space, `κ.tdStep γ c = I - c (I - γ κ)`
@@ -33,9 +40,12 @@ quadratic variation of the noise in terms of the late errors.
   constants by `∏_{i = k + 1}^t (1 - η i (1 - γ))` [LCCWC24, (109)], and, for `γ < 1` and learning
   rates in `[0, 1]`, their weighted sums are dominated by the resolvent:
   `∑_{k = m + 1}^t η k Φ k t f ≤ (I - γ κ)⁻¹ f` for `f ≥ 0`
-  [LCCWC24, Section C.2, proof of (117)].
-* **The error decomposition** [LCCWC24, (110)–(111)]: with one action and the state-action kernel
-  `P` of the unique policy, `Δ t = Φ 0 t Δ 0 + ∑_{k < t} η (k + 1) γ Φ (k + 1) t (P_{k+1} - P) V k`.
+  [LCCWC24, Section C.2, proof of (117)]. The dynamics `x (t + 1) = (I - η (t + 1) (I - γ κ)) x t +
+  e t` unroll to `x t = Φ 0 t (x 0) + ∑_{k < t} Φ (k + 1) t (e k)`, and its supersolutions lie
+  above this unrolled form.
+* **The error decomposition** [LCCWC24, (110)–(111)]: with one action and the state-action
+  kernel `P` of the unique policy, `Δ t = Φ 0 t Δ 0 + ξ t`, with the noise term
+  `ξ t = ∑_{k < t} η (k + 1) γ Φ (k + 1) t (P_{k+1} - P) V k`.
 * **Freedman's inequality for the noise** [LCCWC24, (113)–(116)]: each entry of the noise term is
   a sum of martingale differences under the generative model, whose conditional variances are
   bounded by the entries of `Φ (k + 1) t Var_P(V k)`. Freedman's inequality and a union bound over
@@ -48,8 +58,9 @@ quadratic variation of the noise in terms of the late errors.
 * **The quadratic variation in terms of the errors** [LCCWC24, (117), (95) and (120)]: splitting
   the sum at an iteration `m`, the early propagators are bounded by their action on constants and
   the late weighted sums by the resolvent. With rewards in `[0, C]` and `B = C / (1 - γ)`, the
-  late variances `Var_P(V k)` exceed `Var_P(V*)` by at most `4 B D` when the late errors are at
-  most `D`, and `γ ^ 2 (I - γ P)⁻¹ Var_P(V*) ≤ B ^ 2`, so that `W` is at most
+  late variances `Var_P(V k)` exceed `Var_P(V*)` by at most `4 B D` when the late errors
+  `|V k - V*|` are at most `D`, and `γ ^ 2 (I - γ P^π)⁻¹ Var_P(V*) ≤ B ^ 2` for a policy `π`
+  greedy for `Q*`, so that `W` is at most
   `B ^ 2 ∑_{k < m} (η (k + 1) γ ρ (k + 1) t) ^ 2 + β (B ^ 2 + 4 γ ^ 2 B D / (1 - γ))`, where `β`
   bounds the late weights `η (k + 1) ρ (k + 1) t`.
 
@@ -61,7 +72,8 @@ in `LMLExplore.ReinforcementLearning.TemporalDifference.SampleComplexity`.
 * `ProbabilityTheory.Kernel.tdStep κ γ c`: the step `I - c (I - γ κ)` of the mean dynamics.
 * `ProbabilityTheory.Kernel.tdPropagator κ γ η k t`: the propagator `Φ k t` of the mean dynamics
   from iteration `k` to iteration `t`.
-* `LMLExplore.ReinforcementLearning.tdNoise`: the noise term `ξ t` of the error decomposition.
+* `LMLExplore.ReinforcementLearning.tdNoise`: the noise term `ξ t` of the error decomposition,
+  along the propagators of a kernel on the state-action pairs.
 * `LMLExplore.ReinforcementLearning.tdNoiseVarBound`: the bound `W` on its quadratic variation.
 
 ## Main statements
@@ -75,19 +87,22 @@ in `LMLExplore.ReinforcementLearning.TemporalDifference.SampleComplexity`.
   weighted sums of propagators and their domination by the resolvent.
 * `ProbabilityTheory.Kernel.sum_sq_mul_prod_mul_tdPropagator_le`: the quadratic variation weights
   of the propagators, split at an iteration `m` [LCCWC24, (117)].
+* `ProbabilityTheory.Kernel.eq_tdPropagator_add_sum`,
+  `ProbabilityTheory.Kernel.tdPropagator_add_sum_le`: unrolling the dynamics and its
+  supersolutions.
 * `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue_eq_tdStep`,
   `LMLExplore.ReinforcementLearning.syncQLearning_sub_optQValue_eq_tdPropagator`: the error
-  recursion and its unrolled form [LCCWC24, (110)–(111)].
+  recursion of TD learning and its unrolled form [LCCWC24, (110)–(111)].
 * `LMLExplore.ReinforcementLearning.measure_three_mul_sqrt_add_lt_mul_tdNoise_le`:
   Freedman's inequality for each entry of the noise term.
 * `LMLExplore.ReinforcementLearning.measure_exists_lt_abs_syncQLearning_sub_optQValue_le`: the
-  high-probability bound on the error of the `t`-th iterate.
+  high-probability bound on the error of the `t`-th iterate of TD learning.
 * `LMLExplore.ReinforcementLearning.measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le`
   : the same bound at all the iterations of a finite set.
 * `LMLExplore.ReinforcementLearning.prod_one_sub_mul_one_sub_nonneg`: the products
   `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` are nonnegative.
-* `LMLExplore.ReinforcementLearning.mul_integral_variance_optQValue_le`:
-  `γ ^ 2 (I - γ P)⁻¹ Var_P(V*) ≤ (C / (1 - γ)) ^ 2` with one action.
+* `LMLExplore.ReinforcementLearning.mul_integral_variance_optValue_le`:
+  `γ ^ 2 (I - γ P^π)⁻¹ Var_P(V*) ≤ (C / (1 - γ)) ^ 2` for a policy `π` greedy for `Q*`.
 * `LMLExplore.ReinforcementLearning.tdNoiseVarBound_le`: the quadratic variation bound in terms of
   the late errors [LCCWC24, (117), (95) and (120)].
 
@@ -166,6 +181,12 @@ lemma tdStep_nonneg {c : ℝ} (hc : c ∈ Set.Icc (0 : ℝ) 1) {f : α → ℝ} 
   exact add_nonneg (mul_nonneg (sub_nonneg.2 hc.2) (hf x))
     (mul_nonneg (mul_nonneg hc.1 γ.coe_nonneg) (integral_nonneg hf))
 
+/-- For a learning rate in `[0, 1]`, the step `I - c (I - γ κ)` is monotone. -/
+lemma tdStep_mono {c : ℝ} (hc : c ∈ Set.Icc (0 : ℝ) 1) {f g : α → ℝ} (hfg : f ≤ g) :
+    tdStep κ γ c f ≤ tdStep κ γ c g := by
+  have := tdStep_nonneg (κ := κ) (γ := γ) hc (sub_nonneg.2 hfg)
+  rwa [map_sub, sub_nonneg] at this
+
 /-- The step `I - c (I - γ κ)` multiplies constants by `1 - c (1 - γ)`. -/
 lemma tdStep_const [IsMarkovKernel κ] (c a : ℝ) :
     tdStep κ γ c (fun _ ↦ a) = fun _ ↦ (1 - c * (1 - γ)) * a := by
@@ -218,6 +239,42 @@ lemma abs_tdPropagator_le [IsMarkovKernel κ] {k t : ℕ}
     (fun y ↦ (abs_le.1 (hf y)).1) x
   rw [tdPropagator_const] at h₁ h₂
   exact abs_le.2 ⟨by linarith, h₁⟩
+
+/-- The step `Φ 0 (t + 1) x₀ + ∑_{k ≤ t} Φ (k + 1) (t + 1) (e k)` of the unrolled dynamics is
+the image of `Φ 0 t x₀ + ∑_{k < t} Φ (k + 1) t (e k)` under the step `I - η (t + 1) (I - γ κ)`,
+plus `e t`. -/
+private lemma tdPropagator_add_sum_succ (x₀ : α → ℝ) (e : ℕ → α → ℝ) (t : ℕ) :
+    tdPropagator κ γ η 0 (t + 1) x₀ +
+        ∑ k ∈ range (t + 1), tdPropagator κ γ η (k + 1) (t + 1) (e k) =
+      tdStep κ γ (η (t + 1))
+          (tdPropagator κ γ η 0 t x₀ + ∑ k ∈ range t, tdPropagator κ γ η (k + 1) t (e k)) +
+        e t := by
+  rw [map_add, map_sum, sum_range_succ, tdPropagator_self, tdPropagator_succ (Nat.zero_le t),
+    mul_apply_eq_comp, one_apply_eq_self, add_assoc]
+  congr 2
+  refine sum_congr rfl fun k hk ↦ ?_
+  rw [tdPropagator_succ (mem_range.1 hk), mul_apply_eq_comp]
+
+/-- **Unrolling the dynamics** `x (t + 1) = (I - η (t + 1) (I - γ κ)) x t + e t`: then
+`x t = Φ 0 t (x 0) + ∑_{k < t} Φ (k + 1) t (e k)`. -/
+lemma eq_tdPropagator_add_sum {x e : ℕ → α → ℝ}
+    (h : ∀ t, x (t + 1) = tdStep κ γ (η (t + 1)) (x t) + e t) (t : ℕ) :
+    x t = tdPropagator κ γ η 0 t (x 0) + ∑ k ∈ range t, tdPropagator κ γ η (k + 1) t (e k) := by
+  induction t with
+  | zero => simp
+  | succ t ih => rw [tdPropagator_add_sum_succ, ← ih, h]
+
+/-- **Unrolling a supersolution of the dynamics.** For learning rates in `[0, 1]`, if
+`(I - η (t + 1) (I - γ κ)) x t + e t ≤ x (t + 1)` for every `t`, then
+`Φ 0 t (x 0) + ∑_{k < t} Φ (k + 1) t (e k) ≤ x t`, since the steps are monotone. -/
+lemma tdPropagator_add_sum_le {x e : ℕ → α → ℝ} (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
+    (h : ∀ t, tdStep κ γ (η (t + 1)) (x t) + e t ≤ x (t + 1)) (t : ℕ) :
+    tdPropagator κ γ η 0 t (x 0) + ∑ k ∈ range t, tdPropagator κ γ η (k + 1) t (e k) ≤ x t := by
+  induction t with
+  | zero => simp
+  | succ t ih =>
+    rw [tdPropagator_add_sum_succ]
+    exact (add_le_add (tdStep_mono (hη t) ih) le_rfl).trans (h t)
 
 /-- The propagator `Φ k t` is the matrix with the entries `Φ k t 𝟙_y x`: for every `f`,
 `Φ k t f x = ∑ y, Φ k t 𝟙_y x f y`. -/
@@ -369,12 +426,12 @@ end ProbabilityTheory.Kernel
 
 namespace LMLExplore.ReinforcementLearning
 
-/-! ### The error decomposition of synchronous TD learning -/
+/-! ### The error decompositions -/
 
 section TD
 
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Finite 𝓢]
-  [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] [Unique 𝓐] [MeasurableSingletonClass 𝓐]
+  [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐] [MeasurableSingletonClass 𝓐]
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η : ℕ → ℝ} {Q₀ : 𝓢 × 𝓐 → ℝ} {C : ℝ}
 
 /-- **One step of the error of synchronous TD learning** [LCCWC24, (110)]. With one action, the
@@ -382,7 +439,7 @@ error `Δ t = Q t - Q*` satisfies
 `Δ (t + 1) = (I - η (t + 1) (I - γ P)) Δ t + η (t + 1) γ (P_{t+1} - P) V t`, where `P` is the
 state-action kernel of the unique policy and `(P_{t+1} - P) V t p = V t (ω t p) - P V t p` is the
 sampling noise of the value estimate `V t s = Q t (s, default)`. -/
-theorem syncQLearning_succ_sub_optQValue_eq_tdStep (hγ : γ < 1)
+theorem syncQLearning_succ_sub_optQValue_eq_tdStep [Unique 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
     syncQLearning (meanReward M.R) γ η Q₀ (t + 1) ω p - M.optQValue γ p =
       Kernel.tdStep
@@ -397,24 +454,36 @@ theorem syncQLearning_succ_sub_optQValue_eq_tdStep (hγ : γ < 1)
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
 /-- The noise `ξ t p = ∑_{k < t} η (k + 1) γ Φ (k + 1) t ((P_{k+1} - P) V k) p` of the error
-decomposition of synchronous TD learning with one action, where `Φ k t` is the propagator of the
-mean dynamics with the state-action kernel `P` of the unique policy and
-`(P_{k+1} - P) V k q = V k (ω k q) - P V k q` is the sampling noise of the value estimate
-`V k s = Q k (s, default)` at iteration `k + 1`. -/
-noncomputable def tdNoise (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : ℝ :=
-  ∑ k ∈ range t, η (k + 1) * γ *
-    Kernel.tdPropagator (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η
-      (k + 1) t (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
-        ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)) p
+decompositions of synchronous Q-learning, where `Φ k t` is the propagator of the mean dynamics with
+a kernel `κ` on the state-action pairs and `(P_{k+1} - P) V k q = V k (ω k q) - P V k q` is the
+sampling noise of the value estimate `V k s = ⨆ a, Q k (s, a)` at iteration `k + 1`. With one
+action and the state-action kernel of the unique policy, it is the noise of synchronous TD
+learning; with the state-action kernel of a policy greedy for `Q*`, it is the noise of the lower
+bound on the errors of synchronous Q-learning. -/
+noncomputable def tdNoise (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : ℝ :=
+  ∑ k ∈ range t, η (k + 1) * γ * κ.tdPropagator γ η (k + 1) t
+    (fun q ↦ (⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, a)) -
+      ∫ s', ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a) ∂(M.P q)) p
 
 omit [Nonempty 𝓢] in
 /-- The noise `ξ t p` as the sum over the iterations `k < t` of the propagated sampling noises. -/
-lemma tdNoise_def (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
-    tdNoise M γ η Q₀ t ω p = ∑ k ∈ range t, η (k + 1) * γ *
-      Kernel.tdPropagator (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
-        γ η (k + 1) t (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
-          ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)) p :=
+lemma tdNoise_def (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    tdNoise M γ η Q₀ κ t ω p = ∑ k ∈ range t, η (k + 1) * γ * κ.tdPropagator γ η (k + 1) t
+      (fun q ↦ (⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, a)) -
+        ∫ s', ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a) ∂(M.P q)) p :=
   (rfl)
+
+omit [Nonempty 𝓢] in
+/-- The noise `ξ t` is the sum of the propagated sampling noises `η (k + 1) γ (P_{k+1} - P) V k`,
+as functions on the state-action pairs. -/
+lemma tdNoise_eq_sum_apply (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    tdNoise M γ η Q₀ κ t ω p = (∑ k ∈ range t, κ.tdPropagator γ η (k + 1) t
+      ((η (k + 1) * γ) • fun q ↦ (⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, a)) -
+        ∫ s', ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a) ∂(M.P q))) p := by
+  simp [tdNoise_def, Finset.sum_apply]
 
 /-- **The error decomposition of synchronous TD learning** [LCCWC24, (111)]. With one action, the
 error `Δ t = Q t - Q*` is `Δ t = Φ 0 t Δ 0 + ξ t`, where `Φ k t` is the propagator of the mean
@@ -423,92 +492,81 @@ dynamics with the state-action kernel `P` of the unique policy and
 `LMLExplore.ReinforcementLearning.tdNoise`, with the sampling noise
 `(P_{k+1} - P) V k p = V k (ω k p) - P V k p` of the value estimate `V k s = Q k (s, default)` at
 iteration `k + 1`. -/
-theorem syncQLearning_sub_optQValue_eq_tdPropagator (hγ : γ < 1)
+theorem syncQLearning_sub_optQValue_eq_tdPropagator [Unique 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
     syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p =
       Kernel.tdPropagator
         (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η 0 t
-          (fun q ↦ Q₀ q - M.optQValue γ q) p + tdNoise M γ η Q₀ t ω p := by
-  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
-  set N : ℕ → 𝓢 × 𝓐 → ℝ := fun k q ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, default) -
-    ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P q)
-  suffices h : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q) =
-      κ.tdPropagator γ η 0 t (fun q ↦ Q₀ q - M.optQValue γ q) +
-        ∑ k ∈ range t, (η (k + 1) * γ) • κ.tdPropagator γ η (k + 1) t (N k) by
-    rw [congrFun h p, tdNoise_def]
-    simp [Finset.sum_apply, κ, N]
-  induction t with
-  | zero => simp
-  | succ t ih =>
-    have hstep : (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ (t + 1) ω q - M.optQValue γ q) =
-        κ.tdStep γ (η (t + 1)) (fun q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q -
-          M.optQValue γ q) + (η (t + 1) * γ) • N t := by
-      funext q
-      rw [syncQLearning_succ_sub_optQValue_eq_tdStep hγ hR, Pi.add_apply, Pi.smul_apply,
-        smul_eq_mul]
-    rw [hstep, ih, map_add, map_sum, sum_range_succ, Kernel.tdPropagator_self,
-      Kernel.tdPropagator_succ (Nat.zero_le t), mul_apply_eq_comp, one_apply_eq_self, add_assoc]
-    congr 2
-    refine sum_congr rfl fun k hk ↦ ?_
-    rw [map_smul, Kernel.tdPropagator_succ (mem_range.1 hk), mul_apply_eq_comp]
-
-/-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` on every `Ioc k t`. -/
-private lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
-    (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
-  obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-  exact hη j
+          (fun q ↦ Q₀ q - M.optQValue γ q) p +
+        tdNoise M γ η Q₀ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
+          t ω p := by
+  have h := Kernel.eq_tdPropagator_add_sum
+    (κ := M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) (γ := γ)
+    (η := η) (x := fun t q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q)
+    (e := fun t ↦ (η (t + 1) * γ) • fun q ↦
+      (⨆ a, syncQLearning (meanReward M.R) γ η Q₀ t ω (ω t q, a)) -
+        ∫ s', ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ t ω (s', a) ∂(M.P q))
+    (fun t ↦ funext fun q ↦ by
+      simp only [Pi.add_apply, Pi.smul_apply, smul_eq_mul, ciSup_unique]
+      exact syncQLearning_succ_sub_optQValue_eq_tdStep hγ hR t ω q) t
+  rw [congrFun h p, Pi.add_apply, tdNoise_eq_sum_apply]
+  simp only [syncQLearning_zero]
 
 /-- For `γ < 1` and learning rates in `[0, 1]` from iteration `1` on, the products
 `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` are nonnegative. -/
 lemma prod_one_sub_mul_one_sub_nonneg (hγ : γ < 1) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
     (k t : ℕ) : 0 ≤ ∏ i ∈ Ioc k t, (1 - η i * (1 - γ)) :=
   Real.prod_one_sub_mul_nonneg (sub_nonneg.2 (by exact_mod_cast hγ.le))
-    (by linarith [γ.coe_nonneg]) fun _ hi ↦ mem_Icc_of_mem_Ioc hη hi
+    (by linarith [γ.coe_nonneg]) fun _ hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi
 
 variable (M γ η Q₀) in
 omit [Nonempty 𝓢] in
 /-- The bound `W t p = ∑_{k < t} (η (k + 1) γ) ^ 2 ρ (k + 1) t Φ (k + 1) t Var_P(V k) p` on the
-quadratic variation of the noise `LMLExplore.ReinforcementLearning.tdNoise` of synchronous TD
-learning, where `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))` and `Var_P(V k) q` is the variance of
-the value estimate `V k s = Q k (s, default)` under `P q`. -/
-noncomputable def tdNoiseVarBound (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : ℝ :=
+quadratic variation of the noise `LMLExplore.ReinforcementLearning.tdNoise` with the kernel `κ`,
+where `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))`, `Φ k t` is the propagator of the mean dynamics
+with `κ` and `Var_P(V k) q` is the variance of the value estimate `V k s = ⨆ a, Q k (s, a)` under
+`P q`. -/
+noncomputable def tdNoiseVarBound (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : ℝ :=
   ∑ k ∈ range t, (η (k + 1) * γ) ^ 2 * (∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) *
-    Kernel.tdPropagator (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) γ η
-      (k + 1) t (fun q ↦ Var[fun s' ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default);
-        M.P q]) p
+    κ.tdPropagator γ η (k + 1) t
+      (fun q ↦ Var[fun s' ↦ ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a); M.P q]) p
 
 omit [Nonempty 𝓢] in
 /-- The bound `W t p` as the sum over the iterations `k < t` of the propagated variances. -/
-lemma tdNoiseVarBound_def (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
-    tdNoiseVarBound M γ η Q₀ t ω p =
+lemma tdNoiseVarBound_def (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    tdNoiseVarBound M γ η Q₀ κ t ω p =
       ∑ k ∈ range t, (η (k + 1) * γ) ^ 2 * (∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) *
-        Kernel.tdPropagator (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
-          γ η (k + 1) t (fun q ↦ Var[fun s' ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω
-            (s', default); M.P q]) p :=
+        κ.tdPropagator γ η (k + 1) t
+          (fun q ↦ Var[fun s' ↦ ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a); M.P q])
+            p :=
   (rfl)
 
 omit [Nonempty 𝓢] in
-/-- **Freedman's inequality for the noise of synchronous TD learning**, one-sided
-[LCCWC24, (113)–(116)]. With one action, rewards in `[0, C]`, learning rates in `[0, 1]` and
-`0 ≤ Q₀ ≤ C / (1 - γ)`, let `σ` be `1` or `-1` and `b > 0` with
-`η (k + 1) γ ρ (k + 1) t C / (1 - γ) ≤ b` for every `k < t`, where
+/-- **Freedman's inequality for the noise of synchronous Q-learning**, one-sided
+[LCCWC24, (113)–(116)]. With rewards in `[0, C]`, learning rates in `[0, 1]` and
+`0 ≤ Q₀ ≤ C / (1 - γ)`, let `κ` be a Markov kernel on the state-action pairs, let `σ` be `1` or
+`-1` and `b > 0` with `η (k + 1) γ ρ (k + 1) t C / (1 - γ) ≤ b` for every `k < t`, where
 `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))`. Then for every pair `p`, with probability at least
-`1 - δ`, the noise `ξ t p` of the error decomposition (`LMLExplore.ReinforcementLearning.tdNoise`)
+`1 - δ`, the noise `ξ t p` with the kernel `κ` (`LMLExplore.ReinforcementLearning.tdNoise`)
 satisfies `σ ξ t p ≤ 3 √(W ℓ) + 2 b ℓ`, with the quadratic variation bound
-`W = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ t ω p`,
+`W = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ κ t ω p`,
 `ℓ = max 1 (log (K / δ))` and `K = ⌈log₄ t⌉ + 1`. -/
-theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le (hγ : γ < 1)
+theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le [Nonempty 𝓐]
+    {κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)} [IsMarkovKernel κ] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
     (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ))) {δ b σ : ℝ} (hδ : 0 < δ) (hb : 0 < b)
     (hσ : |σ| = 1) (t : ℕ)
     (hvb : ∀ k < t, η (k + 1) * γ * (∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) * (C / (1 - γ)) ≤ b)
     (p : 𝓢 × 𝓐) :
-    streamMeasure M.P {ω | 3 * √(tdNoiseVarBound M γ η Q₀ t ω p *
+    streamMeasure M.P {ω | 3 * √(tdNoiseVarBound M γ η Q₀ κ t ω p *
           max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
         2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ)) <
-      σ * tdNoise M γ η Q₀ t ω p} ≤ ENNReal.ofReal δ := by
+      σ * tdNoise M γ η Q₀ κ t ω p} ≤ ENNReal.ofReal δ := by
   classical
   have := Fintype.ofFinite 𝓢
+  have := Fintype.ofFinite 𝓐
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
   have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
     rw [meanReward_def]
@@ -518,11 +576,10 @@ theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le (hγ : γ < 1)
     field_simp
     ring
   have hηk (k : ℕ) : ∀ i ∈ Ioc (k + 1) t, η i ∈ Set.Icc (0 : ℝ) 1 := fun i hi ↦
-    mem_Icc_of_mem_Ioc hη hi
+    learningRate_mem_Icc_of_mem_Ioc hη hi
   have hc (k : ℕ) : |σ * (η (k + 1) * γ)| = η (k + 1) * γ := by
     rw [abs_mul, hσ, one_mul, abs_of_nonneg (mul_nonneg (hη k).1 γ.coe_nonneg)]
   -- the weights of the noises are `σ η (k + 1) γ` times the entries of `Φ (k + 1) t`
-  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
   have h := measure_three_mul_sqrt_add_lt_sum_sum_mul_iSup_syncQLearning_le (P := M.P) hη hr hQ₀
     hB hδ hb t (fun k y ↦ σ * (η (k + 1) * γ) * κ.tdPropagator γ η (k + 1) t (Pi.single y 1) p)
     fun k hk ↦ by
@@ -532,8 +589,8 @@ theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le (hγ : γ < 1)
   have hW (ω : ℕ → 𝓢 × 𝓐 → 𝓢) : ∑ k ∈ range t,
       (∑ y, |σ * (η (k + 1) * γ) * κ.tdPropagator γ η (k + 1) t (Pi.single y 1) p|) *
         ∑ y, |σ * (η (k + 1) * γ) * κ.tdPropagator γ η (k + 1) t (Pi.single y 1) p| *
-          Var[fun s' ↦ syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default); M.P y] =
-      tdNoiseVarBound M γ η Q₀ t ω p := by
+          Var[fun s' ↦ ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a); M.P y] =
+      tdNoiseVarBound M γ η Q₀ κ t ω p := by
     rw [tdNoiseVarBound_def]
     refine sum_congr rfl fun k _ ↦ ?_
     rw [Kernel.sum_abs_mul_tdPropagator_single (hηk k),
@@ -541,30 +598,32 @@ theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le (hγ : γ < 1)
     ring
   have hξ (ω : ℕ → 𝓢 × 𝓐 → 𝓢) : ∑ k ∈ range t, ∑ y,
       σ * (η (k + 1) * γ) * κ.tdPropagator γ η (k + 1) t (Pi.single y 1) p *
-        (syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k y, default) -
-          ∫ s', syncQLearning (meanReward M.R) γ η Q₀ k ω (s', default) ∂(M.P y)) =
-      σ * tdNoise M γ η Q₀ t ω p := by
+        ((⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k y, a)) -
+          ∫ s', ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s', a) ∂(M.P y)) =
+      σ * tdNoise M γ η Q₀ κ t ω p := by
     simp_rw [tdNoise_def, Kernel.sum_mul_tdPropagator_single_mul, mul_sum]
     exact sum_congr rfl fun k _ ↦ by ring
-  simp only [ciSup_unique, hW, hξ] at h
+  simp only [hW, hξ] at h
   exact h
 
 /-- If the error of the `t`-th iterate of synchronous TD learning exceeds
 `ρ 0 t C / (1 - γ) + a`, with `ρ 0 t = ∏_{i = 1}^t (1 - η i (1 - γ))`, then the noise `ξ t p`
 of the error decomposition exceeds `a` in absolute value: the contracted initial error is at most
 `ρ 0 t C / (1 - γ)`. -/
-private lemma lt_abs_tdNoise_of_lt_abs_syncQLearning_sub_optQValue (hγ : γ < 1)
+private lemma lt_abs_tdNoise_of_lt_abs_syncQLearning_sub_optQValue [Unique 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
     (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ))) {a : ℝ} {t : ℕ} {ω : ℕ → 𝓢 × 𝓐 → 𝓢}
     {p : 𝓢 × 𝓐}
     (h : (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (C / (1 - γ)) + a <
       |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p|) :
-    a < |tdNoise M γ η Q₀ t ω p| := by
+    a < |tdNoise M γ η Q₀ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
+      t ω p| := by
   have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
     abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
   have h₀ := Kernel.abs_tdPropagator_le
     (κ := M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) (γ := γ)
-    (k := 0) (t := t) (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (f := fun q ↦ Q₀ q - M.optQValue γ q)
+    (k := 0) (t := t) (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
+    (f := fun q ↦ Q₀ q - M.optQValue γ q)
     (fun q ↦ by simpa using abs_syncQLearning_sub_optQValue_le (η := η) hγ hR hη hQ₀ 0 ω q) p
   rw [syncQLearning_sub_optQValue_eq_tdPropagator hγ hRabs] at h
   linarith [(abs_add_le _ _).trans_lt' h]
@@ -575,25 +634,31 @@ one action, rewards in `[0, C]`, `γ < 1`, learning rates in `[0, 1]` and
 `k < t`, where `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))`. Then with probability at least
 `1 - 2 S δ`, with `S` the number of states, for every pair `p`, the error of the `t`-th iterate
 satisfies `|Q t p - Q* p| ≤ ρ 0 t C / (1 - γ) + 3 √(W p ℓ) + 2 b ℓ`, with the quadratic variation
-bound `W p = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ t ω p`,
-`ℓ = max 1 (log (K / δ))` and `K = ⌈log₄ t⌉ + 1`: the initial error is contracted by the mean
-dynamics and the sampling noise is controlled by Freedman's inequality. -/
-theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype 𝓢] (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
-    (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ))) {δ b : ℝ} (hδ : 0 < δ) (hb : 0 < b) (t : ℕ)
+bound `W p = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ κ t ω p` for the
+state-action kernel `κ` of the unique policy, `ℓ = max 1 (log (K / δ))` and
+`K = ⌈log₄ t⌉ + 1`: the initial error is contracted by the mean dynamics and the sampling noise is
+controlled by Freedman's inequality. -/
+theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype 𝓢] [Unique 𝓐]
+    (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C)
+    (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ)))
+    {δ b : ℝ} (hδ : 0 < δ) (hb : 0 < b) (t : ℕ)
     (hvb : ∀ k < t,
       η (k + 1) * γ * (∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) * (C / (1 - γ)) ≤ b) :
     streamMeasure M.P {ω | ∃ p, (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (C / (1 - γ)) +
-        (3 * √(tdNoiseVarBound M γ η Q₀ t ω p *
+        (3 * √(tdNoiseVarBound M γ η Q₀
+            (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω p *
           max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
         2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) <
       |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p|} ≤
       ENNReal.ofReal (2 * Fintype.card 𝓢 * δ) := by
   -- the noise exceeds its bound from above or from below at some pair
   set E : ℝ → 𝓢 × 𝓐 → Set (ℕ → 𝓢 × 𝓐 → 𝓢) := fun σ p ↦ {ω |
-    3 * √(tdNoiseVarBound M γ η Q₀ t ω p * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
-      2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ)) < σ * tdNoise M γ η Q₀ t ω p}
-    with hE
+    3 * √(tdNoiseVarBound M γ η Q₀
+        (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω p *
+      max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
+      2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ)) <
+    σ * tdNoise M γ η Q₀ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
+      t ω p} with hE
   have hE₁ (σ : ℝ) (hσ : |σ| = 1) (p : 𝓢 × 𝓐) : streamMeasure M.P (E σ p) ≤ ENNReal.ofReal δ :=
     measure_three_mul_sqrt_add_lt_mul_tdNoise_le hγ hR hη hQ₀ hδ hb hσ t hvb p
   calc streamMeasure M.P _ ≤ streamMeasure M.P (⋃ p, (E 1 p ∪ E (-1) p)) :=
@@ -614,89 +679,79 @@ theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype 𝓢] (hγ
 
 /-! ### The quadratic variation in terms of the errors -/
 
-omit [Nonempty 𝓢] in
-/-- With one action, the variance under the state-action kernel of the unique policy is the
-variance at the next state: `Var[f; P_SA p] = Var[s ↦ f (s, default); P p]`. -/
-private lemma variance_saKernel_default (f : 𝓢 × 𝓐 → ℝ) (p : 𝓢 × 𝓐) :
-    Var[f; M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const) p] =
-      Var[fun s ↦ f (s, default); M.P p] := by
-  rw [variance_eq_integral (measurable_of_finite f).aemeasurable,
-    variance_eq_integral (measurable_of_finite _).aemeasurable,
-    integral_saKernel_deterministic _ .of_finite, integral_saKernel_deterministic _ .of_finite]
-
-/-- With one action, the optimal action value is the resolvent of the mean reward under the
-state-action kernel `P` of the unique policy: `Q* = (I - γ P)⁻¹ r`. -/
-private lemma optQValue_eq_integral_resolvent_of_unique (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) :
-    M.optQValue γ = fun p ↦ ∫ q, meanReward M.R q
-      ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
-        p) := by
-  have hv (s : 𝓢) : M.optQValue γ (s, default) = M.optValue γ s := by
-    rw [← iSup_optQValue hγ hR s, ciSup_unique]
-  refine Kernel.eq_integral_resolvent_of_eq_add hγ (measurable_of_finite _) (abs_meanReward_le hR)
-    (measurable_of_finite _) (abs_optQValue_le hγ hR) fun p ↦ ?_
-  rw [integral_saKernel_deterministic _ .of_finite, optQValue_def]
-  simp only [hv]
-
 /-- **The resolvent of the one-step variances of the optimal value** [LCCWC24, Section C.2]. With
-one action, rewards in `[0, C]` and `γ < 1`, the resolvent `(I - γ P)⁻¹` of the state-action kernel
-`P` of the unique policy, applied to the one-step variances `Var_P(V*)` of the optimal value,
-satisfies `γ ^ 2 (I - γ P)⁻¹ Var_P(V*) ≤ (C / (1 - γ)) ^ 2`. This improves the bound
+rewards in `[0, C]`, `γ < 1` and a policy `π` greedy for the optimal action value,
+`Q* (s, π s) = V* s`, the resolvent `(I - γ P^π)⁻¹` of the state-action kernel `P^π` of `π`,
+applied to the one-step variances `Var_P(V*)` of the optimal value, satisfies
+`γ ^ 2 (I - γ P^π)⁻¹ Var_P(V*) ≤ (C / (1 - γ)) ^ 2`. This improves the bound
 `(I - γ P)⁻¹ Var_P(V*) ≤ 2 / (γ ^ 2 (1 - γ) ^ 2)` of the source, for `C = 1`, by a factor `2`.
 -/
-theorem mul_integral_variance_optQValue_le (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (p : 𝓢 × 𝓐) :
-    (γ : ℝ) ^ 2 * ∫ q, Var[fun s' ↦ M.optQValue γ (s', default); M.P q]
-        ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
-          p) ≤ (C / (1 - γ)) ^ 2 := by
+theorem mul_integral_variance_optValue_le (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) {π : 𝓢 → 𝓐}
+    (hπ : ∀ s, M.optQValue γ (s, π s) = M.optValue γ s) (p : 𝓢 × 𝓐) :
+    (γ : ℝ) ^ 2 * ∫ q, Var[M.optValue γ; M.P q]
+        ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) p) ≤
+      (C / (1 - γ)) ^ 2 := by
+  have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
   have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
     abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
   have hr₀ (q : 𝓢 × 𝓐) : 0 ≤ meanReward M.R q := by
     rw [meanReward_def]
     exact integral_nonneg_of_ae ((hR q).mono fun x hx ↦ hx.1)
-  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
-  have hQ := optQValue_eq_integral_resolvent_of_unique (M := M) hγ hRabs
-  have hVB (y : 𝓢 × 𝓐) : ∫ z, meanReward M.R z ∂(Kernel.resolvent γ κ y) ≤ C / (1 - γ) := by
+  have hQ := optQValue_eq_integral_resolvent_of_greedy (M := M) hγ hRabs
+    (measurable_of_finite π) hπ
+  have hVB (y : 𝓢 × 𝓐) : ∫ z, meanReward M.R z ∂(Kernel.resolvent γ
+      (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) y) ≤ C / (1 - γ) := by
     rw [← congrFun hQ y]
     exact (le_abs_self _).trans (abs_optQValue_le hγ hRabs y)
-  simp_rw [← variance_saKernel_default (M := M) (M.optQValue γ)]
+  -- `Var_P(V*) = Var_{P^π}(Q*)`, since `V* = Q* (·, π ·)`
+  have hV : M.optValue γ = fun s ↦ M.optQValue γ (s, π s) := funext fun s ↦ (hπ s).symm
+  simp_rw [hV, ← variance_saKernel_deterministic (measurable_of_finite π)
+    (measurable_of_finite (M.optQValue γ)).aemeasurable]
   rw [hQ]
-  have h := Kernel.mul_integral_variance_integral_resolvent_le (κ := κ) hγ (measurable_of_finite _)
-    (abs_meanReward_le hRabs) hr₀ hVB p
-  nlinarith [sq_nonneg (C / (1 - γ) - ∫ z, meanReward M.R z ∂(Kernel.resolvent γ κ p))]
+  have h := Kernel.mul_integral_variance_integral_resolvent_le
+    (κ := M.saKernel (Kernel.deterministic π (measurable_of_finite π))) hγ
+    (measurable_of_finite _) (abs_meanReward_le hRabs) hr₀ hVB p
+  nlinarith [sq_nonneg (C / (1 - γ) - ∫ z, meanReward M.R z ∂(Kernel.resolvent γ
+    (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) p))]
 
 omit [Nonempty 𝓢] in
 /-- The bound `W t p` on the quadratic variation of the noise is nonnegative, for learning rates in
 `[0, 1]` and `γ < 1`. -/
-lemma tdNoiseVarBound_nonneg (hγ : γ < 1) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (t : ℕ)
-    (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) : 0 ≤ tdNoiseVarBound M γ η Q₀ t ω p := by
+lemma tdNoiseVarBound_nonneg {κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)} [IsFiniteKernel κ] (hγ : γ < 1)
+    (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
+    0 ≤ tdNoiseVarBound M γ η Q₀ κ t ω p := by
   rw [tdNoiseVarBound_def]
   refine sum_nonneg fun k _ ↦ mul_nonneg (mul_nonneg (sq_nonneg _)
     (prod_one_sub_mul_one_sub_nonneg hγ hη _ _))
-    (Kernel.tdPropagator_nonneg (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi)
+    (Kernel.tdPropagator_nonneg (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
       (fun q ↦ variance_nonneg _ _) p)
 
 /-- **The quadratic variation of the noise in terms of the errors** [LCCWC24, (117), (95) and
-(120)]. With one action, rewards in `[0, C]`, `γ < 1`, learning rates in `[0, 1]` and
-`0 ≤ Q₀ ≤ C / (1 - γ)`, let `m ≤ t`, let `D ≥ 0` bound the errors `|V k - V*|` of the value
-estimates at the late iterations `m ≤ k < t`, and let `β ≥ 0` bound the late weights
-`η (k + 1) ρ (k + 1) t`, where `ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))`. Then the bound
-`W t p = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ t ω p` on the quadratic
-variation of the noise satisfies
+(120)]. With rewards in `[0, C]`, `γ < 1`, learning rates in `[0, 1]`, `0 ≤ Q₀ ≤ C / (1 - γ)`
+and a policy `π` greedy for the optimal action value, `Q* (s, π s) = V* s`, let `m ≤ t`, let
+`D ≥ 0` bound the errors `|V k - V*|` of the value estimates `V k s = ⨆ a, Q k (s, a)` at the late
+iterations `m ≤ k < t`, and let `β ≥ 0` bound the late weights `η (k + 1) ρ (k + 1) t`, where
+`ρ k t = ∏_{i = k + 1}^t (1 - η i (1 - γ))`. Then the bound
+`W t p = LMLExplore.ReinforcementLearning.tdNoiseVarBound M γ η Q₀ P^π t ω p` on the quadratic
+variation of the noise with the state-action kernel `P^π` of `π` satisfies
 `W t p ≤ B ^ 2 ∑_{k < m} (η (k + 1) γ ρ (k + 1) t) ^ 2 + β (B ^ 2 + 4 γ ^ 2 B D / (1 - γ))`, with
 `B = C / (1 - γ)`: the early variances are at most `B ^ 2`, the late ones exceed `Var_P(V*)` by at
 most `4 B D`, and the resolvent of `Var_P(V*)` is at most `B ^ 2 / γ ^ 2`. -/
 theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C)
     (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ)))
+    {π : 𝓢 → 𝓐} (hπ : ∀ s, M.optQValue γ (s, π s) = M.optValue γ s)
     {m t : ℕ} (hmt : m ≤ t) {ω : ℕ → 𝓢 × 𝓐 → 𝓢} {D β : ℝ} (hD₀ : 0 ≤ D)
-    (hD : ∀ k ∈ Ico m t, ∀ s, |syncQLearning (meanReward M.R) γ η Q₀ k ω (s, default) -
-      M.optQValue γ (s, default)| ≤ D) (hβ₀ : 0 ≤ β)
-    (hβ : ∀ k ∈ Ico m t, η (k + 1) * ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) ≤ β)
+    (hD : ∀ k ∈ Ico m t, ∀ s,
+      |(⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s, a)) - M.optValue γ s| ≤ D)
+    (hβ₀ : 0 ≤ β) (hβ : ∀ k ∈ Ico m t, η (k + 1) * ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ)) ≤ β)
     (p : 𝓢 × 𝓐) :
-    tdNoiseVarBound M γ η Q₀ t ω p ≤
+    tdNoiseVarBound M γ η Q₀ (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) t ω
+        p ≤
       (C / (1 - γ)) ^ 2 *
           ∑ k ∈ range m, (η (k + 1) * γ * ∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) ^ 2 +
         β * ((C / (1 - γ)) ^ 2 + 4 * γ ^ 2 * (C / (1 - γ)) * D / (1 - γ)) := by
+  have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
   have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
     abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
@@ -709,16 +764,16 @@ theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x �
     ring
   set B := C / (1 - γ)
   -- the value estimates and the optimal value lie in `[-B, B]`
-  have hV (k : ℕ) (s : 𝓢) : |syncQLearning (meanReward M.R) γ η Q₀ k ω (s, default)| ≤ B := by
-    have := syncQLearning_mem_Icc hη hr hQ₀ hB k ω (s, default)
+  have hV (k : ℕ) (s : 𝓢) : |⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s, a)| ≤ B := by
+    have := iSup_syncQLearning_mem_Icc hη hr hQ₀ hB k ω s
     exact abs_le.2 ⟨by linarith [this.1, this.2], this.2⟩
-  have hVs (s : 𝓢) : |M.optQValue γ (s, default)| ≤ B := abs_optQValue_le hγ hRabs _
-  set κ := M.saKernel (Kernel.deterministic (fun _ : 𝓢 ↦ (default : 𝓐)) measurable_const)
-  have := Kernel.isFiniteKernel_resolvent (κ := κ) hγ
+  have hVs (s : 𝓢) : |M.optValue γ s| ≤ B := abs_optValue_le hγ hRabs s
+  have := Kernel.isFiniteKernel_resolvent
+    (κ := M.saKernel (Kernel.deterministic π (measurable_of_finite π))) hγ
   rw [tdNoiseVarBound_def]
-  refine (Kernel.sum_sq_mul_prod_mul_tdPropagator_le (κ := κ) hγ hmt
-    (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (G := B ^ 2)
-    (v := fun q ↦ Var[fun s' ↦ M.optQValue γ (s', default); M.P q] + 4 * B * D)
+  refine (Kernel.sum_sq_mul_prod_mul_tdPropagator_le hγ hmt
+    (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi) (G := B ^ 2)
+    (v := fun q ↦ Var[M.optValue γ; M.P q] + 4 * B * D)
     (fun k _ q ↦ variance_nonneg _ _)
     (fun k _ q ↦ by
       rw [abs_of_nonneg (variance_nonneg _ _)]
@@ -731,13 +786,15 @@ theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x �
         hD₀))
     hβ₀ hβ p).trans ?_
   -- the resolvent of `Var_P(V*) + 4 B D` is at most `B ^ 2 / γ ^ 2 + 4 B D / (1 - γ)`
-  have hσ := mul_integral_variance_optQValue_le hγ hR p
+  have hσ := mul_integral_variance_optValue_le hγ hR hπ p
   rw [integral_add .of_finite (integrable_const _), integral_const,
     Kernel.measureReal_resolvent_univ hγ, smul_eq_mul]
-  have h₁ : (γ : ℝ) ^ 2 * β * (∫ q, Var[fun s' ↦ M.optQValue γ (s', default); M.P q]
-      ∂(Kernel.resolvent γ κ p) + (1 - (γ : ℝ))⁻¹ * (4 * B * D)) =
-      β * ((γ : ℝ) ^ 2 * ∫ q, Var[fun s' ↦ M.optQValue γ (s', default); M.P q]
-        ∂(Kernel.resolvent γ κ p)) + β * (4 * γ ^ 2 * B * D / (1 - γ)) := by
+  have h₁ : (γ : ℝ) ^ 2 * β * (∫ q, Var[M.optValue γ; M.P q]
+      ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) p) +
+        (1 - (γ : ℝ))⁻¹ * (4 * B * D)) =
+      β * ((γ : ℝ) ^ 2 * ∫ q, Var[M.optValue γ; M.P q]
+        ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) p)) +
+        β * (4 * γ ^ 2 * B * D / (1 - γ)) := by
     rw [div_eq_mul_inv]
     ring
   have h₂ := mul_le_mul_of_nonneg_left hσ hβ₀
@@ -751,7 +808,7 @@ Then with probability at least `1 - 2 S #I δ`, for every iteration `t ∈ I` an
 error of the `t`-th iterate satisfies
 `|Q t p - Q* p| ≤ ρ 0 t C / (1 - γ) + 3 √(W t p ℓ t) + 2 b ℓ t`, with
 `ℓ t = max 1 (log ((⌈log₄ t⌉ + 1) / δ))`. -/
-theorem measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype 𝓢]
+theorem measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype 𝓢] [Unique 𝓐]
     (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C)
     (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ)))
     {δ b : ℝ} (hδ : 0 < δ) (hb : 0 < b) (I : Finset ℕ)
@@ -759,29 +816,20 @@ theorem measure_exists_mem_exists_lt_abs_syncQLearning_sub_optQValue_le [Fintype
       η (k + 1) * γ * (∏ i ∈ Ioc (k + 1) t, (1 - η i * (1 - γ))) * (C / (1 - γ)) ≤ b) :
     streamMeasure M.P {ω | ∃ t ∈ I, ∃ p,
       (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (C / (1 - γ)) +
-        (3 * √(tdNoiseVarBound M γ η Q₀ t ω p *
+        (3 * √(tdNoiseVarBound M γ η Q₀
+            (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω p *
           max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
         2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) <
       |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p|} ≤
       ENNReal.ofReal (2 * Fintype.card 𝓢 * #I * δ) := by
-  set E : ℕ → Set (ℕ → 𝓢 × 𝓐 → 𝓢) := fun t ↦ {ω | ∃ p,
-      (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (C / (1 - γ)) +
-        (3 * √(tdNoiseVarBound M γ η Q₀ t ω p *
-          max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) +
-        2 * b * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ))) <
-      |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p|} with hE
-  calc streamMeasure M.P _ ≤ streamMeasure M.P (⋃ t ∈ I, E t) :=
-        measure_mono fun ω hω ↦ by
-          obtain ⟨t, ht, hω⟩ := hω
-          exact Set.mem_biUnion ht hω
-    _ ≤ ∑ t ∈ I, streamMeasure M.P (E t) := measure_biUnion_finset_le _ _
-    _ ≤ ∑ t ∈ I, ENNReal.ofReal (2 * Fintype.card 𝓢 * δ) := sum_le_sum fun t ht ↦
-        measure_exists_lt_abs_syncQLearning_sub_optQValue_le hγ hR hη hQ₀ hδ hb t (hvb t ht)
-    _ = ENNReal.ofReal (2 * Fintype.card 𝓢 * #I * δ) := by
-        rw [sum_const, nsmul_eq_mul, ← ENNReal.ofReal_natCast,
-          ← ENNReal.ofReal_mul (by positivity)]
-        congr 1
-        ring
+  refine (measure_mono fun ω hω ↦ ?_).trans ((measure_biUnion_finset_le I _).trans
+    ((sum_le_sum fun t ht ↦ measure_exists_lt_abs_syncQLearning_sub_optQValue_le hγ hR hη hQ₀ hδ
+      hb t (hvb t ht)).trans_eq ?_))
+  · obtain ⟨t, ht, hω⟩ := hω
+    exact Set.mem_biUnion ht hω
+  · rw [sum_const, nsmul_eq_mul, ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (by positivity)]
+    congr 1
+    ring
 
 end TD
 

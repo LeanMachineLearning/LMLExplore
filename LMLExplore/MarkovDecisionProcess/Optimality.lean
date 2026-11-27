@@ -63,6 +63,8 @@ countable state space, here on a general measurable state space.
   `v*` and `Q*` are nonnegative.
 * `Learning.MDP.qValue_le_optQValue`, `Learning.MDP.qValue_eq_optQValue`: the action value of a
   stationary policy is at most `Q*`, with equality for an optimal policy.
+* `Learning.MDP.optQValue_eq_integral_resolvent_of_greedy`: for a deterministic policy `π`
+  greedy for `Q*`, `Q* = (I - γ P^π)⁻¹ r`.
 * `Learning.MDP.optQValue_sub_qValue_le_of_optValue_sub_value_le`: if `v* - v^π ≤ ε`, then
   `Q* - Q^π ≤ γ ε`.
 * `Learning.MDP.integral_optQValue_saKernel_le`: for every stationary policy `π` and transition
@@ -371,6 +373,21 @@ theorem qValue_eq_optQValue (h : M.value γ π = M.optValue γ) : M.qValue γ π
   rw [qValue_eq_lookahead, h, optQValue_eq_lookahead]
 
 end Stationary
+
+/-- For a measurable deterministic policy `π` greedy for the optimal action value,
+`Q* (s, π s) = v* s`, with countably many actions, bounded rewards and `γ < 1`, the optimal action
+value is the resolvent of the mean reward under the state-action kernel `P^π` of `π`:
+`Q* = (I - γ P^π)⁻¹ r`. -/
+theorem optQValue_eq_integral_resolvent_of_greedy [MeasurableSingletonClass 𝓐] (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C) {π : 𝓢 → 𝓐} (hπm : Measurable π)
+    (hπ : ∀ s, M.optQValue γ (s, π s) = M.optValue γ s) :
+    M.optQValue γ = fun p ↦ ∫ q, meanReward M.R q
+      ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic π hπm)) p) := by
+  refine Kernel.eq_integral_resolvent_of_eq_add hγ (measurable_meanReward _)
+    (abs_meanReward_le hR) (measurable_optQValue hγ hR) (abs_optQValue_le hγ hR) fun p ↦ ?_
+  rw [integral_saKernel_deterministic _
+    (integrable_of_abs_le (measurable_optQValue hγ hR) (abs_optQValue_le hγ hR) _), optQValue_def]
+  simp only [hπ]
 
 end Countable
 

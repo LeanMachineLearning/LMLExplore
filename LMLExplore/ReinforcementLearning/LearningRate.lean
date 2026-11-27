@@ -142,6 +142,14 @@ theorem learningRateWeight_nonneg {R : Type*} [CommRing R] [PartialOrder R] [IsO
 
 end Weight
 
+/-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` at every iteration
+`i ∈ Ioc k t`. -/
+theorem learningRate_mem_Icc_of_mem_Ioc {R : Type*} [Preorder R] [Zero R] [One R] {η : ℕ → R}
+    (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : R) 1) {k t i : ℕ} (hi : i ∈ Ioc k t) :
+    η i ∈ Set.Icc (0 : R) 1 := by
+  obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
+  exact hη j
+
 section Ordered
 
 variable {R : Type*} [CommRing R] [PartialOrder R] [IsOrderedRing R] {η x y : ℕ → R}

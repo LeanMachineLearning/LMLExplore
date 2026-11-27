@@ -39,7 +39,7 @@ and the bound on the quadratic variation of the noise in terms of the late error
 The bound improves the source in two ways: the factor `1 / γ ^ 2` of [LCCWC24, (101)] is not
 needed, since the resolvent of the one-step variances of the optimal value satisfies
 `γ ^ 2 (I - γ P)⁻¹ Var_P(V*) ≤ 1 / (1 - γ) ^ 2`
-(`LMLExplore.ReinforcementLearning.mul_integral_variance_optQValue_le`), so that the statement
+(`LMLExplore.ReinforcementLearning.mul_integral_variance_optValue_le`), so that the statement
 holds for every `γ < 1`; and the constants are explicit.
 
 ## Main statements
@@ -503,8 +503,9 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
     (q : 𝓢 × 𝓐)
     (hgood : |syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q| ≤
       (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (1 / (1 - γ)) +
-        (3 * √(tdNoiseVarBound M γ η Q₀ t ω q * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) /
-          (δ / (2 * Fintype.card 𝓢 * (T + 1)))))) +
+        (3 * √(tdNoiseVarBound M γ η Q₀
+            (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω q *
+          max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1)))))) +
         2 * (32 * Real.log T ^ 3 / ((1 - γ) * T) * (1 / (1 - γ))) *
           max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1))))))) :
     |syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q| ≤ √(5476 * s * max 1 D) := by
@@ -523,7 +524,12 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
   have hS : (1 : ℝ) ≤ Fintype.card 𝓢 := by exact_mod_cast Fintype.card_pos
   have hρ₀ := prod_one_sub_mul_one_sub_nonneg hγ hη
   -- the quadratic variation is at most `β B ^ 2 (2 + 4 D)`
-  have hW := tdNoiseVarBound_le hγ hR hη hQ₀ (m := (t + 1) / 2) (t := t) (by omega) hD₀ hD
+  -- with one action, the value estimates are the iterates and the unique policy is greedy for `Q*`
+  have hπ (s' : 𝓢) : M.optQValue γ (s', default) = M.optValue γ s' := by
+    rw [← iSup_optQValue hγ (fun p ↦ (hR p).mono fun x hx ↦
+      abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩) s', ciSup_unique]
+  have hW := tdNoiseVarBound_le hγ hR hη hQ₀ hπ (m := (t + 1) / 2) (t := t) (by omega) hD₀
+    (fun k hk s' ↦ by rw [ciSup_unique, ← hπ s']; exact hD k hk s')
     hβ₀.le (fun k hk ↦ mul_prod_le_of_window_of_le hγ hL0 hlo hhi htT (mem_Ico.1 hk).2 hTt
       (by have := (mem_Ico.1 hk).1; omega)) q
   have hE : ∑ k ∈ range ((t + 1) / 2),
@@ -550,7 +556,9 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
           have hT3 : (T : ℝ) ≤ T ^ 4 := le_self_pow₀ (by linarith) (by norm_num)
           nlinarith [mul_le_mul_of_nonneg_left h1γ' (by positivity : (0 : ℝ) ≤ T ^ 2),
             mul_le_mul hL3 hT3 (by positivity) (by positivity)]
-  have hW' : tdNoiseVarBound M γ η Q₀ t ω q ≤ β * B ^ 2 * (2 + 4 * D) := by
+  have hW' : tdNoiseVarBound M γ η Q₀
+      (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω q ≤
+        β * B ^ 2 * (2 + 4 * D) := by
     have hBB : B / (1 - γ) = B ^ 2 := by
       rw [hB_def]
       field_simp
@@ -591,8 +599,9 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ < 1)
     (hgood : ∀ t ≤ T, T ≤ 2 ^ K * t → ∀ q,
       |syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q| ≤
         (∏ i ∈ Ioc 0 t, (1 - η i * (1 - γ))) * (1 / (1 - γ)) +
-          (3 * √(tdNoiseVarBound M γ η Q₀ t ω q * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) /
-            (δ / (2 * Fintype.card 𝓢 * (T + 1)))))) +
+          (3 * √(tdNoiseVarBound M γ η Q₀
+              (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) t ω q *
+            max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1)))))) +
           2 * (32 * Real.log T ^ 3 / ((1 - γ) * T) * (1 / (1 - γ))) *
             max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1)))))))
     (p : 𝓢 × 𝓐) :
