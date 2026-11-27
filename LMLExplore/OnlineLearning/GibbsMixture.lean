@@ -7,9 +7,9 @@ module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.MeasureTheory.Measure.Tilted
-import LMLExplore.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.Convex.Integral
 import Mathlib.Analysis.Convex.SpecificFunctions.Pow
+import Mathlib.Probability.Moments.Basic
 import Mathlib.Probability.Moments.IntegrableExpMul
 
 /-!
@@ -282,11 +282,8 @@ finite prior. -/
 lemma integrable_exp_neg_div_of_le [IsFiniteMeasure μ] (hL : AEMeasurable L μ) (hlam : 0 < lam)
     (hc : ∀ᵐ θ ∂μ, c ≤ L θ) :
     Integrable (fun θ ↦ exp (-L θ / lam)) μ := by
-  refine (integrable_const (exp (-c / lam))).mono'
-    (hL.neg.div_const lam).exp.aestronglyMeasurable ?_
-  filter_upwards [hc] with θ hθ
-  rw [norm_of_nonneg (exp_pos _).le]
-  exact exp_le_exp.2 (div_le_div_of_nonneg_right (neg_le_neg hθ) hlam.le)
+  simpa only [div_eq_inv_mul, Pi.neg_apply] using ProbabilityTheory.integrable_exp_mul_of_le lam⁻¹
+    (-c) (inv_nonneg.2 hlam.le) hL.neg (hc.mono fun _ h ↦ neg_le_neg h)
 
 /-- For losses bounded below and a temperature `lam > 0`, the losses are integrable under the
 Gibbs measure of a finite prior. -/
@@ -294,11 +291,14 @@ lemma integrable_gibbs_of_le [IsFiniteMeasure μ] (hL : AEMeasurable L μ) (hlam
     (hc : ∀ᵐ θ ∂μ, c ≤ L θ) :
     Integrable L (μ.gibbs L lam) := by
   rw [gibbs_def, integrable_tilted_iff (integrable_exp_neg_div_of_le hL hlam hc)]
-  -- `exp (-L / lam) * L` is bounded
-  refine (integrable_const (exp (-c / lam) * (|c| + lam))).mono'
-    (((hL.neg.div_const lam).exp.mul hL).aestronglyMeasurable) ?_
-  filter_upwards [hc] with θ hθ
-  rw [smul_eq_mul, Real.norm_eq_abs]
-  exact Real.abs_exp_neg_div_mul_le hlam hθ
+  -- `lam⁻¹` lies in the interior of the multipliers `t` with `exp (t * -L)` integrable,
+  -- which contains `(0, ∞)`, so `-L * exp (-L / lam)` is integrable
+  have hsub : Ioi 0 ⊆ ProbabilityTheory.integrableExpSet (fun θ ↦ -L θ) μ := fun t ht ↦
+    ProbabilityTheory.integrable_exp_mul_of_le t (-c) (le_of_lt ht) hL.neg
+      (hc.mono fun _ h ↦ neg_le_neg h)
+  have h := (ProbabilityTheory.integrable_pow_mul_exp_of_mem_interior_integrableExpSet
+    (mem_interior.2 ⟨Ioi 0, hsub, isOpen_Ioi, inv_pos.2 hlam⟩) 1).neg
+  simpa only [pow_one, Pi.neg_def, neg_mul, neg_neg, smul_eq_mul, ← div_eq_inv_mul,
+    mul_comm] using h
 
 end MeasureTheory.Measure

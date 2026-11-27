@@ -46,10 +46,6 @@ exponential turns `1 + x` into an upper bound near `0`: `exp (x / (1 + l)) ≤ 1
 `0 ≤ x ≤ 2 l` [LS, Lemma 12.5], which controls the exponential moments of the
 implicit-exploration estimates of Exp3-IX.
 
-On a half-line `[c, ∞)`, the function `x ↦ exp (-x / λ) * x` is bounded, by
-`exp (-c / λ) * (|c| + λ)` for `λ > 0`: losses bounded below are integrable under the Gibbs
-measures of exponentially weighted averages.
-
 Above its affine part, the exponential grows like its second-order term up to a factor that
 increases with the argument: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on `[0, ∞)`, as the series
 `∑_j x ^ j / (j + 2)!` with nonnegative coefficients. Hence, for `b > 0`, `l ≥ 0` and `x ≤ b`,
@@ -88,8 +84,6 @@ contraction factors of TD learning with learning rates `η i ∈ [0, 1]`.
   tail sums are nonnegative for `d ≥ 0`.
 * `Real.summable_exp_neg_of_tendsto_div_log`: `∑ n, exp (-f n) < ∞` if `f n / log n → ∞`.
 * `Real.exp_div_one_add_le_one_add`: `exp (x / (1 + l)) ≤ 1 + x` for `0 ≤ x ≤ 2 l`.
-* `Real.abs_exp_neg_div_mul_le`: `|exp (-x / λ) * x| ≤ exp (-c / λ) * (|c| + λ)` for `λ > 0`
-  and `x ≥ c`.
 * `Real.hasSum_pow_add_two_div_factorial`: `∑_j x ^ (j + 2) / (j + 2)! = exp x - 1 - x`.
 * `Real.exp_sub_one_sub_id_div_sq_nonneg`: `0 ≤ (exp x - 1 - x) / y ^ 2`.
 * `Real.monotoneOn_exp_sub_one_sub_id_div_sq`: `x ↦ (exp x - 1 - x) / x ^ 2` is monotone on
@@ -298,36 +292,6 @@ theorem exp_div_one_add_le_one_add {x l : ℝ} (hx : 0 ≤ x) (hxl : x ≤ 2 * l
   refine le_trans ?_ (le_log_one_add_of_nonneg hx)
   rw [div_le_div_iff₀ (by linarith) (by linarith)]
   nlinarith [mul_nonneg hx (sub_nonneg.2 hxl)]
-
-/-- For `lam > 0` and `x ≥ c`, `|exp (-x / lam) * x| ≤ exp (-c / lam) * (|c| + lam)`. -/
-theorem abs_exp_neg_div_mul_le {x lam c : ℝ} (hlam : 0 < lam) (hx : c ≤ x) :
-    |exp (-x / lam) * x| ≤ exp (-c / lam) * (|c| + lam) := by
-  have h1 : exp (-x / lam) ≤ exp (-c / lam) :=
-    exp_le_exp.2 (div_le_div_of_nonneg_right (neg_le_neg hx) hlam.le)
-  -- `y exp (-y) ≤ exp (-1) ≤ 1` for `y = (x - c) / lam`
-  have h2 : (x - c) * exp (-x / lam) ≤ lam * exp (-c / lam) := by
-    have he : exp (-x / lam) = exp (-((x - c) / lam)) * exp (-c / lam) := by
-      rw [← exp_add]
-      congr 1
-      field_simp
-      ring
-    have hy : (x - c) / lam * exp (-((x - c) / lam)) ≤ 1 :=
-      (mul_exp_neg_le_exp_neg_one _).trans (exp_le_one_iff.2 (by norm_num))
-    calc (x - c) * exp (-x / lam)
-        = lam * ((x - c) / lam * exp (-((x - c) / lam))) * exp (-c / lam) := by
-          rw [he]
-          field_simp
-    _ ≤ lam * 1 * exp (-c / lam) := by gcongr
-    _ = lam * exp (-c / lam) := by ring
-  have habs : |x| ≤ |c| + (x - c) :=
-    abs_le.2 ⟨by linarith [neg_abs_le c], by linarith [le_abs_self c]⟩
-  rw [abs_mul, abs_of_pos (exp_pos _)]
-  calc exp (-x / lam) * |x| ≤ exp (-x / lam) * (|c| + (x - c)) :=
-        mul_le_mul_of_nonneg_left habs (exp_pos _).le
-  _ = exp (-x / lam) * |c| + (x - c) * exp (-x / lam) := by ring
-  _ ≤ exp (-c / lam) * |c| + lam * exp (-c / lam) :=
-        add_le_add (mul_le_mul_of_nonneg_right h1 (abs_nonneg c)) h2
-  _ = exp (-c / lam) * (|c| + lam) := by ring
 
 /-- The tail of the exponential series after its affine part: `exp x - 1 - x` is the sum of
 `x ^ (j + 2) / (j + 2)!`. -/
