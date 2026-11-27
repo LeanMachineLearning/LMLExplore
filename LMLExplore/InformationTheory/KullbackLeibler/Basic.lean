@@ -42,7 +42,7 @@ proportional, and `t • μ ≤ ν` compares the linear terms, since `g` is boun
 
 * [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and the Lean
   library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and refereed
-  by AI agents: Note 42, *Four results that came out of the check of the book plan*, Section 1.
+  by AI agents: Note 42, *Four results that came out of the check of the book plan*, Theorem 6.
 -/
 
 public section
@@ -64,6 +64,51 @@ private lemma integrable_and_integrable_exp {μ : Measure α} [IsFiniteMeasure �
       rw [norm_eq_abs, abs_of_pos (exp_pos _)]
       exact exp_le_exp.2 (le_of_abs_le (hC x)))⟩
 
+/-- For `t ∈ [0, 1)`, `log ((1 - t) + t exp y)` is at least `log (1 - t)`. -/
+private lemma log_one_sub_le_log_one_sub_add_mul_exp {t : ℝ} (ht : 0 ≤ t) (ht' : t < 1) (y : ℝ) :
+    log (1 - t) ≤ log (1 - t + t * exp y) :=
+  log_le_log (by linarith) (le_add_of_nonneg_right (by positivity))
+
+/-- For `t ∈ (0, 1]`, `log ((1 - t) + t exp y)` is at least `log t + y`. -/
+private lemma log_add_le_log_one_sub_add_mul_exp {t : ℝ} (ht : 0 < t) (ht' : t ≤ 1) (y : ℝ) :
+    log t + y ≤ log (1 - t + t * exp y) := by
+  rw [← log_exp y, ← log_mul ht.ne' (exp_pos _).ne', log_exp]
+  exact log_le_log (by positivity) (le_add_of_nonneg_left (by linarith))
+
+/-- For `t ∈ (0, 1)` and `|y| ≤ C`, `|log ((1 - t) + t exp y)| ≤ C - log (1 - t)`. -/
+private lemma abs_log_one_sub_add_mul_exp_le {t : ℝ} (ht : 0 < t) (ht' : t < 1) {y C : ℝ}
+    (hy : |y| ≤ C) :
+    |log (1 - t + t * exp y)| ≤ C - log (1 - t) := by
+  have hle : log (1 - t + t * exp y) ≤ C := by
+    refine (log_le_log (by positivity) (?_ : _ ≤ exp |y|)).trans ((log_exp _).le.trans hy)
+    have h1 : (1 : ℝ) ≤ exp |y| := one_le_exp (abs_nonneg _)
+    have h2 : exp y ≤ exp |y| := exp_le_exp.2 (le_abs_self _)
+    nlinarith [mul_le_mul_of_nonneg_left h2 ht.le,
+      mul_le_mul_of_nonneg_left h1 (sub_nonneg.2 ht'.le)]
+  have hlog : log (1 - t) ≤ 0 := log_nonpos (by linarith) (by linarith)
+  have := (abs_nonneg y).trans hy
+  rw [abs_le]
+  constructor <;> linarith [log_one_sub_le_log_one_sub_add_mul_exp ht.le ht' y]
+
+/-- If `t • μ ≤ ν` with `t > 0`, a function `g` at least `log (1 - t)` and at least
+`log t + f` has `t ∫ f ∂μ - h(t) ≤ ∫ g ∂ν`, with `h` the binary entropy: `t • μ ≤ ν` compares the
+integrals of the nonnegative function `g - log (1 - t)`. -/
+private lemma mul_integral_sub_binEntropy_le_integral {μ ν : Measure α} [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] {t : ℝ≥0} (h : t • μ ≤ ν) (ht : 0 < (t : ℝ))
+    {f g : α → ℝ} (hf : Integrable f μ) (hgμ : Integrable g μ) (hgν : Integrable g ν)
+    (hg_ge : ∀ x, log (1 - t) ≤ g x) (hg_ge' : ∀ x, log t + f x ≤ g x) :
+    t * ∫ x, f x ∂μ - binEntropy t ≤ ∫ x, g x ∂ν := by
+  have h1 : t * ∫ x, (g x - log (1 - t)) ∂μ ≤ ∫ x, (g x - log (1 - t)) ∂ν := by
+    have h := integral_mono_measure h (ae_of_all _ fun x ↦ sub_nonneg.2 (hg_ge x))
+      (hgν.sub (integrable_const _))
+    rwa [integral_smul_nnreal_measure, NNReal.smul_def, smul_eq_mul] at h
+  have h2 : ∫ x, (log t - log (1 - t) + f x) ∂μ ≤ ∫ x, (g x - log (1 - t)) ∂μ :=
+    integral_mono ((integrable_const _).add hf) (hgμ.sub (integrable_const _))
+      fun x ↦ by linarith [hg_ge' x]
+  rw [binEntropy_eq_negMulLog_add_negMulLog_one_sub, negMulLog, negMulLog]
+  simp [integral_add, integral_sub, hf, hgμ, hgν] at h1 h2
+  nlinarith [mul_le_mul_of_nonneg_left h2 ht.le]
+
 /-- **The relative entropy from a law that dominates a multiple of another.** If the probability
 measure `ν` is at least `t • μ`, with `μ` a probability measure, then
 `t KL(μ ‖ ξ) ≤ KL(ν ‖ ξ) + h(t)` for every finite measure `ξ`, where `h` is the binary entropy.
@@ -81,36 +126,18 @@ theorem mul_klDiv_le_klDiv_add_binEntropy {μ ν ξ : Measure α} [IsProbability
   · rw [one_smul] at h
     rw [Measure.eq_of_le_of_isProbabilityMeasure h, ENNReal.coe_one, one_mul]
     exact le_self_add
-  -- the weights `t` and `δ = 1 - t` are in `(0, 1)`
+  -- the weight `t` is in `(0, 1)`
   have ht : (0 : ℝ) < t := lt_of_le_of_ne t.coe_nonneg (by exact_mod_cast ht0.symm)
   have ht' : (t : ℝ) < 1 := lt_of_le_of_ne (by exact_mod_cast ht1) (by exact_mod_cast ht1')
-  set δ : ℝ := 1 - t with hδ
-  have hδ0 : 0 < δ := by linarith
   rw [TauCeti.klDiv_eq_iSup_integral_sub_integral_exp_sub_one (μ := μ) (ν := ξ), ENNReal.mul_iSup]
   refine iSup_le fun f ↦ ?_
   simp only [ENNReal.mul_iSup]
   refine iSup_le fun hf ↦ iSup_le fun ⟨C, hC⟩ ↦ ?_
-  -- the variational form of `KL(ν ‖ ξ)` at `g = log (δ + t exp f)`
-  set g : α → ℝ := fun x ↦ log (δ + t * exp (f x)) with hg
-  have hpos (x : α) : 0 < δ + t * exp (f x) := by positivity
+  -- the variational form of `KL(ν ‖ ξ)` at `g = log ((1 - t) + t exp f)`
+  set g : α → ℝ := fun x ↦ log (1 - t + t * exp (f x)) with hg
   have hg_meas : Measurable g := by fun_prop
-  have hg_ge (x : α) : log δ ≤ g x := log_le_log hδ0 (le_add_of_nonneg_right (by positivity))
-  have hg_ge' (x : α) : log t + f x ≤ g x := by
-    rw [← log_exp (f x), ← log_mul ht.ne' (exp_pos _).ne']
-    exact log_le_log (by positivity) (le_add_of_nonneg_left hδ0.le)
-  have hg_le (x : α) : g x ≤ C := by
-    refine (log_le_log (hpos x) (?_ : _ ≤ exp |f x|)).trans ((log_exp _).le.trans (hC x))
-    have h1 : (1 : ℝ) ≤ exp |f x| := one_le_exp (abs_nonneg _)
-    have h2 : exp (f x) ≤ exp |f x| := exp_le_exp.2 (le_abs_self _)
-    nlinarith [mul_le_mul_of_nonneg_left h2 ht.le, mul_le_mul_of_nonneg_left h1 hδ0.le]
-  have hgC (x : α) : |g x| ≤ C - log δ := by
-    have hlog : log δ ≤ 0 := log_nonpos hδ0.le (by linarith)
-    have := (abs_nonneg (f x)).trans (hC x)
-    rw [abs_le]
-    constructor <;> linarith [hg_ge x, hg_le x]
+  have hgC (x : α) : |g x| ≤ C - log (1 - t) := abs_log_one_sub_add_mul_exp_le ht ht' (hC x)
   have hgν := (integrable_and_integrable_exp (μ := ν) hg_meas hgC).1
-  have hgμ := (integrable_and_integrable_exp (μ := μ) hg_meas hgC).1
-  have hfμ := (integrable_and_integrable_exp (μ := μ) hf hC).1
   have hDV := TauCeti.ofReal_integral_sub_integral_exp_sub_one_le_klDiv hgν
     (integrable_and_integrable_exp (μ := ξ) hg_meas hgC).2
   -- the exponential terms are proportional
@@ -118,24 +145,14 @@ theorem mul_klDiv_le_klDiv_add_binEntropy {μ ν ξ : Measure α} [IsProbability
     rw [← integral_const_mul]
     refine integral_congr_ae (ae_of_all _ fun x ↦ ?_)
     simp only [hg]
-    rw [exp_log (hpos x), hδ]
+    rw [exp_log (by positivity)]
     ring
-  -- `t • μ ≤ ν` compares the linear terms, as `g - log δ` is nonnegative
-  have h_lin : t * ∫ x, f x ∂μ - binEntropy t ≤ ∫ x, g x ∂ν := by
-    have h1 : t * ∫ x, (g x - log δ) ∂μ ≤ ∫ x, (g x - log δ) ∂ν := by
-      have h := integral_mono_measure h (ae_of_all _ fun x ↦ sub_nonneg.2 (hg_ge x))
-        (hgν.sub (integrable_const _))
-      rwa [integral_smul_nnreal_measure, NNReal.smul_def, smul_eq_mul] at h
-    have h2 : ∫ x, (log t - log δ + f x) ∂μ ≤ ∫ x, (g x - log δ) ∂μ :=
-      integral_mono ((integrable_const _).add hfμ) (hgμ.sub (integrable_const _))
-        fun x ↦ by linarith [hg_ge' x]
-    rw [integral_add (integrable_const _) hfμ, integral_const, probReal_univ, one_smul,
-      integral_sub hgμ (integrable_const _), integral_const, probReal_univ, one_smul] at h2
-    rw [integral_sub hgν (integrable_const _), integral_const, probReal_univ, one_smul,
-      integral_sub hgμ (integrable_const _), integral_const, probReal_univ, one_smul] at h1
-    have h3 := mul_le_mul_of_nonneg_left h2 ht.le
-    rw [binEntropy_eq_negMulLog_add_negMulLog_one_sub, negMulLog, negMulLog, ← hδ]
-    nlinarith
+  -- `t • μ ≤ ν` compares the linear terms
+  have h_lin := mul_integral_sub_binEntropy_le_integral h ht
+    (integrable_and_integrable_exp (μ := μ) hf hC).1
+    (integrable_and_integrable_exp (μ := μ) hg_meas hgC).1 hgν
+    (fun x ↦ log_one_sub_le_log_one_sub_add_mul_exp ht.le ht' (f x))
+    (fun x ↦ log_add_le_log_one_sub_add_mul_exp ht ht'.le (f x))
   calc (t : ℝ≥0∞) * ENNReal.ofReal (∫ x, f x ∂μ - ∫ x, (exp (f x) - 1) ∂ξ)
   _ = ENNReal.ofReal (t * (∫ x, f x ∂μ - ∫ x, (exp (f x) - 1) ∂ξ)) := by
     rw [ENNReal.ofReal_mul t.coe_nonneg, ENNReal.ofReal_coe_nnreal]

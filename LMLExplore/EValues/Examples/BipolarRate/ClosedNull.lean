@@ -49,12 +49,12 @@ The upper bound on the bipolar rate: `P_j ^ n` is at least `2 ^ (-n)` times the 
 on these samples under `Q ^ n`; every sample avoids all large `j`, and Fatou's lemma gives
 expectation at most `2 ^ n` under `Q ^ n`, and expected logarithm at most `n log 2` by Jensen's
 inequality. The lower bound tests the masses of the points up to some `K` and of the numbers
-above `K`, with `ProbabilityTheory.le_bipolarRate_of_forall_le_klInf`: a law `R` close to `Q`
-charges every `j ≤ K`, which `P_j` does not, and gives a small mass to the numbers above `K`, to
-which `P_j` gives mass at least `1 / 2` for `j > K`, so that `KL(R ‖ P_j)` is close to `log 2` at
-least, by the Donsker–Varadhan inequality. The null is closed since `P_j` gives mass at most
-`1 / 2` to the numbers up to `K` when `j ≥ K`: a weak limit of laws of the null is a weak limit of
-finitely many of them.
+above `K`, with `ProbabilityTheory.le_bipolarRate_of_forall_abs_measureReal_sub_le`: a law `R`
+close to `Q` charges every `j ≤ K`, which `P_j` does not, and gives a small mass to the numbers
+above `K`, to which `P_j` gives mass at least `1 / 2` for `j > K`, so that `KL(R ‖ P_j)` is close
+to `log 2` at least, by the Donsker–Varadhan inequality. The null is closed since `P_j` gives
+mass at most `1 / 2` to the numbers up to `K` when `j ≥ K`: a weak limit of laws of the null is a
+weak limit of finitely many of them.
 
 The statements and proofs are adapted from `EValuesResearch/Results/FiniteAlphabetRate.lean`
 (commit `9eee1f2`) in the paper project `RemyDegenne/evalues_research`, rewritten on the API of
@@ -82,6 +82,11 @@ variable {Q : Measure ℕ}
 /-- The law `P_j = Q(· | ≠ j) / 2 + δ_{j + 1} / 2` on `ℕ`. -/
 private noncomputable def gapLaw (Q : Measure ℕ) (j : ℕ) : Measure ℕ :=
   (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)
+
+/-- The laws `P_j`, as they are written in the statements. -/
+private lemma range_gapLaw (Q : Measure ℕ) :
+    (Set.range fun j : ℕ ↦ (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)) =
+      Set.range (gapLaw Q) := rfl
 
 /-- The law `P_j` is a finite measure. -/
 private instance (Q : Measure ℕ) (j : ℕ) : IsFiniteMeasure (gapLaw Q j) := by
@@ -135,7 +140,7 @@ private lemma gapLaw_le_inv_two {j : ℕ} {B : Set ℕ} (hB : j + 1 ∉ B) :
 theorem klInf_cond_dirac_mixtures (hQ : ∀ x, Q {x} ≠ 0) :
     klInf Q (Set.range fun j : ℕ ↦
       (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)) = ⊤ := by
-  rw [klInf_def]
+  rw [range_gapLaw, klInf_def]
   refine iInf₂_eq_top.2 ?_
   rintro _ ⟨j, rfl⟩
   exact klIntegral_of_not_ac fun hac ↦ hQ j (hac (gapLaw_singleton_self Q j))
@@ -161,10 +166,8 @@ private lemma lintegral_pi_le [IsProbabilityMeasure Q] {n : ℕ} {M : (Fin n →
         Measure.pi_mono fun _ ↦ smul_restrict_le_gapLaw j
     have h1 := (lintegral_mono' h_le le_rfl).trans
       (hM.lintegral_le_one (pi_mem_sampleNull (Set.mem_range_self j)))
-    rw [lintegral_smul_measure, ENNReal.smul_def, smul_eq_mul, ENNReal.coe_pow,
-      ENNReal.coe_inv two_ne_zero, ENNReal.coe_ofNat, mul_comm] at h1
-    rw [← inv_inv ((2 : ℝ≥0∞) ^ n), ENNReal.inv_pow]
-    exact ENNReal.le_inv_iff_mul_le.2 h1
+    rw [← inv_inv ((2 : ℝ≥0∞) ^ n), ENNReal.le_inv_iff_mul_le, mul_comm]
+    simpa [lintegral_smul_measure, ENNReal.smul_def] using h1
   have h_ev (x : Fin n → ℕ) : ∀ᶠ j : ℕ in atTop, (A j).indicator M x = M x := by
     filter_upwards [eventually_gt_atTop (Finset.univ.sup x)] with j hj
     refine Set.indicator_of_mem (fun i _ ↦ ?_) M
@@ -198,19 +201,17 @@ private lemma bipolarRate_le_log_two [IsProbabilityMeasure Q] :
     rw [ENNReal.log_pow, ← ENNReal.ofReal_ofNat 2, ENNReal.log_ofReal_of_pos two_pos]
 
 /-- For `K < j` and `T ≥ 0`, a probability measure `R` is at relative entropy at least
-`log 2 - T R {x | K < x} - exp (-T)` from `P_j`, which gives mass at least `1/2` to the numbers
+`log 2 - T R (Ioi K) - exp (-T)` from `P_j`, which gives mass at least `1/2` to the numbers
 above `K`: the Donsker–Varadhan inequality for the function `-T 𝟙_{x > K}`. -/
 private lemma ofReal_log_two_sub_le_klDiv_gapLaw [IsFiniteMeasure Q] (hQ : ∀ x, Q {x} ≠ 0)
     {R : Measure ℕ} [IsProbabilityMeasure R] {K j : ℕ} (hKj : K < j) {T : ℝ} (hT : 0 ≤ T) :
-    ENNReal.ofReal (Real.log 2 - T * R.real {x | K < x} - Real.exp (-T)) ≤
+    ENNReal.ofReal (Real.log 2 - T * R.real (Set.Ioi K) - Real.exp (-T)) ≤
       klDiv R (gapLaw Q j) := by
   have := isProbabilityMeasure_gapLaw hQ j
-  set B : Set ℕ := {x | K < x} with hB_def
+  set B : Set ℕ := Set.Ioi K with hB_def
   have hB : MeasurableSet B := .of_discrete
   have hPB : 1 / 2 ≤ (gapLaw Q j).real B := by
-    have hjB : j + 1 ∈ B := by
-      simp only [hB_def, Set.mem_ofPred_eq]
-      omega
+    have hjB : j + 1 ∈ B := Set.mem_Ioi.2 (by omega)
     have h := ENNReal.toReal_mono (measure_ne_top (gapLaw Q j) _) (inv_two_le_gapLaw (Q := Q) hjB)
     rwa [ENNReal.toReal_inv, ENNReal.toReal_ofNat, ← one_div] at h
   set f : ℕ → ℝ := B.indicator fun _ ↦ -T with hf
@@ -247,6 +248,28 @@ private lemma ofReal_log_two_sub_le_klDiv_gapLaw [IsFiniteMeasure Q] (hQ : ∀ x
   rw [h1, h2]
   linarith
 
+/-- A measure `R` whose mass of `{j}` is within half of the positive mass `Q {j}` charges
+`j`, so it is at infinite relative entropy from `P_j`, which does not. -/
+private lemma klDiv_gapLaw_eq_top {R : Measure ℕ} {j : ℕ}
+    (hQj : 0 < Q.real {j}) (h : |R.real {j} - Q.real {j}| ≤ 2⁻¹ * Q.real {j}) :
+    klDiv R (gapLaw Q j) = ⊤ := by
+  have hRj : R {j} ≠ 0 := by
+    intro h0
+    rw [measureReal_def, h0, ENNReal.toReal_zero] at h
+    linarith [(abs_le.1 h).1]
+  exact klDiv_of_not_ac fun hac ↦ hRj (hac (gapLaw_singleton_self Q j))
+
+/-- A finite measure on `ℕ` gives mass less than any `η > 0` to the numbers above some `K`. -/
+private lemma exists_measureReal_Ioi_lt (Q : Measure ℕ) [IsFiniteMeasure Q] {η : ℝ}
+    (hη : 0 < η) :
+    ∃ K : ℕ, Q.real (Set.Ioi K) < η := by
+  have h_tend := tendsto_measure_iInter_atTop (μ := Q)
+    (fun K ↦ (MeasurableSet.of_discrete (s := Set.Ioi K)).nullMeasurableSet) antitone_Ioi
+    ⟨0, measure_ne_top _ _⟩
+  rw [Set.iInter_eq_empty_iff.2 fun x ↦ ⟨x, lt_irrefl x⟩, measure_empty] at h_tend
+  obtain ⟨K, hK⟩ := (h_tend.eventually (gt_mem_nhds (ENNReal.ofReal_pos.2 hη))).exists
+  exact ⟨K, (ENNReal.lt_ofReal_iff_toReal_lt (measure_ne_top _ _)).1 hK⟩
+
 /-- The bipolar rate of `Q` against the null of the laws `P_j` is at least `log 2`, when `Q`
 charges every point: a law close to `Q` charges every small `j`, which `P_j` does not, and gives
 a small mass to the large numbers, to which `P_j` gives mass at least `1/2` for `j` large. -/
@@ -272,23 +295,9 @@ private lemma log_two_le_bipolarRate [IsProbabilityMeasure Q] (hQ : ∀ x, Q {x}
     rw [hρ]
     field_simp
   -- `K` such that `Q` gives mass less than `ρ / 2` to the numbers above `K`
-  have h_anti : Antitone fun K : ℕ ↦ {x : ℕ | K < x} := fun K K' h x hx ↦ lt_of_le_of_lt h hx
-  have h_tend := tendsto_measure_iInter_atTop (μ := Q)
-    (fun K ↦ (MeasurableSet.of_discrete (s := {x : ℕ | K < x})).nullMeasurableSet) h_anti
-    ⟨0, measure_ne_top _ _⟩
-  have h_inter : ⋂ K : ℕ, {x : ℕ | K < x} = ∅ := by
-    ext x
-    simp only [Set.mem_iInter, Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false, not_forall,
-      not_lt]
-    exact ⟨x, le_rfl⟩
-  rw [h_inter, measure_empty] at h_tend
-  obtain ⟨K, hK⟩ :=
-    (h_tend.eventually (gt_mem_nhds (ENNReal.ofReal_pos.2 (half_pos hρ0)))).exists
-  have hK' : Q.real {x : ℕ | K < x} < ρ / 2 :=
-    (ENNReal.lt_ofReal_iff_toReal_lt (measure_ne_top _ _)).1 hK
-  -- the test functions: the indicators of the points up to `K` and of the numbers above `K`,
-  -- divided by their masses
-  set s : Fin (K + 2) → Set ℕ := fun i ↦ if (i : ℕ) ≤ K then {(i : ℕ)} else {x | K < x} with hs
+  obtain ⟨K, hK'⟩ := exists_measureReal_Ioi_lt Q (half_pos hρ0)
+  -- the test sets: the points up to `K` and the numbers above `K`
+  set s : Fin (K + 2) → Set ℕ := fun i ↦ if (i : ℕ) ≤ K then {(i : ℕ)} else Set.Ioi K with hs
   have hQs (i : Fin (K + 2)) : 0 < Q.real (s i) := by
     obtain ⟨x, hx⟩ : ∃ x, x ∈ s i := by
       by_cases hi : (i : ℕ) ≤ K
@@ -296,39 +305,23 @@ private lemma log_two_le_bipolarRate [IsProbabilityMeasure Q] (hQ : ∀ x, Q {x}
       · exact ⟨K + 1, by simp [hs, hi]⟩
     exact (ENNReal.toReal_pos (hQ x) (measure_ne_top _ _)).trans_le
       (measureReal_mono (Set.singleton_subset_iff.2 hx))
-  refine le_bipolarRate_of_forall_le_klInf Q _ hS (k := K + 2)
-    (f := fun i ↦ (s i).indicator fun _ ↦ (Q.real (s i))⁻¹) (ε := 2⁻¹) (by norm_num)
-    (fun i ↦ measurable_const.indicator .of_discrete) (fun i ↦ ⟨(Q.real (s i))⁻¹, fun x ↦ ?_⟩)
-    fun R hR hRQ ↦ ?_
-  · by_cases hx : x ∈ s i <;> simp [hx, abs_of_nonneg measureReal_nonneg]
-  have hRQ' (i : Fin (K + 2)) : |R.real (s i) - Q.real (s i)| ≤ Q.real (s i) / 2 := by
-    have h := hRQ i
-    rw [integral_indicator_const _ .of_discrete, integral_indicator_const _ .of_discrete,
-      smul_eq_mul, smul_eq_mul, ← sub_mul, abs_mul, abs_inv, abs_of_pos (hQs i),
-      mul_inv_le_iff₀ (hQs i)] at h
-    linarith
-  refine le_klInf_iff.2 ?_
+  refine le_bipolarRate_of_forall_abs_measureReal_sub_le Q _ hS (s := s)
+    (fun _ ↦ .of_discrete) hQs (ε := 2⁻¹) (by norm_num) fun R hR hRQ ↦ le_klInf_iff.2 ?_
   rintro _ ⟨j, rfl⟩
   have := isProbabilityMeasure_gapLaw hQ j
   rw [klIntegral_eq_klDiv (by simp)]
   rcases le_or_gt j K with hjK | hjK
   · -- `R` charges `j` and `P_j` does not
     have hsj : s ⟨j, by omega⟩ = {j} := by simp [hs, hjK]
-    have h1 := hRQ' ⟨j, by omega⟩
+    have h1 := hRQ ⟨j, by omega⟩
     have hQj := hQs ⟨j, by omega⟩
     rw [hsj] at h1 hQj
-    have hRj : R {j} ≠ 0 := by
-      intro h0
-      have h2 : R.real {j} = 0 := by simp [measureReal_def, h0]
-      rw [h2] at h1
-      linarith [(abs_le.1 h1).1]
-    rw [klDiv_of_not_ac fun hac ↦ hRj (hac (gapLaw_singleton_self Q j))]
-    simp
+    simp [klDiv_gapLaw_eq_top hQj h1]
   · -- `P_j` gives mass at least `1/2` to the numbers above `K`, and `R` at most `ρ`
-    have hsB : s ⟨K + 1, by omega⟩ = {x | K < x} := by simp [hs]
-    have h1 := hRQ' ⟨K + 1, by omega⟩
+    have hsB : s ⟨K + 1, by omega⟩ = Set.Ioi K := by simp [hs]
+    have h1 := hRQ ⟨K + 1, by omega⟩
     rw [hsB] at h1
-    have hRB : R.real {x : ℕ | K < x} ≤ ρ := by linarith [(abs_le.1 h1).2]
+    have hRB : R.real (Set.Ioi K) ≤ ρ := by linarith [(abs_le.1 h1).2]
     calc (c : EReal)
     _ = ((ENNReal.ofReal c : ℝ≥0∞) : EReal) := by
       rw [EReal.coe_ennreal_ofReal, max_eq_left hc0'.le]
@@ -343,8 +336,9 @@ smallest relative entropy from `Q` to the null is infinite (`klInf_cond_dirac_mi
 [EVR26, Note 42, Section 1]. -/
 theorem bipolarRate_cond_dirac_mixtures [IsProbabilityMeasure Q] (hQ : ∀ x, Q {x} ≠ 0) :
     bipolarRate Q (Set.range fun j : ℕ ↦
-      (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)) = (Real.log 2 : ℝ) :=
-  le_antisymm bipolarRate_le_log_two (log_two_le_bipolarRate hQ)
+      (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)) = (Real.log 2 : ℝ) := by
+  rw [range_gapLaw]
+  exact le_antisymm bipolarRate_le_log_two (log_two_le_bipolarRate hQ)
 
 /-! ### The null is weakly closed -/
 
@@ -354,26 +348,21 @@ for the topology of weak convergence of probability measures on `ℕ` [EVR26, No
 theorem isClosed_cond_dirac_mixtures (Q : Measure ℕ) :
     IsClosed {μ : ProbabilityMeasure ℕ | (μ : Measure ℕ) ∈ Set.range fun j : ℕ ↦
       (2⁻¹ : ℝ≥0∞) • Q[|{j}ᶜ] + (2⁻¹ : ℝ≥0∞) • Measure.dirac (j + 1)} := by
-  change IsClosed {μ : ProbabilityMeasure ℕ | (μ : Measure ℕ) ∈ Set.range (gapLaw Q)}
+  rw [range_gapLaw]
   refine isClosed_of_closure_subset fun μ hμ ↦ ?_
   -- `μ` gives mass more than `1/2` to the numbers up to some `K`
-  have h_mono : Monotone fun K : ℕ ↦ {x : ℕ | x ≤ K} := fun K K' h x hx ↦ le_trans hx h
-  have h_tend := tendsto_measure_iUnion_atTop (μ := (μ : Measure ℕ)) h_mono
-  have h_union : ⋃ K : ℕ, {x : ℕ | x ≤ K} = Set.univ := by
-    ext x
-    simp only [Set.mem_iUnion, Set.mem_ofPred_eq, Set.mem_univ, iff_true]
-    exact ⟨x, le_rfl⟩
-  rw [h_union, measure_univ] at h_tend
+  have h_tend := tendsto_measure_Iic_atTop (μ : Measure ℕ)
+  rw [measure_univ] at h_tend
   obtain ⟨K, hK⟩ := (h_tend.eventually
     (lt_mem_nhds (ENNReal.inv_lt_one.2 ENNReal.one_lt_two))).exists
   -- the measures with that property form an open set, which contains no `P_j` with `j ≥ K`
-  set U : Set (ProbabilityMeasure ℕ) := {ν | (2⁻¹ : ℝ≥0) < ν {x : ℕ | x ≤ K}} with hU
+  set U : Set (ProbabilityMeasure ℕ) := {ν | (2⁻¹ : ℝ≥0) < ν (Set.Iic K)} with hU
   have hU_open : IsOpen U := by
     refine isOpen_lt continuous_const (continuous_iff_continuousAt.2 fun ν ↦ ?_)
     exact ProbabilityMeasure.tendsto_measure_of_isClopen_of_tendsto tendsto_id
       (isClopen_discrete _)
   have h_coe (ν : ProbabilityMeasure ℕ) (hν : ν ∈ U) :
-      (2⁻¹ : ℝ≥0∞) < (ν : Measure ℕ) {x : ℕ | x ≤ K} := by
+      (2⁻¹ : ℝ≥0∞) < (ν : Measure ℕ) (Set.Iic K) := by
     rw [← ProbabilityMeasure.ennreal_coeFn_eq_coeFn_toMeasure]
     have h := ENNReal.coe_lt_coe.2 hν
     rwa [ENNReal.coe_inv two_ne_zero, ENNReal.coe_ofNat] at h
@@ -394,8 +383,7 @@ theorem isClosed_cond_dirac_mixtures (Q : Measure ℕ) :
     rintro ν ⟨hνU, j, hjν⟩
     refine ⟨j, Set.mem_Iio.2 ?_, hjν⟩
     by_contra hjK
-    have hC : gapLaw Q j {x : ℕ | x ≤ K} ≤ 2⁻¹ :=
-      gapLaw_le_inv_two (by simp only [Set.mem_ofPred_eq]; omega)
+    have hC : gapLaw Q j (Set.Iic K) ≤ 2⁻¹ := gapLaw_le_inv_two (by simp only [Set.mem_Iic]; omega)
     have h := h_coe ν hνU
     rw [← hjν] at h
     exact absurd (h.trans_le hC) (lt_irrefl _)

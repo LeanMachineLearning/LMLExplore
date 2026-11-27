@@ -29,6 +29,8 @@ such that every probability measure `R` whose integrals of the `f i` are within 
 
 * `ProbabilityTheory.le_bipolarRate_of_forall_le_klInf`: a level `c` up to which the smallest
   relative entropy to the null is lower semicontinuous at `Q` is a lower bound on the bipolar rate.
+* `ProbabilityTheory.le_bipolarRate_of_forall_abs_measureReal_sub_le`: the same, for the
+  neighbourhoods given by the masses of finitely many measurable sets.
 * `ProbabilityTheory.bipolarRate_eq_klInf_of_forall_exists_forall_le`: the bipolar rate
   equals the smallest relative entropy to the null under the semicontinuity above.
 
@@ -109,6 +111,25 @@ theorem le_bipolarRate_of_forall_le_klInf (Q : Measure 𝓧) [IsProbabilityMeasu
     refine h1.congr fun n ↦ ?_
     field_simp
     ring
+
+/-- **A lower bound on the bipolar rate from the masses of finitely many sets.** If there are
+finitely many measurable sets `s i` charged by `Q` and `ε > 0` such that every probability measure
+`R` whose masses of the `s i` are within the relative error `ε` of those under `Q` is at relative
+entropy at least `c` from every member of `S`, then `c ≤ bipolarRate Q S`. This is
+`le_bipolarRate_of_forall_le_klInf` for the test functions `𝟙_{s i} / Q (s i)`. -/
+theorem le_bipolarRate_of_forall_abs_measureReal_sub_le (Q : Measure 𝓧) [IsProbabilityMeasure Q]
+    (S : Set (Measure 𝓧)) (hS : ∀ P ∈ S, IsProbabilityMeasure P) {c : EReal} {k : ℕ}
+    {s : Fin k → Set 𝓧} (hs : ∀ i, MeasurableSet (s i)) (hQs : ∀ i, 0 < Q.real (s i)) {ε : ℝ}
+    (hε : 0 < ε) (h : ∀ R : Measure 𝓧, IsProbabilityMeasure R →
+      (∀ i, |R.real (s i) - Q.real (s i)| ≤ ε * Q.real (s i)) → c ≤ klInf R S) :
+    c ≤ bipolarRate Q S := by
+  refine le_bipolarRate_of_forall_le_klInf Q S hS (f := fun i ↦ (s i).indicator fun _ ↦
+    (Q.real (s i))⁻¹) hε (fun i ↦ measurable_const.indicator (hs i))
+    (fun i ↦ ⟨(Q.real (s i))⁻¹, fun x ↦ ?_⟩) fun R hR hRs ↦ h R hR fun i ↦ ?_
+  · by_cases hx : x ∈ s i <;> simp [hx, abs_of_nonneg measureReal_nonneg]
+  have hRi := hRs i
+  rwa [integral_indicator_const _ (hs i), integral_indicator_const _ (hs i), smul_eq_mul,
+    smul_eq_mul, ← sub_mul, abs_mul, abs_inv, abs_of_pos (hQs i), mul_inv_le_iff₀ (hQs i)] at hRi
 
 /-- If the smallest relative entropy to `S` is lower semicontinuous at `Q` for the topology of
 integrals of bounded measurable functions, in the sense of neighbourhoods, then the bipolar rate

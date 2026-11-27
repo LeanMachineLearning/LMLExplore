@@ -30,14 +30,14 @@ such a gap, see `LMLExplore.EValues.Examples.BipolarRate.ClosedNull`.
 
 ## Implementation notes
 
-The equality follows from the lower semicontinuity criterion
-`ProbabilityTheory.bipolarRate_eq_klInf_of_forall_exists_forall_le` [RR26, Theorem 4.1], whose
-hypothesis holds at `Q` for every null. The proof does not go through the compactness of the
-simplex. On a finite σ-algebra, for `t < 1`, every probability measure `R` close enough to `Q` on
-the measurable sets is at least `t • Q`: the test functions are the indicators of the measurable
-sets divided by their `Q`-masses. Then `t KL(Q ‖ P) ≤ KL(R ‖ P) + h(t)` for every `P`, with `h`
-the binary entropy (`InformationTheory.mul_klDiv_le_klDiv_add_binEntropy`), and `t` close to `1`
-gives the semicontinuity at every level below `klInf Q S`. The statements and proofs are adapted
+The lower bound on the bipolar rate follows from the lower semicontinuity criterion
+`ProbabilityTheory.le_bipolarRate_of_forall_abs_measureReal_sub_le` [RR26, Theorem 4.1], whose
+hypothesis holds at `Q` for every null and every level below `klInf Q S`. The proof does not go
+through the compactness of the simplex. On a finite σ-algebra, for `t < 1`, every probability
+measure `R` whose masses of the measurable sets charged by `Q` are close enough to those under `Q`,
+in relative error, is at least `t • Q`. Then `t KL(Q ‖ P) ≤ KL(R ‖ P) + h(t)` for every `P`, with
+`h` the binary entropy (`InformationTheory.mul_klDiv_le_klDiv_add_binEntropy`), and `t` close to
+`1` gives the semicontinuity at every level below `klInf Q S`. The statements and proofs are adapted
 from `EValuesResearch/Results/FiniteAlphabetRate.lean` (commit `9eee1f2`) in the paper project
 `RemyDegenne/evalues_research`, rewritten on the API of LMLExplore, with `klInf` in place of the
 infimum of `klDiv`.
@@ -60,32 +60,25 @@ namespace ProbabilityTheory
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
 /-- On a space with finitely many measurable sets, for `t < 1`, the probability measures whose
-integrals of finitely many bounded measurable functions are close enough to those of `Q` are at
-least `t • Q`: the functions are the indicators of the measurable sets, divided by their
-`Q`-masses. -/
+masses of the measurable sets charged by `Q` are within the relative error `1 - t` of those under
+`Q` are at least `t • Q`. -/
 private lemma exists_forall_smul_le (Q : Measure 𝓧) [IsFiniteMeasure Q]
     (h𝓧 : {s : Set 𝓧 | MeasurableSet s}.Finite) {t : ℝ≥0} (ht : t < 1) :
-    ∃ (k : ℕ) (f : Fin k → 𝓧 → ℝ) (ε : ℝ), 0 < ε ∧ (∀ i, Measurable (f i)) ∧
-      (∀ i, ∃ C, ∀ x, |f i x| ≤ C) ∧ ∀ R : Measure 𝓧, IsProbabilityMeasure R →
-        (∀ i, |∫ x, f i x ∂R - ∫ x, f i x ∂Q| ≤ ε) → t • Q ≤ R := by
-  obtain ⟨k, e, he⟩ := h𝓧.fin_embedding
-  have he_meas (i : Fin k) : MeasurableSet (e i) := by
-    have : e i ∈ {s : Set 𝓧 | MeasurableSet s} := he ▸ Set.mem_range_self i
-    exact this
-  refine ⟨k, fun i ↦ (e i).indicator fun _ ↦ (Q.real (e i))⁻¹, 1 - t,
-    sub_pos.2 (by exact_mod_cast ht), fun i ↦ measurable_const.indicator (he_meas i),
-    fun i ↦ ⟨(Q.real (e i))⁻¹, fun x ↦ ?_⟩, fun R _ hRQ ↦ Measure.le_iff.2 fun s hs ↦ ?_⟩
-  · by_cases hx : x ∈ e i <;> simp [hx, abs_of_nonneg measureReal_nonneg]
+    ∃ (k : ℕ) (s : Fin k → Set 𝓧) (ε : ℝ), (∀ i, MeasurableSet (s i)) ∧
+      (∀ i, 0 < Q.real (s i)) ∧ 0 < ε ∧ ∀ R : Measure 𝓧, IsProbabilityMeasure R →
+        (∀ i, |R.real (s i) - Q.real (s i)| ≤ ε * Q.real (s i)) → t • Q ≤ R := by
+  set F : Set (Set 𝓧) := {s | MeasurableSet s ∧ 0 < Q.real s} with hF
+  obtain ⟨k, e, he⟩ := (h𝓧.subset fun s (hs : s ∈ F) ↦ hs.1).fin_embedding
+  have he_mem (i : Fin k) : e i ∈ F := he ▸ Set.mem_range_self i
+  refine ⟨k, e, 1 - t, fun i ↦ (he_mem i).1, fun i ↦ (he_mem i).2,
+    sub_pos.2 (by exact_mod_cast ht), fun R _ hRQ ↦ Measure.le_iff.2 fun s hs ↦ ?_⟩
+  rw [smul_apply, ENNReal.smul_def, smul_eq_mul]
+  rcases eq_or_ne (Q s) 0 with h0 | h0
+  · simp [h0]
   obtain ⟨i, rfl⟩ : ∃ i, e i = s := by
     rw [← Set.mem_range, he]
-    exact hs
-  rw [smul_apply, ENNReal.smul_def, smul_eq_mul]
-  rcases eq_or_ne (Q (e i)) 0 with h0 | h0
-  · simp [h0]
-  have hQ : 0 < Q.real (e i) := ENNReal.toReal_pos h0 (measure_ne_top _ _)
+    exact ⟨hs, ENNReal.toReal_pos h0 (measure_ne_top _ _)⟩
   have h := hRQ i
-  rw [integral_indicator_const _ (he_meas i), integral_indicator_const _ (he_meas i), smul_eq_mul,
-    smul_eq_mul, ← sub_mul, abs_mul, abs_inv, abs_of_pos hQ, mul_inv_le_iff₀ hQ] at h
   rw [← ENNReal.ofReal_coe_nnreal, ← ENNReal.ofReal_toReal (measure_ne_top Q (e i)),
     ← ENNReal.ofReal_toReal (measure_ne_top R (e i)), ← ENNReal.ofReal_mul t.coe_nonneg]
   refine ENNReal.ofReal_le_ofReal ?_
@@ -101,13 +94,14 @@ theorem bipolarRate_eq_klInf_of_finite_measurableSet (Q : Measure 𝓧) [IsProba
     (S : Set (Measure 𝓧)) (hS : ∀ P ∈ S, IsProbabilityMeasure P)
     (h𝓧 : {s : Set 𝓧 | MeasurableSet s}.Finite) :
     bipolarRate Q S = klInf Q S := by
-  refine bipolarRate_eq_klInf_of_forall_exists_forall_le Q S hS fun c hc ↦ ?_
+  refine le_antisymm (bipolarRate_le_klInf Q hS) (le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_)
   -- it suffices to find `t < 1` such that the laws above `t • Q` are at least `c` from `S`
   suffices ∃ t : ℝ≥0, t < 1 ∧
       ∀ R : Measure 𝓧, IsProbabilityMeasure R → t • Q ≤ R → c ≤ klInf R S by
     obtain ⟨t, ht, hct⟩ := this
-    obtain ⟨k, f, ε, hε, hfm, hfC, hU⟩ := exists_forall_smul_le Q h𝓧 ht
-    exact ⟨k, f, ε, hε, hfm, hfC, fun R hR hRf ↦ hct R hR (hU R hR hRf)⟩
+    obtain ⟨k, s, ε, hs, hQs, hε, hU⟩ := exists_forall_smul_le Q h𝓧 ht
+    exact le_bipolarRate_of_forall_abs_measureReal_sub_le Q S hS hs hQs hε
+      fun R hR hRs ↦ hct R hR (hU R hR hRs)
   rcases le_or_gt c 0 with hc0 | hc0
   · exact ⟨0, zero_lt_one, fun R hR _ ↦
       hc0.trans (klInf_nonneg fun P hP ↦ by have := hS P hP; simp)⟩
@@ -140,9 +134,7 @@ theorem bipolarRate_eq_klInf_of_finite_measurableSet (Q : Measure 𝓧) [IsProba
     exact hb.le.trans (klInf_le_klIntegral hP)
   have h1 := (mul_le_mul_right hbP _).trans (mul_klDiv_le_klDiv_add_binEntropy (ξ := P) hle)
   have h2 := ENNReal.toReal_mono (ENNReal.add_ne_top.2 ⟨htop, ENNReal.ofReal_ne_top⟩) h1
-  rw [ENNReal.toReal_mul, ENNReal.coe_toReal, ENNReal.toReal_ofReal hb0.le,
-    ENNReal.toReal_add htop ENNReal.ofReal_ne_top,
-    ENNReal.toReal_ofReal (Real.binEntropy_nonneg ht0.le ht1.le)] at h2
+  simp [ENNReal.toReal_add htop, hb0.le, Real.binEntropy_nonneg ht0.le ht1.le] at h2
   rw [← ENNReal.ofReal_toReal htop, EReal.coe_ennreal_ofReal]
   exact EReal.coe_le_coe_iff.2 (le_max_of_le_left (by linarith))
 
