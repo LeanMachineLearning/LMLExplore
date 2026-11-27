@@ -33,7 +33,8 @@ whole trajectory.
 * `ProbabilityTheory.coverWeight`: the weight `1 / (k (k + 1))` of a block of `k` observations in
   a mixture over block lengths; the weights of `1, 2, …` add up to at most `1`
   (`ProbabilityTheory.sum_coverWeight_le_one`,
-  `ProbabilityTheory.tsum_ofReal_coverWeight_succ_le_one`).
+  `ProbabilityTheory.tsum_ofReal_coverWeight_succ_le_one`,
+  `ProbabilityTheory.tsum_ofReal_coverWeight_le_one`).
 
 ## Main statements
 
@@ -101,6 +102,11 @@ noncomputable def coverWeight (k : ℕ) : ℝ := 1 / ((k : ℝ) * (k + 1))
 /-- The definition of the weights of the covering mixture. -/
 lemma coverWeight_def (k : ℕ) : coverWeight k = 1 / ((k : ℝ) * (k + 1)) := (rfl)
 
+/-- The weight of the empty block is `0`. -/
+@[simp]
+lemma coverWeight_zero : coverWeight 0 = 0 := by
+  simp [coverWeight_def]
+
 /-- The weights of the covering mixture are nonnegative. -/
 lemma coverWeight_nonneg (k : ℕ) : 0 ≤ coverWeight k := by
   unfold coverWeight
@@ -126,12 +132,27 @@ lemma coverWeight_pos {k : ℕ} (hk : 0 < k) : 0 < coverWeight k := by
   rw [coverWeight_def]
   exact one_div_pos.2 (mul_pos (Nat.cast_pos.2 hk) (by positivity))
 
+/-- The weight of a nonempty block of `k` observations is `1 / (k (k + 1))` in `ℝ≥0∞`. -/
+lemma ofReal_coverWeight {k : ℕ} (hk : k ≠ 0) :
+    ENNReal.ofReal (coverWeight k) = ((k : ℝ≥0∞) * (k + 1))⁻¹ := by
+  have hpos : (0 : ℝ) < k * (k + 1) := by
+    have : (0 : ℝ) < k := Nat.cast_pos.2 (Nat.pos_of_ne_zero hk)
+    positivity
+  rw [coverWeight_def, one_div, ENNReal.ofReal_inv_of_pos hpos]
+  norm_cast
+
 /-- The weights of the blocks of all lengths `1, 2, …` add up to at most `1`. -/
 lemma tsum_ofReal_coverWeight_succ_le_one :
     ∑' k : ℕ, ENNReal.ofReal (coverWeight (k + 1)) ≤ 1 := by
   refine ENNReal.tsum_le_of_sum_range_le fun n ↦ ?_
   rw [← ENNReal.ofReal_sum_of_nonneg fun k _ ↦ coverWeight_nonneg _]
   exact ENNReal.ofReal_le_one.2 (sum_coverWeight_le_one n)
+
+/-- The weights of the blocks of all lengths `0, 1, 2, …` add up to at most `1`; the empty block
+has weight `0`. -/
+lemma tsum_ofReal_coverWeight_le_one : ∑' k : ℕ, ENNReal.ofReal (coverWeight k) ≤ 1 := by
+  rw [tsum_eq_zero_add' CompleteLattice.summable]
+  simpa using tsum_ofReal_coverWeight_succ_le_one
 
 /-- The logarithm of the inverse weight of a block is at most `ε` times its length, for long
 blocks. -/

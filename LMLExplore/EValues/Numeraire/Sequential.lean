@@ -121,18 +121,6 @@ private lemma sum_prod_measureReal_mul_div (n : ℕ) :
   refine Finset.sum_congr rfl fun x _ ↦ ?_
   rw [← Finset.prod_div_distrib, ← Finset.prod_mul_distrib]
 
-omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure Q]
-  [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
-/-- A product of ratios of masses of finite measures, as a real number. -/
-private lemma prod_div_eq_ofReal [IsFiniteMeasure Q] [IsFiniteMeasure P₁] (hP₁ : ∀ x, P₁ {x} ≠ 0)
-    {n : ℕ} (x : Fin n → α) :
-    ∏ i, Q {x i} / P₁ {x i} = ENNReal.ofReal ((∏ i, Q.real {x i}) / ∏ i, P₁.real {x i}) := by
-  rw [← Finset.prod_div_distrib,
-    ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ by positivity]
-  refine Finset.prod_congr rfl fun i _ ↦ ?_
-  rw [ENNReal.ofReal_div_of_pos (measureReal_pos_of_ne_zero (hP₁ _)), ofReal_measureReal,
-    ofReal_measureReal]
-
 omit [MeasurableSingletonClass α] [Fintype α] in
 /-- The product of the real masses of a sample extended by one observation. -/
 private lemma prod_measureReal_singleton_snoc (μ : Measure α) {k : ℕ} (x : Fin (k + 1) → α)
@@ -293,7 +281,8 @@ private lemma isEVar_div_and_eq_prod_of_le [Finite α] (hQ : ∀ x, Q {x} ≠ 0)
       rw [div_eq_mul_inv, div_eq_mul_inv]
       ac_rfl
   · rw [lintegral_div_eq_ofReal hP₁, ENNReal.ofReal_le_one] at h
-    rw [eq_ofReal_div_of_le hQ hP₁ h (hX n) x, prod_div_eq_ofReal hP₁]
+    rw [eq_ofReal_div_of_le hQ hP₁ h (hX n) x,
+      prod_measure_div_eq_ofReal_prod fun _ _ ↦ hP₁ _, Finset.prod_div_distrib]
 
 omit [MeasurableSingletonClass α] [Fintype α] [IsProbabilityMeasure Q]
   [IsProbabilityMeasure P₁] [IsProbabilityMeasure P₂] in
@@ -308,7 +297,8 @@ theorem ofReal_mul_ofReal_div_mixture_le_prod [IsFiniteMeasure Q] [IsFiniteMeasu
           (w * (∏ i, P₁.real {x i}) + (1 - w) * ∏ i, P₂.real {x i})) ≤
       ∏ i, Q {x i} / P₁ {x i} := by
   have hA := prod_measureReal_singleton_pos hP₁ x
-  rw [prod_div_eq_ofReal hP₁, ← ENNReal.ofReal_mul hw0.le]
+  rw [prod_measure_div_eq_ofReal_prod fun _ _ ↦ hP₁ _, Finset.prod_div_distrib,
+    ← ENNReal.ofReal_mul hw0.le]
   refine ENNReal.ofReal_le_ofReal ?_
   have hB : 0 ≤ ∏ i, P₂.real {x i} := by positivity
   have hq : 0 ≤ ∏ i, Q.real {x i} := by positivity

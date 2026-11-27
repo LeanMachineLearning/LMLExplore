@@ -47,6 +47,8 @@ unless every factor is a probability measure.
   under the i.i.d. laws of the probability measures of the null.
 * `ProbabilityTheory.mapNull_initSeg_iidNull`: for a null of probability measures, the first `n`
   terms of the sequences of `iidNull S₁` have the laws of `sampleNull S₁ n`.
+* `ProbabilityTheory.IsEVar.comp_initSeg`: for any `S₁`, an e-variable for `sampleNull S₁ n`,
+  read at the first `n` terms, is an e-variable for `iidNull S₁`.
 * `ProbabilityTheory.mapNull_shift_iterate_iidNull`: the i.i.d. null is invariant under the shift.
 
 ## References
@@ -407,6 +409,15 @@ theorem mapNull_initSeg_iidNull (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
   refine image_congr fun P hP ↦ ?_
   have := hS₁ P hP
   exact (measurePreserving_initSeg P n).map_eq
+
+/-- An e-variable for the `n`-sample null, read at the first `n` terms of a sequence, is an
+e-variable for the i.i.d. null. Unlike `ProbabilityTheory.mapNull_initSeg_iidNull`, this holds
+for any `S₁`: the i.i.d. law of a measure that is not a probability measure is `0`. -/
+theorem IsEVar.comp_initSeg {n : ℕ} {X : (Fin n → 𝓧) → ℝ≥0∞} (hX : IsEVar X (sampleNull S₁ n)) :
+    IsEVar (fun ω ↦ X (initSeg n ω)) (iidNull S₁) :=
+  isEVar_iidNull_iff.2 ⟨hX.measurable.comp (measurable_initSeg n), fun P hP _ ↦ by
+    rw [(measurePreserving_initSeg P n).lintegral_comp hX.measurable]
+    exact hX.lintegral_le_one ⟨P, hP, rfl⟩⟩
 
 /-- **The i.i.d. null is invariant under the shift.** The sequences of `iidNull S₁` shifted by `n`
 terms have the laws of `iidNull S₁`, for any `S₁`: the shift preserves the i.i.d. law of a
