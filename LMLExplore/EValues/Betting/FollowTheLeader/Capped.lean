@@ -12,6 +12,7 @@ public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 public import Mathlib.Probability.ProductMeasure
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
+import LMLExplore.Algebra.Order.Field.Basic
 import LMLExplore.EValues.Betting.FollowTheLeader.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.ConstraintNull.KLInf
@@ -217,16 +218,6 @@ private lemma one_add_mul_capMap {γ : ℝ} (hγ : γ ∈ Icc (0 : ℝ) 1) (c : 
 private lemma one_add_div_mul_capMap {γ : ℝ} (hγ : γ ∈ Ioc (0 : ℝ) 1) (c : ℝ) (e : ℝ≥0) :
     1 + c / γ * ((capMap γ e : ℝ) - 1) = 1 + c * ((e : ℝ) - 1) := by
   rw [one_add_mul_capMap ⟨hγ.1.le, hγ.2⟩, div_mul_cancel₀ c hγ.1.ne']
-
-/-- A fraction in `[0, γ]` divided by `γ > 0` lies in `[0, 1]`. -/
-private lemma div_mem_Icc_zero_one {γ c : ℝ} (hγ : 0 < γ) (hc : c ∈ Icc (0 : ℝ) γ) :
-    c / γ ∈ Icc (0 : ℝ) 1 :=
-  ⟨div_nonneg hc.1 hγ.le, div_le_one_of_le₀ hc.2 hγ.le⟩
-
-/-- A fraction in `[0, 1]` multiplied by `γ ≥ 0` lies in `[0, γ]`. -/
-private lemma mul_mem_Icc_zero {γ c : ℝ} (hγ : 0 ≤ γ) (hc : c ∈ Icc (0 : ℝ) 1) :
-    c * γ ∈ Icc (0 : ℝ) γ :=
-  ⟨mul_nonneg hc.1 hγ, mul_le_of_le_one_left hγ hc.2⟩
 
 /-- The best rate of a constant fraction in `[0, 1]` on the affine image is the best rate of a
 constant fraction in `[0, γ]` on the e-value. -/
