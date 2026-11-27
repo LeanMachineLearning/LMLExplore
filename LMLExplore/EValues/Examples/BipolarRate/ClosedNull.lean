@@ -10,6 +10,7 @@ public import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 public import Mathlib.Probability.ConditionalProbability
 import LMLExplore.EValues.BipolarRate.Semicontinuity
 import LMLExplore.MeasureTheory.Constructions.Pi
+import LMLExplore.MeasureTheory.Measure.Interval
 import Mathlib.MeasureTheory.Measure.Portmanteau
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
@@ -259,17 +260,6 @@ private lemma klDiv_gapLaw_eq_top {R : Measure ℕ} {j : ℕ}
     linarith [(abs_le.1 h).1]
   exact klDiv_of_not_ac fun hac ↦ hRj (hac (gapLaw_singleton_self Q j))
 
-/-- A finite measure on `ℕ` gives mass less than any `η > 0` to the numbers above some `K`. -/
-private lemma exists_measureReal_Ioi_lt (Q : Measure ℕ) [IsFiniteMeasure Q] {η : ℝ}
-    (hη : 0 < η) :
-    ∃ K : ℕ, Q.real (Set.Ioi K) < η := by
-  have h_tend := tendsto_measure_iInter_atTop (μ := Q)
-    (fun K ↦ (MeasurableSet.of_discrete (s := Set.Ioi K)).nullMeasurableSet) antitone_Ioi
-    ⟨0, measure_ne_top _ _⟩
-  rw [Set.iInter_eq_empty_iff.2 fun x ↦ ⟨x, lt_irrefl x⟩, measure_empty] at h_tend
-  obtain ⟨K, hK⟩ := (h_tend.eventually (gt_mem_nhds (ENNReal.ofReal_pos.2 hη))).exists
-  exact ⟨K, (ENNReal.lt_ofReal_iff_toReal_lt (measure_ne_top _ _)).1 hK⟩
-
 /-- The bipolar rate of `Q` against the null of the laws `P_j` is at least `log 2`, when `Q`
 charges every point: a law close to `Q` charges every small `j`, which `P_j` does not, and gives
 a small mass to the large numbers, to which `P_j` gives mass at least `1/2` for `j` large. -/
@@ -295,7 +285,10 @@ private lemma log_two_le_bipolarRate [IsProbabilityMeasure Q] (hQ : ∀ x, Q {x}
     rw [hρ]
     field_simp
   -- `K` such that `Q` gives mass less than `ρ / 2` to the numbers above `K`
-  obtain ⟨K, hK'⟩ := exists_measureReal_Ioi_lt Q (half_pos hρ0)
+  obtain ⟨K, hK⟩ := ((tendsto_measure_Ioi_atTop Q).eventually
+    (gt_mem_nhds (ENNReal.ofReal_pos.2 (half_pos hρ0)))).exists
+  have hK' : Q.real (Set.Ioi K) < ρ / 2 :=
+    (ENNReal.lt_ofReal_iff_toReal_lt (measure_ne_top _ _)).1 hK
   -- the test sets: the points up to `K` and the numbers above `K`
   set s : Fin (K + 2) → Set ℕ := fun i ↦ if (i : ℕ) ≤ K then {(i : ℕ)} else Set.Ioi K with hs
   have hQs (i : Fin (K + 2)) : 0 < Q.real (s i) := by
