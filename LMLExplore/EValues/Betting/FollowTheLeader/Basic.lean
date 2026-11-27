@@ -356,7 +356,7 @@ private lemma eintegral_log_ofReal_eq (hQ0 : Q {0} = 0) {l : ℝ} (hl : l ∈ Ic
 
 /-- The extended logarithm of one round with a fraction in `[0, 1]` is at most
 `log (1 + e)`. -/
-private lemma log_ofReal_one_add_mul_le {l : ℝ} (hl : l ∈ Icc (0 : ℝ) 1) (e : ℝ≥0) :
+lemma log_ofReal_one_add_mul_le {l : ℝ} (hl : l ∈ Icc (0 : ℝ) 1) (e : ℝ≥0) :
     ENNReal.log (ENNReal.ofReal (1 + l * ((e : ℝ) - 1))) ≤ (Real.log (1 + e) : EReal) := by
   rw [ENNReal.log_ofReal]
   split_ifs
@@ -577,11 +577,13 @@ private lemma lintegral_ofReal_logBetFactor_one_half_eq_top [IsFiniteMeasure Q]
     (ENNReal.ofReal_le_ofReal (by rw [logBetFactor_one_half]; linarith)).trans
       ENNReal.ofReal_add_le) hlog
 
-/-- If `log (1 + E)` has an infinite mean, so does the extended logarithm of the round with
-fraction `1 / 2`, whose negative part is bounded by `log 2`. -/
-private lemma eintegral_log_ofReal_one_half_eq_top [IsFiniteMeasure Q]
-    (hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤) :
+/-- If `log (1 + E)` is not integrable, the extended logarithm of the round with fraction `1 / 2`
+has an infinite mean, since its negative part is bounded by `log 2`. -/
+lemma eintegral_log_ofReal_one_half_eq_top [IsFiniteMeasure Q]
+    (hlog : ¬ Integrable (fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ))) Q) :
     ∫ᵉ e, ENNReal.log (ENNReal.ofReal (1 + 1 / 2 * ((e : ℝ) - 1))) ∂Q = ⊤ := by
+  replace hlog : ∫⁻ e, ENNReal.ofReal (Real.log (1 + (e : ℝ))) ∂Q = ⊤ :=
+    not_ne_iff.1 fun h ↦ hlog (integrable_log_one_add h)
   rw [eintegral_congr fun e : ℝ≥0 ↦ ENNReal.log_ofReal_of_pos (by linarith [e.coe_nonneg] :
     (0 : ℝ) < 1 + 1 / 2 * ((e : ℝ) - 1))]
   have hneg : ∫⁻ e, ENNReal.ofReal (-logBetFactor (1 / 2) e) ∂Q ≠ ⊤ := by
@@ -843,7 +845,8 @@ private lemma ae_tendsto_average_of_lintegral_eq_top [IsProbabilityMeasure Q] (h
   have hhalf : (1 / 2 : ℝ) ∈ Icc (0 : ℝ) 1 := ⟨by norm_num, by norm_num⟩
   have hχ0 : ∀ e : ℝ≥0, 0 ≤ Real.log (1 + (e : ℝ)) := fun e ↦ Real.log_nonneg (by simp)
   refine ⟨eq_top_iff.2 (le_iSup₂_of_le (1 / 2) hhalf
-    (eintegral_log_ofReal_one_half_eq_top hlog).ge), ?_⟩
+    (eintegral_log_ofReal_one_half_eq_top fun h ↦ (lintegral_ofReal_ne_top_iff_integrable
+      h.aestronglyMeasurable (ae_of_all _ hχ0)).2 h hlog).ge), ?_⟩
   obtain ⟨a, ha0, ha2, hda⟩ := exists_integral_logBetFactor_sub_one_half_neg_of_lt hlog
   have hinta := integrable_logBetFactor_sub_one_half (Q := Q) ha0 (ha2.trans (by norm_num))
   have hχm : Measurable fun e : ℝ≥0 ↦ Real.log (1 + (e : ℝ)) := by fun_prop
