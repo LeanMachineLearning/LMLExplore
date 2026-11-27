@@ -58,6 +58,15 @@ the same e-variables and the same effective null.
 * `ProbabilityTheory.maxEPower_eq_zero_of_mem_effectiveSet`: for a null of measures of mass at
   most `1`, no e-variable for `S` has a positive expected logarithm under a probability measure of
   the effective null of `S`: the largest e-power is `0`.
+* `ProbabilityTheory.maxEPower_eq_zero_iff_mem_effectiveSet`: conversely, under a probability
+  measure outside the effective null, some e-variable has a positive expected logarithm.
+
+## Implementation notes
+
+The direction of `maxEPower_eq_zero_iff_mem_effectiveSet` from the vanishing to the membership is
+stated, in its contrapositive form and with another proof, in
+`EValuesResearch/Results/PartitionRate.lean` (commit `83205cb`) in the paper project
+`RemyDegenne/evalues_research`; the proof here goes through the reverse information projection.
 
 ## References
 
@@ -252,5 +261,32 @@ theorem maxEPower_eq_zero_of_mem_effectiveSet {P : Measure Ω} [IsProbabilityMea
     (hS : ∀ μ ∈ S, μ univ ≤ 1) (hP : P ∈ effectiveSet S) : maxEPower P S = 0 := by
   rw [← maxEPower_effectiveSet, maxEPower_def]
   exact maxUtility_eq_zero_of_mem (fun _ hμ ↦ measure_univ_le_one_of_mem_effectiveSet hS hμ) hP
+
+/-- For a null of measures of mass at most `1`, the largest e-power under a probability measure
+`Q` vanishes exactly when `Q` is in the effective null of `S`: some e-variable for `S` has a
+positive expected logarithm under every probability measure outside the effective null. The
+largest e-power is the divergence `klIntegral Q (ripr Q S)` to the reverse information projection
+(Statlib's `maxUtility_eq_klIntegral_ripr`), which is `klDiv Q (ripr Q S)` plus the missing mass
+`1 - ripr Q S univ ≥ 0`. If it vanishes, so does `klDiv Q (ripr Q S)`, and `Q` is the reverse
+information projection, a member of the effective null. -/
+theorem maxEPower_eq_zero_iff_mem_effectiveSet [IsProbabilityMeasure Q]
+    (hS : ∀ μ ∈ S, μ univ ≤ 1) : maxEPower Q S = 0 ↔ Q ∈ effectiveSet S := by
+  refine ⟨fun h ↦ ?_, maxEPower_eq_zero_of_mem_effectiveSet hS⟩
+  rw [maxEPower_def, maxUtility_eq_klIntegral_ripr hS, klIntegral_eq_klDiv_add_sub,
+    probReal_univ] at h
+  have hR : (ripr Q S).real univ ≤ 1 := by
+    rw [measureReal_def]
+    exact ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using ripr_univ_le_one Q (S := S))
+  have hk : InformationTheory.klDiv Q (ripr Q S) ≠ ∞ := by
+    intro hk
+    rw [hk, EReal.coe_ennreal_top, EReal.top_add_coe, EReal.top_sub_coe] at h
+    exact EReal.top_ne_zero h
+  rw [← ENNReal.ofReal_toReal hk, EReal.coe_ennreal_ofReal, max_eq_left ENNReal.toReal_nonneg,
+    ← EReal.coe_add, ← EReal.coe_sub, EReal.coe_eq_zero] at h
+  have hQ : InformationTheory.klDiv Q (ripr Q S) = 0 := by
+    rw [← ENNReal.ofReal_toReal hk, ENNReal.ofReal_eq_zero]
+    linarith
+  rw [InformationTheory.klDiv_eq_zero_iff] at hQ
+  exact hQ ▸ ripr_mem_effectiveSet Q hS
 
 end ProbabilityTheory
