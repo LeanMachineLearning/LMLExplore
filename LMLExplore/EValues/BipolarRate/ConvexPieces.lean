@@ -13,7 +13,8 @@ public import Mathlib.Probability.Process.HittingTime
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
 import LMLExplore.EValues.BipolarRate.EProcess
 import LMLExplore.EValues.BipolarRate.StoppingTime
-import LMLExplore.MeasureTheory.Measure.Singletons
+import LMLExplore.InformationTheory.KullbackLeibler.Finite
+import LMLExplore.MeasureTheory.Measure.Real
 import LMLExplore.Probability.Independence.LastExit
 import LMLExplore.Probability.Process.LevelCrossing
 import Mathlib.Probability.Independence.InfinitePi
@@ -145,31 +146,6 @@ theorem adapted_minLikelihoodRatio [Countable 𝓧] [MeasurableSingletonClass �
 
 variable [MeasurableSingletonClass 𝓧] {Q : Measure 𝓧} {P : κ → Measure 𝓧}
 
-omit [MeasurableSingletonClass 𝓧] in
-/-- On a path of atoms of two finite measures, the product of the ratios of their masses is the
-exponential of the sum of the logarithms of the real ratios. -/
-private lemma prod_div_eq_ofReal_exp {R R' : Measure 𝓧} [IsFiniteMeasure R] [IsFiniteMeasure R']
-    {ω : ℕ → 𝓧} (hR : ∀ k, R {ω k} ≠ 0) (hR' : ∀ k, R' {ω k} ≠ 0) (n : ℕ) :
-    ∏ k ∈ Finset.range n, R {ω k} / R' {ω k} = ENNReal.ofReal (Real.exp (∑ k ∈ Finset.range n,
-      Real.log (R.real {ω k} / R'.real {ω k}))) := by
-  rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
-  refine Finset.prod_congr rfl fun k _ ↦ ?_
-  have ha : 0 < R.real {ω k} := ENNReal.toReal_pos (hR k) (measure_ne_top _ _)
-  have hb : 0 < R'.real {ω k} := ENNReal.toReal_pos (hR' k) (measure_ne_top _ _)
-  rw [Real.exp_log (div_pos ha hb), ENNReal.ofReal_div_of_pos hb, Measure.real, Measure.real,
-    ENNReal.ofReal_toReal (measure_ne_top _ _), ENNReal.ofReal_toReal (measure_ne_top _ _)]
-
-/-- On a finite alphabet, the expected logarithm of the ratio of the masses of two probability
-measures `R ≪ R'` under `R` is the real value of the relative entropy. -/
-private lemma integral_log_div_eq_toReal_klDiv [Finite 𝓧] (R R' : Measure 𝓧)
-    [IsProbabilityMeasure R] [IsProbabilityMeasure R'] (hRR' : R ≪ R') :
-    ∫ x, Real.log (R.real {x} / R'.real {x}) ∂R = (klDiv R R').toReal := by
-  rw [toReal_klDiv hRR' Integrable.of_finite]
-  simp only [probReal_univ, add_sub_cancel_right]
-  refine integral_congr_ae (ae_iff_of_countable.2 fun x hx ↦ ?_)
-  exact (Measure.llr_eq_log_real_div_real_singleton R R' x (fun h ↦ hx (hRR' h))
-    (measure_ne_top _ _)).symm
-
 /-- On a finite alphabet, the minimum of the relative entropies from a finite measure `Q` to
 measures `P j` with `Q ≪ P j`, all finite, as an extended real, is the minimum of their real
 values. -/
@@ -190,10 +166,16 @@ private lemma log_minLikelihoodRatio_eq [Fintype κ] [Nonempty κ] [IsFiniteMeas
     (hP : ∀ j k, P j {ω k} ≠ 0) (n : ℕ) :
     ENNReal.log (minLikelihoodRatio Q P n ω) = ((Finset.univ.inf' Finset.univ_nonempty fun j ↦
       ∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k}) : ℝ) : EReal) := by
+  -- each product of ratios is the exponential of the sum of the logarithms of the real ratios
+  have hprod (j : κ) : ∏ k ∈ Finset.range n, Q {ω k} / P j {ω k} = ENNReal.ofReal (Real.exp
+      (∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k}))) := by
+    rw [prod_measure_div_eq_ofReal_prod fun k _ ↦ hP j k, Real.exp_sum]
+    exact congrArg ENNReal.ofReal (Finset.prod_congr rfl fun k _ ↦ (Real.exp_log (div_pos
+      (measureReal_pos_of_ne_zero (hQ k)) (measureReal_pos_of_ne_zero (hP j k)))).symm)
   set S : κ → ℝ := fun j ↦ ∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k})
   obtain ⟨j₀, -, hj₀⟩ := Finset.exists_mem_eq_inf' Finset.univ_nonempty S
   have hM : minLikelihoodRatio Q P n ω = ENNReal.ofReal (Real.exp (S j₀)) := by
-    simp_rw [minLikelihoodRatio_def, prod_div_eq_ofReal_exp hQ (hP _) n]
+    simp_rw [minLikelihoodRatio_def, hprod]
     refine le_antisymm (iInf_le _ j₀) (le_iInf fun j ↦ ENNReal.ofReal_le_ofReal
       (Real.exp_le_exp.2 ?_))
     rw [← hj₀]
@@ -212,6 +194,15 @@ private lemma ae_forall_measure_singleton_ne_zero [Countable 𝓧] [IsProbabilit
     (p := fun _ y ↦ Q {y} ≠ 0) fun _ ↦ ae_iff_of_countable.2 fun _ h ↦ h] with ω hω
   exact ⟨hω, fun j k h ↦ hω k (hQP j h)⟩
 
+omit [MeasurableSingletonClass 𝓧] in
+/-- On finite types, the log-likelihood ratios of `Q` against the `P j` are bounded by a
+nonnegative constant. -/
+private lemma exists_forall_abs_log_div_le [Finite 𝓧] [Finite κ] :
+    ∃ B, 0 ≤ B ∧ ∀ j x, |Real.log (Q.real {x} / (P j).real {x})| ≤ B := by
+  obtain ⟨B, hB⟩ := Finite.bddAbove_range
+    fun p : κ × 𝓧 ↦ |Real.log (Q.real {p.2} / (P p.1).real {p.2})|
+  exact ⟨max B 0, le_max_right _ _, fun j x ↦ (hB ⟨(j, x), rfl⟩).trans (le_max_left _ _)⟩
+
 /-- **The strong law for the minimum of the log-likelihood ratios.** Almost surely under the
 i.i.d. law of `Q`, the minimum over `j` of the sums of the log-likelihood ratios against `P j`,
 divided by `n`, tends to the minimum of the relative entropies. -/
@@ -227,7 +218,7 @@ private lemma ae_tendsto_inf'_sum_log_div [Finite 𝓧] [Fintype κ] [Nonempty �
     refine ae_all_iff.2 fun j ↦ ?_
     have := TauCeti.Probability.strong_law_ae_infinitePi Q
       (f := fun x ↦ Real.log (Q.real {x} / (P j).real {x})) Integrable.of_finite
-    rwa [integral_log_div_eq_toReal_klDiv Q (P j) (hQP j)] at this
+    rwa [LMLExplore.integral_log_measureReal_div_eq_toReal_klDiv (hQP j)] at this
   filter_upwards [hslln] with ω hω
   refine (Tendsto.finset_inf'_nhds (s := Finset.univ) Finset.univ_nonempty
     fun j _ ↦ hω j).congr' ?_
@@ -284,12 +275,7 @@ theorem tendsto_eintegral_log_minLikelihoodRatio_div [Finite 𝓧] [Finite κ] (
   set F : ℕ → (ℕ → 𝓧) → ℝ := fun n ω ↦
     Finset.univ.inf' Finset.univ_nonempty fun j ↦ ∑ k ∈ Finset.range n, L j (ω k) with hF
   -- a bound on the log-likelihood ratios, on a finite alphabet
-  set c : ℝ := ∑ j, ∑ x, |L j x|
-  have hc0 : 0 ≤ c := Finset.sum_nonneg fun j _ ↦ Finset.sum_nonneg fun x _ ↦ abs_nonneg _
-  have hcL (j : κ) (x : 𝓧) : |L j x| ≤ c :=
-    (Finset.single_le_sum (f := fun x ↦ |L j x|) (fun _ _ ↦ abs_nonneg _)
-      (Finset.mem_univ x)).trans (Finset.single_le_sum (f := fun j ↦ ∑ x, |L j x|)
-        (fun _ _ ↦ Finset.sum_nonneg fun _ _ ↦ abs_nonneg _) (Finset.mem_univ j))
+  obtain ⟨c, hc0, hcL⟩ := exists_forall_abs_log_div_le (Q := Q) (P := P)
   have hFbound (n : ℕ) (ω : ℕ → 𝓧) : |F n ω| ≤ n * c := by
     have hS (j : κ) : |∑ k ∈ Finset.range n, L j (ω k)| ≤ n * c := by
       refine (Finset.abs_sum_le_sum_abs _ _).trans ?_
@@ -358,11 +344,7 @@ theorem limsup_lintegral_hittingAfter_minLikelihoodRatio_div_log_le [Finite 𝓧
   rw [coe_iInf_klDiv_eq hQP, EReal.coe_lt_coe_iff] at hcL
   -- the walks of the log-likelihood ratios, with bounded increments
   set L : κ → 𝓧 → ℝ := fun j x ↦ Real.log (Q.real {x} / (P j).real {x})
-  set B : ℝ := ∑ j, ∑ x, |L j x|
-  have hLB (j : κ) (x : 𝓧) : |L j x| ≤ B :=
-    (Finset.single_le_sum (f := fun x ↦ |L j x|) (fun _ _ ↦ abs_nonneg _)
-      (Finset.mem_univ x)).trans (Finset.single_le_sum (f := fun j ↦ ∑ x, |L j x|)
-        (fun _ _ ↦ Finset.sum_nonneg fun _ _ ↦ abs_nonneg _) (Finset.mem_univ j))
+  obtain ⟨B, -, hLB⟩ := exists_forall_abs_log_div_le (Q := Q) (P := P)
   -- their drifts are the relative entropies
   have hmean (j : κ) (i : ℕ) : Finset.univ.inf' Finset.univ_nonempty
       (fun j ↦ (klDiv Q (P j)).toReal) ≤ ∫ ω, L j (ω i) ∂Measure.infinitePi (fun _ : ℕ ↦ Q) := by
@@ -370,7 +352,7 @@ theorem limsup_lintegral_hittingAfter_minLikelihoodRatio_div_log_le [Finite 𝓧
       (measurable_pi_apply i).aemeasurable (f := L j)
       (measurable_of_countable (L j)).aestronglyMeasurable
     rw [(measurePreserving_eval_infinitePi (fun _ : ℕ ↦ Q) i).map_eq,
-      integral_log_div_eq_toReal_klDiv Q (P j) (hQP j)] at this
+      LMLExplore.integral_log_measureReal_div_eq_toReal_klDiv (hQP j)] at this
     rw [← this]
     exact Finset.inf'_le _ (Finset.mem_univ j)
   obtain ⟨N, hN, hNω⟩ := exists_lintegral_ne_top_forall_ge_mul_le_sum
@@ -455,7 +437,7 @@ theorem isEVar_prodBernoulli_div_prodBernoulli {C : Set (ι → ℝ)} (hC : Conv
   rintro _ ⟨θ, hθ, rfl⟩
   have hθ01 := hC01 hθ
   rw [← prodBernoulli_projIcc ψ, lintegral_prodBernoulli_div_prodBernoulli
-    (fun i _ ↦ (projIcc 0 1 zero_le_one (ψ i)).property) hη01 hθ01, ENNReal.ofReal_le_one]
+    (fun i _ ↦ (projIcc 0 1 zero_le_one (ψ i)).property) hη01 hθ01]
   set ψ' : ι → ℝ := fun i ↦ (projIcc 0 1 zero_le_one (ψ i) : ℝ)
   have hfoc := sum_mul_div_le_zero_of_isMinOn hC hC01 ψ hη01 hη hθ hmin
   -- each factor is `1 + u i`, with `∑ i, u i ≤ 0`
@@ -466,19 +448,14 @@ theorem isEVar_prodBernoulli_div_prodBernoulli {C : Set (ι → ℝ)} (hC : Conv
     have h1 : 1 - η i ≠ 0 := (sub_pos.2 h.2).ne'
     field_simp
     ring
-  calc ∏ i, (ψ' i / η i * θ i + (1 - ψ' i) / (1 - η i) * (1 - θ i))
-      ≤ ∏ i, Real.exp ((θ i - η i) * (ψ' i - η i) / (η i * (1 - η i))) := by
-        refine Finset.prod_le_prod₀ (fun i _ ↦ ?_) fun i _ ↦ ?_
-        · have h1 := (projIcc 0 1 zero_le_one (ψ i)).property
-          have h2 := hη01 i (mem_univ i)
-          have h3 := hθ01 i (mem_univ i)
-          exact add_nonneg (mul_nonneg (div_nonneg h1.1 h2.1.le) h3.1)
-            (mul_nonneg (div_nonneg (by linarith [h1.2]) (by linarith [h2.2]))
-              (by linarith [h3.2]))
-        · rw [hfac i, add_comm]
-          exact Real.add_one_le_exp _
-    _ = Real.exp (∑ i, (θ i - η i) * (ψ' i - η i) / (η i * (1 - η i))) := (Real.exp_sum _ _).symm
-    _ ≤ 1 := Real.exp_le_one_iff.2 hfoc
+  calc ∏ i, ENNReal.ofReal (ψ' i / η i * θ i + (1 - ψ' i) / (1 - η i) * (1 - θ i))
+      ≤ ∏ i, ENNReal.ofReal (Real.exp ((θ i - η i) * (ψ' i - η i) / (η i * (1 - η i)))) :=
+        Finset.prod_le_prod fun i _ ↦ ENNReal.ofReal_le_ofReal (by
+          rw [hfac i, add_comm]
+          exact Real.add_one_le_exp _)
+    _ = ENNReal.ofReal (Real.exp (∑ i, (θ i - η i) * (ψ' i - η i) / (η i * (1 - η i)))) := by
+        rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun i _ ↦ (Real.exp_pos _).le]
+    _ ≤ 1 := ENNReal.ofReal_le_one.2 (Real.exp_le_one_iff.2 hfoc)
 
 /-- **The likelihood ratio process against the projection on a convex piece is a test
 supermartingale** [EVR26, Note 32, Statement 2]. Under the hypotheses of
@@ -564,12 +541,6 @@ private lemma klInf_prodBernoulli_iUnion (ψ : ι → ℝ) (hη : ∀ j, η j �
   obtain ⟨θ, hθ, rfl⟩ := hP
   obtain ⟨j, hj⟩ := mem_iUnion.1 hθ
   exact (iInf_le _ j).trans (hmin j hj)
-
-/-- The laws of coins with parameters in the open cube dominate every law of coins. -/
-private lemma prodBernoulli_absolutelyContinuous (ψ : ι → ℝ) {θ : ι → ℝ}
-    (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) : prodBernoulli ψ ≪ prodBernoulli θ :=
-  Measure.absolutelyContinuous_of_forall_singleton_pos fun x ↦
-    pos_iff_ne_zero.2 (prodBernoulli_singleton_ne_zero hθ x)
 
 /-- **The minimum of the likelihood ratios grows at the rate `KL_inf`**
 [EVR26, Note 32, Statement 2]. Let `η j ∈ C j`, in the open cube, minimize

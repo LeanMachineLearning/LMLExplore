@@ -46,6 +46,8 @@ exponential weights in online learning.
 * `LMLExplore.toReal_klDiv_eq_sum_mul_log_div`: the Kullback–Leibler divergence of finite measures
   `μ ≪ ν` on a finite type is the relative entropy of their vectors of masses, up to the mass
   correction.
+* `LMLExplore.integral_log_measureReal_div_eq_toReal_klDiv`: for probability measures `μ ≪ ν`,
+  the expected logarithm of the ratio of their masses under `μ` is the Kullback–Leibler divergence.
 * `LMLExplore.sum_mul_log_div_nonneg`: Gibbs' inequality.
 * `LMLExplore.sq_sum_abs_sub_le_two_mul_sum_mul_log_div`: Pinsker's inequality for probability
   vectors.
@@ -105,6 +107,18 @@ theorem toReal_klDiv_eq_sum_mul_log_div [MeasurableSpace α] [MeasurableSingleto
   · simp [measureReal_def, hμa]
   rw [llr, Measure.rnDeriv_eq_measure_singleton_div (fun h ↦ hμa (hμν h)) (measure_ne_top ν _),
     ENNReal.toReal_div, measureReal_def, measureReal_def]
+
+omit [Fintype α] in
+/-- On a finite type with measurable singletons, the expected logarithm under `μ` of the ratio of
+the masses of probability measures `μ ≪ ν` is the real value of their Kullback–Leibler
+divergence. -/
+theorem integral_log_measureReal_div_eq_toReal_klDiv [Finite α] [MeasurableSpace α]
+    [MeasurableSingletonClass α] {μ ν : Measure α} [IsProbabilityMeasure μ]
+    [IsProbabilityMeasure ν] (hμν : μ ≪ ν) :
+    ∫ a, log (μ.real {a} / ν.real {a}) ∂μ = (klDiv μ ν).toReal := by
+  have := Fintype.ofFinite α
+  rw [toReal_klDiv_eq_sum_mul_log_div hμν, integral_fintype Integrable.of_finite]
+  simp [smul_eq_mul]
 
 /-- **Pinsker's inequality** for probability vectors: if `x` and `z` lie in the simplex and
 `x a = 0` whenever `z a = 0`, then `(∑ a, |x a - z a|) ^ 2 ≤ 2 ∑ a, x a * log (x a / z a)`.

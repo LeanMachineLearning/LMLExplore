@@ -31,6 +31,9 @@ import LMLExplore.Data.EReal.Inv
 * `ENNReal.le_prod_iff_toReal_log_le_sum`: for positive finite `c` and factors `x i`,
   `c ≤ ∏ i ∈ s, x i` if and only if `log c ≤ ∑ i ∈ s, log (x i)`, in `ℝ`. It turns the first time
   a product reaches a level into the first passage time of a random walk.
+* `ENNReal.ofReal_add_sum_add_one_le_sum_add_div_prod`: the pathwise form
+  `c + ∑ i, (log (x i))⁻ + 1 ≤ ∑ i, (log (x i))⁺ + exp c / ∏ i, x i` of `t + 1 ≤ exp t`, for
+  `c ≥ 0`.
 * `ENNReal.tendsto_toReal_log_inv_nhdsGT_zero`: the level `log (1/α)` tends to `∞` as `α → 0`.
 * `ENNReal.limsup_div_toENNReal_log_inv_le`: a function bounded by `K + log (1/α) * r`, with `K`
   finite, has `limsup_{α → 0} f α / log (1/α) ≤ r`. This is the form of the bounds on the expected
@@ -140,6 +143,53 @@ lemma le_prod_iff_toReal_log_le_sum {ι : Type*} {s : Finset ι} {x : ι → ℝ
   conv_lhs => rw [Finset.prod_congr rfl fun i hi ↦ hexp (hx i hi).1 (hx i hi).2, hexp hc0 hc]
   rw [← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
     ENNReal.ofReal_le_ofReal_iff (Real.exp_pos _).le, Real.exp_le_exp]
+
+/-- **A pathwise form of `t + 1 ≤ exp t`.** For nonzero factors `x i` and `c ≥ 0`,
+`c + ∑ i ∈ s, (log (x i))⁻ + 1 ≤ ∑ i ∈ s, (log (x i))⁺ + exp c / ∏ i ∈ s, x i`, with the positive
+and negative parts of the logarithms kept apart so that the inequality lives in `ℝ≥0∞`. -/
+lemma ofReal_add_sum_add_one_le_sum_add_div_prod {ι : Type*} {s : Finset ι} {x : ι → ℝ≥0∞}
+    (hx0 : ∀ i ∈ s, x i ≠ 0) {c : ℝ} (hc : 0 ≤ c) :
+    ENNReal.ofReal c + ∑ i ∈ s, (-log (x i)).toENNReal + 1 ≤
+      ∑ i ∈ s, (log (x i)).toENNReal + ENNReal.ofReal (Real.exp c) / ∏ i ∈ s, x i := by
+  by_cases htop : ∃ i ∈ s, x i = ⊤
+  · obtain ⟨i, hi, hit⟩ := htop
+    have hsum : ∑ i ∈ s, (log (x i)).toENNReal = ⊤ :=
+      ENNReal.sum_eq_top.2 ⟨i, hi, by simp [hit]⟩
+    simp [hsum]
+  simp only [not_exists, not_and] at htop
+  set l : ι → ℝ := fun i ↦ Real.log (x i).toReal with hl
+  have hlog : ∀ i ∈ s, log (x i) = (l i : EReal) := fun i hi ↦
+    log_pos_real (hx0 i hi) (htop i hi)
+  have hofmax (r : ℝ) : ENNReal.ofReal r = ENNReal.ofReal (max r 0) := by
+    rcases le_total r 0 with h | h
+    · simp [ENNReal.ofReal_of_nonpos h, max_eq_right h]
+    · simp [max_eq_left h]
+  have h1 : ∑ i ∈ s, (log (x i)).toENNReal = ENNReal.ofReal (∑ i ∈ s, max (l i) 0) := by
+    rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦ le_max_right _ _]
+    refine Finset.sum_congr rfl fun i hi ↦ ?_
+    rw [hlog i hi, EReal.real_coe_toENNReal, hofmax]
+  have h2 : ∑ i ∈ s, (-log (x i)).toENNReal = ENNReal.ofReal (∑ i ∈ s, max (-l i) 0) := by
+    rw [ENNReal.ofReal_sum_of_nonneg fun i _ ↦ le_max_right _ _]
+    refine Finset.sum_congr rfl fun i hi ↦ ?_
+    rw [hlog i hi, ← EReal.coe_neg, EReal.real_coe_toENNReal, hofmax]
+  have h3 : ∏ i ∈ s, x i = ENNReal.ofReal (Real.exp (∑ i ∈ s, l i)) := by
+    rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun i _ ↦ (Real.exp_pos _).le]
+    refine Finset.prod_congr rfl fun i hi ↦ ?_
+    rw [hl, Real.exp_log (ENNReal.toReal_pos (hx0 i hi) (htop i hi)),
+      ENNReal.ofReal_toReal (htop i hi)]
+  have hL : ∑ i ∈ s, l i = ∑ i ∈ s, max (l i) 0 - ∑ i ∈ s, max (-l i) 0 := by
+    rw [← Finset.sum_sub_distrib]
+    exact Finset.sum_congr rfl fun i _ ↦ (max_zero_sub_max_neg_zero_eq_self _).symm
+  have hA : 0 ≤ ∑ i ∈ s, max (l i) 0 := Finset.sum_nonneg fun i _ ↦ le_max_right _ _
+  have hB : 0 ≤ ∑ i ∈ s, max (-l i) 0 := Finset.sum_nonneg fun i _ ↦ le_max_right _ _
+  rw [h1, h2, h3, ← ENNReal.ofReal_div_of_pos (Real.exp_pos _), ← Real.exp_sub,
+    ← ENNReal.ofReal_one, ← ENNReal.ofReal_add hc hB,
+    ← ENNReal.ofReal_add (by positivity) zero_le_one,
+    ← ENNReal.ofReal_add hA (Real.exp_pos _).le]
+  refine ENNReal.ofReal_le_ofReal ?_
+  have := Real.add_one_le_exp (c - ∑ i ∈ s, l i)
+  rw [hL] at this ⊢
+  linarith
 
 /-- The level `log (1/α)`, in `ℝ`, tends to `∞` as `α` tends to `0` from above. -/
 lemma tendsto_toReal_log_inv_nhdsGT_zero :
