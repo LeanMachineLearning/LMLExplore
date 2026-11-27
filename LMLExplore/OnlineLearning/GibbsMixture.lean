@@ -7,8 +7,10 @@ module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.MeasureTheory.Measure.Tilted
+import LMLExplore.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.Convex.Integral
 import Mathlib.Analysis.Convex.SpecificFunctions.Pow
+import Mathlib.Probability.Moments.IntegrableExpMul
 
 /-!
 # Gibbs mixtures over arbitrary priors
@@ -22,7 +24,7 @@ exponentially weighted average of the experts: the Weighted Average and Aggregat
 and Cover's universal portfolio are analysed through them [Ora, §11.1].
 
 The central fact is the *variational formula* of the mix loss [Ora, (11.5), Problem 11.1]: over
-probability measures `Q`,
+probability measures `Q` with `KL(Q, μ) < ∞` under which `L` is integrable,
 `μ.mixLoss L λ = inf_Q (∫ L dQ + λ KL(Q, μ))`,
 attained exactly at the Gibbs measure. It is the Donsker–Varadhan formula for `-L/λ`, and here it
 comes from an exact identity: for every `Q` with `KL(Q, μ) < ∞` and `L` integrable under `Q`,
@@ -56,7 +58,8 @@ The definitions take the prior as their first explicit argument and live in the 
 * `integral_add_mul_toReal_klDiv_eq_mixLoss_iff`: equality holds exactly at the Gibbs measure,
   and `integral_add_mul_toReal_klDiv_gibbs` its case of the Gibbs measure.
 * `isLeast_mixLoss`: the variational formula, the mix loss as the least value of
-  `∫ L dQ + λ KL(Q, μ)` over probability measures `Q`.
+  `∫ L dQ + λ KL(Q, μ)` over probability measures `Q` with `KL(Q, μ) < ∞` under which `L` is
+  integrable.
 * `mixLoss_gibbs`: the telescoping identity
   `(μ.gibbs L λ).mixLoss ℓ λ = μ.mixLoss (L + ℓ) λ - μ.mixLoss L λ`.
 * `mixLoss_le_mixLoss_of_le`: the mix loss is nondecreasing in the temperature.
@@ -99,7 +102,8 @@ noncomputable def gibbs (μ : Measure Θ) (L : Θ → ℝ) (lam : ℝ) : Measure
 lemma gibbs_def (μ : Measure Θ) (L : Θ → ℝ) (lam : ℝ) :
     μ.gibbs L lam = μ.tilted fun θ ↦ -L θ / lam := (rfl)
 
-/-- The Gibbs measure of a nonzero prior is a probability measure. -/
+/-- The Gibbs measure of a nonzero prior, when `exp (-L / lam)` is `μ`-integrable, is a
+probability measure. -/
 lemma isProbabilityMeasure_gibbs [NeZero μ] (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) :
     IsProbabilityMeasure (μ.gibbs L lam) :=
   isProbabilityMeasure_tilted hexp
@@ -121,12 +125,13 @@ lemma integral_gibbs {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] (g :
 /-! ### The variational formula -/
 
 /-- The relative entropy of the Gibbs measure against the prior is finite when the losses are
-integrable under the Gibbs measure: its log-likelihood ratio is `-L θ / lam - log Z`. -/
+integrable under the Gibbs measure. -/
 lemma klDiv_gibbs_ne_top [SigmaFinite μ] [NeZero μ]
     (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) (hLG : Integrable L (μ.gibbs L lam)) :
     klDiv (μ.gibbs L lam) μ ≠ ∞ := by
   have := isProbabilityMeasure_gibbs hexp
   refine klDiv_ne_top (gibbs_absolutelyContinuous μ L lam) ?_
+  -- the log-likelihood ratio is `-L θ / lam - log Z`
   have hllr : llr (μ.gibbs L lam) μ =ᵐ[μ.gibbs L lam]
       fun θ ↦ -L θ / lam - log (∫ θ', exp (-L θ' / lam) ∂μ) := by
     rw [llr_def]
@@ -197,11 +202,11 @@ theorem isLeast_mixLoss [IsProbabilityMeasure μ] (hlam : 0 < lam)
   rintro _ ⟨Q, hQ, hKL, hLQ, rfl⟩
   exact mixLoss_le_integral_add_mul_toReal_klDiv hlam hexp hLQ hKL
 
-/-- The mix loss is at most the mean `∫ L dμ` of the losses under the prior, by Jensen's
-inequality: the case `Q = μ` of the variational inequality. -/
+/-- The mix loss is at most the mean `∫ L dμ` of the losses under the prior. -/
 lemma mixLoss_le_integral [IsProbabilityMeasure μ] (hlam : 0 < lam)
     (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) (hL : Integrable L μ) :
     μ.mixLoss L lam ≤ ∫ θ, L θ ∂μ := by
+  -- the case `Q = μ` of the variational inequality
   simpa [klDiv_self] using
     mixLoss_le_integral_add_mul_toReal_klDiv hlam hexp hL (by simp)
 
@@ -237,16 +242,8 @@ theorem mixLoss_gibbs [NeZero μ] (hexp : Integrable (fun θ ↦ exp (-L θ / la
 
 /-! ### Monotonicity in the temperature -/
 
-/-- For `x ≥ 0` and `p ≤ 1`, `x ^ p ≤ 1 + x`. -/
-private lemma rpow_le_one_add {x p : ℝ} (hx : 0 ≤ x) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) :
-    x ^ p ≤ 1 + x := by
-  rcases le_total x 1 with h | h
-  · linarith [rpow_le_one hx h hp0]
-  · linarith [rpow_le_self_of_one_le h hp1]
-
 /-- **The mix loss is nondecreasing in the temperature**: for `0 < lam' ≤ lam`,
-`μ.mixLoss L lam' ≤ μ.mixLoss L lam`. With `p = lam' / lam ≤ 1`, Jensen's inequality for the
-concave `x ↦ x ^ p` gives `∫ exp (-L / lam) dμ ≤ (∫ exp (-L / lam') dμ) ^ p`. -/
+`μ.mixLoss L lam' ≤ μ.mixLoss L lam`. -/
 theorem mixLoss_le_mixLoss_of_le [IsProbabilityMeasure μ] (hlam' : 0 < lam') (hle : lam' ≤ lam)
     (hexp : Integrable (fun θ ↦ exp (-L θ / lam')) μ) :
     μ.mixLoss L lam' ≤ μ.mixLoss L lam := by
@@ -258,13 +255,12 @@ theorem mixLoss_le_mixLoss_of_le [IsProbabilityMeasure μ] (hlam' : 0 < lam') (h
     rw [← exp_mul, hp]
     congr 1
     field_simp
-  -- `exp (-L / lam)` is integrable, being at most `1 + exp (-L / lam')`
+  -- `exp (-L / lam)` is integrable, `lam⁻¹` lying between the multipliers `0` and `lam'⁻¹`
   have hexp_lam : Integrable (fun θ ↦ exp (-L θ / lam)) μ := by
-    refine ((integrable_const 1).add hexp).mono' ?_ (ae_of_all _ fun θ ↦ ?_)
-    · simp_rw [← hpow]
-      exact (hexp.1.aemeasurable.pow_const p).aestronglyMeasurable
-    · rw [norm_of_nonneg (exp_pos _).le, ← hpow]
-      exact rpow_le_one_add (exp_pos _).le hp0 hp1
+    simpa only [div_eq_inv_mul] using ProbabilityTheory.integrable_exp_mul_of_le_of_le
+      (X := fun θ ↦ -L θ) (a := 0) (b := lam'⁻¹) (t := lam⁻¹) (by simp)
+      (by simpa only [div_eq_inv_mul] using hexp) (inv_nonneg.2 hlam.le) (inv_anti₀ hlam' hle)
+  -- Jensen's inequality for the concave `x ↦ x ^ p`, `p = lam' / lam ≤ 1`
   have hjensen : ∫ θ, exp (-L θ / lam) ∂μ ≤ (∫ θ, exp (-L θ / lam') ∂μ) ^ p := by
     simp_rw [← hpow]
     refine (Real.concaveOn_rpow hp0 hp1).le_map_integral
@@ -289,48 +285,17 @@ lemma integrable_exp_neg_div_of_le [IsFiniteMeasure μ] (hL : AEMeasurable L μ)
   rw [norm_of_nonneg (exp_pos _).le]
   exact exp_le_exp.2 (div_le_div_of_nonneg_right (neg_le_neg hθ) hlam.le)
 
-/-- For `x ≥ c` and `lam > 0`, `|exp (-x / lam) * x| ≤ exp (-c / lam) * (|c| + lam)`. -/
-private lemma abs_exp_neg_div_mul_le {x lam c : ℝ} (hlam : 0 < lam) (hx : c ≤ x) :
-    |exp (-x / lam) * x| ≤ exp (-c / lam) * (|c| + lam) := by
-  have h1 : exp (-x / lam) ≤ exp (-c / lam) :=
-    exp_le_exp.2 (div_le_div_of_nonneg_right (neg_le_neg hx) hlam.le)
-  -- `y exp (-y) ≤ exp (-1) ≤ 1` for `y = (x - c) / lam`
-  have h2 : (x - c) * exp (-x / lam) ≤ lam * exp (-c / lam) := by
-    have he : exp (-x / lam) = exp (-((x - c) / lam)) * exp (-c / lam) := by
-      rw [← exp_add]
-      congr 1
-      field_simp
-      ring
-    have hy : (x - c) / lam * exp (-((x - c) / lam)) ≤ 1 :=
-      (mul_exp_neg_le_exp_neg_one _).trans (exp_le_one_iff.2 (by norm_num))
-    calc (x - c) * exp (-x / lam)
-        = lam * ((x - c) / lam * exp (-((x - c) / lam))) * exp (-c / lam) := by
-          rw [he]
-          field_simp
-    _ ≤ lam * 1 * exp (-c / lam) := by gcongr
-    _ = lam * exp (-c / lam) := by ring
-  have habs : |x| ≤ |c| + (x - c) := by
-    calc |x| = |c + (x - c)| := by ring_nf
-    _ ≤ |c| + |x - c| := abs_add_le _ _
-    _ = |c| + (x - c) := by rw [abs_of_nonneg (sub_nonneg.2 hx)]
-  rw [abs_mul, abs_of_pos (exp_pos _)]
-  calc exp (-x / lam) * |x| ≤ exp (-x / lam) * (|c| + (x - c)) :=
-        mul_le_mul_of_nonneg_left habs (exp_pos _).le
-  _ = exp (-x / lam) * |c| + (x - c) * exp (-x / lam) := by ring
-  _ ≤ exp (-c / lam) * |c| + lam * exp (-c / lam) :=
-        add_le_add (mul_le_mul_of_nonneg_right h1 (abs_nonneg c)) h2
-  _ = exp (-c / lam) * (|c| + lam) := by ring
-
 /-- For losses bounded below and a temperature `lam > 0`, the losses are integrable under the
-Gibbs measure of a finite prior: `exp (-L / lam) * L` is bounded. -/
+Gibbs measure of a finite prior. -/
 lemma integrable_gibbs_of_le [IsFiniteMeasure μ] (hL : AEMeasurable L μ) (hlam : 0 < lam)
     (hc : ∀ᵐ θ ∂μ, c ≤ L θ) :
     Integrable L (μ.gibbs L lam) := by
   rw [gibbs_def, integrable_tilted_iff (integrable_exp_neg_div_of_le hL hlam hc)]
+  -- `exp (-L / lam) * L` is bounded
   refine (integrable_const (exp (-c / lam) * (|c| + lam))).mono'
     (((hL.neg.div_const lam).exp.mul hL).aestronglyMeasurable) ?_
   filter_upwards [hc] with θ hθ
   rw [smul_eq_mul, Real.norm_eq_abs]
-  exact abs_exp_neg_div_mul_le hlam hθ
+  exact Real.abs_exp_neg_div_mul_le hlam hθ
 
 end MeasureTheory.Measure

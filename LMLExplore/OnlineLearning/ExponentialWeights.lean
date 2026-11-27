@@ -77,6 +77,8 @@ negative entropy at `p`, by the Gibbs variational principle
   `η * y b ≥ -1`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`.
 * `mixLoss_eq_mixLoss_weightedMeasure`: the mix loss of weights `w ≥ 0` is the mix loss of the
   prior `weightedMeasure w` at the temperature `η⁻¹`.
+* `hedgePotential_eq_mixLoss_weightedMeasure`: the potential is the mix loss of the uniform prior
+  at the temperature `η⁻¹`.
 * `weightedMeasure_softmax`: the exponential weights `softmax (-(η • L))` are the Gibbs measure of
   `L` under the uniform prior at the temperature `η⁻¹`.
 * `mixLoss_le_sum_mul`, `le_mixLoss`: the mix loss lies between the smallest loss and `⟨w, ℓ⟩`.
@@ -297,6 +299,13 @@ lemma hedgePotential_eq_mixLoss (η : ℝ) (L : α → ℝ) :
     hedgePotential η L = mixLoss η (fun _ ↦ (Fintype.card α : ℝ)⁻¹) L := by
   simp_rw [hedgePotential_def, mixLoss_def, Finset.sum_div, div_eq_inv_mul]
 
+/-- The potential is the mix loss of the cumulative losses under the uniform prior
+`weightedMeasure fun _ ↦ 1 / K`, at the temperature `η⁻¹`. -/
+lemma hedgePotential_eq_mixLoss_weightedMeasure [MeasurableSpace α] [MeasurableSingletonClass α]
+    (η : ℝ) (L : α → ℝ) :
+    hedgePotential η L = (weightedMeasure fun _ : α ↦ (Fintype.card α : ℝ)⁻¹).mixLoss L η⁻¹ := by
+  rw [hedgePotential_eq_mixLoss, mixLoss_eq_mixLoss_weightedMeasure fun _ ↦ by positivity]
+
 /-- **Exponential weights are a Gibbs measure**: the weights `softmax (-(η • L))` are the masses of
 the Gibbs measure of the cumulative losses `L` under the uniform prior, at the temperature `η⁻¹`. -/
 lemma weightedMeasure_softmax [MeasurableSpace α] [MeasurableSingletonClass α] [Nonempty α]
@@ -319,12 +328,10 @@ lemma weightedMeasure_softmax [MeasurableSpace α] [MeasurableSingletonClass α]
 lemma mixLoss_softmax [Nonempty α] (η : ℝ) (L ℓ : α → ℝ) :
     mixLoss η (softmax (-(η • L))) ℓ = hedgePotential η (L + ℓ) - hedgePotential η L := by
   let _ : MeasurableSpace α := ⊤
-  have hK (_ : α) : (0 : ℝ) ≤ (Fintype.card α : ℝ)⁻¹ := by positivity
   have := isProbabilityMeasure_weightedMeasure (uniform_mem_simplex α)
   rw [mixLoss_eq_mixLoss_weightedMeasure (softmax_nonneg _), weightedMeasure_softmax,
-    Measure.mixLoss_gibbs Integrable.of_finite Integrable.of_finite, hedgePotential_eq_mixLoss,
-    hedgePotential_eq_mixLoss, mixLoss_eq_mixLoss_weightedMeasure hK,
-    mixLoss_eq_mixLoss_weightedMeasure hK]
+    Measure.mixLoss_gibbs Integrable.of_finite Integrable.of_finite,
+    hedgePotential_eq_mixLoss_weightedMeasure, hedgePotential_eq_mixLoss_weightedMeasure]
 
 /-- The potential is at most `L a + log K / η` for every expert `a`. -/
 lemma hedgePotential_le {η : ℝ} (hη : 0 < η) (L : α → ℝ) (a : α) :
@@ -355,10 +362,8 @@ lemma hedgePotential_le_of_le [Nonempty α] {η η' : ℝ} (hη' : 0 < η') (hη
     (L : α → ℝ) :
     hedgePotential η L ≤ hedgePotential η' L := by
   let _ : MeasurableSpace α := ⊤
-  have hK (_ : α) : (0 : ℝ) ≤ (Fintype.card α : ℝ)⁻¹ := by positivity
   have := isProbabilityMeasure_weightedMeasure (uniform_mem_simplex α)
-  rw [hedgePotential_eq_mixLoss, hedgePotential_eq_mixLoss, mixLoss_eq_mixLoss_weightedMeasure hK,
-    mixLoss_eq_mixLoss_weightedMeasure hK]
+  rw [hedgePotential_eq_mixLoss_weightedMeasure, hedgePotential_eq_mixLoss_weightedMeasure]
   exact Measure.mixLoss_le_mixLoss_of_le (inv_pos.2 (hη'.trans_le hη)) (inv_anti₀ hη' hη)
     Integrable.of_finite
 
