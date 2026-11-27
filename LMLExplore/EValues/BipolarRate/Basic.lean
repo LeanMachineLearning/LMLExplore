@@ -49,7 +49,8 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.mul_maxLogGrowth_one_le`: `n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n`.
 * `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
   the bipolar rate.
-* `ProbabilityTheory.maxLogGrowth_zero`: with no observation, `maxLogGrowth` vanishes.
+* `ProbabilityTheory.maxLogGrowth_zero`: for a nonempty null, with no observation, `maxLogGrowth`
+  vanishes.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
   in the null.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
