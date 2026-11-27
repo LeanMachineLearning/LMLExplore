@@ -62,6 +62,9 @@ most `M` rounds.
   stopped history on the event that `S` stops, the expected hitting time of `S` when it is
   almost surely finite, and the expected number of times that an action is chosen before it, are
   expectations under the law of the stopped history.
+* `Learning.stoppedHistMeasure_setOf_fst_eq`: the law of the history stopped by the rule
+  `{x | x.1 = n}`, which stops after exactly `n` rounds, is the law of the history of the first
+  `n` rounds.
 * `Learning.map_stoppedProcess_sigmaHistory_eq_add`,
   `Learning.map_stoppedProcess_sigmaHistory_succ_eq_add`: the laws of the histories stopped at the
   times `M` and `M + 1` split according to whether round `M` is played.
@@ -618,6 +621,32 @@ variable {alg : Algorithm 𝓞 𝓐 𝓨} {env : Environment 𝓞 𝓐 𝓨} {P 
 @[simp]
 lemma fst_stoppedValue_sigmaHistory (τ : Ω → WithTop ℕ) (ω : Ω) :
     (stoppedValue (sigmaHistory O X Y) τ ω).1 = (τ ω).untopA := (rfl)
+
+/-- The stopping rule `{x | x.1 = n}`, which stops after exactly `n` rounds, hits at `n`. -/
+@[simp]
+lemma hittingAfter_sigmaHistory_setOf_fst_eq (n : ℕ) (ω : Ω) :
+    hittingAfter (sigmaHistory O X Y) {x | x.1 = n} 0 ω = n :=
+  hittingAfter_eq_coe_iff.2 ⟨n.zero_le, fst_sigmaHistory n ω, fun _ hj ↦ hj.2.ne⟩
+
+/-- The history stopped by the stopping rule `{x | x.1 = n}` is the history of the first `n`
+rounds. -/
+@[simp]
+lemma stoppedValue_hittingAfter_setOf_fst_eq (n : ℕ) :
+    stoppedValue (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) {x | x.1 = n} 0) =
+      sigmaHistory O X Y n := by
+  ext1 ω
+  rw [stoppedValue, hittingAfter_sigmaHistory_setOf_fst_eq, WithTop.untopA_natCast]
+
+/-- The law of the history stopped by the stopping rule `{x | x.1 = n}` is the law of the history
+of the first `n` rounds. -/
+lemma stoppedHistMeasure_setOf_fst_eq (alg : Algorithm 𝓞 𝓐 𝓨) (env : Environment 𝓞 𝓐 𝓨)
+    (n : ℕ) :
+    stoppedHistMeasure alg env {x | x.1 = n} =
+      (trajMeasure alg env).map (sigmaHistory IT.obs IT.action IT.feedback n) := by
+  have h := (IT.isAlgEnvSeq_trajMeasure alg env).hasLaw_stoppedValue_sigmaHistory
+    (S := {x | x.1 = n}) (measurable_sigma_fst (measurableSet_singleton n))
+  rw [stoppedValue_hittingAfter_setOf_fst_eq] at h
+  exact h.map_eq.symm
 
 /-- The hitting time of `S` is almost surely finite exactly when the stopped history lies in `S`
 almost surely under its law. -/
