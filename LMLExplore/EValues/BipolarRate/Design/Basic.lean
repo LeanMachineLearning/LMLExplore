@@ -494,10 +494,7 @@ theorem designValue_le_mul_bipolarRate_of_forall_ne [∀ b, IsProbabilityMeasure
     designValue μ Λ n ≤ (n a : EReal) * bipolarRate (μ a) ((fun ν ↦ ν a) '' Λ) := by
   rw [designValue_eq_maxLogGrowth_of_forall_ne hΛ hΛa]
   rcases eq_or_ne (n a) 0 with h | h
-  · -- no observation of the source `a`: the value of the empty design
-    have h0 := designValue_eq_maxLogGrowth_of_forall_ne hΛ hΛa 0
-    rw [designValue_zero μ hne, Pi.zero_apply] at h0
-    simp [h, ← h0]
+  · simp [h, maxLogGrowth_zero _ (hne.image _)]
   · exact maxLogGrowth_le_mul_bipolarRate _ _ h
 
 /-- **One informative source.** If the instances of `Λ` give every source other than `a` the law

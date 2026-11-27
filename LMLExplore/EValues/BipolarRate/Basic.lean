@@ -47,6 +47,7 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.mul_maxLogGrowth_one_le`: `n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n`.
 * `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
   the bipolar rate.
+* `ProbabilityTheory.maxLogGrowth_zero`: with no observation, `maxLogGrowth` vanishes.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
   in the null.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
@@ -144,6 +145,18 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
   congr 1
   ext μ
   simp only [mem_sampleNull, mem_mapNull, h_map]
+
+/-- With no observation, `maxLogGrowth` vanishes for a nonempty null: every `0`-sample law is the
+Dirac mass at the empty sample. -/
+lemma maxLogGrowth_zero (Q₁ : Measure 𝓧) (hS₁ : S₁.Nonempty) : maxLogGrowth Q₁ S₁ 0 = 0 := by
+  have h_pi (P : Measure 𝓧) : (Measure.pi fun _ : Fin 0 ↦ P) = Measure.dirac isEmptyElim :=
+    Measure.pi_of_empty _
+  have h_null : sampleNull S₁ 0 = {Measure.dirac isEmptyElim} := by
+    ext P
+    simp only [sampleNull_def, Set.mem_image, h_pi, Set.mem_singleton_iff]
+    exact ⟨fun ⟨_, _, h⟩ ↦ h.symm, fun h ↦ ⟨_, hS₁.some_mem, h.symm⟩⟩
+  rw [maxLogGrowth_def, h_pi, h_null, maxEPower_singleton_eq_klDiv, klDiv_self,
+    EReal.coe_ennreal_zero]
 
 /-- **Superadditivity** of the maximal expected logarithm of e-variables for an i.i.d. null
 [RR26, Lemma 3.2]: the product of an `m`-sample e-variable and an `n`-sample e-variable, on
