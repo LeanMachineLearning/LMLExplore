@@ -49,6 +49,8 @@ The upper bound `limsup (1/n) log (X* n) ≤ d` holds for every sequence of `n`-
 
 * `ProbabilityTheory.ae_tendsto_log_numeraire_div_bipolarRate`: `(1/n) log (X* n)` tends to the
   bipolar rate almost surely.
+* `ProbabilityTheory.isEVar_numeraire_sampleNull`: `X* n` is an e-variable for the `n`-sample
+  null.
 * `ProbabilityTheory.ae_eventually_log_le_log_numeraire_add`,
   `ProbabilityTheory.ae_eventually_log_le_log_numeraire_add_of_adapted`: the comparison of
   `n`-sample e-variables, and of e-variables of the i.i.d. null adapted to the filtration
@@ -116,6 +118,12 @@ private lemma sum_truncLog_le_log_seqBlockProd {m : ℕ} {V : (Fin m → 𝓧) �
   exact Finset.prod_le_prod fun j _ ↦ ENNReal.ofReal_exp_truncLog_le (h j)
 
 /-! ### Comparison with the numeraire -/
+
+/-- The numeraire of the `n`-sample null under `Q₁ ^ n` is an e-variable for the `n`-sample null,
+for a null `S₁` of measures of mass at most one. -/
+theorem isEVar_numeraire_sampleNull (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
+    IsEVar (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n)) (sampleNull S₁ n) :=
+  isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
 
 /-- **Comparison of an `n`-sample e-variable with the numeraire.** For every sequence of
 e-variables `M n` for the `n`-fold products of the members of `S₁` and every `ε > 0`, almost

@@ -121,12 +121,6 @@ theorem ae_limsup_log_inv_div_le_bipolarRate (Q₁ : Measure 𝓧)
   rw [EReal.coe_le_div_natCast_iff hn0, Set.indicator_of_mem hpn]
   simp [ENNReal.log_inv, (Real.exp_pos _).not_ge]
 
-/-- The numeraire of the `n`-sample null under `Q₁ ^ n` is an e-variable for the `n`-sample null,
-for a null `S₁` of measures of mass at most one. -/
-theorem isEVar_numeraire_sampleNull (Q₁ : Measure 𝓧) (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (n : ℕ) :
-    IsEVar (numeraire (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n)) (sampleNull S₁ n) :=
-  isEVar_numeraire _ (measure_univ_le_one_of_mem_sampleNull hS₁ n)
-
 /-- The inverse of the numeraire of the `n`-sample null under `Q₁ ^ n` is a p-variable for the
 `n`-sample null, for a null `S₁` of measures of mass at most one
 [EVR26, Note 42, Theorem 11]. -/
