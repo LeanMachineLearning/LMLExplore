@@ -83,8 +83,7 @@ theorem eintegral_log_le_log_lintegral_add_klDiv {μ ν : Measure α} [IsProbabi
   have hKL : ∫ᵉ x, ENNReal.log (g x / c) ∂μ ≤ klDiv μ ν := by
     simpa [logUtility_apply, maxUtility_singleton_eq_klDiv] using
       hX.eintegral_le_maxUtility μ logUtility
-  have hc : ∫ᵉ _, ENNReal.log c ∂μ = ENNReal.log c := by
-    rw [eintegral_const, measure_univ, EReal.coe_ennreal_one, mul_one]
+  have hc : ∫ᵉ _, ENNReal.log c ∂μ = ENNReal.log c := by simp
   calc ∫ᵉ x, ENNReal.log (g x) ∂μ
   _ = ∫ᵉ x, ENNReal.log (g x / c) + ENNReal.log c ∂μ :=
     eintegral_congr fun x ↦ by rw [← ENNReal.log_mul_add, ENNReal.div_mul_cancel h0 htop]

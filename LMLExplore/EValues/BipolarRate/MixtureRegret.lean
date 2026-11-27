@@ -10,8 +10,8 @@ public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.MeasureTheory.Measure.GiryMonad
 public import Statlib.EValues.NumeraireExistence
 import LMLExplore.Data.EReal.Inv
+import LMLExplore.EValues.Numeraire
 import LMLExplore.InformationTheory.KullbackLeibler.Convex
-import LMLExplore.InformationTheory.KullbackLeibler.Variational
 import LMLExplore.MeasureTheory.Constructions.Pi
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import TauCeti.MeasureTheory.Measure.GiryMonad
@@ -35,20 +35,16 @@ conjectures, with the rate of [RR26]. The almost sure form is
 `ProbabilityTheory.ae_tendsto_log_numeraire_bind_div_bipolarRate`.
 
 The regret bound comes from a general bound for the numeraire `numeraire Q T` of any null `T` of
-measures of mass at most one under a finite measure `Q`: for probability measures `μ` and `R` with
-`R ≤ c • Q` and `KL(μ ‖ R) < ∞`, every e-variable `Y` for `T` has
-`∫ log Y dμ ≤ ∫ log (numeraire Q T) dμ + log (c Q(univ)) + KL(μ ‖ R)`. The Donsker–Varadhan
-inequality (`InformationTheory.eintegral_log_le_log_lintegral_add_klDiv`) is applied to
-`Y_ε / numeraire Q T + ε`, where `Y_ε = (1 - ε) Y + ε numeraire Q T`, whose mean under `R` is at
-most `c Q(univ) + ε` by the defining property of the numeraire, and `ε → 0`. For the mixtures,
+measures of mass at most one under a finite measure `Q`,
+`ProbabilityTheory.eintegral_log_le_eintegral_log_numeraire_add` in `LMLExplore.EValues.Numeraire`:
+for probability measures `μ` and `R` with `R ≤ c • Q` and `KL(μ ‖ R) < ∞`, every e-variable `Y`
+for `T` has `∫ log Y dμ ≤ ∫ log (numeraire Q T) dμ + log (c Q(univ)) + KL(μ ‖ R)`. For the mixtures,
 `R` is the mixture over `B` alone, `c = (ν B)⁻¹`, and the relative entropy from `Q₁ ^ n` to `R` is
 at most `n` times the average divergence over `B`, by the convexity of the relative entropy in
 its second argument (`InformationTheory.klDiv_bind_le_lintegral`).
 
 ## Main statements
 
-* `ProbabilityTheory.eintegral_log_le_eintegral_log_numeraire_add`: the regret of the numeraire
-  against a nearby law.
 * `ProbabilityTheory.maxLogGrowth_le_eintegral_log_numeraire_bind_add`: the regret of the
   mixture numeraire [EVR26, Note 14, Theorem (1)].
 * `ProbabilityTheory.maxLogGrowth_le_eintegral_log_numeraire_bind_add_log`: the regret at an atom
@@ -90,116 +86,6 @@ open scoped ENNReal Topology
 
 namespace ProbabilityTheory
 
-/-! ### The regret of a numeraire against a nearby law -/
-
-/-- **The regret of a numeraire against a nearby law.** Let `T` be a null of measures of mass at
-most one, `Q` a finite measure, and `μ`, `R` probability measures with `R ≤ c • Q` for some
-`c ≠ ∞` and `klDiv μ R ≠ ∞`. Every e-variable `Y` for `T` has expected logarithm under `μ` at most
-that of the numeraire `numeraire Q T`, plus `log (c * Q univ) + klDiv μ R` [EVR26, Note 14]; for a
-probability measure `Q` the middle term is `log c`. The Donsker–Varadhan inequality is applied to
-`Y_ε / numeraire Q T + ε`, where `Y_ε = (1 - ε) Y + ε numeraire Q T`, and `ε → 0`. -/
-theorem eintegral_log_le_eintegral_log_numeraire_add {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {μ Q R : Measure Ω} [IsProbabilityMeasure μ] [IsFiniteMeasure Q] [IsProbabilityMeasure R]
-    {T : Set (Measure Ω)} (hT : ∀ P ∈ T, P Set.univ ≤ 1) {c : ℝ≥0∞} (hc : c ≠ ∞)
-    (hRQ : R ≤ c • Q) (hKL : klDiv μ R ≠ ∞) {Y : Ω → ℝ≥0∞} (hY : IsEVar Y T) :
-    ∫ᵉ x, ENNReal.log (Y x) ∂μ ≤
-      ∫ᵉ x, ENNReal.log (numeraire Q T x) ∂μ + ENNReal.log (c * Q .univ) + klDiv μ R := by
-  set W := numeraire Q T
-  have hWm : Measurable W := measurable_numeraire Q T
-  set K := c * Q .univ
-  have hK : K ≠ ∞ := ENNReal.mul_ne_top hc (measure_ne_top Q _)
-  have hK0 : K ≠ 0 := by
-    have h := hRQ .univ
-    rw [measure_univ, smul_apply, smul_eq_mul] at h
-    exact (zero_lt_one.trans_le h).ne'
-  -- `μ ≪ R ≪ Q`, so that `W ≠ 0` almost surely under `μ`
-  have hμR : μ ≪ R := (klDiv_ne_top_iff.1 hKL).1
-  have hW0 : ∀ᵐ x ∂μ, W x ≠ 0 :=
-    (hμR.trans ((Measure.absolutelyContinuous_of_le hRQ).trans
-      Measure.smul_absolutelyContinuous)).ae_le ((isNumeraire_numeraire Q hT).ae_ne_zero hT)
-  set k := (klDiv μ R).toReal
-  set φ : ℝ → ℝ := fun ε ↦ Real.log (K.toReal + ε) + k - Real.log (1 - ε)
-  -- the bound for each `ε ∈ (0, 1)`
-  have key (ε : ℝ) (hε0 : 0 < ε) (hε1 : ε < 1) :
-      ∫ᵉ x, ENNReal.log (Y x) ∂μ ≤ ∫ᵉ x, ENNReal.log (W x) ∂μ + (φ ε : EReal) := by
-    rw [← (EReal.addLECancellable_coe (Real.log (1 - ε))).add_le_add_iff_right, add_assoc,
-      ← EReal.coe_add, sub_add_cancel]
-    -- the e-variable `Yε = (1 - ε) Y + ε W`
-    set Yε : Ω → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (1 - ε) * Y x + ENNReal.ofReal ε * W x
-    have hYεm : Measurable Yε := (measurable_const.mul hY.measurable).add (measurable_const.mul hWm)
-    have hYε : IsEVar Yε T := convex_isEVar T hY (isEVar_numeraire Q hT) zero_le zero_le
-      (by rw [← ENNReal.ofReal_add (by linarith) hε0.le]; simp)
-    set Zε : Ω → ℝ≥0∞ := fun x ↦ Yε x / W x + ENNReal.ofReal ε
-    have hZεm : Measurable Zε := (hYεm.div hWm).add measurable_const
-    have hZεε (x : Ω) : (Real.log ε : EReal) ≤ ENNReal.log (Zε x) := by
-      rw [← ENNReal.log_ofReal_of_pos hε0]
-      exact ENNReal.log_le_log le_add_self
-    -- the Donsker–Varadhan bound for `Zε`, whose mean under `R` is at most `K + ε`
-    have hDV : ∫ᵉ x, ENNReal.log (Zε x) ∂μ ≤ ((Real.log (K.toReal + ε) + k : ℝ) : EReal) := by
-      have hint : ∫⁻ x, Zε x ∂R ≤ ENNReal.ofReal (K.toReal + ε) := by
-        rw [lintegral_add_right _ measurable_const, lintegral_const, measure_univ, mul_one,
-          ENNReal.ofReal_add ENNReal.toReal_nonneg hε0.le, ENNReal.ofReal_toReal hK]
-        gcongr
-        calc ∫⁻ x, Yε x / W x ∂R
-        _ ≤ ∫⁻ x, Yε x / W x ∂(c • Q) := lintegral_mono' hRQ le_rfl
-        _ ≤ K := by
-          rw [lintegral_smul_measure, smul_eq_mul]
-          change _ ≤ c * Q .univ
-          gcongr
-          exact lintegral_div_numeraire_le_measure_univ Q hT hYε
-      calc ∫ᵉ x, ENNReal.log (Zε x) ∂μ
-      _ ≤ ENNReal.log (∫⁻ x, Zε x ∂R) + klDiv μ R :=
-        eintegral_log_le_log_lintegral_add_klDiv hμR hZεm.aemeasurable
-      _ ≤ ENNReal.log (ENNReal.ofReal (K.toReal + ε)) + klDiv μ R := by gcongr
-      _ = _ := by
-        rw [ENNReal.log_ofReal_of_pos (by positivity), EReal.coe_add,
-          EReal.coe_ennreal_toReal hKL]
-    have hZbot : ∫ᵉ x, ENNReal.log (Zε x) ∂μ ≠ ⊥ := by
-      refine ne_bot_of_le_ne_bot (b := ∫ᵉ _, (Real.log ε : EReal) ∂μ) ?_ (eintegral_mono hZεε)
-      rw [eintegral_const, measure_univ, EReal.coe_ennreal_one, mul_one]
-      exact EReal.coe_ne_bot _
-    have hZtop : ∫ᵉ x, ENNReal.log (Zε x) ∂μ ≠ ⊤ := ne_top_of_le_ne_top (EReal.coe_ne_top _) hDV
-    -- `Y` is compared with `Yε`, and `Yε ≤ W Zε`
-    have hYY : ∫ᵉ x, ENNReal.log (Y x) ∂μ + (Real.log (1 - ε) : EReal) ≤
-        ∫ᵉ x, ENNReal.log (Yε x) ∂μ := by
-      have hc : ∫ᵉ _, (Real.log (1 - ε) : EReal) ∂μ = Real.log (1 - ε) := by
-        rw [eintegral_const, measure_univ, EReal.coe_ennreal_one, mul_one]
-      rw [← hc, ← eintegral_add' (f := fun x ↦ ENNReal.log (Y x))
-        (ENNReal.measurable_log.comp hY.measurable).aemeasurable aemeasurable_const
-        (by rw [hc]; exact EReal.coe_ne_top _) (by rw [hc]; exact EReal.coe_ne_bot _)]
-      refine eintegral_mono fun x ↦ ?_
-      rw [← ENNReal.log_ofReal_of_pos (by linarith), add_comm, ← ENNReal.log_mul_add]
-      exact ENNReal.log_le_log le_self_add
-    have hYεW : ∫ᵉ x, ENNReal.log (Yε x) ∂μ ≤
-        ∫ᵉ x, ENNReal.log (W x) ∂μ + ∫ᵉ x, ENNReal.log (Zε x) ∂μ := by
-      refine (eintegral_mono_ae ?_).trans_eq (eintegral_add (by fun_prop) (by fun_prop)
-        (eintegrable_of_eintegral_ne_bot hZbot) (.inr hZtop) (.inr hZbot))
-      filter_upwards [hW0] with x hx0
-      rcases eq_or_ne (W x) ∞ with htop | htop
-      · rw [htop, ENNReal.log_top, EReal.top_add_of_ne_bot
-          (ne_bot_of_le_ne_bot (EReal.coe_ne_bot _) (hZεε x))]
-        exact le_top
-      · rw [← ENNReal.log_mul_add]
-        refine ENNReal.log_le_log ?_
-        calc Yε x = W x * (Yε x / W x) := (ENNReal.mul_div_cancel hx0 htop).symm
-        _ ≤ W x * Zε x := by gcongr; exact le_self_add
-    exact hYY.trans (hYεW.trans (add_le_add le_rfl hDV))
-  -- let `ε → 0`
-  have hφ : Tendsto φ (𝓝[>] 0) (𝓝 (Real.log K.toReal + k)) := by
-    have hφc : ContinuousAt φ 0 := by
-      refine ((ContinuousAt.log (by fun_prop) ?_).add continuousAt_const).sub
-        (ContinuousAt.log (by fun_prop) (by simp))
-      simpa using (ENNReal.toReal_pos hK0 hK).ne'
-    simpa [φ] using hφc.tendsto.mono_left nhdsWithin_le_nhds
-  have hlim : Tendsto (fun ε ↦ ∫ᵉ x, ENNReal.log (W x) ∂μ + (φ ε : EReal)) (𝓝[>] 0)
-      (𝓝 (∫ᵉ x, ENNReal.log (W x) ∂μ + ((Real.log K.toReal + k : ℝ) : EReal))) :=
-    (EReal.continuousAt_add (.inr (EReal.coe_ne_bot _)) (.inr (EReal.coe_ne_top _))).tendsto.comp
-      (tendsto_const_nhds.prodMk_nhds (EReal.tendsto_coe.2 hφ))
-  have h := ge_of_tendsto hlim (by
-    filter_upwards [Ioo_mem_nhdsGT one_pos] with ε hε using key ε hε.1 hε.2)
-  rwa [EReal.coe_add, ← add_assoc, ← ENNReal.log_pos_real hK0 hK,
-    EReal.coe_ennreal_toReal hKL] at h
-
 /-! ### The regret of the mixture numeraire -/
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧)}
@@ -231,7 +117,7 @@ theorem maxLogGrowth_le_eintegral_log_numeraire_bind_add (Q₁ : Measure 𝓧) [
     exact lintegral_congr_ae (hκp.mono fun _ _ ↦ measure_univ)
   have : IsFiniteMeasure (ν.bind κ) := ⟨by rw [hQbar]; exact measure_lt_top ν _⟩
   -- the mixture `R` over `B`, a probability measure dominated by `(ν B)⁻¹ • ν.bind κ`
-  set π : Measure (Measure 𝓧) := (ν B)⁻¹ • ν.restrict B
+  set π : Measure (Measure 𝓧) := (ν B)⁻¹ • ν.restrict B with hπ_def
   have hπ : IsProbabilityMeasure π :=
     ⟨by simp [π, ENNReal.inv_mul_cancel hB (measure_ne_top ν B)]⟩
   have hκπ : AEMeasurable κ π := hκ.restrict.smul_measure _
@@ -240,7 +126,7 @@ theorem maxLogGrowth_le_eintegral_log_numeraire_bind_add (Q₁ : Measure 𝓧) [
   have hRQ : π.bind κ ≤ (ν B)⁻¹ • ν.bind κ := by
     rw [← Measure.bind_smul _ _ hκ]
     refine Measure.bind_mono_left (hκ.smul_measure _) ?_
-    change (ν B)⁻¹ • ν.restrict B ≤ (ν B)⁻¹ • ν
+    rw [hπ_def]
     gcongr
     exact Measure.restrict_le_self
   -- the relative entropy from `Q₁ ^ n` to `R`, by convexity
@@ -258,7 +144,7 @@ theorem maxLogGrowth_le_eintegral_log_numeraire_bind_add (Q₁ : Measure 𝓧) [
   have hKLfin : klDiv (Measure.pi fun _ : Fin n ↦ Q₁) (π.bind κ) ≠ ∞ :=
     ne_top_of_le_ne_top (ENNReal.mul_ne_top (ENNReal.natCast_ne_top n)
       (ENNReal.mul_ne_top (ENNReal.inv_ne_top.2 hB) hKL)) hKLR
-  -- the bound for every `n`-sample e-variable
+  -- the bound for every `n`-sample e-variable, from the regret of the numeraire against `R`
   rw [maxLogGrowth_def, maxEPower_le_iff]
   intro Y hY
   have h := eintegral_log_le_eintegral_log_numeraire_add
@@ -295,10 +181,7 @@ Theorem (2)]. Let `ν` be a finite measure on the measures on `𝓧` that charge
 measures and every Kullback–Leibler neighbourhood `{Q' | klDiv Q₁ Q' ≤ ε}`, `ε > 0`, of `Q₁`. The
 expected logarithm under `Q₁ ^ n` of the numeraire of the `n`-sample null under the mixture
 `∫ Q' ^ n ν(dQ')`, divided by `n`, tends to `bipolarRate Q₁ S₁`, also when the bipolar rate is
-infinite. The upper bound holds for every `n`-sample e-variable
-(`ProbabilityTheory.tendsto_maxLogGrowth_div_bipolarRate`), and the lower bound is the regret
-bound `ProbabilityTheory.maxLogGrowth_le_eintegral_log_numeraire_bind_add` on the neighbourhoods.
-The neighbourhoods need not be measurable, and the members of `S₁` need only have mass at
+infinite. The neighbourhoods need not be measurable, and the members of `S₁` need only have mass at
 most `1`. -/
 theorem tendsto_eintegral_log_numeraire_bind_div_bipolarRate (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (ν : Measure (Measure 𝓧))
@@ -335,8 +218,7 @@ theorem tendsto_eintegral_log_numeraire_bind_div_bipolarRate (Q₁ : Measure �
     calc (n : EReal) * (((ν B)⁻¹ * ∫⁻ Q' in B, klDiv Q₁ Q' ∂ν : ℝ≥0∞) : EReal)
     _ ≤ (n : EReal) * ((ENNReal.ofReal ε : ℝ≥0∞) : EReal) := by gcongr
     _ = ((n * ε : ℝ) : EReal) := by
-      rw [EReal.coe_ennreal_ofReal, max_eq_left hε.le, EReal.coe_mul]
-      rfl
+      rw [EReal.coe_ennreal_ofReal, max_eq_left hε.le, EReal.coe_mul, EReal.coe_natCast]
   refine tendsto_of_le_liminf_of_limsup_le ?_ ?_
   · -- the lower bound, from the regret bound
     refine le_of_forall_lt_imp_le_of_dense fun a ha' ↦ ?_
