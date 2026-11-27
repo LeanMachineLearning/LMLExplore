@@ -45,6 +45,9 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_bipolarRate`:
   `maxLogGrowth Q₁ S₁ n ≤ n * bipolarRate Q₁ S₁` for `n ≠ 0`.
 * `ProbabilityTheory.mul_maxLogGrowth_one_le`: `n * maxLogGrowth Q₁ S₁ 1 ≤ maxLogGrowth Q₁ S₁ n`.
+* `ProbabilityTheory.IsEVar.integral_le_maxLogGrowth`,
+  `ProbabilityTheory.integral_div_le_bipolarRate`: a function `f` with `exp f` an `n`-sample
+  e-variable has mean at most `maxLogGrowth Q₁ S₁ n`, and normalized mean at most the bipolar rate.
 * `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
   the bipolar rate.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
@@ -112,6 +115,26 @@ lemma maxLogGrowth_div_le_bipolarRate (Q₁ : Measure 𝓧) (S₁ : Set (Measure
     maxLogGrowth Q₁ S₁ n / n ≤ bipolarRate Q₁ S₁ := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hn
   exact le_iSup (fun k : ℕ ↦ maxLogGrowth Q₁ S₁ (k + 1) / ((k + 1 : ℕ) : EReal)) k
+
+/-- A function `f` of `n` observations, integrable under `Q₁ ^ n`, with `exp f` an e-variable for
+the `n`-sample null, has mean `∫ f ∂Q₁ ^ n` at most `maxLogGrowth Q₁ S₁ n`: its mean is the
+expected logarithm of `exp f`. -/
+lemma IsEVar.integral_le_maxLogGrowth {f : (Fin n → 𝓧) → ℝ}
+    (hfe : IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (f x))) (sampleNull S₁ n))
+    (hf : Integrable f (Measure.pi fun _ : Fin n ↦ Q₁)) :
+    ((∫ x, f x ∂Measure.pi (fun _ : Fin n ↦ Q₁) : ℝ) : EReal) ≤ maxLogGrowth Q₁ S₁ n := by
+  rw [← eintegral_eq_integral hf, maxLogGrowth_def]
+  simpa only [ENNReal.log_ofReal_exp] using hfe.eintegral_log_le_maxEPower _
+
+/-- A function `f` of `n ≠ 0` observations, integrable under `Q₁ ^ n`, with `exp f` an e-variable
+for the `n`-sample null, has normalized mean `(∫ f ∂Q₁ ^ n) / n` at most the bipolar rate. -/
+lemma integral_div_le_bipolarRate (hn : n ≠ 0) {f : (Fin n → 𝓧) → ℝ}
+    (hf : Integrable f (Measure.pi fun _ : Fin n ↦ Q₁))
+    (hfe : IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (f x))) (sampleNull S₁ n)) :
+    (((∫ x, f x ∂Measure.pi (fun _ : Fin n ↦ Q₁)) / n : ℝ) : EReal) ≤ bipolarRate Q₁ S₁ := by
+  rw [EReal.coe_div, EReal.coe_natCast]
+  exact (EReal.div_le_div_right_of_nonneg (Nat.cast_nonneg' n)
+    (hfe.integral_le_maxLogGrowth hf)).trans (maxLogGrowth_div_le_bipolarRate Q₁ S₁ hn)
 
 /-- The bipolar rate is at most `c` if and only if `maxLogGrowth Q₁ S₁ n ≤ n * c` for every
 `n ≠ 0`. -/

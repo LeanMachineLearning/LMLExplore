@@ -248,20 +248,6 @@ private lemma exists_isEVar_lt_eintegral_of_lt_bipolarRate {Q : Measure 𝓧} {t
   rw [h1]
   exact hE'
 
-/-- A function `f` of `m ≠ 0` observations, integrable under `Q ^ m`, with `exp f` an e-variable
-for the `m`-sample null, has normalized mean `(∫ f ∂Q ^ m) / m` at most the bipolar rate: its mean
-is the expected logarithm of `exp f`, at most `maxLogGrowth Q S₁ m`. -/
-private lemma integral_div_le_bipolarRate {Q : Measure 𝓧} {m : ℕ} (hm : m ≠ 0)
-    {f : (Fin m → 𝓧) → ℝ} (hf : Integrable f (Measure.pi fun _ : Fin m ↦ Q))
-    (hfe : IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (f x))) (sampleNull S₁ m)) :
-    (((∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q)) / m : ℝ) : EReal) ≤ bipolarRate Q S₁ := by
-  have h : ((∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) : ℝ) : EReal) ≤ maxLogGrowth Q S₁ m := by
-    rw [← eintegral_eq_integral hf, maxLogGrowth_def]
-    simpa only [ENNReal.log_ofReal_exp] using hfe.eintegral_log_le_maxEPower _
-  rw [EReal.coe_div, EReal.coe_natCast]
-  exact (EReal.div_le_div_right_of_nonneg (Nat.cast_nonneg' m) h).trans
-    (maxLogGrowth_div_le_bipolarRate Q S₁ hm)
-
 /-- **Block bets that determine the bipolar rate.** On a countably generated space, for a null
 `S₁` of measures of mass at most one and an s-finite measure `ρ`, there are bounded measurable
 functions `g i` of blocks of `len i ≥ 1` observations, with `∫ exp (g i) ∂P ^ len i ≤ 1` for every
