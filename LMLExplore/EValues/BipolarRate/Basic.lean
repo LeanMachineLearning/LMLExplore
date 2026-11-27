@@ -52,6 +52,8 @@ else: no domination, convexity or compactness.
   e-variable has mean at most `maxLogGrowth Q₁ S₁ n`, and normalized mean at most the bipolar rate.
 * `ProbabilityTheory.maxLogGrowth_one_le_bipolarRate`: the growth of one observation is at most
   the bipolar rate.
+* `ProbabilityTheory.maxLogGrowth_zero`: for a nonempty null, with no observation, `maxLogGrowth`
+  vanishes.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
   in the null.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
@@ -171,6 +173,19 @@ lemma maxLogGrowth_one (Q₁ : Measure 𝓧) (S₁ : Set (Measure 𝓧)) :
   congr 1
   ext μ
   simp only [mem_sampleNull, mem_mapNull, h_map]
+
+/-- With no observation, `maxLogGrowth` vanishes for a nonempty null: every `0`-sample law is the
+Dirac mass at the empty sample. -/
+@[simp]
+lemma maxLogGrowth_zero (Q₁ : Measure 𝓧) (hS₁ : S₁.Nonempty) : maxLogGrowth Q₁ S₁ 0 = 0 := by
+  have h_pi (P : Measure 𝓧) : (Measure.pi fun _ : Fin 0 ↦ P) = Measure.dirac isEmptyElim :=
+    Measure.pi_of_empty _
+  have h_null : sampleNull S₁ 0 = {Measure.dirac isEmptyElim} := by
+    ext P
+    simp only [sampleNull_def, Set.mem_image, h_pi, Set.mem_singleton_iff]
+    exact ⟨fun ⟨_, _, h⟩ ↦ h.symm, fun h ↦ ⟨_, hS₁.some_mem, h.symm⟩⟩
+  rw [maxLogGrowth_def, h_pi, h_null, maxEPower_singleton_eq_klDiv, klDiv_self,
+    EReal.coe_ennreal_zero]
 
 /-- **Splitting the observations**: sending the first `m + n` observations to the pair of the
 first `m` and the last `n` carries `Q₁ ^ (m + n)` to `Q₁ ^ m ⊗ Q₁ ^ n` and the `(m + n)`-sample
@@ -294,9 +309,7 @@ theorem maxLogGrowth_singleton (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
     simpa only [sampleNull_singleton] using
       measure_univ_le_one_of_mem_sampleNull (S₁ := {P}) (by simpa using hP) k
   induction n with
-  | zero =>
-    rw [maxLogGrowth_def, sampleNull_singleton, Measure.pi_of_empty, Measure.pi_of_empty,
-      maxEPower_singleton_eq_klDiv, klDiv_self, Nat.cast_zero, zero_mul, EReal.coe_ennreal_zero]
+  | zero => rw [maxLogGrowth_zero Q₁ (Set.singleton_nonempty P), Nat.cast_zero, zero_mul]
   | succ n ih =>
     have h_add : maxLogGrowth Q₁ {P} (n + 1) = maxLogGrowth Q₁ {P} n + maxLogGrowth Q₁ {P} 1 := by
       rw [maxLogGrowth_add_eq_maxEPower_prod Q₁

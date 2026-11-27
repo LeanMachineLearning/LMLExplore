@@ -42,11 +42,15 @@ the entropy bound `⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)`.
 * `ProbabilityTheory.designGrowth_le_designRate_mul`: `G x ≤ D* * ∑ a, x a`.
 * `ProbabilityTheory.designGrowth_le_iInf_sum_mul_klDiv`: the entropy bound
   `G x ≤ ⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)`.
+* `ProbabilityTheory.designGrowth_le_mul_bipolarRate_of_forall_ne`: if the instances of `Λ`
+  differ from `μ` at the source `a` only, `G x ≤ x a * d`, with `d` the bipolar rate of `μ a`
+  against the laws of the source `a` in `Λ`. This is the bound that turns the Wald inequality
+  with a design into a lower bound on the number of observations of the source `a`.
 
 ## References
 
 * [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 41,
-  `results/41-several-arms-bipolar-rate.md`, Sections 1 and 2.
+  `results/41-several-arms-bipolar-rate.md`, Sections 1, 2 and 7.
 -/
 
 public section
@@ -243,5 +247,30 @@ lemma designGrowth_anti {Λ' : Set (α → Measure 𝓧)} (h : Λ ⊆ Λ') :
     designGrowth μ Λ' x ≤ designGrowth μ Λ x :=
   iInf₂_mono fun _ _ ↦ liminf_le_liminf (.of_forall fun _ ↦ EReal.div_le_div_right_of_nonneg
     (by positivity) (designValue_anti h))
+
+/-- **One informative source.** If the instances of `Λ` give every source other than `a` the law
+it has under `μ`, the growth of the designs proportional to `x` is at most `x a` times the bipolar
+rate of the source `a` against its laws in `Λ`, with `0 * ⊤ = 0`: only the observations of the
+source `a` count [EVR26, Note 41, Section 7]. -/
+theorem designGrowth_le_mul_bipolarRate_of_forall_ne [∀ b, IsProbabilityMeasure (μ b)] {a : α}
+    (hΛ : ∀ ν ∈ Λ, ν a Set.univ ≤ 1) (hne : Λ.Nonempty)
+    (hΛa : ∀ ν ∈ Λ, ∀ b ≠ a, ν b = μ b) (x : α → ℝ≥0) :
+    designGrowth μ Λ x ≤ ((x a : ℝ) : EReal) * bipolarRate (μ a) ((fun ν ↦ ν a) '' Λ) := by
+  classical
+  set d := bipolarRate (μ a) ((fun ν ↦ ν a) '' Λ)
+  have hd : (d.toENNReal : EReal) = d :=
+    EReal.coe_toENNReal (bipolarRate_nonneg (μ a) (Set.forall_mem_image.2 hΛ))
+  -- the weights `d` at the source `a` and `0` elsewhere
+  have h_sum (y : α → ℝ≥0∞) :
+      ((∑ b, y b * (Pi.single a d.toENNReal : α → ℝ≥0∞) b : ℝ≥0∞) : EReal) =
+        (y a : EReal) * d := by
+    rw [Finset.sum_eq_single_of_mem a (Finset.mem_univ a) fun b _ hb ↦ by simp [hb],
+      Pi.single_eq_same, EReal.coe_ennreal_mul, hd]
+  refine (designGrowth_le_sum_mul_of_forall_designValue_le
+    (w := Pi.single a d.toENNReal) (fun n ↦ ?_) x).trans_eq ?_
+  · rw [h_sum]
+    simpa using designValue_le_mul_bipolarRate_of_forall_ne hΛ hne hΛa n
+  · rw [h_sum]
+    norm_cast
 
 end ProbabilityTheory
