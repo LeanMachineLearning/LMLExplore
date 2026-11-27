@@ -478,7 +478,7 @@ lemma tdNoise_def (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ
 omit [Nonempty 𝓢] in
 /-- The noise `ξ t` is the sum of the propagated sampling noises `η (k + 1) γ (P_{k+1} - P) V k`,
 as functions on the state-action pairs. -/
-private lemma tdNoise_eq_sum_apply (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
+lemma tdNoise_eq_sum_apply (κ : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)) [IsFiniteKernel κ] (t : ℕ)
     (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
     tdNoise M γ η Q₀ κ t ω p = (∑ k ∈ range t, κ.tdPropagator γ η (k + 1) t
       ((η (k + 1) * γ) • fun q ↦ (⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (ω k q, a)) -
@@ -513,7 +513,7 @@ theorem syncQLearning_sub_optQValue_eq_tdPropagator [Unique 𝓐] (hγ : γ < 1)
   simp only [syncQLearning_zero]
 
 /-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` on every `Ioc k t`. -/
-private lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
+lemma mem_Icc_of_mem_Ioc (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1) {k t i : ℕ}
     (hi : i ∈ Ioc k t) : η i ∈ Set.Icc (0 : ℝ) 1 := by
   obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
   exact hη j

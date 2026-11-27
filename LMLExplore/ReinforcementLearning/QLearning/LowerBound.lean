@@ -80,7 +80,8 @@ theorem tdPropagator_add_tdNoise_le_syncQLearning_sub_optQValue
       rw [Kernel.tdStep_apply, integral_saKernel_deterministic _ .of_finite]
       linarith) t p
   simp only [Pi.add_apply, syncQLearning_zero] at h
-  simpa [tdNoise_def, Finset.sum_apply] using h
+  rw [tdNoise_eq_sum_apply]
+  exact h
 
 /-- If the error of the `t`-th iterate of synchronous Q-learning is below
 `-(ρ 0 t C / (1 - γ) + a)`, with `ρ 0 t = ∏_{i = 1}^t (1 - η i (1 - γ))`, then the noise `ξ t p`
@@ -98,9 +99,7 @@ private lemma lt_neg_tdNoise_of_lt_optQValue_sub_syncQLearning (hγ : γ < 1)
   have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
   have h₀ := Kernel.abs_tdPropagator_le
     (κ := M.saKernel (Kernel.deterministic π (measurable_of_finite π))) (γ := γ)
-    (k := 0) (t := t) (fun i hi ↦ by
-      obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by have := (mem_Ioc.1 hi).1; omega⟩
-      exact hη j) (f := fun q ↦ Q₀ q - M.optQValue γ q)
+    (k := 0) (t := t) (fun i hi ↦ mem_Icc_of_mem_Ioc hη hi) (f := fun q ↦ Q₀ q - M.optQValue γ q)
     (fun q ↦ by simpa using abs_syncQLearning_sub_optQValue_le (η := η) hγ hR hη hQ₀ 0 ω q) p
   have h₁ := tdPropagator_add_tdNoise_le_syncQLearning_sub_optQValue (Q₀ := Q₀) hη ω hπ t p
   linarith [neg_abs_le (Kernel.tdPropagator
