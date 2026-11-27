@@ -54,6 +54,8 @@ the class, with no countable generation of `𝓧` and no dominating measure, whi
 
 * `ProbabilityTheory.timeMixture_eq_sum_Icc`, `ProbabilityTheory.monotone_timeMixture`: the time
   mixture is `∑ j ∈ [1, n], G j / (j (j + 1))`, and is nondecreasing.
+* `ProbabilityTheory.iSup_timeMixture`: the supremum over time of the time mixture is the full
+  series `∑' j, coverWeight j * G j`.
 * `ProbabilityTheory.isEVar_iSup_timeMixture`, `ProbabilityTheory.isEProcess_timeMixture`,
   `ProbabilityTheory.isEVar_stoppedValueLimsup_timeMixture`: the time mixture of e-variables of
   the `n`-sample nulls is an e-process for the i.i.d. null, its supremum is an e-variable, and so is
@@ -111,16 +113,6 @@ lemma timeMixture_def (n : ℕ) (ω : ℕ → 𝓧) :
     timeMixture G n ω = ∑ j ∈ Finset.Iic n, ENNReal.ofReal (coverWeight j) * G j (initSeg j ω) :=
   (rfl)
 
-/-- The weight of a bet on `j ≠ 0` observations is `1 / (j (j + 1))` in `ℝ≥0∞`. -/
-private lemma ofReal_coverWeight {j : ℕ} (hj : j ≠ 0) :
-    ENNReal.ofReal (coverWeight j) = ((j : ℝ≥0∞) * (j + 1))⁻¹ := by
-  have hpos : (0 : ℝ) < j * (j + 1) := by
-    have : (0 : ℝ) < j := Nat.cast_pos.2 (Nat.pos_of_ne_zero hj)
-    positivity
-  rw [coverWeight_def, one_div, ENNReal.ofReal_inv_of_pos hpos, ENNReal.ofReal_mul (by positivity),
-    ENNReal.ofReal_natCast, ENNReal.ofReal_add (by positivity) zero_le_one, ENNReal.ofReal_natCast,
-    ENNReal.ofReal_one]
-
 variable (G) in
 /-- The time mixture at time `n` is `∑ j ∈ [1, n], G j / (j (j + 1))`, with `G j` at the first `j`
 observations. -/
@@ -132,7 +124,7 @@ theorem timeMixture_eq_sum_Icc (n : ℕ) (ω : ℕ → 𝓧) :
   · have : j = 0 := by
       by_contra h
       exact hj' (Finset.mem_Icc.2 ⟨Nat.one_le_iff_ne_zero.2 h, Finset.mem_Iic.1 hj⟩)
-    simp [this, coverWeight_def]
+    simp [this]
   · rw [ofReal_coverWeight (Nat.one_le_iff_ne_zero.1 (Finset.mem_Icc.1 hj).1), div_eq_mul_inv,
       mul_comm]
 
@@ -158,11 +150,13 @@ theorem adapted_timeMixture (hG : ∀ n, Measurable (G n)) :
 
 /-! ### Validity -/
 
-/-- The weights `coverWeight j` of the time mixture, `j ≥ 0`, add up to at most `1`. -/
-private lemma tsum_ofReal_coverWeight_le_one : ∑' j : ℕ, ENNReal.ofReal (coverWeight j) ≤ 1 := by
-  rw [tsum_eq_zero_add' CompleteLattice.summable, coverWeight_def, Nat.cast_zero, zero_mul,
-    div_zero, ENNReal.ofReal_zero, zero_add]
-  exact tsum_ofReal_coverWeight_succ_le_one
+variable (G) in
+/-- The supremum over time of the time mixture is the full series
+`∑' j, coverWeight j * G j (X_1, …, X_j)`. -/
+theorem iSup_timeMixture (ω : ℕ → 𝓧) :
+    ⨆ n, timeMixture G n ω = ∑' j, ENNReal.ofReal (coverWeight j) * G j (initSeg j ω) :=
+  (tsum_eq_iSup_sum' Finset.Iic fun t ↦
+    ⟨t.sup id, fun _ hx ↦ Finset.mem_Iic.2 (Finset.le_sup (f := id) hx)⟩).symm
 
 /-- **The supremum of the time mixture of e-variables is an e-variable.** If each `G n` is an
 e-variable for the `n`-sample null of `S₁`, the supremum over time of the time mixture is an
@@ -170,11 +164,7 @@ e-variable for the i.i.d. null: its mean under every member is at most
 `∑ j ≥ 1, 1 / (j (j + 1)) = 1`. No hypothesis on `S₁` is needed. -/
 theorem isEVar_iSup_timeMixture (hG : ∀ n, IsEVar (G n) (sampleNull S₁ n)) :
     IsEVar (fun ω ↦ ⨆ n, timeMixture G n ω) (iidNull S₁) := by
-  have h (ω : ℕ → 𝓧) : ⨆ n, timeMixture G n ω =
-      ∑' j, ENNReal.ofReal (coverWeight j) * G j (initSeg j ω) :=
-    (tsum_eq_iSup_sum' Finset.Iic fun t ↦
-      ⟨t.sup id, fun _ hx ↦ Finset.mem_Iic.2 (Finset.le_sup (f := id) hx)⟩).symm
-  simp_rw [h]
+  simp_rw [iSup_timeMixture]
   exact isEVar_tsum_mul (fun j ↦ (hG j).comp_initSeg) tsum_ofReal_coverWeight_le_one
 
 /-- **The time mixture of e-variables is an e-process** [RW, Section 7.9]. If each `G n` is an
@@ -208,16 +198,17 @@ theorem log_le_log_timeMixture_add {n : ℕ} (hn : n ≠ 0) (ω : ℕ → 𝓧) 
   have hpos : (0 : ℝ) < n * (n + 1) := by
     have : (0 : ℝ) < n := Nat.cast_pos.2 (Nat.pos_of_ne_zero hn)
     positivity
-  have h1 : ENNReal.ofReal ((n : ℝ) * (n + 1)) * ENNReal.ofReal (coverWeight n) = 1 := by
-    rw [← ENNReal.ofReal_mul hpos.le, coverWeight_def, mul_one_div_cancel hpos.ne',
-      ENNReal.ofReal_one]
+  have h1 : (n : ℝ≥0∞) * (n + 1) * ENNReal.ofReal (coverWeight n) = 1 := by
+    rw [ofReal_coverWeight hn]
+    exact ENNReal.mul_inv_cancel (by simp [hn]) (by finiteness)
   refine ENNReal.log_le_log_add_of_div_le ?_
-  rw [Real.exp_log hpos]
+  have hcast : ENNReal.ofReal ((n : ℝ) * (n + 1)) = (n : ℝ≥0∞) * (n + 1) := by norm_cast
+  rw [Real.exp_log hpos, hcast]
   refine ENNReal.div_le_of_le_mul ?_
   calc G n (initSeg n ω)
-  _ = ENNReal.ofReal ((n : ℝ) * (n + 1)) *
-      (ENNReal.ofReal (coverWeight n) * G n (initSeg n ω)) := by rw [← mul_assoc, h1, one_mul]
-  _ ≤ ENNReal.ofReal ((n : ℝ) * (n + 1)) * timeMixture G n ω := by
+  _ = (n : ℝ≥0∞) * (n + 1) * (ENNReal.ofReal (coverWeight n) * G n (initSeg n ω)) := by
+    rw [← mul_assoc, h1, one_mul]
+  _ ≤ (n : ℝ≥0∞) * (n + 1) * timeMixture G n ω := by
     gcongr
     exact ofReal_coverWeight_mul_le_timeMixture G n ω
 
