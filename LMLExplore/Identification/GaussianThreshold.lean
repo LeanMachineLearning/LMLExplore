@@ -280,8 +280,8 @@ assumptions of `IdentTask.isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_opt
 Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for every
 `δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
 equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. By the lower bound
-`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of `δ`-correct algorithms
-does better. -/
+`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite`, no family of
+`δ`-correct algorithms does better. -/
 theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log
     [MeasurableSingletonClass ℐ] (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
     (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ})
@@ -351,8 +351,8 @@ C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC fo
 `δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
 equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`, even where the
 optimal allocations are not unique. By
-the lower bound `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of
-`δ`-correct algorithms does better. -/
+the lower bound `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite`, no
+family of `δ`-correct algorithms does better. -/
 theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log
     [MeasurableSingletonClass ℐ] (hνt : task.ν = (Bandits.gaussianBandit · σ2)) (hσ2 : σ2 ≠ 0)
     (hcorrect : ∀ θ ∈ task.M, task.correct θ = {rec θ}) (hw_mem : ∀ μ', w μ' ∈ simplex α)

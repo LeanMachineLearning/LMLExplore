@@ -13,7 +13,6 @@ import LMLExplore.Data.ENat.Basic
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.TestSupermartingale.IID
 import LMLExplore.MeasureTheory.Integral.EReal
-import LMLExplore.Probability.Independence.Wald
 import LMLExplore.Probability.Process.Filtration
 import LMLExplore.Probability.Process.HittingTime
 import LMLExplore.Probability.ProductMeasure
@@ -49,7 +48,7 @@ complete blocks reaches `α⁻¹`.
 * **Expected number of observations.** The test stops at the latest at the end of the block where
   the sum of the values of `v` on the blocks first reaches `log (1/α)`. By Wald's argument for
   increments bounded above by `C`, the expected number of these blocks is at most
-  `(log (1/α) + C) / a` (`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`), so that
+  `(log (1/α) + C) / a` (`ProbabilityTheory.lintegral_hittingAfter_sum_seqBlock_le`), so that
   `𝔼[τ α] / log (1/α) ≤ (m / a) (1 + C / log (1/α))`, which tends to `m / a < 1 / d'`.
 
 ## Main statements
@@ -252,16 +251,7 @@ private lemma lintegral_hittingAfter_add_one_le (Q₁ : Measure 𝓧) [IsProbabi
       ← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum,
       ENNReal.log_ofReal_exp, hcb, EReal.coe_le_coe_iff]
   -- Wald's bound for the number of blocks over which the sum of `v` reaches `b`
-  have hWald := iIndepFun.lintegral_hittingAfter_sum_le (μ := μ)
-    (X := fun j ω ↦ v (seqBlock m j ω))
-    ((iIndepFun_seqBlock (fun _ ↦ Q₁) m).comp (fun _ ↦ v) fun _ ↦ hv)
-    (fun j ↦ hv.comp (measurable_seqBlock m j)) ha (fun j ↦ ?_)
-    (fun j ↦ ae_of_all _ fun ω ↦ hvC _) b
-  swap
-  · have h := measurePreserving_seqBlock (fun _ : ℕ ↦ Q₁) m j
-    refine le_of_eq ?_
-    rw [← integral_map (measurable_seqBlock m j).aemeasurable
-      (by rw [h.map_eq]; exact hv.aestronglyMeasurable), h.map_eq]
+  have hWald := lintegral_hittingAfter_sum_seqBlock_le (fun _ ↦ Q₁) hv hvC ha (fun _ ↦ le_rfl) b
   calc ∫⁻ ω, ENat.toENNReal (hittingAfter (fun n ω ↦ seqBlockProd m V ((n + 1) / m) ω)
       (Set.Ici c) 0 ω) + 1 ∂μ
   _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter (seqBlockProd m V) (Set.Ici c) 0 ω) ∂μ :=

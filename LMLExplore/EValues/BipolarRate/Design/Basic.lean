@@ -7,6 +7,8 @@ module
 
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.EValues.BipolarRate.Basic
+import LMLExplore.Basic.ENNReal.BigOperators
+import LMLExplore.Basic.ENNReal.Inv
 import LMLExplore.Data.EReal.Inv
 import Mathlib.Probability.Independence.InfinitePi
 import TauCeti.Data.EReal.Operations
@@ -44,8 +46,13 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
 ## Main statements
 
 * `ProbabilityTheory.designValue_mono`: the value of a design is monotone in the design.
+* `ProbabilityTheory.klDiv_designLaw`: the relative entropy between the tables of a design is
+  `∑ a, n a * klDiv (μ a) (ν a)`.
 * `ProbabilityTheory.designValue_le_iInf_sum_mul_klDiv`: the entropy bound
   `designValue μ Λ n ≤ ⨅ ν ∈ Λ, ∑ a, n a * klDiv (μ a) (ν a)`.
+* `ProbabilityTheory.designRate_le_iSup_iInf_of_forall_designValue_le`: if the value of every
+  design `n ≠ 0` is at most `⨅ s ∈ S, ∑ a, n a * k s a`, the rate of the designs is at most
+  `⨆ w, ⨅ s ∈ S, ∑ a, w a * k s a` over the probability vectors `w`.
 * `ProbabilityTheory.designRate_le_iSup_iInf_sum_mul_klDiv`: the entropy bound on the rate,
   `designRate μ Λ ≤ ⨆ w, ⨅ ν ∈ Λ, ∑ a, w a * klDiv (μ a) (ν a)` over the probability vectors `w`.
 * `ProbabilityTheory.measurePreserving_designBlockEquiv`: `m` independent tables of the design `r`
@@ -55,6 +62,9 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
   `m`-sample e-variable for the i.i.d. null of the laws `designLaw ν r`, `ν ∈ Λ`.
 * `ProbabilityTheory.designRate_eq_iSup_bipolarRate`: the rate of the designs is the supremum,
   over the designs `r`, of the bipolar rate of the tables of `r` per observation.
+* `ProbabilityTheory.designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq`: if the bipolar rates
+  of the tables of the designs `r ≠ 0` are `⨅ s ∈ S, ∑ a, r a * k s a` for a family of costs,
+  the rate of the designs is `⨆ w, ⨅ s ∈ S, ∑ a, w a * k s a`.
 * `ProbabilityTheory.designRate_unique`: with one source, the rate of the designs is the bipolar
   rate of the law of the source against the laws of the source in `Λ`.
 * `ProbabilityTheory.designValue_eq_maxLogGrowth_of_forall_ne`: if the instances of `Λ` differ
@@ -67,12 +77,15 @@ rate of the designs is the bipolar rate of `ProbabilityTheory.bipolarRate`.
 ## Implementation notes
 
 The definitions and proofs are adapted from the draft `notes/lean-wip/SeveralArmsAux.lean` of the
-paper project `RemyDegenne/evalues_research`, changed to `maxEPower` and `maxLogGrowth`.
+paper project `RemyDegenne/evalues_research`, changed to `maxEPower` and `maxLogGrowth`. The rate
+of the designs from the bipolar rates of the tables
+(`ProbabilityTheory.designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq`) is adapted from
+`EValuesResearch/Results/DesignConstants.lean` (commit `cb8238f`) of the same project.
 
 ## References
 
 * [EVR26] the research notes of the paper project `RemyDegenne/evalues_research`: Note 41,
-  `results/41-several-arms-bipolar-rate.md`, Sections 1, 2 and 7.
+  `results/41-several-arms-bipolar-rate.md`, Sections 1, 2, 5 and 7.
 -/
 
 public section
@@ -247,6 +260,14 @@ lemma designRate_anti (h : Λ ⊆ Λ') : designRate μ Λ' ≤ designRate μ Λ 
 
 /-! ### The entropy bound -/
 
+/-- The relative entropy between the tables of a design under two instances of probability
+measures is `∑ a, n a * klDiv (μ a) (ν a)`, by the tensorization of the relative entropy. -/
+theorem klDiv_designLaw (μ ν : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
+    [∀ a, IsProbabilityMeasure (ν a)] (n : α → ℕ) :
+    klDiv (designLaw μ n) (designLaw ν n) = ∑ a, (n a : ℝ≥0∞) * klDiv (μ a) (ν a) := by
+  rw [designLaw_def, designLaw_def, klDiv_pi, Fintype.sum_sigma]
+  simp
+
 /-- The value of a design is at most the sum of the relative entropies of its observations from
 `μ` to any instance `ν` of `Λ`, `designValue μ Λ n ≤ ∑ a, n a * klDiv (μ a) (ν a)`: this is the
 value of the design against the simple null `{ν}`, by the tensorization of the relative entropy
@@ -258,8 +279,7 @@ lemma designValue_le_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)] (hν : �
   _ ≤ maxEPower (designLaw μ n) {designLaw ν n} :=
     maxEPower_anti (Set.singleton_subset_iff.2 ⟨ν, hν, rfl⟩)
   _ = ((∑ a, (n a : ℝ≥0∞) * klDiv (μ a) (ν a) : ℝ≥0∞) : EReal) := by
-    rw [maxEPower_singleton_eq_klDiv, designLaw_def, designLaw_def, klDiv_pi, Fintype.sum_sigma]
-    simp
+    rw [maxEPower_singleton_eq_klDiv, klDiv_designLaw]
 
 /-- **The entropy bound.** The value of a design is at most the infimum over the instances `ν` of
 `Λ` of the sum of the relative entropies of its observations,
@@ -273,14 +293,16 @@ theorem designValue_le_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
   have := hΛ ν hν
   exact designValue_le_sum_mul_klDiv hν n
 
-/-- **The entropy bound on the rate of the designs.** The rate of the designs is at most the
-supremum over the probability vectors `w` of `⨅ ν ∈ Λ, ∑ a, w a * klDiv (μ a) (ν a)`: the
-rate is at most the inverse `1 / T*(μ)` of the characteristic time of Garivier and Kaufmann, with
-the alternatives `Λ` [EVR26, Note 41, Corollary 2]. -/
-theorem designRate_le_iSup_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
-    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) :
-    designRate μ Λ ≤ ((⨆ w ∈ LMLExplore.simplex α, ⨅ ν ∈ Λ,
-      ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) : ℝ≥0∞) : EReal) := by
+/-- **The rate of the designs from bounds on the values.** If the value of every design `n ≠ 0`
+is at most `⨅ s ∈ S, ∑ a, n a * k s a` for a family of costs `k s : α → ℝ≥0∞`, then the rate of
+the designs is at most `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the probability vectors `w`. -/
+theorem designRate_le_iSup_iInf_of_forall_designValue_le {ι : Type*} {S : Set ι}
+    {k : ι → α → ℝ≥0∞}
+    (h : ∀ n : α → ℕ, n ≠ 0 →
+      designValue μ Λ n ≤ ((⨅ s ∈ S, ∑ a, (n a : ℝ≥0∞) * k s a : ℝ≥0∞) : EReal)) :
+    designRate μ Λ ≤ ((⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S,
+      ∑ a, ENNReal.ofReal (w a) * k s a : ℝ≥0∞) : EReal) := by
+  -- the bound of the design `n` is `∑ a, n a` times the bound of its proportions
   refine (designRate_le_iff (EReal.coe_ennreal_nonneg _)).2 fun n hn ↦ ?_
   set N := ∑ a, n a
   have hN : (N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (Fintype.sum_pos (pos_iff_ne_zero.2 hn)).ne'
@@ -293,16 +315,26 @@ theorem designRate_le_iSup_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a
     rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast (pos_iff_ne_zero.2 hN)),
       ENNReal.ofReal_natCast, ENNReal.ofReal_natCast,
       ENNReal.mul_div_cancel hN (ENNReal.natCast_ne_top N)]
-  refine (designValue_le_iInf_sum_mul_klDiv hΛ n).trans ?_
+  refine (h n hn).trans ?_
   rw [← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul, EReal.coe_ennreal_le_coe_ennreal_iff]
-  calc ⨅ ν ∈ Λ, ∑ a, (n a : ℝ≥0∞) * klDiv (μ a) (ν a)
-  _ = N * ⨅ ν ∈ Λ, ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) := by
+  calc ⨅ s ∈ S, ∑ a, (n a : ℝ≥0∞) * k s a
+  _ = N * ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a := by
     simp_rw [ENNReal.mul_iInf_of_ne hN (ENNReal.natCast_ne_top N), Finset.mul_sum, ← mul_assoc,
       hn_eq]
-  _ ≤ N * ⨆ w ∈ LMLExplore.simplex α, ⨅ ν ∈ Λ,
-      ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) := by
+  _ ≤ N * ⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a := by
     gcongr
-    exact le_iSup₂ (f := fun w _ ↦ ⨅ ν ∈ Λ, ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a)) w hw
+    exact le_iSup₂ (f := fun w _ ↦ ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a) w hw
+
+/-- **The entropy bound on the rate of the designs.** The rate of the designs is at most the
+supremum over the probability vectors `w` of `⨅ ν ∈ Λ, ∑ a, w a * klDiv (μ a) (ν a)`: the
+rate is at most the inverse `1 / T*(μ)` of the characteristic time of Garivier and Kaufmann, with
+the alternatives `Λ` [EVR26, Note 41, Corollary 2]. -/
+theorem designRate_le_iSup_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
+    (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) :
+    designRate μ Λ ≤ ((⨆ w ∈ LMLExplore.simplex α, ⨅ ν ∈ Λ,
+      ∑ a, ENNReal.ofReal (w a) * klDiv (μ a) (ν a) : ℝ≥0∞) : EReal) :=
+  designRate_le_iSup_iInf_of_forall_designValue_le fun n _ ↦
+    designValue_le_iInf_sum_mul_klDiv hΛ n
 
 /-! ### Blocks of observations and the bipolar rate -/
 
@@ -426,6 +458,49 @@ theorem exists_ne_zero_mul_lt_bipolarRate_of_lt_designRate [Nonempty α] (μ : �
   rintro _ ⟨ν, hν, rfl⟩
   have := hΛ ν hν
   exact prob_le_one
+
+/-- **The rate of the designs from the bipolar rates of the tables.** If the bipolar rate of the
+tables of every design `r ≠ 0` is `⨅ s ∈ S, ∑ a, r a * k s a` for a family of costs
+`k s : α → ℝ≥0∞`, then the rate of the designs is `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the
+probability vectors `w`, with `0 * ∞ = 0` [EVR26, Note 41, Section 5]. -/
+theorem designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq {ι : Type*} (μ : α → Measure 𝓧)
+    [∀ a, IsProbabilityMeasure (μ a)] (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a))
+    {S : Set ι} {k : ι → α → ℝ≥0∞}
+    (h : ∀ r : α → ℕ, r ≠ 0 → bipolarRate (designLaw μ r) ((fun ν ↦ designLaw ν r) '' Λ) =
+      ((⨅ s ∈ S, ∑ a, (r a : ℝ≥0∞) * k s a : ℝ≥0∞) : EReal)) :
+    designRate μ Λ = ((⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S,
+      ∑ a, ENNReal.ofReal (w a) * k s a : ℝ≥0∞) : EReal) := by
+  refine le_antisymm (designRate_le_iSup_iInf_of_forall_designValue_le fun n hn ↦ ?_) ?_
+  · -- the value of a design is the growth of one table of that design
+    rw [← h n hn, ← one_smul ℕ n, ← maxLogGrowth_designLaw μ hΛ n 1, one_smul]
+    exact maxLogGrowth_one_le_bipolarRate _ _
+  -- the lower bound takes the designs `⌈m w⌉`: since the bound is monotone and positively
+  -- homogeneous in `w`, and `⌈m w⌉` has at most `m + Fintype.card α` observations, no concavity
+  -- or continuity of the bound in `w` is used
+  rw [← EReal.coe_toENNReal (designRate_nonneg μ Λ), EReal.coe_ennreal_le_coe_ennreal_iff]
+  refine iSup₂_le fun w hw ↦ ENNReal.le_of_forall_natCast_mul_le_add_mul (Fintype.card α)
+    fun m hm ↦ ?_
+  -- the design `⌈m w⌉`: `m` times the bound at `w` is at most its bound, the bipolar rate of its
+  -- tables, which is at most its `m + Fintype.card α` observations times the rate
+  set r : α → ℕ := fun a ↦ ⌈(m : ℝ) * w a⌉₊
+  have hr0 : r ≠ 0 := by
+    rintro hr
+    have := LMLExplore.le_sum_ceil_mul_of_mem_simplex hw m
+    simp only [r] at hr
+    simp [hr] at this
+    omega
+  have h1 : (m : ℝ≥0∞) * ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a ≤
+      ⨅ s ∈ S, ∑ a, (r a : ℝ≥0∞) * k s a := by
+    refine ENNReal.mul_iInf_sum_mul_le_iInf_sum_mul fun a ↦ ?_
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (Nat.cast_nonneg _),
+      ← ENNReal.ofReal_natCast]
+    exact ENNReal.ofReal_le_ofReal (Nat.le_ceil _)
+  have h2 := bipolarRate_designLaw_le μ hΛ hr0
+  rw [h r hr0, ← EReal.coe_toENNReal (designRate_nonneg μ Λ),
+    ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul,
+    EReal.coe_ennreal_le_coe_ennreal_iff] at h2
+  refine h1.trans (h2.trans (mul_le_mul_left ?_ _))
+  exact_mod_cast LMLExplore.sum_ceil_mul_le_of_mem_simplex hw m
 
 /-! ### One source -/
 

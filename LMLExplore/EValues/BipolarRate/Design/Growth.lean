@@ -107,6 +107,28 @@ lemma proportionalDesign_mono (h : x ≤ y) :
   gcongr
   exact h a
 
+/-- `k` copies of the design `⌈q x⌉` proportional to `x`, with no margin, fit in the design
+proportional to `x` with margin `ε` and `m` observations, as soon as `1 ≤ q ε` and `k q ≤ m`. -/
+lemma nsmul_proportionalDesign_le {q k : ℕ} (hqε : 1 ≤ (q : ℝ≥0) * ε)
+    (hkq : (k : ℝ≥0) * q ≤ m) : k • proportionalDesign x 0 q ≤ proportionalDesign x ε m := by
+  intro a
+  by_cases hx : x a = 0
+  · simp [proportionalDesign_of_eq_zero hx]
+  rw [Pi.smul_apply, smul_eq_mul, proportionalDesign_of_ne_zero hx,
+    proportionalDesign_of_ne_zero hx, add_zero]
+  refine Nat.cast_le.1 (le_trans ?_ (Nat.le_ceil ((m : ℝ≥0) * (x a + ε))))
+  -- `k ⌈q x a⌉ ≤ k (q x a + 1) ≤ m x a + m ε`
+  have hceil : (⌈(q : ℝ≥0) * x a⌉₊ : ℝ≥0) ≤ q * x a + 1 := (Nat.ceil_lt_add_one zero_le).le
+  have hkε : (k : ℝ≥0) ≤ m * ε := by
+    calc (k : ℝ≥0) ≤ k * (q * ε) := le_mul_of_one_le_right zero_le hqε
+    _ = k * q * ε := (mul_assoc _ _ _).symm
+    _ ≤ m * ε := by gcongr
+  push_cast
+  calc (k : ℝ≥0) * ⌈(q : ℝ≥0) * x a⌉₊ ≤ k * (q * x a + 1) := by gcongr
+  _ = k * q * x a + k := by ring
+  _ ≤ m * x a + m * ε := by gcongr
+  _ = m * (x a + ε) := (mul_add _ _ _).symm
+
 /-! ### The growth of the designs proportional to a vector -/
 
 variable [Fintype α]

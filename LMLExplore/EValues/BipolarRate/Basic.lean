@@ -57,6 +57,9 @@ else: no domination, convexity or compactness.
   vanishes.
 * `ProbabilityTheory.maxLogGrowth_anti`, `ProbabilityTheory.bipolarRate_anti`: both are antitone
   in the null.
+* `ProbabilityTheory.maxLogGrowth_map_le`, `ProbabilityTheory.bipolarRate_map_le`,
+  `ProbabilityTheory.bipolarRate_trim_le`: data processing, along a measurable map or a
+  sub-σ-algebra.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
@@ -281,6 +284,46 @@ lemma coe_toReal_bipolarRate (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) (hd : bi
 lemma bipolarRate_anti (h : S₁ ⊆ T₁) : bipolarRate Q₁ T₁ ≤ bipolarRate Q₁ S₁ :=
   bipolarRate_le_iff.2 fun _ hn ↦ (maxLogGrowth_anti h).trans
     (maxLogGrowth_le_mul_bipolarRate Q₁ S₁ hn)
+
+/-- **Data processing** for the growth of `n` observations: pushing the alternative and the null
+forward along a measurable map `φ` does not increase `maxLogGrowth`. An `n`-sample e-variable of
+the images, composed with `φ` in each coordinate, is an `n`-sample e-variable with the same
+expected logarithm. -/
+theorem maxLogGrowth_map_le {𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨} (Q₁ : Measure 𝓧)
+    [IsFiniteMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {φ : 𝓧 → 𝓨} (hφ : Measurable φ)
+    (n : ℕ) : maxLogGrowth (Q₁.map φ) (mapNull φ S₁) n ≤ maxLogGrowth Q₁ S₁ n := by
+  have h_map (P : Measure 𝓧) [IsFiniteMeasure P] :
+      (Measure.pi fun _ : Fin n ↦ P).map (fun x i ↦ φ (x i)) =
+        Measure.pi fun _ : Fin n ↦ P.map φ :=
+    Measure.pi_map_pi fun _ ↦ hφ.aemeasurable
+  have h_null := mapNull_sampleNull_image (f := fun P ↦ P) (I := S₁)
+    (g := fun P ↦ Measure.pi fun _ : Fin n ↦ P.map φ) (φ := fun x i ↦ φ (x i))
+    fun P hP ↦ have := hS₁ P hP; h_map P
+  rw [Set.image_id'] at h_null
+  have h_sample : sampleNull (mapNull φ S₁) n =
+      (fun P ↦ Measure.pi fun _ : Fin n ↦ P.map φ) '' S₁ := by
+    ext
+    simp [mem_mapNull]
+  rw [maxLogGrowth_def, maxLogGrowth_def, ← h_map Q₁, h_sample, ← h_null]
+  exact maxEPower_map_le _ (by fun_prop)
+
+/-- **Data processing** for the bipolar rate: pushing the alternative and the null forward along a
+measurable map does not increase the bipolar rate. -/
+theorem bipolarRate_map_le {𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨} (Q₁ : Measure 𝓧)
+    [IsFiniteMeasure Q₁] (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {φ : 𝓧 → 𝓨}
+    (hφ : Measurable φ) : bipolarRate (Q₁.map φ) (mapNull φ S₁) ≤ bipolarRate Q₁ S₁ :=
+  iSup_mono fun _ ↦ EReal.div_le_div_right_of_nonneg (by positivity)
+    (maxLogGrowth_map_le Q₁ hS₁ hφ _)
+
+/-- **Data processing** for the bipolar rate along a sub-σ-algebra: restricting the alternative and
+the null to a sub-σ-algebra `m` does not increase the bipolar rate. -/
+theorem bipolarRate_trim_le (Q₁ : Measure 𝓧) [IsFiniteMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsFiniteMeasure P) {m : MeasurableSpace 𝓧} (hm : m ≤ m𝓧) :
+    bipolarRate (Q₁.trim hm) ((fun P ↦ P.trim hm) '' S₁) ≤ bipolarRate Q₁ S₁ := by
+  have h := bipolarRate_map_le (m𝓨 := m) Q₁ hS₁ (measurable_id'' hm)
+  rw [mapNull_def] at h
+  simp_rw [trim_eq_map hm]
+  exact h
 
 /-- The bipolar rate against the empty null is `⊤`: every measurable function, `∞` included, is
 an e-variable for it. -/
