@@ -166,31 +166,6 @@ private lemma condorcet_weights :
   · linear_combination (-1 / 2 : ℝ) * hwD
   · linear_combination (-1 : ℝ) * hj
 
-/-- A mixture of three members of a set of measures, with real weights of sum one, is in its
-convex hull. -/
-private lemma add_add_smul_mem_convexHull {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {S : Set (Measure Ω)} {P₁ P₂ P₃ : Measure Ω} (h₁ : P₁ ∈ S) (h₂ : P₂ ∈ S) (h₃ : P₃ ∈ S)
-    {w₁ w₂ w₃ : ℝ} (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hw₃ : 0 ≤ w₃) (hw : w₁ + w₂ + w₃ = 1) :
-    ENNReal.ofReal w₁ • P₁ + ENNReal.ofReal w₂ • P₂ + ENNReal.ofReal w₃ • P₃ ∈
-      convexHull ℝ≥0∞ S := by
-  have hS := convex_convexHull ℝ≥0∞ S
-  rcases (add_nonneg hw₁ hw₂).eq_or_lt with h0 | h0
-  · obtain rfl : w₁ = 0 := by linarith
-    obtain rfl : w₂ = 0 := by linarith
-    obtain rfl : w₃ = 1 := by linarith
-    simpa using subset_convexHull ℝ≥0∞ S h₃
-  -- the mixture of the first two, with weights `w₁ / (w₁ + w₂)` and `w₂ / (w₁ + w₂)`
-  have h12 : ENNReal.ofReal (w₁ / (w₁ + w₂)) • P₁ + ENNReal.ofReal (w₂ / (w₁ + w₂)) • P₂ ∈
-      convexHull ℝ≥0∞ S := by
-    refine hS (subset_convexHull ℝ≥0∞ S h₁) (subset_convexHull ℝ≥0∞ S h₂) zero_le zero_le ?_
-    rw [← ENNReal.ofReal_add (by positivity) (by positivity), ← add_div, div_self h0.ne',
-      ENNReal.ofReal_one]
-  have h := hS h12 (subset_convexHull ℝ≥0∞ S h₃) (zero_le (a := ENNReal.ofReal (w₁ + w₂)))
-    (zero_le (a := ENNReal.ofReal w₃)) (by rw [← ENNReal.ofReal_add h0.le hw₃, hw,
-      ENNReal.ofReal_one])
-  rwa [smul_add, smul_smul, smul_smul, ← ENNReal.ofReal_mul h0.le, ← ENNReal.ofReal_mul h0.le,
-    mul_div_cancel₀ _ h0.ne', mul_div_cancel₀ _ h0.ne'] at h
-
 /-- **The alternative `(7/10, 3/5, c)` is a mixture of three laws of the Condorcet null**
 [EVR26, Note 32, Statement 3]. For `c ∈ [1/20, 19/20]`, the law of the coins `(7/10, 3/5, c)` is
 the mixture of the laws of the coins `(19/20, 1/2, c)`, `(1/2, 19/20, c)` and `(t, t, c)`, with

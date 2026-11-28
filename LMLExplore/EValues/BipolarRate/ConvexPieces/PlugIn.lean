@@ -11,13 +11,13 @@ public import LMLExplore.EValues.TestSupermartingale.SequentialNull
 public import LMLExplore.Probability.Distributions.ProdBernoulli
 public import Mathlib.Probability.Process.HittingTime
 import LMLExplore.EValues.BipolarRate.AlmostSure
-import LMLExplore.EValues.BipolarRate.ConvexPieces
+import LMLExplore.EValues.BipolarRate.ConvexPieces.Basic
 import LMLExplore.EValues.BipolarRate.StoppingTime
 import LMLExplore.InformationTheory.KullbackLeibler.Finite
 import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
+import LMLExplore.Probability.Moments.SubGaussian.Bounded
 import LMLExplore.Probability.Process.LevelCrossing
 import Mathlib.Analysis.Asymptotics.SpecificAsymptotics
-import TauCeti.Probability.StrongLaw
 
 /-!
 # The plug-in intersection–union test for a union of convex pieces of coins
@@ -154,14 +154,6 @@ theorem minPlugInLikelihoodRatio_le (ψhat : ℕ → (ℕ → ι → Bool) → �
 
 variable {ψhat : ℕ → (ℕ → ι → Bool) → ι → ℝ}
 
-omit [Fintype ι] in
-/-- On the finite alphabet of the coins, a function of the observations before `n` is measurable
-at time `n` of `Filtration.piLT`. -/
-private lemma measurable_piLT_of_dependsOn_of_finite [Finite ι] {Z : Type*} [MeasurableSpace Z]
-    {f : (ℕ → ι → Bool) → Z} {n : ℕ} (hf : DependsOn f (Iio n)) :
-    Measurable[Filtration.piLT n] f :=
-  Filtration.measurable_piLT_of_dependsOn (hf.measurable_of_countable (finite_Iio n)) hf
-
 /-- With predictable estimates, the plug-in likelihood ratio at time `n` only depends on the
 first `n` observations. -/
 private lemma dependsOn_plugInLikelihoodRatio
@@ -183,8 +175,22 @@ theorem adapted_minPlugInLikelihoodRatio
     (hψhat : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ ι → Bool)) ψhat)
     (lam : κ → (ι → ℝ) → ι → ℝ) :
     Adapted Filtration.piLT (minPlugInLikelihoodRatio ψhat lam) := fun n ↦
-  measurable_piLT_of_dependsOn_of_finite fun _ _ hxy ↦
+  Filtration.measurable_piLT_of_dependsOn_of_countable fun _ _ hxy ↦
     iInf_congr fun j ↦ dependsOn_plugInLikelihoodRatio hψhat (lam j) n hxy
+
+omit [Fintype ι] in
+/-- With predictable estimates, a function of the estimate of round `k` and of an observation is
+jointly measurable for the past before `k` and the observation, with no measurability of the
+function: the alphabet of the coins is finite. -/
+private lemma measurable_uncurry_comp_estimate [Finite ι]
+    (hψhat : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ ι → Bool)) ψhat) {Z : Type*}
+    [MeasurableSpace Z] (F : (ι → ℝ) → (ι → Bool) → Z) (k : ℕ) :
+    Measurable[(Filtration.piLT k).prod inferInstance]
+      (Function.uncurry fun ω y ↦ F (ψhat k ω) y) := by
+  refine @measurable_from_prod_countable_left _ _ _ (Filtration.piLT k) _ _ _ _ _ fun y ↦ ?_
+  refine Filtration.measurable_piLT_of_dependsOn_of_countable fun x x' hxx' ↦ ?_
+  simp only [Function.uncurry_apply_pair]
+  rw [(hψhat k).dependsOn_of_piLT hxx']
 
 /-! ### Validity -/
 
@@ -209,14 +215,11 @@ theorem isTestSupermartingale_plugInLikelihoodRatio {C : Set (ι → ℝ)} (hC :
       (sequentialNull (fun _ _ ↦ prodBernoulli '' C) (fun k ω ↦ ω k) Filtration.piLT) := by
   refine isTestSupermartingale_prod_sequentialNull
     (r := fun k ω y ↦ prodBernoulli (ψhat k ω) {y} / prodBernoulli (lam (ψhat k ω)) {y})
-    (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self) (fun k ↦ ?_) fun k ω ↦
-      isEVar_prodBernoulli_div_prodBernoulli hC hC01 _ (hlam01 _ (hψhat01 k ω))
-        (hlam _ (hψhat01 k ω)) (hmin _ (hψhat01 k ω))
-  -- the factor is a function of the past and of the observation, on a finite alphabet
-  refine @measurable_from_prod_countable_left _ _ _ (Filtration.piLT k) _ _ _ _ _ fun y ↦ ?_
-  refine measurable_piLT_of_dependsOn_of_finite fun x x' hxx' ↦ ?_
-  simp only [Function.uncurry_apply_pair]
-  rw [(hψhat k).dependsOn_of_piLT hxx']
+    (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self)
+    (measurable_uncurry_comp_estimate hψhat fun φ y ↦
+      prodBernoulli φ {y} / prodBernoulli (lam φ) {y})
+    fun k ω ↦ isEVar_prodBernoulli_div_prodBernoulli hC hC01 _ (hlam01 _ (hψhat01 k ω))
+      (hlam _ (hψhat01 k ω)) (hmin _ (hψhat01 k ω))
 
 /-- **The plug-in intersection–union process is an e-process, whatever the estimate**
 [EVR26, Note 32, Statement 4]. Under the hypotheses of
@@ -268,37 +271,6 @@ theorem isLevelStoppingTime_hittingAfter_minPlugInLikelihoodRatio {C : κ → Se
 
 /-! ### Growth for a consistent estimate -/
 
-/-- The i.i.d. laws of the coins with parameters in a union of pieces are drawn sequentially from
-the laws of one piece. -/
-private lemma iidNull_prodBernoulli_iUnion_subset {C : κ → Set (ι → ℝ)} :
-    iidNull (prodBernoulli '' ⋃ j, C j) ⊆
-      ⋃ j, sequentialNull (fun _ _ ↦ prodBernoulli '' C j) (fun k ω ↦ ω k) Filtration.piLT := by
-  intro μ hμ
-  obtain ⟨_, ⟨θ, hθ, rfl⟩, rfl⟩ := mem_iidNull.1 hμ
-  obtain ⟨j, hj⟩ := mem_iUnion.1 hθ
-  exact mem_iUnion.2 ⟨j, iidNull_subset_sequentialNull (by rintro _ ⟨θ, -, rfl⟩; infer_instance)
-    (infinitePi_mem_iidNull (mem_image_of_mem _ hj))⟩
-
-/-- The real mass of a point under `prodBernoulli θ`, for `θ` in the closed cube. -/
-private lemma measureReal_prodBernoulli_singleton {θ : ι → ℝ}
-    (hθ : θ ∈ univ.pi fun _ ↦ Icc 0 1) (x : ι → Bool) :
-    (prodBernoulli θ).real {x} = ∏ i, if x i then θ i else 1 - θ i := by
-  rw [Measure.real, prodBernoulli_singleton hθ,
-    ENNReal.toReal_ofReal (Finset.prod_nonneg fun i _ ↦ ?_)]
-  have := hθ i (mem_univ i)
-  split_ifs <;> linarith [this.1, this.2]
-
-/-- Every point has a positive real mass under `prodBernoulli θ`, for `θ` in the open cube. -/
-private lemma measureReal_prodBernoulli_singleton_pos {θ : ι → ℝ}
-    (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) (x : ι → Bool) : 0 < (prodBernoulli θ).real {x} :=
-  ENNReal.toReal_pos (prodBernoulli_singleton_ne_zero hθ x) (measure_ne_top _ _)
-
-omit [Fintype ι] in
-/-- The open cube is in the closed cube. -/
-private lemma mem_pi_Icc_of_mem_pi_Ioo {θ : ι → ℝ} (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) :
-    θ ∈ univ.pi fun _ ↦ Icc (0 : ℝ) 1 :=
-  fun i _ ↦ Ioo_subset_Icc_self (hθ i trivial)
-
 /-- **The logarithm of the plug-in intersection–union process** is the minimum of the sums of the
 real log-likelihood ratios: all the masses are positive, the estimates and the projections being
 in the open cube. -/
@@ -309,46 +281,11 @@ private lemma log_minPlugInLikelihoodRatio_eq [Fintype κ] [Nonempty κ]
     ENNReal.log (minPlugInLikelihoodRatio ψhat lam n ω) =
       ((Finset.univ.inf' Finset.univ_nonempty fun j ↦ ∑ k ∈ Finset.range n,
         Real.log ((prodBernoulli (ψhat k ω)).real {ω k} /
-          (prodBernoulli (lam j (ψhat k ω))).real {ω k}) : ℝ) : EReal) := by
-  set S : κ → ℝ := fun j ↦ ∑ k ∈ Finset.range n, Real.log ((prodBernoulli (ψhat k ω)).real {ω k} /
-    (prodBernoulli (lam j (ψhat k ω))).real {ω k})
-  -- each product of ratios is the exponential of the sum of the logarithms of the real ratios
-  have hprod (j : κ) :
-      plugInLikelihoodRatio ψhat (lam j) n ω = ENNReal.ofReal (Real.exp (S j)) := by
-    rw [plugInLikelihoodRatio_def, Real.exp_sum,
-      ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
-    refine Finset.prod_congr rfl fun k _ ↦ ?_
-    have ha := measureReal_prodBernoulli_singleton_pos (hψhat01 k ω) (ω k)
-    have hb := measureReal_prodBernoulli_singleton_pos (hlam01 j _ (hψhat01 k ω)) (ω k)
-    rw [Real.exp_log (div_pos ha hb), ENNReal.ofReal_div_of_pos hb,
-      ofReal_measureReal (measure_ne_top _ _), ofReal_measureReal (measure_ne_top _ _)]
-  obtain ⟨j₀, -, hj₀⟩ := Finset.exists_mem_eq_inf' Finset.univ_nonempty S
-  have hM : minPlugInLikelihoodRatio ψhat lam n ω = ENNReal.ofReal (Real.exp (S j₀)) := by
-    simp_rw [minPlugInLikelihoodRatio_def, hprod]
-    refine le_antisymm (iInf_le _ j₀) (le_iInf fun j ↦ ENNReal.ofReal_le_ofReal
-      (Real.exp_le_exp.2 ?_))
-    rw [← hj₀]
-    exact Finset.inf'_le _ (Finset.mem_univ j)
-  rw [hM, ENNReal.log_ofReal]
-  simp only [(Real.exp_pos (S j₀)).not_ge, ite_false, Real.log_exp]
-  rw [hj₀]
-
-/-- **The strong law for the log-likelihood ratio** of `prodBernoulli ψ` against `prodBernoulli η`,
-for `η` in the open cube: almost surely under the i.i.d. law of `prodBernoulli ψ`, the sums over
-`k < n` of the log-likelihood ratios, divided by `n`, tend to the relative entropy
-`KL(prodBernoulli ψ ‖ prodBernoulli η)`. -/
-private lemma ae_tendsto_sum_log_div (ψ : ι → ℝ) {η : ι → ℝ}
-    (hη : η ∈ univ.pi fun _ ↦ Ioo 0 1) :
-    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ prodBernoulli ψ),
-      Tendsto (fun n : ℕ ↦ (∑ k ∈ Finset.range n, Real.log ((prodBernoulli ψ).real {ω k} /
-          (prodBernoulli η).real {ω k})) / n) atTop
-        (𝓝 (klDiv (prodBernoulli ψ) (prodBernoulli η)).toReal) := by
-  have h := TauCeti.Probability.strong_law_ae_infinitePi (prodBernoulli ψ)
-    (f := fun x ↦ Real.log ((prodBernoulli ψ).real {x} / (prodBernoulli η).real {x}))
-    Integrable.of_finite
-  rw [integral_log_measureReal_div_eq_toReal_klDiv (prodBernoulli_absolutelyContinuous ψ hη)] at h
-  filter_upwards [h] with ω hω
-  simpa only [smul_eq_mul, inv_mul_eq_div] using hω
+          (prodBernoulli (lam j (ψhat k ω))).real {ω k}) : ℝ) : EReal) :=
+  log_iInf_prod_measure_div_eq (μ := fun k ↦ prodBernoulli (ψhat k ω))
+    (ν := fun j k ↦ prodBernoulli (lam j (ψhat k ω))) (t := fun k ↦ {ω k})
+    (fun k ↦ prodBernoulli_singleton_ne_zero (hψhat01 k ω) _)
+    (fun j k ↦ prodBernoulli_singleton_ne_zero (hlam01 j _ (hψhat01 k ω)) _) _
 
 /-- **A consistent estimate costs `o(n)`.** If the parameters `φ k`, in the open cube, tend to `ψ`
 in the open cube, the sums over `k < n` of `log P_{φ k} {ω k} - log P_ψ {ω k}` are `o(n)`, on every
@@ -362,12 +299,12 @@ private lemma tendsto_sum_log_sub_div {ψ : ι → ℝ} (hψ : ψ ∈ univ.pi fu
   set g : (ι → Bool) → (ι → ℝ) → ℝ := fun x θ ↦ Real.log (∏ i, if x i then θ i else 1 - θ i)
   have hmass (θ : ι → ℝ) (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) (x : ι → Bool) :
       Real.log ((prodBernoulli θ).real {x}) = g x θ := by
-    rw [measureReal_prodBernoulli_singleton (mem_pi_Icc_of_mem_pi_Ioo hθ)]
+    rw [measureReal_prodBernoulli_singleton fun i _ ↦ Ioo_subset_Icc_self (hθ i trivial)]
   have hcont (x : ι → Bool) : Tendsto (fun k ↦ g x (φ k)) atTop (𝓝 (g x ψ)) := by
     have hc : Continuous fun θ : ι → ℝ ↦ ∏ i, if x i then θ i else 1 - θ i :=
       continuous_finsetProd _ fun i _ ↦ by split_ifs <;> fun_prop
     have hpos : 0 < ∏ i, if x i then ψ i else 1 - ψ i := by
-      rw [← measureReal_prodBernoulli_singleton (mem_pi_Icc_of_mem_pi_Ioo hψ)]
+      rw [← measureReal_prodBernoulli_singleton fun i _ ↦ Ioo_subset_Icc_self (hψ i trivial)]
       exact measureReal_prodBernoulli_singleton_pos hψ x
     exact (ContinuousAt.comp (g := Real.log)
       (f := fun θ : ι → ℝ ↦ ∏ i, if x i then θ i else 1 - θ i) (Real.continuousAt_log hpos.ne')
@@ -383,21 +320,6 @@ private lemma tendsto_sum_log_sub_div {ψ : ι → ℝ} (hψ : ψ ∈ univ.pi fu
   rw [hmass _ (hφ01 k), hmass _ hψ]
   exact Finset.single_le_sum (f := fun x ↦ |g x (φ k) - g x ψ|) (fun _ _ ↦ abs_nonneg _)
     (Finset.mem_univ (ω k))
-
-omit [Fintype ι] in
-/-- A positive lower bound on the coordinates of a point of the open cube and on their
-complements. -/
-private lemma exists_pos_forall_le_and_le_one_sub [Finite ι] {θ : ι → ℝ}
-    (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) : ∃ a : ℝ, 0 < a ∧ ∀ i, a ≤ θ i ∧ a ≤ 1 - θ i := by
-  have := Fintype.ofFinite ι
-  rcases isEmpty_or_nonempty ι with h | h
-  · exact ⟨1, one_pos, fun i ↦ isEmptyElim i⟩
-  refine ⟨Finset.univ.inf' Finset.univ_nonempty fun i ↦ min (θ i) (1 - θ i), ?_, fun i ↦ ?_⟩
-  · rw [Finset.lt_inf'_iff]
-    intro i _
-    exact lt_min (hθ i trivial).1 (by linarith [(hθ i trivial).2])
-  · have := Finset.inf'_le (fun i ↦ min (θ i) (1 - θ i)) (Finset.mem_univ i)
-    exact ⟨this.trans (min_le_left _ _), this.trans (min_le_right _ _)⟩
 
 /-- **The projections of parameters near `ψ` stay away from the faces of the cube.** For
 projections `lam φ` in the open cube and `ψ` in the open cube, there is `δ > 0` such that `lam ψ`
@@ -516,19 +438,10 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
   have hlogmass (θ : ι → ℝ) (hθ : good θ) (x : ι → Bool) :
       (Fintype.card ι : ℝ) * Real.log δ ≤ Real.log ((prodBernoulli θ).real {x}) ∧
         Real.log ((prodBernoulli θ).real {x}) ≤ 0 := by
-    have hθ01 : θ ∈ univ.pi fun _ ↦ Icc (0 : ℝ) 1 := fun i _ ↦
-      ⟨hδ0.le.trans (hθ i).1, (hθ i).2.trans (by linarith)⟩
-    have hf (i : ι) : δ ≤ (if x i then θ i else 1 - θ i) ∧ (if x i then θ i else 1 - θ i) ≤ 1 := by
-      split_ifs <;> constructor <;> linarith [(hθ i).1, (hθ i).2]
-    rw [measureReal_prodBernoulli_singleton hθ01]
-    have hlow : δ ^ Fintype.card ι ≤ ∏ i, if x i then θ i else 1 - θ i := by
-      rw [← Finset.card_univ, ← Finset.prod_const]
-      exact Finset.prod_le_prod₀ (fun _ _ ↦ hδ0.le) fun i _ ↦ (hf i).1
-    have hup : ∏ i, (if x i then θ i else 1 - θ i) ≤ 1 :=
-      Finset.prod_le_one₀ (fun i _ ↦ hδ0.le.trans (hf i).1) fun i _ ↦ (hf i).2
-    refine ⟨?_, Real.log_nonpos (Finset.prod_nonneg fun i _ ↦ hδ0.le.trans (hf i).1) hup⟩
+    refine ⟨?_, Real.log_nonpos measureReal_nonneg measureReal_le_one⟩
     rw [← Real.log_pow]
-    exact Real.log_le_log (by positivity) hlow
+    exact Real.log_le_log (by positivity)
+      (pow_card_le_measureReal_prodBernoulli_singleton hδ0.le hθ x)
   have hcardδ : 0 ≤ (Fintype.card ι : ℝ) * -Real.log δ := by
     rcases isEmpty_or_nonempty ι with h | ⟨⟨i⟩⟩
     · simp
@@ -544,7 +457,6 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
     rw [abs_le]
     constructor <;> simp only [hD'] <;> nlinarith
   -- given the past, the terms have a nonnegative mean, by the minimality of `η`
-  have hsum1 : ∑ y, P.real {y} = 1 := by simp
   have hmean (φ : ι → ℝ) (hφ : φ ∈ univ.pi fun _ ↦ Ioo 0 1) :
       0 ≤ ∑ x, P.real {x} * D' φ x := by
     have hθ01 := hθ'01 φ hφ
@@ -566,89 +478,33 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
         (prodBernoulli_absolutelyContinuous ψ hθ01),
       integral_log_measureReal_div_eq_toReal_klDiv (prodBernoulli_absolutelyContinuous ψ hη01)]
     linarith
-  -- the one-step bound of the exponential process
-  have hg1 (s : ℝ) (hs : 0 < s) (hsL : s * L ≤ 1) (φ : ι → ℝ)
-      (hφ : φ ∈ univ.pi fun _ ↦ Ioo 0 1) :
-      ∫⁻ y, ENNReal.ofReal (Real.exp (-s * D' φ y - s ^ 2 * L ^ 2)) ∂P ≤ 1 := by
-    rw [lintegral_fintype]
-    have hterm (y : ι → Bool) : ENNReal.ofReal (Real.exp (-s * D' φ y - s ^ 2 * L ^ 2)) * P {y} =
-        ENNReal.ofReal (Real.exp (-s * D' φ y - s ^ 2 * L ^ 2) * P.real {y}) := by
-      rw [ENNReal.ofReal_mul (Real.exp_pos _).le, ofReal_measureReal (measure_ne_top _ _)]
-    simp_rw [hterm]
-    rw [← ENNReal.ofReal_sum_of_nonneg (fun y _ ↦ by positivity), ENNReal.ofReal_le_one]
-    have hexp (y : ι → Bool) : Real.exp (-s * D' φ y) ≤ 1 - s * D' φ y + s ^ 2 * L ^ 2 := by
-      have hD := hD'L φ y
-      have hab : |-s * D' φ y| ≤ 1 := by
-        rw [abs_mul, abs_neg, abs_of_pos hs]
-        nlinarith [abs_nonneg (D' φ y)]
-      have h := Real.abs_exp_sub_one_sub_id_le hab
-      have hD2 : D' φ y ^ 2 ≤ L ^ 2 := sq_le_sq' (abs_le.1 hD).1 (abs_le.1 hD).2
-      have hsq : (-s * D' φ y) ^ 2 ≤ s ^ 2 * L ^ 2 := by
-        calc (-s * D' φ y) ^ 2 = s ^ 2 * D' φ y ^ 2 := by ring
-          _ ≤ s ^ 2 * L ^ 2 := by gcongr
-      linarith [(abs_le.1 h).2]
-    calc ∑ y, Real.exp (-s * D' φ y - s ^ 2 * L ^ 2) * P.real {y}
-        = Real.exp (-(s ^ 2 * L ^ 2)) * ∑ y, P.real {y} * Real.exp (-s * D' φ y) := by
-          rw [Finset.mul_sum]
-          refine Finset.sum_congr rfl fun y _ ↦ ?_
-          rw [sub_eq_add_neg, Real.exp_add]
-          ring
-      _ ≤ Real.exp (-(s ^ 2 * L ^ 2)) * ∑ y, P.real {y} * (1 - s * D' φ y + s ^ 2 * L ^ 2) := by
-          gcongr with y
-          exact hexp y
-      _ = Real.exp (-(s ^ 2 * L ^ 2)) * (1 + s ^ 2 * L ^ 2 - s * ∑ y, P.real {y} * D' φ y) := by
-          congr 1
-          have (y : ι → Bool) : P.real {y} * (1 - s * D' φ y + s ^ 2 * L ^ 2) =
-              P.real {y} * (1 + s ^ 2 * L ^ 2) - s * (P.real {y} * D' φ y) := by ring
-          simp_rw [this]
-          rw [Finset.sum_sub_distrib, ← Finset.sum_mul, ← Finset.mul_sum, hsum1, one_mul]
-      _ ≤ Real.exp (-(s ^ 2 * L ^ 2)) * (1 + s ^ 2 * L ^ 2) := by
-          gcongr
-          nlinarith [hmean φ hφ]
-      _ ≤ 1 := by
-          calc Real.exp (-(s ^ 2 * L ^ 2)) * (1 + s ^ 2 * L ^ 2)
-              ≤ Real.exp (-(s ^ 2 * L ^ 2)) * Real.exp (s ^ 2 * L ^ 2) := by
-                gcongr
-                linarith [Real.add_one_le_exp (s ^ 2 * L ^ 2)]
-            _ = 1 := by rw [← Real.exp_add, neg_add_cancel, Real.exp_zero]
+  have hmean' (φ : ι → ℝ) (hφ : φ ∈ univ.pi fun _ ↦ Ioo 0 1) : 0 ≤ ∫ x, D' φ x ∂P := by
+    rw [integral_fintype Integrable.of_finite]
+    simpa only [smul_eq_mul] using hmean φ hφ
   -- the exponential test supermartingales, for `s m = 1 / ((m + 1) L)`
   set sm : ℕ → ℝ := fun m ↦ 1 / ((m + 1) * L) with hsm
   have hsm0 (m : ℕ) : 0 < sm m := by
     simp only [hsm]
     positivity
-  have hsmL (m : ℕ) : sm m * L ≤ 1 := by
-    simp only [hsm]
-    rw [div_mul_eq_mul_div, one_mul, div_le_one (by positivity)]
-    nlinarith [(Nat.cast_nonneg m : (0 : ℝ) ≤ m)]
   set g : ℕ → ℕ → (ℕ → ι → Bool) → (ι → Bool) → ℝ≥0∞ := fun m k ω y ↦
-    ENNReal.ofReal (Real.exp (-sm m * D' (ψhat k ω) y - sm m ^ 2 * L ^ 2)) with hg
+    ENNReal.ofReal (Real.exp (-sm m * D' (ψhat k ω) y - sm m ^ 2 * L ^ 2 / 2)) with hg
   have hW (m : ℕ) : IsTestSupermartingale (fun n ω ↦ ∏ k ∈ Finset.range n, g m k ω (ω k))
       Filtration.piLT {Measure.infinitePi fun _ : ℕ ↦ P} := by
+    -- given the past, the factor is an e-variable by Hoeffding's lemma
     refine (isTestSupermartingale_prod_sequentialNull (S₁ := fun _ _ ↦ {P}) (r := g m)
-      (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self) (fun k ↦ ?_) fun k ω ↦
+      (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self)
+      (measurable_uncurry_comp_estimate hψhat fun φ y ↦
+        ENNReal.ofReal (Real.exp (-sm m * D' φ y - sm m ^ 2 * L ^ 2 / 2))) fun k ω ↦
         ⟨measurable_of_countable _, fun ν hν ↦ ?_⟩).anti_set (singleton_subset_iff.2
           (infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦ rfl))
-    · refine @measurable_from_prod_countable_left _ _ _ (Filtration.piLT k) _ _ _ _ _
-        fun y ↦ measurable_piLT_of_dependsOn_of_finite fun x x' hxx' ↦ ?_
-      simp only [Function.uncurry_apply_pair, hg]
-      rw [(hψhat k).dependsOn_of_piLT hxx']
-    · rw [mem_singleton_iff.1 hν]
-      exact hg1 (sm m) (hsm0 m) (hsmL m) _ (hψhat01 k ω)
+    rw [mem_singleton_iff.1 hν]
+    exact lintegral_ofReal_exp_neg_mul_sub_le_one (measurable_of_countable _).aemeasurable
+      (.of_forall fun y ↦ abs_le.1 (hD'L _ y)) (hmean' _ (hψhat01 k ω)) (hsm0 m).le
   -- Ville's inequality: almost surely, each of them is bounded
   have hbdd : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ P), ∀ m, ∃ N : ℕ, ∀ n,
-      ∏ k ∈ Finset.range n, g m k ω (ω k) < N := by
-    rw [ae_all_iff]
-    intro m
-    have hE := (hW m).isEProcess (by rintro _ rfl; infer_instance)
-    rw [ae_iff]
-    refine le_antisymm (ge_of_tendsto' ENNReal.tendsto_inv_nat_nhds_zero fun N ↦ ?_) zero_le
-    refine (measure_mono fun ω hω ↦ ?_).trans
-      ((hE.isLevelStoppingTime_hittingAfter (N : ℝ≥0∞)⁻¹).measure_lt_top_le _ rfl)
-    simp only [mem_ofPred_eq, not_exists, not_forall, not_lt] at hω
-    obtain ⟨n, hn⟩ := hω N
-    simp only [mem_ofPred_eq, inv_inv]
-    exact lt_of_le_of_lt (hittingAfter_le_of_mem (Nat.zero_le n) (mem_Ici.2 hn))
-      (WithTop.coe_lt_top n)
+      ∏ k ∈ Finset.range n, g m k ω (ω k) < N :=
+    ae_all_iff.2 fun m ↦ IsEProcess.ae_exists_forall_lt_natCast
+      ((hW m).isEProcess (by rintro _ rfl; infer_instance)) (mem_singleton _)
   filter_upwards [hcons, hbdd] with ω hc hb ε hε
   -- eventually the projection is in the cube, and is not replaced
   have hgoodk : ∀ᶠ k in atTop, θ' (ψhat k ω) = lam (ψhat k ω) := by
@@ -691,7 +547,7 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
       ∑ k ∈ Finset.range n, D' (ψhat k ω) (ω k) := by
     have h := hN n
     have hW_eq : ∏ k ∈ Finset.range n, g m k ω (ω k) = ENNReal.ofReal (Real.exp
-        (∑ k ∈ Finset.range n, (-s * D' (ψhat k ω) (ω k) - s ^ 2 * L ^ 2))) := by
+        (∑ k ∈ Finset.range n, (-s * D' (ψhat k ω) (ω k) - s ^ 2 * L ^ 2 / 2))) := by
       rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
     rw [hW_eq] at h
     have hN0 : (0 : ℝ) < N := by
@@ -703,7 +559,8 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
       ← Finset.mul_sum] at h'
     have : -(Real.log N) / s ≤ ∑ k ∈ Finset.range n, D' (ψhat k ω) (ω k) + n * (s * L ^ 2) := by
       rw [div_le_iff₀ hs0]
-      nlinarith
+      nlinarith [mul_nonneg (Nat.cast_nonneg n : (0 : ℝ) ≤ n)
+        (mul_nonneg (sq_nonneg s) (sq_nonneg L))]
     linarith
   obtain ⟨n₀, hn₀⟩ : ∃ n₀ : ℕ, 2 * (Real.log N / s + R₀) / ε ≤ n₀ := exists_nat_ge _
   filter_upwards [eventually_ge_atTop n₀] with n hn
@@ -717,7 +574,6 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
   have h1 := hlower n
   have h2 := hdiff n
   have hneg : -(Real.log N) / s = -(Real.log N / s) := by ring
-  change -ε * n ≤ ∑ k ∈ Finset.range n, Dk k
   rw [hsplit]
   nlinarith
 
@@ -779,7 +635,8 @@ theorem ae_tendsto_log_minPlugInLikelihoodRatio_div [Finite κ] {C : κ → Set 
       exact klInf_le_klIntegral (mem_image_of_mem _ (mem_iUnion.2 ⟨j₀, hlam j₀ ψ hψ⟩))
     have hD := fun j ↦ ae_forall_eventually_neg_mul_le_sum_log_sub (hlam01 j) (hlam j) (hmin j)
       hψhat hψhat01 hψ hcons
-    filter_upwards [ae_all_iff.2 fun j ↦ ae_tendsto_sum_log_div ψ (hlam01 j ψ hψ), hcons,
+    filter_upwards [ae_tendsto_inf'_sum_log_div (P := fun j ↦ prodBernoulli (lam j ψ))
+      fun j ↦ prodBernoulli_absolutelyContinuous ψ (hlam01 j ψ hψ), hcons,
       ae_all_iff.2 hD] with ω hO hc hDω
     have hV := tendsto_sum_log_sub_div hψ (fun k ↦ hψhat01 k ω) hc ω
     refine hKK₀.trans (le_of_forall_lt_imp_le_of_dense fun c hc' ↦ ?_)
@@ -792,9 +649,7 @@ theorem ae_tendsto_log_minPlugInLikelihoodRatio_div [Finite κ] {C : κ → Set 
     have hε0 : 0 < ε := by rw [hε]; linarith
     refine le_liminf_of_le (by isBoundedDefault) ?_
     filter_upwards [eventually_ge_atTop 1,
-      Filter.eventually_all.2 fun j ↦ (hO j).eventually (eventually_ge_nhds (by linarith :
-        (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal - ε <
-          (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal)),
+      hO.eventually (eventually_ge_nhds (by linarith : K₀ - ε < K₀)),
       hV.eventually (eventually_ge_nhds (by linarith : -ε < 0)),
       Filter.eventually_all.2 fun j ↦ hDω j ε hε0] with n hn hOn hVn hDn
     have hn0 : (0 : ℝ) < n := by exact_mod_cast hn
@@ -819,9 +674,10 @@ theorem ae_tendsto_log_minPlugInLikelihoodRatio_div [Finite κ] {C : κ → Set 
       ring
     have hOj : n * (K₀ - ε) ≤ ∑ k ∈ Finset.range n, Real.log ((prodBernoulli ψ).real {ω k} /
         (prodBernoulli (lam j ψ)).real {ω k}) := by
-      have h1 := (le_div_iff₀ hn0).1 (hOn j)
-      have h2 : K₀ ≤ (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal :=
-        Finset.inf'_le _ (Finset.mem_univ j)
+      have h1 := (le_div_iff₀ hn0).1 hOn
+      have h2 := Finset.inf'_le (fun j ↦ ∑ k ∈ Finset.range n,
+        Real.log ((prodBernoulli ψ).real {ω k} / (prodBernoulli (lam j ψ)).real {ω k}))
+        (Finset.mem_univ j)
       nlinarith
     have hVj := (le_div_iff₀ hn0).1 hVn
     have hDj := hDn j

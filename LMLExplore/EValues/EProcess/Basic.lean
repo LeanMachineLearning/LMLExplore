@@ -97,6 +97,8 @@ e-processes, so that thresholding an e-process at `α⁻¹` is a level-`α` sequ
   `ProbabilityTheory.IsEProcess.measure_exists_inv_le_le`,
   `ProbabilityTheory.IsEProcess.measure_inv_le_stoppedValueLimsup_le`: Ville's inequality for
   e-processes, uniformly over time and at a stopping time.
+* `ProbabilityTheory.IsEProcess.ae_exists_forall_lt_natCast`: an e-process is almost surely
+  bounded.
 
 ## Implementation notes
 
@@ -477,6 +479,16 @@ theorem IsEProcess.measure_exists_le_le (hE : IsEProcess E ℱ S) (hP : P ∈ S)
     [IsProbabilityMeasure P] (c : ℝ≥0∞) :
     P {ω | ∃ n, c ≤ E n ω} ≤ c⁻¹ := by
   simpa using hE.measure_exists_inv_le_le hP c⁻¹
+
+/-- **An e-process is almost surely bounded.** Under every probability measure of the null, by
+Ville's inequality, almost surely an e-process stays below some natural number. -/
+theorem IsEProcess.ae_exists_forall_lt_natCast (hE : IsEProcess E ℱ S) (hP : P ∈ S)
+    [IsProbabilityMeasure P] : ∀ᵐ ω ∂P, ∃ N : ℕ, ∀ n, E n ω < N := by
+  rw [ae_iff]
+  refine le_antisymm (ge_of_tendsto' ENNReal.tendsto_inv_nat_nhds_zero fun N ↦ ?_) zero_le
+  refine (measure_mono fun ω hω ↦ ?_).trans (hE.measure_exists_le_le hP N)
+  simp only [mem_ofPred_eq, not_exists, not_forall, not_lt] at hω
+  exact hω N
 
 /-- **Ville's inequality for e-processes at a stopping time.** Under every probability measure `P`
 of the null, the probability that an e-process is at least `α⁻¹` at a stopping time with values in

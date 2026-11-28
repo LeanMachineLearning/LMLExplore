@@ -33,10 +33,15 @@ parameters (Statlib's `klDiv_pi`). Under `prodBernoulli θ`, the likelihood rati
 
 ## Main statements
 
-* `ProbabilityTheory.prodBernoulli_singleton`: the mass of a point, for `θ` in `[0, 1] ^ ι`.
+* `ProbabilityTheory.prodBernoulli_singleton`,
+  `ProbabilityTheory.measureReal_prodBernoulli_singleton`: the mass of a point, for `θ` in
+  `[0, 1] ^ ι`, and its real value.
+* `ProbabilityTheory.pow_card_le_measureReal_prodBernoulli_singleton`: the real mass of a point is
+  at least `δ ^ card ι` for `θ` in `[δ, 1 - δ] ^ ι`.
 * `ProbabilityTheory.prodBernoulli_singleton_ne_zero`: every point is charged for `θ` in
   `(0, 1) ^ ι`, so that `ProbabilityTheory.prodBernoulli_absolutelyContinuous`: `prodBernoulli θ`
-  then dominates every law of coins.
+  then dominates every law of coins; `ProbabilityTheory.exists_pos_forall_le_and_le_one_sub`: the
+  coordinates of a point of the open cube are bounded away from `0` and `1`.
 * `ProbabilityTheory.klDiv_prodBernoulli`: the relative entropy is the sum of the binary relative
   entropies of the parameters; `ProbabilityTheory.toReal_klDiv_prodBernoulli`: its real value, for
   `θ` in `(0, 1) ^ ι`.
@@ -123,6 +128,42 @@ theorem prodBernoulli_singleton_ne_zero {θ : ι → ℝ} (hθ : θ ∈ univ.pi 
     (x : ι → Bool) : prodBernoulli θ {x} ≠ 0 := by
   rw [prodBernoulli_singleton (fun i _ ↦ Ioo_subset_Icc_self (hθ i trivial)) x]
   exact (ENNReal.ofReal_pos.2 (prod_ite_pos hθ x)).ne'
+
+/-- The real mass of a point under `prodBernoulli θ`, for `θ` in the cube `[0, 1] ^ ι`. -/
+theorem measureReal_prodBernoulli_singleton {θ : ι → ℝ} (hθ : θ ∈ univ.pi fun _ ↦ Icc 0 1)
+    (x : ι → Bool) : (prodBernoulli θ).real {x} = ∏ i, if x i then θ i else 1 - θ i := by
+  rw [Measure.real, prodBernoulli_singleton hθ, ENNReal.toReal_ofReal (prod_ite_nonneg hθ x)]
+
+/-- Every point has a positive real mass under `prodBernoulli θ` for `θ` in the open cube. -/
+theorem measureReal_prodBernoulli_singleton_pos {θ : ι → ℝ} (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1)
+    (x : ι → Bool) : 0 < (prodBernoulli θ).real {x} :=
+  ENNReal.toReal_pos (prodBernoulli_singleton_ne_zero hθ x) (measure_ne_top _ _)
+
+/-- For `θ` in the cube `[δ, 1 - δ] ^ ι`, with `δ ≥ 0`, every point has a real mass at least
+`δ ^ card ι` under `prodBernoulli θ`. -/
+theorem pow_card_le_measureReal_prodBernoulli_singleton {δ : ℝ} (hδ : 0 ≤ δ) {θ : ι → ℝ}
+    (hθ : ∀ i, θ i ∈ Icc δ (1 - δ)) (x : ι → Bool) :
+    δ ^ Fintype.card ι ≤ (prodBernoulli θ).real {x} := by
+  rw [measureReal_prodBernoulli_singleton fun i _ ↦
+      ⟨hδ.trans (hθ i).1, (hθ i).2.trans (by linarith)⟩, ← Finset.card_univ,
+    ← Finset.prod_const]
+  exact Finset.prod_le_prod₀ (fun _ _ ↦ hδ) fun i _ ↦ by
+    split_ifs <;> linarith [(hθ i).1, (hθ i).2]
+
+omit [Fintype ι] in
+/-- A point of the open cube `(0, 1) ^ ι`, for `ι` finite, has its coordinates and their
+complements bounded below by a common positive constant. -/
+theorem exists_pos_forall_le_and_le_one_sub [Finite ι] {θ : ι → ℝ}
+    (hθ : θ ∈ univ.pi fun _ ↦ Ioo 0 1) : ∃ a : ℝ, 0 < a ∧ ∀ i, a ≤ θ i ∧ a ≤ 1 - θ i := by
+  have := Fintype.ofFinite ι
+  rcases isEmpty_or_nonempty ι with h | h
+  · exact ⟨1, one_pos, fun i ↦ isEmptyElim i⟩
+  refine ⟨Finset.univ.inf' Finset.univ_nonempty fun i ↦ min (θ i) (1 - θ i), ?_, fun i ↦ ?_⟩
+  · rw [Finset.lt_inf'_iff]
+    intro i _
+    exact lt_min (hθ i trivial).1 (by linarith [(hθ i trivial).2])
+  · have := Finset.inf'_le (fun i ↦ min (θ i) (1 - θ i)) (Finset.mem_univ i)
+    exact ⟨this.trans (min_le_left _ _), this.trans (min_le_right _ _)⟩
 
 /-- The laws of coins with parameters in the open cube dominate every law of coins. -/
 theorem prodBernoulli_absolutelyContinuous (ψ : ι → ℝ) {θ : ι → ℝ}

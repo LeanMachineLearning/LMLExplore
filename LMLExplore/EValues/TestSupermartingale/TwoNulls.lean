@@ -87,15 +87,6 @@ namespace ProbabilityTheory
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} [MeasurableSingletonClass 𝓧]
   {H₀ H₁ : Set (Measure 𝓧)} {M M' : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
 
-/-- The countable mixtures of probability measures are probability measures. -/
-private lemma isProbabilityMeasure_of_mem_sigmaConvexHull {Ω : Type*} {mΩ : MeasurableSpace Ω}
-    {S : Set (Measure Ω)} (hS : ∀ P ∈ S, IsProbabilityMeasure P) {R : Measure Ω}
-    (hR : R ∈ sigmaConvexHull S) : IsProbabilityMeasure R := by
-  obtain ⟨w, Qs, hw, hQs, rfl⟩ := mem_sigmaConvexHull_iff.1 hR
-  constructor
-  rw [Measure.sum_apply _ MeasurableSet.univ]
-  simp [fun i ↦ (hS _ (hQs i)).measure_univ, hw]
-
 /-- The test of a test supermartingale for the i.i.d. null of laws that charge every point has
 level `β` under the i.i.d. law of every probability measure of the effective null. -/
 private lemma isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet
@@ -108,6 +99,124 @@ private lemma isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet
   (((isTestSupermartingale_sequentialNull_effectiveSet_of_iidNull hH₁ hpos hM').anti_set
     (singleton_subset_iff.2 (infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦
       hR'))).isEProcess (by rintro _ rfl; infer_instance)).isLevelStoppingTime_hittingAfter β
+
+section Bets
+
+variable {Ω : Type*} {𝓖 : MeasurableSpace Ω} {mΩ : MeasurableSpace Ω} {Q₀ R₀ : Measure Ω}
+  [IsProbabilityMeasure Q₀] [IsProbabilityMeasure R₀] {A s : Set Ω} {K : ℝ≥0∞}
+
+omit [IsProbabilityMeasure Q₀] in
+/-- **The bet `∞` on an event `A`.** Let the expected logarithm under `Q₀` of every
+`𝓖`-measurable bet `Y` with `∫⁻ ω in s, Y ω ∂R₀ ≤ 1` be at most `K`. If `A` is `𝓖`-measurable,
+charged by `Q₀` and `R₀ (A ∩ s) = 0`, then `K = ∞`: the bet `∞` on `A` and `1` off `A` is
+allowed. -/
+private lemma eq_top_of_forall_eintegral_log_le (hAT : MeasurableSet[𝓖] A) (hAm : MeasurableSet A)
+    (hW : ∀ Y : Ω → ℝ≥0∞, Measurable[𝓖] Y → ∫⁻ ω in s, Y ω ∂R₀ ≤ 1 →
+      ∫ᵉ ω, ENNReal.log (Y ω) ∂Q₀ ≤ (K : EReal))
+    (hQA : Q₀ A ≠ 0) (hRA : R₀ (A ∩ s) = 0) : K = ⊤ := by
+  have hK := hW (fun ω ↦ A.indicator (fun _ ↦ ∞) ω + 1)
+    ((measurable_const.indicator hAT).add measurable_const) (by
+      rw [lintegral_add_left (measurable_const.indicator hAm), lintegral_indicator_const hAm,
+        Measure.restrict_apply hAm, hRA, mul_zero, zero_add, lintegral_one,
+        Measure.restrict_apply_univ]
+      exact prob_le_one)
+  have hlog (ω : Ω) : ENNReal.log (A.indicator (fun _ ↦ ∞) ω + 1) =
+      ((A.indicator (fun _ ↦ ∞) ω : ℝ≥0∞) : EReal) := by
+    by_cases hω : ω ∈ A <;> simp [hω]
+  rwa [eintegral_congr hlog, eintegral_coe_ennreal, lintegral_indicator_const hAm,
+    ENNReal.top_mul hQA, EReal.coe_ennreal_top, top_le_iff, EReal.coe_ennreal_eq_top_iff] at hK
+
+/-- **The bet `1/β` on an event `A` that holds almost surely.** Under the hypothesis `hW` of
+`eq_top_of_forall_eintegral_log_le`, if `A` holds `Q₀`-almost surely and `R₀ (A ∩ s) ≤ β`, with
+`0 < β < 1`, then `kl(1, β) ≤ K`. -/
+private lemma klBer_one_le_of_forall_eintegral_log_le (hAT : MeasurableSet[𝓖] A)
+    (hAm : MeasurableSet A)
+    (hW : ∀ Y : Ω → ℝ≥0∞, Measurable[𝓖] Y → ∫⁻ ω in s, Y ω ∂R₀ ≤ 1 →
+      ∫ᵉ ω, ENNReal.log (Y ω) ∂Q₀ ≤ (K : EReal))
+    {b : ℝ} (hb : 0 < b) (hb1 : b < 1) (hAc : Q₀ Aᶜ = 0) (hRA : R₀ (A ∩ s) ≤ ENNReal.ofReal b) :
+    klBer 1 b ≤ K := by
+  have hindT : Measurable[𝓖] (A.indicator (1 : Ω → ℝ≥0∞)) := measurable_const.indicator hAT
+  have hK := hW (testBet b 1 (A.indicator 1)) (Measurable.testBet hindT)
+    (lintegral_testBet_le_one (measurable_one.indicator hAm) (Set.indicator_le_self A 1)
+      ⟨hb, hb1⟩ hb1.le le_rfl (by rw [Measure.restrict_apply_univ]; exact prob_le_one)
+      (by rwa [lintegral_indicator_one hAm, Measure.restrict_apply hAm]))
+  have hae : ∀ᵐ ω ∂Q₀, ENNReal.log (testBet b 1 (A.indicator 1) ω) =
+      ((-Real.log b : ℝ) : EReal) := by
+    filter_upwards [show ∀ᵐ ω ∂Q₀, ω ∈ A from ae_iff.2 hAc] with ω hω
+    rw [testBet_indicator_of_mem hω, ENNReal.log_ofReal_of_pos (by positivity), div_eq_inv_mul,
+      mul_one, Real.log_inv]
+  rw [eintegral_congr_ae hae, eintegral_const, measure_univ, EReal.coe_ennreal_one,
+    mul_one] at hK
+  -- `kl(1, β) = log (1/β)`
+  have hkl : klBer 1 b = ENNReal.ofReal (-Real.log b) := by
+    have h := klBer_zero_left (q := 1 - b) (by linarith)
+    rwa [← klBer_one_sub_one_sub, sub_zero, sub_sub_cancel] at h
+  rw [hkl, ← EReal.coe_ennreal_le_coe_ennreal_iff, EReal.coe_ennreal_ofReal,
+    max_eq_left (neg_nonneg.2 (Real.log_nonpos hb.le hb1.le))]
+  exact hK
+
+/-- **The bet of the test of level `β` and power `1 - α` on an event `A`.** Under the hypothesis
+`hW` of `eq_top_of_forall_eintegral_log_le`, if `1 - α ≤ Q₀ A` and `R₀ (A ∩ s) ≤ β`, with
+`0 < α`, `0 < β` and `β ≤ 1 - α`, then `kl(1 - α, β) ≤ K`. -/
+private lemma klBer_le_of_forall_eintegral_log_le_of_pos (hAT : MeasurableSet[𝓖] A)
+    (hAm : MeasurableSet A)
+    (hW : ∀ Y : Ω → ℝ≥0∞, Measurable[𝓖] Y → ∫⁻ ω in s, Y ω ∂R₀ ≤ 1 →
+      ∫ᵉ ω, ENNReal.log (Y ω) ∂Q₀ ≤ (K : EReal))
+    {a b : ℝ} (ha : 0 < a) (hb : 0 < b) (hba : b ≤ 1 - a) (hQA : ENNReal.ofReal (1 - a) ≤ Q₀ A)
+    (hRA : R₀ (A ∩ s) ≤ ENNReal.ofReal b) : klBer (1 - a) b ≤ K := by
+  have h1 := klBer_le_eintegral_log_testBet (Q := Q₀) (measurable_one.indicator hAm)
+    (Set.indicator_le_self A 1) hb hba (by linarith) (by rwa [lintegral_indicator_one hAm])
+  have hindT : Measurable[𝓖] (A.indicator (1 : Ω → ℝ≥0∞)) := measurable_const.indicator hAT
+  have h2 := hW (testBet b (1 - a) (A.indicator 1)) (Measurable.testBet hindT)
+    (lintegral_testBet_le_one (measurable_one.indicator hAm) (Set.indicator_le_self A 1)
+      ⟨hb, by linarith⟩ hba (by linarith) (by rw [Measure.restrict_apply_univ]; exact prob_le_one)
+      (by rwa [lintegral_indicator_one hAm, Measure.restrict_apply hAm]))
+  exact EReal.coe_ennreal_le_coe_ennreal_iff.1 (h1.trans h2)
+
+/-- **A bet on the event of the second rejection.** Under the hypothesis `hW` of
+`eq_top_of_forall_eintegral_log_le`, if `1 - α ≤ Q₀ A`, `Q₀ Aᶜ ≤ α` and `R₀ (A ∩ s) ≤ β`, with
+`α, β ≥ 0` and `α + β ≤ 1`, then `kl(1 - α, β) ≤ K`: bet on `A`, with the bets of
+`eq_top_of_forall_eintegral_log_le`, `klBer_one_le_of_forall_eintegral_log_le` and
+`klBer_le_of_forall_eintegral_log_le_of_pos` when `β = 0`, `α = 0` or both are positive. -/
+private lemma klBer_le_of_forall_eintegral_log_le (hAT : MeasurableSet[𝓖] A)
+    (hAm : MeasurableSet A)
+    (hW : ∀ Y : Ω → ℝ≥0∞, Measurable[𝓖] Y → ∫⁻ ω in s, Y ω ∂R₀ ≤ 1 →
+      ∫ᵉ ω, ENNReal.log (Y ω) ∂Q₀ ≤ (K : EReal))
+    {a b : ℝ} (ha0 : 0 ≤ a) (hb0 : 0 ≤ b) (hab : a + b ≤ 1)
+    (hQA : ENNReal.ofReal (1 - a) ≤ Q₀ A) (hAc : Q₀ Aᶜ ≤ ENNReal.ofReal a)
+    (hRA : R₀ (A ∩ s) ≤ ENNReal.ofReal b) : klBer (1 - a) b ≤ K := by
+  rcases eq_or_ne (klBer (1 - a) b) 0 with h0 | h0
+  · rw [h0]
+    exact zero_le
+  have hba : b < 1 - a := lt_of_le_of_ne (by linarith) fun h ↦ h0 (h ▸ klBer_self _)
+  rcases hb0.eq_or_lt with hb | hb
+  · rw [eq_top_of_forall_eintegral_log_le hAT hAm hW
+      ((ENNReal.ofReal_pos.2 (by linarith)).trans_le hQA).ne'
+      (nonpos_iff_eq_zero.1 (hRA.trans_eq (by rw [← hb, ENNReal.ofReal_zero])))]
+    exact le_top
+  rcases ha0.eq_or_lt with ha | ha
+  · rw [← ha, sub_zero]
+    exact klBer_one_le_of_forall_eintegral_log_le hAT hAm hW hb (by linarith)
+      (nonpos_iff_eq_zero.1 (hAc.trans_eq (by rw [← ha, ENNReal.ofReal_zero]))) hRA
+  · exact klBer_le_of_forall_eintegral_log_le_of_pos hAT hAm hW ha hb hba.le hQA hRA
+
+end Bets
+
+/-- On a countable alphabet, the largest e-power of a set `H₁` of probability measures under a
+probability measure `Q` is the infimum of the relative entropies from `Q` to the countable
+mixtures of members of `H₁`. -/
+private lemma toENNReal_maxEPower_eq_iInf_klDiv [Countable 𝓧]
+    (hH₁ : ∀ P ∈ H₁, IsProbabilityMeasure P) (Q : Measure 𝓧) [IsProbabilityMeasure Q] :
+    (maxEPower Q H₁).toENNReal = ⨅ R ∈ sigmaConvexHull H₁, klDiv Q R := by
+  rw [maxEPower_eq_iInf_klIntegral_sigmaConvexHull (μ := Measure.count)
+    (fun P _ s hs ↦ by rw [Measure.count_eq_zero_iff] at hs; simp [hs])
+    (fun P hP ↦ (hH₁ P hP).measure_univ.le)]
+  have hR : ∀ R ∈ sigmaConvexHull H₁, klIntegral Q R = (klDiv Q R : EReal) := fun R hR ↦ by
+    have := isProbabilityMeasure_of_mem_sigmaConvexHull hH₁ hR
+    exact klIntegral_eq_klDiv (by simp)
+  rw [iInf_congr fun R ↦ iInf_congr fun hR' ↦ hR R hR']
+  simp_rw [← EReal.coe_ennreal_iInf]
+  rw [EReal.toENNReal_coe]
 
 /-- **A test between two nulls makes at least `kl(1 - α, β) / a₁` observations**
 [EVR26, Note 32, Statement 1]. On a countable alphabet, let `H₁` be a set of probability measures
@@ -197,91 +306,18 @@ theorem klBer_div_maxEPower_le_lintegral_min_hittingAfter [Countable 𝓧]
   have hmain : ∀ R ∈ sigmaConvexHull H₁, klBer (1 - a) b ≤ m * klDiv Q R := by
     intro R hR
     have := isProbabilityMeasure_of_mem_sigmaConvexHull hH₁ hR
-    set R₀ := Measure.infinitePi fun _ : ℕ ↦ R
+    refine klBer_le_of_forall_eintegral_log_le (R₀ := Measure.infinitePi fun _ : ℕ ↦ R) hAT hAm
+      (hW R hR) ha0 hb0 hab hQA hAc ?_
     -- under the i.i.d. law of `R`, the test stops on `A` with probability at most `β`
-    have hRA : R₀ (A ∩ s) ≤ ENNReal.ofReal b := by
-      rw [← hβb]
-      refine (measure_mono fun ω hω ↦ ?_).trans
-        ((isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet hH₁ hpos hM'
-          (isSigmaConvex_effectiveSet.sigmaConvexHull_subset subset_effectiveSet hR)
-          β).measure_lt_top_le R₀ rfl)
-      have h2 : min (τ ω) (τ' ω) ≠ ⊤ := hω.2
-      rw [min_eq_right (show τ' ω ≤ τ ω from hω.1)] at h2
-      exact lt_top_iff_ne_top.2 h2
-    have hRs : R₀.restrict s univ ≤ 1 := by
-      rw [Measure.restrict_apply_univ]
-      exact prob_le_one
-    have hind1 (ω : ℕ → 𝓧) : A.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞) ω ≤ 1 := by
-      by_cases hω : ω ∈ A <;> simp [hω]
-    have hindT : Measurable[hT.measurableSpace] (A.indicator (1 : (ℕ → 𝓧) → ℝ≥0∞)) :=
-      measurable_const.indicator hAT
-    have hRind : ∫⁻ ω, A.indicator 1 ω ∂R₀.restrict s ≤ ENNReal.ofReal b := by
-      rw [lintegral_indicator_one hAm, Measure.restrict_apply hAm]
-      exact hRA
-    rcases eq_or_ne (klBer (1 - a) b) 0 with h0 | h0
-    · rw [h0]
-      exact zero_le
-    have hba : b < 1 - a := lt_of_le_of_ne (by linarith) fun h ↦ h0 (h ▸ klBer_self _)
-    rcases hb0.eq_or_lt with hb | hb
-    · -- `β = 0`: the bet `∞` on `A` and `1` off `A`, so that `m * KL(Q ‖ R) = ∞`
-      suffices h : m * klDiv Q R = ⊤ by
-        rw [h]
-        exact le_top
-      have hQA0 : Q₀ A ≠ 0 := ((ENNReal.ofReal_pos.2 (by linarith)).trans_le hQA).ne'
-      have hK := hW R hR (fun ω ↦ A.indicator (fun _ ↦ ∞) ω + 1)
-        ((measurable_const.indicator hAT).add measurable_const) (by
-          rw [lintegral_add_left (measurable_const.indicator hAm), lintegral_indicator_const hAm,
-            Measure.restrict_apply hAm, show R₀ (A ∩ s) = 0 from
-              nonpos_iff_eq_zero.1 (hRA.trans_eq (by rw [← hb, ENNReal.ofReal_zero])),
-            mul_zero, zero_add, lintegral_one]
-          exact hRs)
-      have hlog (ω : ℕ → 𝓧) : ENNReal.log (A.indicator (fun _ ↦ ∞) ω + 1) =
-          ((A.indicator (fun _ ↦ ∞) ω : ℝ≥0∞) : EReal) := by
-        by_cases hω : ω ∈ A <;> simp [hω]
-      rw [eintegral_congr hlog, eintegral_coe_ennreal, lintegral_indicator_const hAm,
-        ENNReal.top_mul hQA0, EReal.coe_ennreal_top, top_le_iff,
-        EReal.coe_ennreal_eq_top_iff] at hK
-      exact hK
-    rcases ha0.eq_or_lt with ha | ha
-    · -- `α = 0`: the bet `1/β` on `A`, which holds almost surely under the i.i.d. law of `Q`
-      have hAc0 : Q₀ Aᶜ = 0 :=
-        nonpos_iff_eq_zero.1 (hAc.trans_eq (by rw [← ha, ENNReal.ofReal_zero]))
-      have hK := hW R hR (testBet b 1 (A.indicator 1)) (Measurable.testBet hindT)
-        (lintegral_testBet_le_one (measurable_one.indicator hAm) hind1 ⟨hb, by linarith⟩
-          (by linarith) le_rfl hRs hRind)
-      have hae : ∀ᵐ ω ∂Q₀, ENNReal.log (testBet b 1 (A.indicator 1) ω) =
-          ((-Real.log b : ℝ) : EReal) := by
-        filter_upwards [show ∀ᵐ ω ∂Q₀, ω ∈ A from ae_iff.2 hAc0] with ω hω
-        rw [testBet_indicator_of_mem hω, ENNReal.log_ofReal_of_pos (by positivity), div_eq_inv_mul,
-          mul_one, Real.log_inv]
-      rw [eintegral_congr_ae hae, eintegral_const, measure_univ, EReal.coe_ennreal_one,
-        mul_one] at hK
-      -- `kl(1, β) = log (1/β)`
-      have hkl : klBer 1 b = ENNReal.ofReal (-Real.log b) := by
-        have h := klBer_zero_left (q := 1 - b) (by linarith)
-        rwa [← klBer_one_sub_one_sub, sub_zero, sub_sub_cancel] at h
-      rw [← ha, sub_zero, hkl, ← EReal.coe_ennreal_le_coe_ennreal_iff, EReal.coe_ennreal_ofReal,
-        max_eq_left (neg_nonneg.2 (Real.log_nonpos hb0 (by linarith)))]
-      exact hK
-    · -- the general case: the bet on `A` of the test of level `β` with power `1 - α`
-      have h1 := klBer_le_eintegral_log_testBet (Q := Q₀) (measurable_one.indicator hAm) hind1 hb
-        hba.le (by linarith) (by rwa [lintegral_indicator_one hAm])
-      have h2 := hW R hR (testBet b (1 - a) (A.indicator 1)) (Measurable.testBet hindT)
-        (lintegral_testBet_le_one (measurable_one.indicator hAm) hind1 ⟨hb, by linarith⟩ hba.le
-          (by linarith) hRs hRind)
-      exact EReal.coe_ennreal_le_coe_ennreal_iff.1 (h1.trans h2)
-  -- the largest e-power is the infimum over the countable mixtures of the relative entropy
-  have hdual : (maxEPower Q H₁).toENNReal = ⨅ R ∈ sigmaConvexHull H₁, klDiv Q R := by
-    rw [maxEPower_eq_iInf_klIntegral_sigmaConvexHull (μ := Measure.count)
-      (fun P _ s hs ↦ by rw [Measure.count_eq_zero_iff] at hs; simp [hs])
-      (fun P hP ↦ (hH₁ P hP).measure_univ.le)]
-    have hR : ∀ R ∈ sigmaConvexHull H₁, klIntegral Q R = (klDiv Q R : EReal) := fun R hR ↦ by
-      have := isProbabilityMeasure_of_mem_sigmaConvexHull hH₁ hR
-      exact klIntegral_eq_klDiv (by simp)
-    rw [iInf_congr fun R ↦ iInf_congr fun hR' ↦ hR R hR']
-    simp_rw [← EReal.coe_ennreal_iInf]
-    rw [EReal.toENNReal_coe]
-  rw [hdual]
+    rw [← hβb]
+    refine (measure_mono fun ω hω ↦ ?_).trans
+      ((isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet hH₁ hpos hM'
+        (isSigmaConvex_effectiveSet.sigmaConvexHull_subset subset_effectiveSet hR)
+        β).measure_lt_top_le _ rfl)
+    have h2 : min (τ ω) (τ' ω) ≠ ⊤ := hω.2
+    rw [min_eq_right (show τ' ω ≤ τ ω from hω.1)] at h2
+    exact lt_top_iff_ne_top.2 h2
+  rw [toENNReal_maxEPower_eq_iInf_klDiv hH₁ Q]
   rcases eq_or_ne m 0 with hm0 | hm0
   · obtain ⟨P, hP⟩ := hne
     have h := hmain P (subset_sigmaConvexHull hP)

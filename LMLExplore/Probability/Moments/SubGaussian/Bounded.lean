@@ -27,6 +27,8 @@ independent variables `X i ∈ [l i, u i]`, `i ∈ s`, and `t ≥ 0`,
 
 * `LMLExplore.hasSubgaussianMGF_of_mem_Icc_zero_one`: a random variable with values in `[0, 1]`
   is `1 / 4`-sub-Gaussian around its mean.
+* `LMLExplore.lintegral_ofReal_exp_neg_mul_sub_le_one`: for `X` in `[-L, L]` with nonnegative
+  mean and `s ≥ 0`, `exp (-s X - s ^ 2 L ^ 2 / 2)` has mean at most `1`.
 * `LMLExplore.measureReal_le_abs_sum_le_of_iIndepFun`: the two-sided Hoeffding inequality for
   independent sub-Gaussian variables.
 * `LMLExplore.measureReal_le_abs_sum_sub_integral_le`: the two-sided Hoeffding inequality for
@@ -53,6 +55,36 @@ lemma hasSubgaussianMGF_of_mem_Icc_zero_one (hm : AEMeasurable X μ)
     ext
     norm_num
   exact hσ ▸ hasSubgaussianMGF_of_mem_Icc hm hb
+
+/-- **An exponential e-variable for a bounded variable of nonnegative mean**: if `X` takes its
+values in `[-L, L]` and has a nonnegative mean, then for `s ≥ 0`,
+`exp (-s X - s ^ 2 L ^ 2 / 2)` has mean at most `1`, by Hoeffding's lemma. -/
+lemma lintegral_ofReal_exp_neg_mul_sub_le_one {L s : ℝ} (hm : AEMeasurable X μ)
+    (hb : ∀ᵐ ω ∂μ, X ω ∈ Set.Icc (-L) L) (hmean : 0 ≤ μ[X]) (hs : 0 ≤ s) :
+    ∫⁻ ω, ENNReal.ofReal (exp (-s * X ω - s ^ 2 * L ^ 2 / 2)) ∂μ ≤ 1 := by
+  have h := hasSubgaussianMGF_of_mem_Icc hm hb
+  have hc : (((‖L - -L‖₊ / 2) ^ 2 : ℝ≥0) : ℝ) = L ^ 2 := by
+    push_cast
+    rw [Real.norm_eq_abs, div_pow, sq_abs]
+    ring
+  have hmgf := h.mgf_le (-s)
+  rw [hc] at hmgf
+  have heq : (fun ω ↦ exp (-s * X ω - s ^ 2 * L ^ 2 / 2)) =
+      fun ω ↦ exp (-s * μ[X] - s ^ 2 * L ^ 2 / 2) * exp (-s * (X ω - μ[X])) := by
+    ext ω
+    rw [← Real.exp_add]
+    ring_nf
+  rw [← ofReal_integral_eq_lintegral_ofReal
+      (by rw [heq]; exact (h.integrable_exp_mul _).const_mul _)
+      (.of_forall fun _ ↦ (Real.exp_pos _).le), ENNReal.ofReal_le_one, heq, integral_const_mul]
+  calc exp (-s * μ[X] - s ^ 2 * L ^ 2 / 2) * ∫ ω, exp (-s * (X ω - μ[X])) ∂μ
+      ≤ exp (-s * μ[X] - s ^ 2 * L ^ 2 / 2) * exp (L ^ 2 * (-s) ^ 2 / 2) := by
+        gcongr
+        exact hmgf
+    _ = exp (-s * μ[X]) := by
+        rw [← Real.exp_add]
+        ring_nf
+    _ ≤ 1 := Real.exp_le_one_iff.2 (by nlinarith)
 
 /-- **Hoeffding's inequality** for sub-Gaussian variables, two-sided: if the `X i`, `i ∈ s`, are
 independent and `c i`-sub-Gaussian, then for `t ≥ 0`,

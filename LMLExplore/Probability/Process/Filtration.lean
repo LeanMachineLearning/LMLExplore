@@ -56,7 +56,8 @@ time `n`.
 * `Measurable.dependsOn_of_piLT`, `MeasureTheory.Filtration.measurable_piLT_of_dependsOn`: a
   function measurable at time `i` of `piLT` only depends on the coordinates `j < i`, and for
   sequences a measurable function of the first `n` coordinates is measurable at time `n` of
-  `piLT`.
+  `piLT`; `MeasureTheory.Filtration.measurable_piLT_of_dependsOn_of_countable`: on a countable
+  alphabet, every function of the first `n` coordinates is.
 * `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `i` of `piLT` only
   depends on the coordinates `j < i`.
 * `Measurable.apply_eq_of_piLT_zero`, `Measurable.apply_update_eq_of_piLT`: a function measurable
@@ -250,6 +251,14 @@ lemma measurable_piLT_of_dependsOn {𝓧 β : Type*} [MeasurableSpace 𝓧] [Mea
     exact Subsingleton.measurable
   obtain ⟨g, hg, rfl⟩ := exists_measurable_eq_comp_initSeg hf hfn
   exact Measurable.comp (mα := piLT n) hg (measurable_piLT_initSeg le_rfl)
+
+/-- On a countable alphabet with measurable singletons, a function of the first `n` terms of a
+sequence is measurable at time `n` of `Filtration.piLT`, with no measurability assumption: it only
+depends on finitely many countable coordinates. -/
+lemma measurable_piLT_of_dependsOn_of_countable {𝓧 β : Type*} [MeasurableSpace 𝓧] [Countable 𝓧]
+    [MeasurableSingletonClass 𝓧] [MeasurableSpace β] {f : (ℕ → 𝓧) → β} {n : ℕ}
+    (hfn : DependsOn f (Set.Iio n)) : Measurable[piLT n] f :=
+  measurable_piLT_of_dependsOn (hfn.measurable_of_countable (Set.finite_Iio n)) hfn
 
 /-- A stopping time of the strict past `Filtration.piLT` of the coordinates of a sequence is
 determined by the coordinates before it: if `τ ω = n` and `ω'` agrees with `ω` before `n`, then
