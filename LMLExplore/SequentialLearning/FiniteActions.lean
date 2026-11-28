@@ -20,6 +20,8 @@ Facts about LML's `pullCount` that hold for any sequence of actions `A : ℕ →
   that the action of round `n` is `a` and that `a` was pulled `m` times before partition the space;
   `setLIntegral_eq_tsum_action_eq_and_pullCount_eq` and `measure_eq_tsum_action_eq_and_pullCount_eq`
   split a set integral and a measure over that partition.
+* `injective_pullCount_action`: two rounds play different arms or see different numbers of
+  previous pulls of their arm.
 * `sum_range_ite_action_eq`: a sum over the rounds that play arm `a` of a function of the number
   of previous pulls of `a` is the sum of that function over the pull counts
   `0, …, pullCount A a n - 1`.
@@ -115,6 +117,25 @@ lemma iUnion_action_eq_and_pullCount_eq (A : ℕ → Ω → α) (n : ℕ) :
     ⋃ p : α × ℕ, {ω | A n ω = p.1 ∧ pullCount A p.1 n ω = p.2} = Set.univ :=
   Set.eq_univ_of_forall fun ω ↦
     Set.mem_iUnion.2 ⟨(A n ω, pullCount A (A n ω) n ω), rfl, rfl⟩
+
+/-- Two rounds play different arms or see different numbers of previous pulls of their arm: the
+map `t ↦ (pullCount A (A t ω) t ω, A t ω)` is injective. In the array model, the round `t` reads
+the observation number `pullCount A (A t ω) t ω` of the arm `A t ω`, so no entry of the table of
+observations is read twice. -/
+lemma injective_pullCount_action (A : ℕ → Ω → α) (ω : Ω) :
+    Injective fun t ↦ (pullCount A (A t ω) t ω, A t ω) := by
+  have key (t t' : ℕ) (ht : t < t') (ha : A t ω = A t' ω) :
+      pullCount A (A t ω) t ω < pullCount A (A t' ω) t' ω := by
+    rw [← ha]
+    calc pullCount A (A t ω) t ω < pullCount A (A t ω) (t + 1) ω := by
+          simp only [pullCount_action_eq_pullCount_add_one, Nat.lt_add_one]
+    _ ≤ pullCount A (A t ω) t' ω := pullCount_mono _ ht ω
+  intro t t' h
+  simp only [Prod.mk.injEq] at h
+  rcases lt_trichotomy t t' with htt | htt | htt
+  · exact absurd h.1 (key t t' htt h.2).ne
+  · exact htt
+  · exact absurd h.1.symm (key t' t htt h.2.symm).ne
 
 /-- The arms of a finite set `S` have been pulled at most `n` times in total before round `n`:
 every round plays at most one of them. -/

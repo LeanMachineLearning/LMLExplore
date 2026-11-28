@@ -14,6 +14,7 @@ import LMLExplore.EValues.BipolarRate.Design.Algorithm
 import LMLExplore.EValues.BipolarRate.SequentialTest
 import LMLExplore.Identification.Basic
 import LMLExplore.SequentialLearning.Algorithms.OfSeq
+import LMLExplore.SequentialLearning.FiniteActions
 import LMLExplore.SequentialLearning.StoppedHistory
 
 /-!
@@ -97,6 +98,16 @@ structure IsLevelTest (A : IdentAlg Unit α 𝓧 𝓓) (Λ : Set (Kernel α 𝓧
   measure_stoppingTime_lt_top_le : ∀ (ν : Kernel α 𝓧) [IsMarkovKernel ν], ν ∈ Λ →
     trajMeasure A.alg (Environment.bandit ν)
       {ω | A.stoppingTime IT.obs IT.action IT.feedback ω < ⊤} ≤ δ
+
+/-- A sequential test of level `δ` of `Λ` is one of every larger level `δ'`. -/
+theorem IsLevelTest.mono {A : IdentAlg Unit α 𝓧 𝓓} {Λ : Set (Kernel α 𝓧)} {δ δ' : ℝ≥0∞}
+    (hA : A.IsLevelTest Λ δ) (hδ : δ ≤ δ') : A.IsLevelTest Λ δ' :=
+  ⟨fun ν _ hν ↦ (hA.measure_stoppingTime_lt_top_le ν hν).trans hδ⟩
+
+/-- A sequential test of level `δ` of `Λ` is one of every subset `Λ'` of `Λ`. -/
+theorem IsLevelTest.anti_set {A : IdentAlg Unit α 𝓧 𝓓} {Λ Λ' : Set (Kernel α 𝓧)} {δ : ℝ≥0∞}
+    (h : Λ' ⊆ Λ) (hA : A.IsLevelTest Λ δ) : A.IsLevelTest Λ' δ :=
+  ⟨fun ν _ hν ↦ hA.measure_stoppingTime_lt_top_le ν (h hν)⟩
 
 /-- **No sampling rule does better than `log (1/δ) / D*`** [EVR26, Note 41, Theorem 4]. A
 sequential test of level `δ` of the set `Λ` of instances makes at least `log (1/δ) / D*`
@@ -216,18 +227,8 @@ private lemma hasLaw_blockSeq_arrayMeasure [DecidableEq α] [Nonempty α] [Stand
   set c : α → ℕ → ℕ := fun a t ↦ pullCount (fun u (_ : Unit) ↦ s u) a t ()
   -- round `t` reads the observation number `c (s t) t` of the source `s t`, and two rounds read
   -- different entries
-  have hc : Function.Injective fun t ↦ (c (s t) t, s t) := by
-    have key (t t' : ℕ) (ht : t < t') (ha : s t = s t') : c (s t) t < c (s t') t' := by
-      rw [← ha]
-      calc c (s t) t < c (s t) (t + 1) := by
-            simp only [c, pullCount_action_eq_pullCount_add_one, Nat.lt_add_one]
-      _ ≤ c (s t) t' := pullCount_mono _ ht ()
-    intro t t' h
-    simp only [Prod.mk.injEq] at h
-    rcases lt_trichotomy t t' with htt | htt | htt
-    · exact absurd h.1 (key t t' htt h.2).ne
-    · exact htt
-    · exact absurd h.1.symm (key t' t htt h.2.symm).ne
+  have hc : Function.Injective fun t ↦ (c (s t) t, s t) :=
+    LMLExplore.injective_pullCount_action (fun u (_ : Unit) ↦ s u) ()
   -- the entries read by the blocks
   set g : ℕ × (Σ a, Fin (r a)) → ℕ × α := fun q ↦ (c q.2.1 (blockRound r q), q.2.1)
   have hg : Function.Injective g := by
@@ -323,8 +324,7 @@ private lemma stoppingTime_blockTest [Nonempty 𝓓] (b₀ : (Σ a, Fin (r a)) �
     refine (hτ.measurableSet_eq k).dependsOn_of_piLT fun j hj ↦ ?_
     ext p
     have hlt : blockRound r (j, p) < n := hn ▸ blockRound_lt hj p
-    simp only [padBlocks, blockSeq, dite_eq_left hlt]
-    rfl
+    simp only [padBlocks, blockSeq, dite_eq_left hlt, history_apply]
   induction hτω : τ (blockSeq r IT.feedback ω) using WithTop.recTopCoe with
   | top =>
     refine IdentAlg.stoppingTime_eq_top_iff.2 fun n hn ↦ ?_
@@ -377,6 +377,9 @@ private lemma expectedStoppingTime_blockTest [Nonempty 𝓓] [Nonempty α] [Stan
   induction τ (blockSeq r IT.feedback ω) using WithTop.recTopCoe with
   | top => exact (ENNReal.mul_top (Nat.cast_ne_zero.2 (NeZero.ne _))).symm
   | coe k =>
+    -- `τ` takes values in `WithTop ℕ` and `ENat.toENNReal` in `ℕ∞`; the two types are equal but
+    -- not reducibly, so no `rw` reaches `ENat.toENNReal_coe` (the goal is not type-correct at
+    -- implicit transparency). `change` restates the goal in `ℕ∞`, after `WithTop.map` computes.
     change ENat.toENNReal ((k * ∑ a, r a : ℕ) : ℕ∞) = (∑ a, r a : ℕ) * ENat.toENNReal (k : ℕ∞)
     rw [ENat.toENNReal_coe, ENat.toENNReal_coe, Nat.cast_mul, mul_comm]
 
@@ -423,15 +426,14 @@ theorem exists_isLevelTest_limsup_expectedStoppingTime_div_log_le [StandardBorel
   obtain ⟨b₀⟩ : Nonempty ((Σ a, Fin (r a)) → 𝓧) := inferInstance
   refine ⟨fun δ ↦ blockTest b₀ (hτ δ).isStoppingTime, fun δ ↦ isLevelTest_blockTest b₀ (hτ δ), ?_⟩
   -- `R / (R d') = 1 / d'`
-  have hR0 : (R : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 hR.ne'
+  have hR0 : (R : ℝ) ≠ 0 := Nat.cast_ne_zero.2 hR.ne'
   simp_rw [expectedStoppingTime_blockTest, mul_div_assoc]
   rw [ENNReal.limsup_const_mul_of_ne_top (ENNReal.natCast_ne_top R)]
   calc (R : ℝ≥0∞) * limsup _ _ ≤ R * ENNReal.ofReal ((R : ℝ) * d')⁻¹ := by gcongr
   _ = ENNReal.ofReal d'⁻¹ := by
-    rw [ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_inv_of_pos hd',
-      ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_natCast,
-      ENNReal.mul_inv (Or.inl hR0) (Or.inl (ENNReal.natCast_ne_top R)), ← mul_assoc,
-      ENNReal.mul_inv_cancel hR0 (ENNReal.natCast_ne_top R), one_mul]
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (Nat.cast_nonneg _)]
+    congr 1
+    field_simp
 
 /-- **The smallest expected number of observations of a test is `log (1/δ) / D*`** to first order
 [EVR26, Note 41, Theorem 4]. Let `κ` be an instance and `Λ` a set of instances, with rate of the
