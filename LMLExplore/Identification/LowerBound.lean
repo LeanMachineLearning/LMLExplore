@@ -41,7 +41,9 @@ bound `D* E_θ[τ]` on the expected stopping time does not give.
 The binary relative entropy `kl(δ, 1 - δ)` is `LMLExplore.klBer δ (1 - δ)`; it is equivalent to
 `log (1 / δ)` as `δ → 0`, and at least `log (1 / (2.4 δ))` for every `δ`, so that
 `E_θ[τ] ≥ T*(θ) log (1 / (2.4 δ))`. For a family of `δ`-correct algorithms, this gives
-`liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`. That `T*(θ)` is the optimal constant in front
+`liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`, proved, for models with finitely many correct
+answers, as `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite` in
+`Identification/MultipleAnswerLowerBound.lean`. That `T*(θ)` is the optimal constant in front
 of `log (1 / δ)`, attained by the Track-and-Stop algorithm [GK16, Theorem 14], is proved for
 arms dominated by exponential families whose relative entropies are at most the extended
 divergences of the families, when Track-and-Stop tracks continuous optimal allocations
@@ -74,15 +76,12 @@ not unique, with C-tracking [DK19, Theorem 7]
 * `IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime`: the lower bound
   `T*(θ) log (1 / (c δ)) ≤ E_θ[τ]` for `c ≥ 2.4`; for `c = 4` it is the form of
   [LS, Theorem 33.5].
-* `IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`: the asymptotic lower bound
-  `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`, for every `c < T*(θ)`, for a family of
-  `δ`-correct algorithms.
 * `LMLExplore.Identification.limsup_expectedStoppingTime_div_log_le`: if
   `E[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > x`, then
   `limsup_{δ → 0} E[τ_δ] / log (1 / δ) ≤ x`.
-* `IdentTask.tendsto_expectedStoppingTime_div_log`: a family of `δ`-correct algorithms with
-  `E_θ[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > T*(θ)`, has
-  `E_θ[τ_δ] / log (1 / δ) → T*(θ)`.
+* `LMLExplore.Identification.tendsto_expectedStoppingTime_div_log_of_forall_eventually`: if
+  `c log (1 / δ) ≤ E[τ_δ]` for small `δ` for every `c < x`, and `E[τ_δ] ≤ c log (1 / δ)` for
+  small `δ` for every `c > x`, then `E[τ_δ] / log (1 / δ) → x`.
 
 ## References
 
@@ -131,6 +130,33 @@ theorem limsup_expectedStoppingTime_div_log_le {𝓞 𝓓 : Type*} {m𝓞 : Meas
   obtain ⟨c, hxc, hcy⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hy
   filter_upwards [h_upper c hxc] with δ hδ
   exact (ENNReal.div_le_of_le_mul hδ).trans hcy.le
+
+open Filter Topology in
+omit [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] in
+/-- **Asymptotic sample complexity from matching bounds.** If, for every `c < x`,
+`c log (1 / δ) ≤ E[τ_δ]` for all small enough `δ`, and, for every `c > x`,
+`E[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, then `E[τ_δ] / log (1 / δ) → x` as
+`δ → 0`. -/
+theorem tendsto_expectedStoppingTime_div_log_of_forall_eventually {𝓞 𝓓 : Type*}
+    {m𝓞 : MeasurableSpace 𝓞} {m𝓓 : MeasurableSpace 𝓓} {A : ℝ → IdentAlg 𝓞 α 𝓨 𝓓}
+    {env : Environment 𝓞 α 𝓨} {x : ℝ≥0∞}
+    (h_lower : ∀ c : ℝ≥0, (c : ℝ≥0∞) < x → ∀ᶠ δ in 𝓝[>] 0,
+      c * ENNReal.ofReal (Real.log (1 / δ)) ≤ expectedStoppingTime (A δ) env)
+    (h_upper : ∀ c : ℝ≥0, x < c → ∀ᶠ δ in 𝓝[>] 0,
+      expectedStoppingTime (A δ) env ≤ c * ENNReal.ofReal (Real.log (1 / δ))) :
+    Tendsto (fun δ ↦ expectedStoppingTime (A δ) env / ENNReal.ofReal (Real.log (1 / δ)))
+      (𝓝[>] 0) (𝓝 x) := by
+  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
+    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
+    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
+  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
+  · -- Below `x`: the lower bound.
+    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [h_lower c hc, hL] with δ hδ hLδ
+    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
+      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
+  · -- Above `x`: the upper bound.
+    exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
 
 namespace IdentTask
 
@@ -360,71 +386,6 @@ theorem IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime [Nonempty
     task.charTime θ * ENNReal.ofReal (Real.log (1 / (c * δ))) ≤
       expectedStoppingTime A (Environment.bandit (task.ν θ)) :=
   mul_ofReal_log_le_of_mul_klBer_le hc fun hδ ↦ hA.charTime_mul_le_expectedStoppingTime hδ hθ hi
-
-open Filter Topology in
-omit [DecidableEq α] in
-/-- **Asymptotic lower bound on the sample complexity** [GK16, Theorem 1], in eventual form. Let
-`A δ` be `δ`-correct for all small enough `δ` and let `θ` be an admissible model with a single
-correct answer. Then for every `c < T*(θ)`, `c log (1 / δ) ≤ E_θ[τ_δ]` for all small enough `δ`:
-`liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`. -/
-theorem eventually_mul_ofReal_log_le_expectedStoppingTime [Nonempty α]
-    {A : ℝ → IdentAlg Unit α 𝓨 ℐ} (hA : ∀ᶠ δ in 𝓝[>] 0, task.IsDeltaCorrect (A δ) δ)
-    (hθ : θ ∈ task.M) (hi : task.correct θ = {i}) {c : ℝ≥0} (hc : c < task.charTime θ) :
-    ∀ᶠ δ in 𝓝[>] 0, c * ENNReal.ofReal (Real.log (1 / δ)) ≤
-      expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) := by
-  -- Choose `c < c' < T*(θ)`: then `c log (1 / δ) ≤ c' log (1 / (2.4 δ))` for small `δ`.
-  obtain ⟨c', hcc', hc'⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hc
-  have hcc'_real : (c : ℝ) < c' := mod_cast ENNReal.coe_lt_coe.1 hcc'
-  have hL : Tendsto (fun δ : ℝ ↦ Real.log (1 / δ)) (𝓝[>] 0) atTop := by
-    simpa only [one_div, Function.comp_def] using
-      Real.tendsto_log_atTop.comp tendsto_inv_nhdsGT_zero
-  filter_upwards [hA, self_mem_nhdsWithin,
-    hL.eventually_ge_atTop (c' * Real.log 2.4 / (c' - c))] with δ hAδ hδ hLδ
-  have h_log : Real.log (1 / (2.4 * δ)) = Real.log (1 / δ) - Real.log 2.4 := by
-    rw [one_div, one_div, Real.log_inv, Real.log_inv,
-      Real.log_mul (by norm_num) (Set.mem_Ioi.1 hδ).ne']
-    ring
-  have h_le : (c : ℝ) * Real.log (1 / δ) ≤ c' * Real.log (1 / (2.4 * δ)) := by
-    rw [div_le_iff₀ (sub_pos.2 hcc'_real)] at hLδ
-    rw [h_log]
-    nlinarith
-  calc (c : ℝ≥0∞) * ENNReal.ofReal (Real.log (1 / δ))
-  _ = ENNReal.ofReal (c * Real.log (1 / δ)) := by
-    rw [ENNReal.ofReal_mul c.coe_nonneg, ENNReal.ofReal_coe_nnreal]
-  _ ≤ ENNReal.ofReal (c' * Real.log (1 / (2.4 * δ))) := ENNReal.ofReal_le_ofReal h_le
-  _ = c' * ENNReal.ofReal (Real.log (1 / (2.4 * δ))) := by
-    rw [ENNReal.ofReal_mul c'.coe_nonneg, ENNReal.ofReal_coe_nnreal]
-  _ ≤ task.charTime θ * ENNReal.ofReal (Real.log (1 / (2.4 * δ))) := by gcongr
-  _ ≤ _ := hAδ.charTime_mul_ofReal_log_le_expectedStoppingTime le_rfl hθ hi
-
-open Filter Topology in
-omit [DecidableEq α] in
-/-- **Asymptotic optimality from a matching upper bound.** Let `A δ` be `δ`-correct for all small
-enough `δ` and let `θ` be an admissible model with a single correct answer. If for every
-`c > T*(θ)`, `E_θ[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, then
-`E_θ[τ_δ] / log (1 / δ) → T*(θ)` as `δ → 0`: by the lower bound
-`eventually_mul_ofReal_log_le_expectedStoppingTime`, the family `A` has the optimal sample
-complexity. -/
-theorem tendsto_expectedStoppingTime_div_log [Nonempty α] {A : ℝ → IdentAlg Unit α 𝓨 ℐ}
-    (hA : ∀ᶠ δ in 𝓝[>] 0, task.IsDeltaCorrect (A δ) δ) (hθ : θ ∈ task.M)
-    (hi : task.correct θ = {i})
-    (h_upper : ∀ c : ℝ≥0, task.charTime θ < c → ∀ᶠ δ in 𝓝[>] 0,
-      expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) ≤
-        c * ENNReal.ofReal (Real.log (1 / δ))) :
-    Tendsto (fun δ ↦ expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) /
-      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) := by
-  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
-    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
-    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
-  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
-  · -- Below `T*(θ)`: the lower bound for `δ`-correct algorithms.
-    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
-    filter_upwards [eventually_mul_ofReal_log_le_expectedStoppingTime hA hθ hi hc, hL]
-      with δ hδ hLδ
-    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
-      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
-  · -- Above `T*(θ)`: the upper bound.
-    exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
 
 end IdentTask
 

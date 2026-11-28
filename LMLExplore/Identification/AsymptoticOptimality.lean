@@ -6,7 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.ExpFamilyThreshold
-public import LMLExplore.Identification.LowerBound
+public import LMLExplore.Identification.MultipleAnswerLowerBound
 
 /-!
 # Asymptotic optimality of Track-and-Stop for arms dominated by exponential families
@@ -155,8 +155,8 @@ theorem isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le
 Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ`, which is `δ`-PAC for every
 `δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity asymptotically
 equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`. By the lower bound
-`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of `δ`-correct algorithms
-does better. -/
+`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite`, no family of
+`δ`-correct algorithms does better. -/
 theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of_klDiv_le
     [MeasurableSingletonClass ℐ] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ θ ∈ task.M, ∀ a, θ a ∈ (ρ a).expFamilyMeans (T a))
@@ -175,7 +175,8 @@ theorem tendsto_expectedStoppingTime_trackAndStop_unionBoundThreshold_div_log_of
         (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
-  refine tendsto_expectedStoppingTime_div_log ?_ hμM (hcorrect μ hμM) fun c hc ↦ ?_
+  refine tendsto_expectedStoppingTime_div_log_of_finite ?_ hμM
+    (hcorrect μ hμM ▸ Set.finite_singleton _) fun c hc ↦ ?_
   · filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
     exact (isDeltaPAC_trackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le hT hμ hν hkl
       hcorrect hw_opt hw_cont hrec_eq h_lsc h_charTime hδ.1 hδ.2).isDeltaCorrect
@@ -224,8 +225,8 @@ Track-and-Stop with C-tracking and the thresholds `K log (2 n (n + 1)) + x_δ`, 
 every `δ ∈ (0, 1]` by that theorem, has on every admissible model `μ` a sample complexity
 asymptotically equal to the characteristic time: `𝔼[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`, even
 where the optimal allocations are not unique. By the lower bound
-`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime`, no family of `δ`-correct algorithms
-does better. -/
+`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite`, no family of
+`δ`-correct algorithms does better. -/
 theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le
     [MeasurableSingletonClass ℐ] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
     (hμ : ∀ θ ∈ task.M, ∀ a, θ a ∈ (ρ a).expFamilyMeans (T a))
@@ -243,7 +244,8 @@ theorem tendsto_expectedStoppingTime_cTrackAndStop_unionBoundThreshold_div_log_o
         (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
         hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
       (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
-  refine tendsto_expectedStoppingTime_div_log ?_ hμM (hcorrect μ hμM) fun c hc ↦ ?_
+  refine tendsto_expectedStoppingTime_div_log_of_finite ?_ hμM
+    (hcorrect μ hμM ▸ Set.finite_singleton _) fun c hc ↦ ?_
   · filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
     exact (isDeltaPAC_cTrackAndStop_unionBoundThreshold_of_mem_optAlloc_of_klDiv_le hT hμ hν hkl
       hcorrect hw_mem hw_opt hrec_eq h_cont h_charTime hδ.1 hδ.2).isDeltaCorrect
