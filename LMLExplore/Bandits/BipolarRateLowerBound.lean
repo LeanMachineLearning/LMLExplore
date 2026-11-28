@@ -48,8 +48,8 @@ product in `EReal`.
   algorithm pulls the other arms at most `δ n / 2` times in expectation under every alternative
   and `a` at most `η n / 2` times under `κ`, then `kl(1 - η, δ) ≤ E_κ[N_a(n)] d`.
 * `LMLExplore.Bandits.eventually_mul_log_le_integral_pullCount_of_forall_le_rpow`: if
-  `E_ν[n - N_a(n)] ≤ C n ^ p` for `p < 1`, for every `ν ∈ Λ` and every large `n`, then
-  `liminf_n E_κ[N_a(n)] / log n ≥ (1 - p) / d`.
+  `E_ν[n - N_a(n)] ≤ C n ^ p` for `p < 1`, for every large `n`, uniformly over `ν ∈ Λ` (one
+  threshold for all alternatives), then `liminf_n E_κ[N_a(n)] / log n ≥ (1 - p) / d`.
 * `LMLExplore.Bandits.eventually_mul_log_le_integral_pullCount_of_bipolarRate`: [EVR26, Note 47,
   Theorem 1.1], the bound `1 / d` for algorithms consistent uniformly over the alternatives.
 * `LMLExplore.Bandits.eventually_mul_log_le_integral_pullCount_of_sigmaBipolarRate`: [EVR26,
@@ -281,10 +281,11 @@ theorem klBer_le_integral_pullCount_mul_bipolarRate_of_integral_le
 /-- **The lower bound on the pulls of the informative arm, with the bipolar rate**
 [EVR26, Note 47, proof of Theorem 1, (1)]. Let the bandits of `Λ` differ from `κ` at the arm `a`
 only, and suppose that, for some `p < 1` and `C`, the algorithm pulls the other arms at most
-`C n ^ p` times in expectation under every `ν ∈ Λ`, for every large horizon `n`:
-`E_ν[n - N_a(n)] ≤ C n ^ p`. Then `liminf_n E_κ[N_a(n)] / log n ≥ (1 - p) / d`, with `d` the
-bipolar rate of `κ a` against the laws `ν a` of the arm `a` under the alternatives: for every
-real `c` with `c d < 1 - p`, eventually `c log n ≤ E_κ[N_a(n)]`. -/
+`C n ^ p` times in expectation for every large horizon `n`, simultaneously for all `ν ∈ Λ`
+(eventually in `n`, uniformly over `Λ`): `E_ν[n - N_a(n)] ≤ C n ^ p`. Then
+`liminf_n E_κ[N_a(n)] / log n ≥ (1 - p) / d`, with `d` the bipolar rate of `κ a` against the
+laws `ν a` of the arm `a` under the alternatives: for every real `c` with `c d < 1 - p`,
+eventually `c log n ≤ E_κ[N_a(n)]`. -/
 theorem eventually_mul_log_le_integral_pullCount_of_forall_le_rpow
     (hΛ : ∀ ν ∈ Λ, IsMarkovKernel ν) (hΛa : ∀ ν ∈ Λ, ∀ b ≠ a, ν b = κ b) {p C : ℝ} (hp : p < 1)
     (hC : ∀ᶠ n : ℕ in atTop, ∀ ν ∈ Λ, ∀ [IsMarkovKernel ν],
