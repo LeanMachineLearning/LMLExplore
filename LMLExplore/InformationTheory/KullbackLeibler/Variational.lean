@@ -8,6 +8,7 @@ module
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
 import Statlib.EValues.RIPr
+import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
 # The Donsker–Varadhan inequality for the logarithm of a nonnegative function
@@ -22,10 +23,16 @@ The proof uses Statlib's variational form of the relative entropy, the largest e
 of an e-variable for the simple null `{ν}` (`ProbabilityTheory.maxUtility_singleton_eq_klDiv`):
 when `0 < ∫ f dν < ∞`, the function `f / ∫ f dν` is such an e-variable.
 
+For a set `s`, the entropy inequality `t μ(s) - (exp t - 1) ν(s) ≤ KL(μ ‖ ν)`
+(`TauCeti.ofReal_mul_measureReal_sub_le_klDiv`) at `t = log (1 / ν(s))` is a change of measure:
+a set of positive `μ`-probability has `ν`-probability at least `exp (- (KL(μ ‖ ν) + 1) / μ(s))`.
+
 ## Main statements
 
 * `InformationTheory.eintegral_log_le_log_lintegral_add_klDiv`: for `μ ≪ ν`,
   `∫ᵉ log f dμ ≤ log (∫⁻ f dν) + klDiv μ ν`.
+* `InformationTheory.log_inv_measureReal_le_toReal_klDiv_add_one_div`: the change of measure
+  `log (1 / ν(s)) ≤ (KL(μ ‖ ν) + 1) / μ(s)` for finite measures with `KL(μ ‖ ν) < ∞`.
 
 ## Implementation notes
 
@@ -92,5 +99,22 @@ theorem eintegral_log_le_log_lintegral_add_klDiv {μ ν : Measure α} [IsProbabi
       (by simpa [hc] using h0), hc]
   _ ≤ klDiv μ ν + ENNReal.log c := by gcongr
   _ = ENNReal.log c + klDiv μ ν := add_comm _ _
+
+/-- **Change of measure for a set.** For finite measures `μ`, `ν` with `KL(μ ‖ ν) < ∞` and a set
+`s` of positive `μ`-measure, `log (1 / ν(s)) ≤ (KL(μ ‖ ν) + 1) / μ(s)`. -/
+lemma log_inv_measureReal_le_toReal_klDiv_add_one_div {μ ν : Measure α} [IsFiniteMeasure μ]
+    [IsFiniteMeasure ν] (hμν : klDiv μ ν ≠ ⊤) {s : Set α} (hs : 0 < μ.real s) :
+    Real.log (ν.real s)⁻¹ ≤ ((klDiv μ ν).toReal + 1) / μ.real s := by
+  rw [le_div_iff₀ hs]
+  rcases (measureReal_nonneg : 0 ≤ ν.real s).eq_or_lt with h0 | hp0
+  · rw [← h0, inv_zero, Real.log_zero, zero_mul]
+    positivity
+  -- the entropy inequality `t μ(s) - (exp t - 1) ν(s) ≤ KL(μ ‖ ν)` at `t = log (1 / ν(s))`
+  have hent := TauCeti.ofReal_mul_measureReal_sub_le_klDiv (μ := μ) (ν := ν) (s := s)
+    (Real.log (ν.real s)⁻¹)
+  rw [Real.exp_log (inv_pos.2 hp0), ← ENNReal.ofReal_toReal hμν,
+    ENNReal.ofReal_le_ofReal_iff ENNReal.toReal_nonneg, sub_mul, inv_mul_cancel₀ hp0.ne',
+    one_mul] at hent
+  linarith
 
 end InformationTheory

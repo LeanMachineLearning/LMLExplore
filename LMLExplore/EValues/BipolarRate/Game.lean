@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.EValues.EVariable
+import Mathlib.Probability.Moments.Basic
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
@@ -36,7 +37,8 @@ of the max–min values divided by `n`, while the min–max values divided by `n
 ## Main definitions
 
 * `ProbabilityTheory.betPayoff Q P g`: the payoff `∫ g ∂Q - log ∫ exp g ∂P` of the bet `exp g`
-  against `P`.
+  against `P`; it is at least `∫ g ∂Q` when `exp g` has mean at most one under `P`
+  (`ProbabilityTheory.integral_le_betPayoff`).
 
 ## Main statements
 
@@ -86,6 +88,20 @@ lemma betPayoff_def (Q P : Measure Ω) (g : Ω → ℝ) :
     betPayoff Q P g = ∫ x, g x ∂Q - Real.log (∫ x, Real.exp (g x) ∂P) :=
   (rfl)
 
+/-- A bet `exp g` with mean at most one under `P` pays at least the mean `∫ g ∂Q` against `P`:
+the logarithm of its mean under `P` is nonpositive. -/
+lemma integral_le_betPayoff (Q : Measure Ω) {P : Measure Ω} {g : Ω → ℝ} (hg : AEMeasurable g P)
+    (hgP : ∫⁻ x, ENNReal.ofReal (Real.exp (g x)) ∂P ≤ 1) :
+    ∫ x, g x ∂Q ≤ betPayoff Q P g := by
+  have hle : ∫ x, Real.exp (g x) ∂P ≤ 1 := by
+    rw [integral_eq_lintegral_of_nonneg_ae (.of_forall fun x ↦ (Real.exp_pos _).le)
+      (Real.measurable_exp.comp_aemeasurable hg).aestronglyMeasurable]
+    exact (ENNReal.toReal_mono ENNReal.one_ne_top hgP).trans_eq ENNReal.toReal_one
+  have hlog : Real.log (∫ x, Real.exp (g x) ∂P) ≤ 0 :=
+    Real.log_nonpos (integral_nonneg fun x ↦ (Real.exp_pos _).le) hle
+  rw [betPayoff_def]
+  linarith
+
 /-! ### The values of the game -/
 
 /-- **The max–min value of the game is the largest e-power** [EVR26]. For a probability measure
@@ -111,10 +127,9 @@ theorem iSup_iInf_betPayoff_eq_maxEPower (Q : Measure Ω) [IsProbabilityMeasure 
       have hX : IsEVar X T := by
         refine ⟨by fun_prop, fun P hP ↦ ?_⟩
         have : IsFiniteMeasure P := ⟨(hT P hP).trans_lt ENNReal.one_lt_top⟩
-        have hexp : Integrable (fun x ↦ Real.exp (g x)) P :=
-          .of_bound (by fun_prop) (Real.exp C) (.of_forall fun x ↦ by
-            rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)]
-            exact Real.exp_le_exp.2 ((le_abs_self _).trans (hC x)))
+        have hexp : Integrable (fun x ↦ Real.exp (g x)) P := by
+          simpa using integrable_exp_mul_of_le 1 C zero_le_one hg.aemeasurable
+            (.of_forall fun x ↦ le_of_abs_le (hC x))
         rw [← ofReal_integral_eq_lintegral_ofReal (by simp_rw [heq]; exact hexp.mul_const _)
           (.of_forall fun x ↦ (Real.exp_pos _).le), ENNReal.ofReal_le_one]
         simp_rw [heq]
@@ -152,21 +167,9 @@ theorem iSup_iInf_betPayoff_eq_maxEPower (Q : Measure Ω) [IsProbabilityMeasure 
         hE.exists_bounded_lt_integral_of_lt_eintegral_log Q hT hcE
       refine le_iSup_of_le f (le_iSup_of_le hfm (le_iSup_of_le ⟨N, hfN⟩
         (le_iInf₂ fun P hP ↦ ?_)))
-      have : IsFiniteMeasure P := ⟨(hT P hP).trans_lt ENNReal.one_lt_top⟩
-      have hexp : Integrable (fun x ↦ Real.exp (f x)) P :=
-        .of_bound (by fun_prop) (Real.exp N) (.of_forall fun x ↦ by
-          rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)]
-          exact Real.exp_le_exp.2 ((le_abs_self _).trans (hfN x)))
-      -- `∫ exp f ∂P ≤ 1`, so the payoff against `P` is at least `∫ f ∂Q`
-      have hZ1 : ∫ x, Real.exp (f x) ∂P ≤ 1 := by
-        have h := hfP P hP
-        rw [← ofReal_integral_eq_lintegral_ofReal hexp (.of_forall fun x ↦ (Real.exp_pos _).le)]
-          at h
-        exact ENNReal.ofReal_le_one.1 h
-      have hlog : Real.log (∫ x, Real.exp (f x) ∂P) ≤ 0 :=
-        Real.log_nonpos (integral_nonneg fun x ↦ (Real.exp_pos _).le) hZ1
-      rw [betPayoff_def]
-      exact EReal.coe_le_coe_iff.2 (by linarith)
+      -- `exp f` has mean at most one under `P`, so the payoff is at least `∫ f ∂Q`
+      exact EReal.coe_le_coe_iff.2 (hcf.le.trans (integral_le_betPayoff Q hfm.aemeasurable
+        (hfP P hP)))
 
 /-- **The min–max value of the game is the smallest relative entropy** [EVR26]. For a probability
 measure `Q` and a null `T` of probability measures, the infimum over the null of the supremum over

@@ -6,30 +6,32 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Envelope
+public import LMLExplore.EValues.Null.Polar
 public import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.InformationTheory.KullbackLeibler.Variational
 import LMLExplore.Probability.LargeDeviations.EmpiricalAverage
-import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
 # The bipolar rate as an exponent of large deviations
 
 Let `T` be a null hypothesis of probability measures on a measurable space `Ω` and `Q` a measure
 on `Ω`. For finitely many bounded measurable functions `g i` on `Ω` and a real `δ`, let `π m`
-(`ProbabilityTheory.nbhdUpperProb T Q g δ m`) be the largest probability, under the `m`-fold
-products `P ^ m` of the members `P` of `T`, of the event that the empirical averages of the `g i`
-over `m` observations are within `δ` of their means under `Q`: the event that the empirical
-measure of the observations lies in the basic neighbourhood of `Q` given by the `g i` and `δ`,
-for the topology of the integrals of the bounded measurable functions. Let `c δ` be the infimum
-of `klInf R T` over the probability measures `R` of that neighbourhood
-(`MeasureTheory.tauNbhdInf`). Then [EVR26, Note 15]:
+(`ProbabilityTheory.nbhdUpperProb T Q g δ m`) be the upper probability, the supremum over the
+members `P` of `T` of the probabilities under the `m`-fold products `P ^ m`, of the event that the
+empirical averages of the `g i` over `m` observations are within `δ` of their means under `Q`:
+the event that the empirical measure of the observations lies in the basic neighbourhood of `Q`
+given by the `g i` and `δ`, for the topology of the integrals of the bounded measurable
+functions. Let `c δ` be the infimum of `klInf R T` over the probability measures `R` of that
+neighbourhood (`MeasureTheory.tauNbhdInf`). Then [EVR26, Note 15]:
 
 * `π m ≤ exp (- m c δ)` for every `m` and every `δ`, by the Sanov-type bound
   `ProbabilityTheory.ofReal_exp_mul_measure_pi_le_one`, so that the lower exponent
   `liminf (1/m) log (1 / π m)` is at least `c δ`;
 * for `δ' < δ`, the upper exponent `limsup (1/m) log (1 / π m)` is at most `c δ'`: under the
   powers of a law `R` of the smaller neighbourhood the event has probability tending to one, by
-  the weak law of large numbers, and a change of measure gives
+  the weak law of large numbers, and a change of measure
+  (`InformationTheory.log_inv_measureReal_le_toReal_klDiv_add_one_div`) gives
   `R ^ m (event) * log (1 / P ^ m (event)) ≤ m KL(R, P) + 1` for each member `P`;
 * hence the suprema over the basic neighbourhoods of `Q` of the lower and of the upper exponents
   of `π m` are both the neighbourhood envelope `tauEnvelope (fun R ↦ klInf R T) Q`.
@@ -50,12 +52,14 @@ rate is `log (1 / ε)` (`ProbabilityTheory.bipolarRate_coset_mixtures`), positiv
 
 ## Main definitions
 
-* `ProbabilityTheory.nbhdUpperProb T Q g δ m`: the largest probability under the `m`-fold
-  products of the members of `T` that the empirical averages of the `g i` are within `δ` of their
-  means under `Q`.
+* `ProbabilityTheory.nbhdUpperProb T Q g δ m`: the supremum over the members of `T` of the
+  probabilities under their `m`-fold products that the empirical averages of the `g i` are within
+  `δ` of their means under `Q`.
 
 ## Main statements
 
+* `ProbabilityTheory.nbhdUpperProb_eq_upperExp_indicator`: for measurable `g i`, `π m` is the
+  upper expectation under the `m`-sample null of the indicator of the event.
 * `ProbabilityTheory.nbhdUpperProb_le_exp`: `π m ≤ exp (- m c δ)`.
 * `ProbabilityTheory.tauNbhdInf_le_liminf_log_inv_nbhdUpperProb_div`,
   `ProbabilityTheory.limsup_log_inv_nbhdUpperProb_div_le_tauNbhdInf`: the lower exponent is at
@@ -76,14 +80,16 @@ rate is `log (1 / ε)` (`ProbabilityTheory.bipolarRate_coset_mixtures`), positiv
 
 Exponents are taken in `EReal`, with `ENNReal.log`, and divided by `(m : EReal)`; basic
 neighbourhoods are written with `≤ δ`, as in `MeasureTheory.tauNbhdInf`. The upper probability is
-the upper expectation `upperExp (sampleNull T m)` of the indicator of the event, written as a
-supremum of probabilities, which needs no measurability of the event. Nothing is assumed of
-`Q`, which enters only through the centres `∫ g i ∂Q` of the neighbourhood. The statements and
-proofs are adapted from `EValuesResearch/Results/RateGame.lean` (commit `83205cb`) in the paper
-project `RemyDegenne/evalues_research`, rewritten on the API of LMLExplore. There they are stated
-for the `n`-sample nulls, and the upper exponent of blocks is bounded by the bipolar rate through
-the strong converse of the Stein lemma; here they are stated for every null of probability
-measures, the blocks are instances, and that bound follows from the bound by the envelope.
+defined as a supremum of probabilities, which needs no measurability of the event; when the `g i`
+are measurable, so is the event, and the upper probability is the upper expectation
+`upperExp (sampleNull T m)` of its indicator (`nbhdUpperProb_eq_upperExp_indicator`). Nothing is
+assumed of `Q`, which enters only through the centres `∫ g i ∂Q` of the neighbourhood. The
+statements and proofs are adapted from `EValuesResearch/Results/RateGame.lean` (commit `83205cb`)
+in the paper project `RemyDegenne/evalues_research`, rewritten on the API of LMLExplore. There they
+are stated for the `n`-sample nulls, and the upper exponent of blocks is bounded by the bipolar
+rate through the strong converse of the Stein lemma; here they are stated for every null of
+probability measures, the blocks are instances, and that bound follows from the bound by the
+envelope.
 
 ## References
 
@@ -104,10 +110,10 @@ variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {T : Set (Measure Ω)} {Q : Mea
 
 /-! ### The upper probability of a basic neighbourhood -/
 
-/-- The largest probability, under the `m`-fold products of the members of the null `T`, that the
-empirical averages of the functions `g i` over `m` observations are within `δ` of their means
-under `Q`: the upper probability under the null that the empirical measure of the observations
-lies in the basic neighbourhood of `Q` given by the `g i` and `δ`. -/
+/-- The supremum over the members of the null `T` of the probabilities, under their `m`-fold
+products, that the empirical averages of the functions `g i` over `m` observations are within `δ`
+of their means under `Q`: the upper probability under the null that the empirical measure of the
+observations lies in the basic neighbourhood of `Q` given by the `g i` and `δ`. -/
 noncomputable def nbhdUpperProb (T : Set (Measure Ω)) (Q : Measure Ω) {k : ℕ} (g : Fin k → Ω → ℝ)
     (δ : ℝ) (m : ℕ) : ℝ≥0∞ :=
   ⨆ μ ∈ sampleNull T m, μ {x | ∀ i, |(∑ j, g i (x j)) / m - ∫ y, g i y ∂Q| ≤ δ}
@@ -145,12 +151,24 @@ lemma nbhdUpperProb_le_one (hT : ∀ P ∈ T, P Set.univ ≤ 1) : nbhdUpperProb 
   nbhdUpperProb_le_iff.2 fun _ hP ↦ (measure_mono (Set.subset_univ _)).trans
     (measure_univ_le_one_of_mem_sampleNull hT m _ (pi_mem_sampleNull hP))
 
+/-- For measurable `g i`, the upper probability is the upper expectation under the `m`-sample null
+of the indicator of the event. -/
+lemma nbhdUpperProb_eq_upperExp_indicator (hg : ∀ i, Measurable (g i)) :
+    nbhdUpperProb T Q g δ m = upperExp (sampleNull T m)
+      ({x | ∀ i, |(∑ j, g i (x j)) / m - ∫ y, g i y ∂Q| ≤ δ}.indicator 1) := by
+  have hA := measurableSet_setOf_forall_abs_sum_div_sub_le hg (fun i ↦ ∫ y, g i y ∂Q) δ m
+  refine le_antisymm (nbhdUpperProb_le_iff.2 fun P hP ↦ ?_) (upperExp_le_iff.2 fun μ hμ ↦ ?_)
+  · rw [← lintegral_indicator_one hA]
+    exact lintegral_le_upperExp (pi_mem_sampleNull hP)
+  · rw [lintegral_indicator_one hA, nbhdUpperProb_def]
+    exact le_biSup (fun μ : Measure (Fin m → Ω) ↦ μ _) hμ
+
 /-! ### The lower exponent -/
 
 /-- **The upper probability decays at least at the rate of the neighbourhood** [EVR26, Note 15].
-For a null `T` of probability measures, bounded measurable `g i` and any `δ`, the largest
-probability under the `m`-fold products of the members of `T` that the empirical averages of the
-`g i` are within `δ` of their means under `Q` is at most `exp (- m c)`, with `c` the infimum of
+For a null `T` of probability measures, bounded measurable `g i` and any `δ`, the upper
+probability `nbhdUpperProb T Q g δ m` that the empirical averages of the `g i` are within `δ` of
+their means under `Q` is at most `exp (- m c)`, with `c` the infimum of
 `klInf R T` over the probability measures `R` whose integrals of the `g i` are within `δ` of
 those of `Q`. -/
 theorem nbhdUpperProb_le_exp (hT : ∀ P ∈ T, IsProbabilityMeasure P) (hg : ∀ i, Measurable (g i))
@@ -194,7 +212,7 @@ theorem nbhdUpperProb_le_exp (hT : ∀ P ∈ T, IsProbabilityMeasure P) (hg : �
 
 /-- **The lower exponent of the upper probability** [EVR26, Note 15]. For a null `T` of
 probability measures, bounded measurable `g i` and any `δ`, the lower exponent
-`liminf (1/m) log (1 / π m)` of the largest probability under the null that the empirical
+`liminf (1/m) log (1 / π m)` of the upper probability under the null that the empirical
 averages of the `g i` are within `δ` of their means under `Q` is at least the infimum of
 `klInf R T` over the probability measures `R` whose integrals of the `g i` are within `δ` of
 those of `Q`. -/
@@ -213,9 +231,8 @@ theorem tauNbhdInf_le_liminf_log_inv_nbhdUpperProb_div (hT : ∀ P ∈ T, IsProb
 
 /-- **No decay when the null meets a smaller neighbourhood.** For a null `T` of measures of mass
 at most one, bounded measurable `g i` and `δ' < δ`, if a probability measure `P` of the null has
-`|∫ g i ∂P - ∫ g i ∂Q| ≤ δ'` for every `i`, then the largest probability under the null that the
-empirical averages of the `g i` are within `δ` of their means under `Q` tends to one, by the weak
-law of large numbers under `P`. -/
+`|∫ g i ∂P - ∫ g i ∂Q| ≤ δ'` for every `i`, then the upper probability under the null that the
+empirical averages of the `g i` are within `δ` of their means under `Q` tends to one. -/
 theorem tendsto_nbhdUpperProb_atTop_nhds_one (hT : ∀ P ∈ T, P Set.univ ≤ 1) {P : Measure Ω}
     [IsProbabilityMeasure P] (hP : P ∈ T) (hg : ∀ i, Measurable (g i))
     (hgb : ∀ i, ∃ C, ∀ x, |g i x| ≤ C) {δ' : ℝ} (hδ' : δ' < δ)
@@ -248,12 +265,10 @@ theorem tendsto_nbhdUpperProb_atTop_nhds_one (hT : ∀ P ∈ T, P Set.univ ≤ 1
 
 /-- **The upper exponent of the upper probability** [EVR26, Note 15]. For a null `T` of
 probability measures, bounded measurable `g i` and `δ' < δ`, the upper exponent
-`limsup (1/m) log (1 / π m)` of the largest probability under the null that the empirical
+`limsup (1/m) log (1 / π m)` of the upper probability under the null that the empirical
 averages of the `g i` are within `δ` of their means under `Q` is at most the infimum of
 `klInf R T` over the probability measures `R` whose integrals of the `g i` are within `δ'` of
-those of `Q`. Under `R ^ m` the event has probability tending to one
-(`tendsto_nbhdUpperProb_atTop_nhds_one`), and the change of measure
-`R ^ m (A) log (1 / P ^ m (A)) ≤ m KL(R, P) + 1` bounds its probability under each `P ^ m`. -/
+those of `Q`. -/
 theorem limsup_log_inv_nbhdUpperProb_div_le_tauNbhdInf (hT : ∀ P ∈ T, IsProbabilityMeasure P)
     (hg : ∀ i, Measurable (g i)) (hgb : ∀ i, ∃ C, ∀ x, |g i x| ≤ C) {δ' : ℝ} (hδ' : δ' < δ) :
     limsup (fun m : ℕ ↦ ENNReal.log (nbhdUpperProb T Q g δ m)⁻¹ / m) atTop ≤
@@ -296,16 +311,12 @@ theorem limsup_log_inv_nbhdUpperProb_div_le_tauNbhdInf (hT : ∀ P ∈ T, IsProb
     have hA0 : (Measure.pi fun _ : Fin m ↦ P) A ≠ 0 := fun h0 ↦ by
       rw [← haA, measureReal_def, hac h0, ENNReal.toReal_zero] at hapos
       exact lt_irrefl _ hapos
-    set p := (Measure.pi fun _ : Fin m ↦ P).real A
-    have hp0 : 0 < p := ENNReal.toReal_pos hA0 (measure_ne_top _ _)
+    set p := (Measure.pi fun _ : Fin m ↦ P).real A with hp
     -- the change of measure: `R ^ m (A) log (1 / p) ≤ m K + 1`
-    have hent := TauCeti.ofReal_mul_measureReal_sub_le_klDiv (μ := Measure.pi fun _ : Fin m ↦ R)
-      (ν := Measure.pi fun _ : Fin m ↦ P) (s := A) (Real.log p⁻¹)
-    rw [hpi, haA, Real.exp_log (inv_pos.2 hp0), ENNReal.ofReal_le_ofReal_iff (by positivity),
-      sub_mul, inv_mul_cancel₀ hp0.ne', one_mul] at hent
     have hlogp : Real.log p⁻¹ ≤ (m * K + 1) / a m := by
-      rw [le_div_iff₀ hapos]
-      linarith
+      have h := log_inv_measureReal_le_toReal_klDiv_add_one_div (s := A)
+        (by rw [hpi]; exact ENNReal.ofReal_ne_top) (haA ▸ hapos)
+      rwa [hpi, ENNReal.toReal_ofReal (by positivity), haA] at h
     -- the upper probability is at least that of `P ^ m`
     have hlogπ : ENNReal.log (nbhdUpperProb T Q g δ m)⁻¹ ≤ ((Real.log p⁻¹ : ℝ) : EReal) := by
       calc ENNReal.log (nbhdUpperProb T Q g δ m)⁻¹
@@ -313,8 +324,7 @@ theorem limsup_log_inv_nbhdUpperProb_div_le_tauNbhdInf (hT : ∀ P ∈ T, IsProb
         ENNReal.log_le_log (ENNReal.inv_le_inv.2 (measure_pi_le_nbhdUpperProb hP))
       _ = ((Real.log p⁻¹ : ℝ) : EReal) := by
         rw [ENNReal.log_inv, ENNReal.log_pos_real hA0 (measure_ne_top _ _), Real.log_inv,
-          EReal.coe_neg]
-        rfl
+          EReal.coe_neg, hp, measureReal_def]
     have hm0 : (m : ℝ) ≠ 0 := hm'.ne'
     have ha0 : a m ≠ 0 := hapos.ne'
     calc ENNReal.log (nbhdUpperProb T Q g δ m)⁻¹ / m
@@ -341,7 +351,7 @@ theorem limsup_log_inv_nbhdUpperProb_div_le_tauNbhdInf (hT : ∀ P ∈ T, IsProb
 
 /-- **The lower exponents over the basic neighbourhoods give the envelope** [EVR26, Note 15]. For
 a null `T` of probability measures, the supremum over the basic neighbourhoods of `Q` (finitely
-many bounded measurable `g i` and `δ > 0`) of the lower exponent of the largest probability under
+many bounded measurable `g i` and `δ > 0`) of the lower exponent of the upper probability under
 the null that the empirical measure lies in the neighbourhood is the neighbourhood envelope of
 `klInf · T` at `Q`. -/
 theorem iSup_liminf_log_inv_nbhdUpperProb_div_eq_tauEnvelope (Q : Measure Ω)
@@ -361,7 +371,7 @@ theorem iSup_liminf_log_inv_nbhdUpperProb_div_eq_tauEnvelope (Q : Measure Ω)
 
 /-- **The upper exponents over the basic neighbourhoods give the envelope** [EVR26, Note 15]. For
 a null `T` of probability measures, the supremum over the basic neighbourhoods of `Q` (finitely
-many bounded measurable `g i` and `δ > 0`) of the upper exponent of the largest probability under
+many bounded measurable `g i` and `δ > 0`) of the upper exponent of the upper probability under
 the null that the empirical measure lies in the neighbourhood is the neighbourhood envelope of
 `klInf · T` at `Q`. -/
 theorem iSup_limsup_log_inv_nbhdUpperProb_div_eq_tauEnvelope (Q : Measure Ω)
@@ -385,7 +395,7 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {S₁ : Set (Measure 𝓧
 
 /-- **The exponents of blocks are at most the rate** [EVR26, Note 15]. For blocks of `n ≠ 0`
 observations, with `T = sampleNull S₁ n` for a null `S₁` of probability measures and `Q = Q₁ ^ n`,
-the upper exponent of the largest probability under the null that the empirical averages of
+the upper exponent of the upper probability under the null that the empirical averages of
 bounded measurable statistics `g i` of the blocks are within `δ > 0` of their means under `Q₁ ^ n`
 is at most `n * bipolarRate Q₁ S₁`: the exponent per observation is at most the bipolar rate. -/
 theorem limsup_log_inv_nbhdUpperProb_div_le_mul_bipolarRate (Q₁ : Measure 𝓧)
@@ -400,7 +410,7 @@ theorem limsup_log_inv_nbhdUpperProb_div_le_mul_bipolarRate (Q₁ : Measure 𝓧
 
 /-- **The rate is the lower exponent of the statistics of blocks** [EVR26, Note 15]. For a null
 `S₁` of probability measures, the supremum over the block lengths `n + 1` and the basic
-neighbourhoods of `Q₁ ^ (n + 1)` of the lower exponent of the largest probability under the null
+neighbourhoods of `Q₁ ^ (n + 1)` of the lower exponent of the upper probability under the null
 that the empirical measure of the blocks lies in the neighbourhood, divided by `n + 1`, is the
 bipolar rate. -/
 theorem iSup_liminf_log_inv_nbhdUpperProb_sampleNull_div_eq_bipolarRate (Q₁ : Measure 𝓧)
@@ -417,7 +427,7 @@ theorem iSup_liminf_log_inv_nbhdUpperProb_sampleNull_div_eq_bipolarRate (Q₁ : 
 
 /-- **The rate is the upper exponent of the statistics of blocks** [EVR26, Note 15]. For a null
 `S₁` of probability measures, the supremum over the block lengths `n + 1` and the basic
-neighbourhoods of `Q₁ ^ (n + 1)` of the upper exponent of the largest probability under the null
+neighbourhoods of `Q₁ ^ (n + 1)` of the upper exponent of the upper probability under the null
 that the empirical measure of the blocks lies in the neighbourhood, divided by `n + 1`, is the
 bipolar rate. -/
 theorem iSup_limsup_log_inv_nbhdUpperProb_sampleNull_div_eq_bipolarRate (Q₁ : Measure 𝓧)
