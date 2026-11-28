@@ -78,6 +78,9 @@ the polarization step of [EVR26, Note 03, Theorem 1], adapted from
   coordinate.
 * `MeasureTheory.Measure.lintegral_infinitePi_congr_of_dependsOn`: the integral of a function of
   finitely many coordinates only depends on the factors of these coordinates.
+* `MeasureTheory.Measure.infinitePi_apply_eq_of_dependsOn`: two products of probability measures
+  that agree on the coordinates in `T` give the same mass to every measurable set that depends on
+  the coordinates in `T` only.
 * `MeasureTheory.Measure.lintegral_infinitePi_eq_of_add_sum_eq_sum`: polarization for i.i.d. laws,
   from the convex combinations of finitely many probability measures to every probability measure
   in their linear span.
@@ -426,6 +429,38 @@ theorem lintegral_infinitePi_congr_of_dependsOn {μ μ' : (i : ι) → Measure (
   rw [lintegral_restrict_infinitePi μ hg, lintegral_restrict_infinitePi μ' hg]
   congr 2
   exact funext fun i ↦ h i i.property
+
+/-- **Products that agree on the coordinates of a set.** Two products of probability measures
+that agree on the coordinates in `T` give the same mass to a measurable set that depends on the
+coordinates in `T` only: both are the mass, under the product over `T`, of its trace on these
+coordinates. With Mathlib's `MeasurableSet.eq_preimage_restrict_countable`, it applies to every
+measurable set of the product: a measurable set depends on countably many coordinates. -/
+theorem infinitePi_apply_eq_of_dependsOn {μ ν : (i : ι) → Measure (X i)}
+    [∀ i, IsProbabilityMeasure (μ i)] [∀ i, IsProbabilityMeasure (ν i)] {T : Set ι}
+    (hμν : ∀ i ∈ T, μ i = ν i) {s : Set (Π i, X i)} (hs : MeasurableSet s)
+    (hsT : DependsOn (· ∈ s) T) :
+    infinitePi μ s = infinitePi ν s := by
+  classical
+  have (i : ι) : Nonempty (X i) := nonempty_of_isProbabilityMeasure (μ i)
+  -- extend a point of `Π i : T, X i` by fixed values off `T`
+  let x₀ : Π i, X i := fun i ↦ Classical.arbitrary (X i)
+  let ext : (Π i : T, X i) → Π i, X i := fun y i ↦ if h : i ∈ T then y ⟨i, h⟩ else x₀ i
+  have hext : Measurable ext := by
+    refine Measurable.of_eval fun i ↦ ?_
+    by_cases h : i ∈ T
+    · simpa [ext, h] using measurable_pi_apply (⟨i, h⟩ : T)
+    · simp only [ext, h, dite_false]
+      exact measurable_const
+  -- `s` is the preimage by the restriction to `T` of its trace
+  have hs' : s = T.domRestrict ⁻¹' (ext ⁻¹' s) := by
+    ext x
+    simp only [Set.mem_preimage]
+    exact (hsT fun i hi ↦ by simp [ext, hi, Set.domRestrict]).to_iff
+  have hB : MeasurableSet (ext ⁻¹' s) := hext hs
+  have hr : Measurable (T.domRestrict (π := X)) := T.measurable_restrict
+  have hT : (fun i : T ↦ μ i) = fun i : T ↦ ν i := funext fun i ↦ hμν i i.property
+  rw [hs', ← map_apply hr hB, ← map_apply hr hB, infinitePi_map_restrict',
+    infinitePi_map_restrict', hT]
 
 end Update
 
