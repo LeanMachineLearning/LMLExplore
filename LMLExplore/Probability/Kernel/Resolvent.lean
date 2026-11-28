@@ -106,6 +106,8 @@ equation of these objects.
 * `ProbabilityTheory.Kernel.integral_resolvent_le_of_add_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent_of_le_add`: comparison with sub- and
   supersolutions, `f + γ κ u ≤ u → R_γ f ≤ u` and `u ≤ f + γ κ u → u ≤ R_γ f`.
+* `ProbabilityTheory.Kernel.add_mul_integral_sqrt_le_sqrt`: if `w ≥ 0` is a supersolution for
+  `b ^ 2`, then `√(w / (1 - γ))` is a supersolution for `b`.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
   with two rewards `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_sub_integral_resolvent_le`:
@@ -470,6 +472,31 @@ theorem le_integral_resolvent_of_le_add (hγ : γ < 1) {f u : α → ℝ} {B B' 
     u x ≤ ∫ z, f z ∂(resolvent γ κ x) := by
   rw [← sub_nonneg, integral_resolvent_sub_eq_integral_resolvent hγ hf hfB hu huB]
   exact integral_nonneg fun z ↦ sub_nonneg.2 (h z)
+
+/-- **Square roots of supersolutions.** For `γ < 1`, if `w ≥ 0` satisfies
+`b ^ 2 + γ κ w ≤ w` at `x` for some `b`, then `√(w / (1 - γ))` satisfies
+`b + γ κ √(w / (1 - γ)) ≤ √(w / (1 - γ))` at `x`: a supersolution of `u = f + γ κ u` for `f = b ^ 2`
+gives one for `f = b`, at the price of the factor `(1 - γ)⁻¹` under the square root. -/
+theorem add_mul_integral_sqrt_le_sqrt (hγ : γ < 1) {w : α → ℝ} (hw : ∀ y, 0 ≤ w y) {x : α}
+    (hwi : Integrable w (κ x)) {b : ℝ} (h : b ^ 2 + γ * ∫ y, w y ∂(κ x) ≤ w x) :
+    b + γ * ∫ y, √(w y / (1 - γ)) ∂(κ x) ≤ √(w x / (1 - γ)) := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  -- Jensen's inequality for the square root bounds `κ √(w / (1 - γ))` by `√(κ w / (1 - γ))`
+  have hJ : ∫ y, √(w y / (1 - γ)) ∂(κ x) ≤ √((∫ y, w y ∂(κ x)) / (1 - γ)) := by
+    have := integral_sqrt_le_sqrt_measureReal_mul_integral (μ := κ x) (g := fun y ↦ w y / (1 - γ))
+      (.of_forall fun y ↦ div_nonneg (hw y) h1γ.le) (hwi.div_const _)
+    rwa [probReal_univ, one_mul, integral_div] at this
+  set a := ∫ y, w y ∂(κ x)
+  have ha : 0 ≤ a := integral_nonneg hw
+  set s := √(a / (1 - γ))
+  have hs : 0 ≤ s := Real.sqrt_nonneg _
+  have hs2 : s ^ 2 = a / (1 - γ) := Real.sq_sqrt (div_nonneg ha h1γ.le)
+  refine (add_le_add_right (mul_le_mul_of_nonneg_left hJ γ.coe_nonneg) b).trans ?_
+  -- `(b + γ s) ^ 2 ≤ (b ^ 2 + γ a) / (1 - γ)`, with equality defect `γ (b - (1 - γ) s) ^ 2`
+  refine Real.le_sqrt_of_sq_le ?_
+  rw [le_div_iff₀ h1γ]
+  have has : a = s ^ 2 * (1 - γ) := by rw [hs2, div_mul_cancel₀ _ h1γ.ne']
+  nlinarith [mul_nonneg γ.coe_nonneg (sq_nonneg (b - (1 - γ) * s)), γ.coe_nonneg]
 
 /-- **The simulation identity with two rewards**
 `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`: for Markov kernels `κ` and

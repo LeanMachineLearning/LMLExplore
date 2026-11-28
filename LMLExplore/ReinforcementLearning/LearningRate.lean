@@ -50,8 +50,12 @@ The first bound only needs `H ≥ 0`, and the partial sums `∑_{t=i}^T α^i_t` 
 * `LMLExplore.eq_prod_smul_add_sum_learningRateWeight_smul`: the unrolled recursion;
   `LMLExplore.le_prod_mul_add_sum_learningRateWeight_mul`,
   `LMLExplore.prod_mul_add_sum_learningRateWeight_mul_le`: its upper and lower bound forms in an
-  ordered ring, for learning rates at most `1`.
-* `LMLExplore.sum_learningRateWeight`: `∑_{i=1}^t η^i_t = 1 - ∏_{j=1}^t (1 - η j)`.
+  ordered ring, for learning rates at most `1`;
+  `LMLExplore.le_prod_mul_add_sum_learningRateWeight_mul_of_le`: the upper bound form unrolled from
+  any iteration `n`, with the weights `η^i_t` of the iterations `n < i ≤ t`.
+* `LMLExplore.sum_learningRateWeight`: `∑_{i=1}^t η^i_t = 1 - ∏_{j=1}^t (1 - η j)`;
+  `LMLExplore.sum_Ioc_learningRateWeight_le_one`: `∑_{i=n+1}^t η^i_t ≤ 1` for learning rates in
+  `[0, 1]`.
 * `LMLExplore.sum_learningRateWeight_qLearningRate`: `∑_{i=1}^t α^i_t = 1` for `t ≥ 1`.
 * `LMLExplore.one_div_sqrt_le_sum_learningRateWeight_qLearningRate_div_sqrt`,
   `LMLExplore.sum_learningRateWeight_qLearningRate_div_sqrt_le`:
@@ -154,24 +158,41 @@ section Ordered
 
 variable {R : Type*} [CommRing R] [PartialOrder R] [IsOrderedRing R] {η x y : ℕ → R}
 
+/-- **The unrolled recursive upper bound from an iteration `n`.** If the learning rates are at most
+`1` and `x (k + 1) ≤ (1 - η (k + 1)) * x k + η (k + 1) * y (k + 1)` for every `k ≥ n`, then for
+`n ≤ t`, `x t ≤ (∏_{j=n+1}^t (1 - η j)) * x n + ∑_{i=n+1}^t η^i_t * y i`. -/
+theorem le_prod_mul_add_sum_learningRateWeight_mul_of_le {n : ℕ}
+    (hη : ∀ k, n ≤ k → η (k + 1) ≤ 1)
+    (hx : ∀ k, n ≤ k → x (k + 1) ≤ (1 - η (k + 1)) * x k + η (k + 1) * y (k + 1)) {t : ℕ}
+    (hnt : n ≤ t) :
+    x t ≤ (∏ j ∈ Ioc n t, (1 - η j)) * x n + ∑ i ∈ Ioc n t, learningRateWeight η t i * y i := by
+  induction t, hnt using Nat.le_induction with
+  | base => simp
+  | succ t hnt ih =>
+    have h : ∑ i ∈ Ioc n (t + 1), learningRateWeight η (t + 1) i * y i =
+        (1 - η (t + 1)) * ∑ i ∈ Ioc n t, learningRateWeight η t i * y i +
+          η (t + 1) * y (t + 1) := by
+      rw [sum_Ioc_succ_top hnt, learningRateWeight_self, mul_sum]
+      congr 1
+      refine sum_congr rfl fun i hi ↦ ?_
+      rw [learningRateWeight_succ η (mem_Ioc.1 hi).2, mul_assoc]
+    rw [h, prod_Ioc_succ_top hnt]
+    calc x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) := hx t hnt
+      _ ≤ (1 - η (t + 1)) * ((∏ j ∈ Ioc n t, (1 - η j)) * x n +
+          ∑ i ∈ Ioc n t, learningRateWeight η t i * y i) + η (t + 1) * y (t + 1) := by
+        gcongr
+        exact sub_nonneg.2 (hη t hnt)
+      _ = _ := by ring
+
 /-- **The unrolled recursive upper bound.** If the learning rates are at most `1` and
 `x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1)` for every `t`, then
 `x t ≤ (∏_{j=1}^t (1 - η j)) * x 0 + ∑_{i=1}^t η^i_t * y i`. -/
 theorem le_prod_mul_add_sum_learningRateWeight_mul (hη : ∀ t, η (t + 1) ≤ 1)
     (hx : ∀ t, x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1)) (t : ℕ) :
     x t ≤ (∏ j ∈ Icc 1 t, (1 - η j)) * x 0 + ∑ i ∈ Icc 1 t, learningRateWeight η t i * y i := by
-  induction t with
-  | zero => simp
-  | succ t ih =>
-    have h := sum_learningRateWeight_smul_succ η y t
-    simp only [smul_eq_mul] at h
-    rw [h, prod_Icc_succ_top (by omega)]
-    calc x (t + 1) ≤ (1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) := hx t
-      _ ≤ (1 - η (t + 1)) * ((∏ j ∈ Icc 1 t, (1 - η j)) * x 0 +
-          ∑ i ∈ Icc 1 t, learningRateWeight η t i * y i) + η (t + 1) * y (t + 1) := by
-        gcongr
-        exact sub_nonneg.2 (hη t)
-      _ = _ := by ring
+  simpa only [← Finset.Icc_add_one_left_eq_Ioc, zero_add] using
+    le_prod_mul_add_sum_learningRateWeight_mul_of_le (fun k _ ↦ hη k) (fun k _ ↦ hx k)
+      (Nat.zero_le t)
 
 /-- **The unrolled recursive lower bound.** If the learning rates are at most `1` and
 `(1 - η (t + 1)) * x t + η (t + 1) * y (t + 1) ≤ x (t + 1)` for every `t`, then
@@ -182,6 +203,24 @@ theorem prod_mul_add_sum_learningRateWeight_mul_le (hη : ∀ t, η (t + 1) ≤ 
   have h := le_prod_mul_add_sum_learningRateWeight_mul (x := -x) (y := -y) hη
     (fun t ↦ by simpa only [Pi.neg_apply, mul_neg, ← neg_add, neg_le_neg_iff] using hx t) t
   simpa only [Pi.neg_apply, mul_neg, sum_neg_distrib, ← neg_add, neg_le_neg_iff] using h
+
+/-- For learning rates in `[0, 1]`, the weights `η^i_t` of the iterations `n < i ≤ t` add up to at
+most `1`: they are part of the weights of `sum_learningRateWeight`, which add up to
+`1 - ∏_{j=1}^t (1 - η j) ≤ 1`. -/
+theorem sum_Ioc_learningRateWeight_le_one (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : R) 1) (n t : ℕ) :
+    ∑ i ∈ Ioc n t, learningRateWeight η t i ≤ 1 := by
+  have hη' {k i : ℕ} (hi : i ∈ Ioc k t) := learningRate_mem_Icc_of_mem_Ioc hη hi
+  calc ∑ i ∈ Ioc n t, learningRateWeight η t i
+      ≤ ∑ i ∈ Icc 1 t, learningRateWeight η t i :=
+        sum_le_sum_of_subset_of_nonneg (fun i hi ↦ by
+          have := mem_Ioc.1 hi
+          exact mem_Icc.2 ⟨by omega, this.2⟩) fun i hi _ ↦ learningRateWeight_nonneg
+            (hη' (k := 0) (mem_Ioc.2 ⟨(mem_Icc.1 hi).1, (mem_Icc.1 hi).2⟩)).1
+            fun j hj ↦ (hη' hj).2
+    _ ≤ 1 := by
+      rw [sum_learningRateWeight]
+      exact sub_le_self _ (prod_nonneg fun j hj ↦ sub_nonneg.2
+        (hη' (k := 0) (mem_Ioc.2 ⟨(mem_Icc.1 hj).1, (mem_Icc.1 hj).2⟩)).2)
 
 end Ordered
 
