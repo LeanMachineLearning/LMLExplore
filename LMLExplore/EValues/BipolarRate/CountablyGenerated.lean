@@ -23,11 +23,9 @@ with `c ≤ bipolarRate Q (C k)` for every `k` [EVR26, Note 47, Theorem 4′]. O
 the same holds for every `c` below the relative entropies `klDiv (Q.trim hm) (P.trim hm)` of the
 restrictions to a countably generated sub-σ-algebra `m`.
 
-So the rate `d_σ(Q, S)`, the supremum over the countable covers `S = ⋃ k, C k` of
-`⨅ k, bipolarRate Q (C k)`, which is at most `klInf Q S`, is at least the smallest relative entropy
-between the restrictions to any countably generated sub-σ-algebra, and equals `klInf Q S` on a
-countably generated space. It is the constant of the lower bound on the pulls of the worse arm for
-the bandit algorithms that are consistent at each model, on any observation space.
+Consequently, the supremum over the countable covers `S = ⋃ k, C k` of
+`⨅ k, bipolarRate Q (C k)` is at least the smallest relative entropy between the restrictions to
+any countably generated sub-σ-algebra, and at least `klInf Q S` on a countably generated space.
 
 ## Main statements
 
