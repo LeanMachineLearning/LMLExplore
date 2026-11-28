@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Semicontinuity
 public import LMLExplore.MeasureTheory.Measure.TauEnvelope
+import LMLExplore.EValues.BipolarRate.Game
 import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import LMLExplore.MeasureTheory.Measure.SetwiseConvergence
 import TauCeti.InformationTheory.KullbackLeibler.Variational
@@ -113,22 +114,16 @@ theorem maxEPower_le_tauEnvelope_klInf (Q : Measure 𝓧) [IsProbabilityMeasure 
     have hint : Integrable f R := LMLExplore.integrable_of_abs_le hfm hfN R
     have hexp : Integrable (fun x ↦ Real.exp (f x)) P :=
       LMLExplore.integrable_exp_of_abs_le hfm hfN P
-    -- `∫ exp f ∂P ≤ 1`, so its logarithm is nonpositive
-    have hZ1 : ∫ x, Real.exp (f x) ∂P ≤ 1 := by
-      have h := hfP P hP
-      rw [← ofReal_integral_eq_lintegral_ofReal hexp (.of_forall fun x ↦ (Real.exp_pos _).le)]
-        at h
-      exact ENNReal.ofReal_le_one.1 h
-    have hlog : Real.log (∫ x, Real.exp (f x) ∂P) ≤ 0 :=
-      Real.log_nonpos (integral_nonneg fun x ↦ (Real.exp_pos _).le) hZ1
+    -- `exp f` has mean at most one under `P`, so the bet `exp f` pays at least `∫ f ∂R`
+    have hpay := integral_le_betPayoff R hfm.aemeasurable (hfP P hP)
     have hRf0 := abs_le.1 (hRf 0)
     -- the Donsker–Varadhan inequality for `f`
     have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := R) (ν := P) hint hexp
+    rw [← betPayoff_def] at hDV
     rw [klIntegral_eq_klDiv (by simp)]
     calc (c : EReal)
-    _ ≤ ((∫ x, f x ∂R - Real.log (∫ x, Real.exp (f x) ∂P) : ℝ) : EReal) :=
-      EReal.coe_le_coe_iff.2 (by linarith)
-    _ ≤ ((ENNReal.ofReal (∫ x, f x ∂R - Real.log (∫ x, Real.exp (f x) ∂P)) : ℝ≥0∞) : EReal) := by
+    _ ≤ (betPayoff R P f : EReal) := EReal.coe_le_coe_iff.2 (by linarith)
+    _ ≤ ((ENNReal.ofReal (betPayoff R P f) : ℝ≥0∞) : EReal) := by
       rw [EReal.coe_ennreal_ofReal]
       exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
     _ ≤ (klDiv R P : EReal) := EReal.coe_ennreal_le_coe_ennreal_iff.2 hDV
