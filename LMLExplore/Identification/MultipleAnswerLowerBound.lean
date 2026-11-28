@@ -18,8 +18,8 @@ every family of `δ`-correct algorithms `A δ`,
 `liminf_{δ → 0} E_θ[τ_δ] / log (1 / δ) ≥ T*(θ)`, where
 `T*(θ)⁻¹ = max_{i ∈ i*(θ)} D(θ, ¬i)` [DK19, Theorem 1]. When `θ` has a single correct answer this
 is the lower bound of Garivier and Kaufmann
-(`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime` in `Identification/LowerBound.lean`),
-which follows from the transportation lemma: the algorithm
+(`IdentTask.IsDeltaCorrect.charTime_mul_ofReal_log_le_expectedStoppingTime` in
+`Identification/LowerBound.lean`), which follows from the transportation lemma: the algorithm
 answers `i` with probability at least `1 - δ` at `θ` and at most `δ` at every alternative to `i`.
 With several correct answers the algorithm may split its probability among them, and a bound on
 the expected stopping time from the divergence of the laws of the stopped history loses a factor
@@ -119,18 +119,16 @@ private lemma stoppedHistMeasure_le_measure_exists (env : Environment Unit α �
     (A.measurableSet_stopSet.inter (measurableSet_lt measurable_const hΛ)).inter
       (measurableSet_sigma_fst_le T)
   rw [← (hseq.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).map_eq,
-    Measure.map_apply (f := stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
-        (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) A.stopSet 0))
-      (A.measurable_stoppedHist hseq.measurable_obs hseq.measurable_action
-        hseq.measurable_feedback) hB]
+    ← IdentAlg.stoppingTime_def, ← IdentAlg.stoppedHist_def,
+    Measure.map_apply (A.measurable_stoppedHist hseq.measurable_obs hseq.measurable_action
+      hseq.measurable_feedback) hB]
   refine measure_mono fun ω ⟨⟨hS, hγ⟩, hT⟩ ↦ ?_
   -- the algorithm stops after `n = τ ω` rounds, and the stopped history is the `n`-round history
   have hne := IdentAlg.stoppedHist_mem_stopSet_iff.1 hS
   obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 hne
-  have hF : stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
-      (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) A.stopSet 0) ω =
-        ⟨n, history IT.obs IT.action IT.feedback n ω⟩ :=
-    IdentAlg.stoppedHist_eq_of_stoppingTime_eq (A := A) hn.symm
+  have hF : A.stoppedHist IT.obs IT.action IT.feedback ω =
+      ⟨n, history IT.obs IT.action IT.feedback n ω⟩ :=
+    IdentAlg.stoppedHist_eq_of_stoppingTime_eq hn.symm
   simp only [Set.mem_ofPred_eq] at hγ hT
   rw [hF] at hγ hT
   refine ⟨n, hT, ?_⟩
