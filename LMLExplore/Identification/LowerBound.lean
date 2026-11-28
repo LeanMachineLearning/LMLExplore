@@ -80,6 +80,9 @@ not unique, with C-tracking [DK19, Theorem 7]
 * `LMLExplore.Identification.limsup_expectedStoppingTime_div_log_le`: if
   `E[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > x`, then
   `limsup_{δ → 0} E[τ_δ] / log (1 / δ) ≤ x`.
+* `LMLExplore.Identification.tendsto_expectedStoppingTime_div_log_of_forall_eventually`: if
+  `c log (1 / δ) ≤ E[τ_δ]` for small `δ` for every `c < x`, and `E[τ_δ] ≤ c log (1 / δ)` for
+  small `δ` for every `c > x`, then `E[τ_δ] / log (1 / δ) → x`.
 * `IdentTask.tendsto_expectedStoppingTime_div_log`: a family of `δ`-correct algorithms with
   `E_θ[τ_δ] ≤ c log (1 / δ)` for small `δ`, for every `c > T*(θ)`, has
   `E_θ[τ_δ] / log (1 / δ) → T*(θ)`.
@@ -131,6 +134,33 @@ theorem limsup_expectedStoppingTime_div_log_le {𝓞 𝓓 : Type*} {m𝓞 : Meas
   obtain ⟨c, hxc, hcy⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 hy
   filter_upwards [h_upper c hxc] with δ hδ
   exact (ENNReal.div_le_of_le_mul hδ).trans hcy.le
+
+open Filter Topology in
+omit [Fintype α] [DecidableEq α] [MeasurableSingletonClass α] in
+/-- **Asymptotic sample complexity from matching bounds.** If, for every `c < x`,
+`c log (1 / δ) ≤ E[τ_δ]` for all small enough `δ`, and, for every `c > x`,
+`E[τ_δ] ≤ c log (1 / δ)` for all small enough `δ`, then `E[τ_δ] / log (1 / δ) → x` as
+`δ → 0`. -/
+theorem tendsto_expectedStoppingTime_div_log_of_forall_eventually {𝓞 𝓓 : Type*}
+    {m𝓞 : MeasurableSpace 𝓞} {m𝓓 : MeasurableSpace 𝓓} {A : ℝ → IdentAlg 𝓞 α 𝓨 𝓓}
+    {env : Environment 𝓞 α 𝓨} {x : ℝ≥0∞}
+    (h_lower : ∀ c : ℝ≥0, (c : ℝ≥0∞) < x → ∀ᶠ δ in 𝓝[>] 0,
+      c * ENNReal.ofReal (Real.log (1 / δ)) ≤ expectedStoppingTime (A δ) env)
+    (h_upper : ∀ c : ℝ≥0, x < c → ∀ᶠ δ in 𝓝[>] 0,
+      expectedStoppingTime (A δ) env ≤ c * ENNReal.ofReal (Real.log (1 / δ))) :
+    Tendsto (fun δ ↦ expectedStoppingTime (A δ) env / ENNReal.ofReal (Real.log (1 / δ)))
+      (𝓝[>] 0) (𝓝 x) := by
+  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
+    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
+    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
+  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
+  · -- Below `x`: the lower bound.
+    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
+    filter_upwards [h_lower c hc, hL] with δ hδ hLδ
+    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
+      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
+  · -- Above `x`: the upper bound.
+    exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
 
 namespace IdentTask
 
@@ -412,19 +442,9 @@ theorem tendsto_expectedStoppingTime_div_log [Nonempty α] {A : ℝ → IdentAlg
       expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) ≤
         c * ENNReal.ofReal (Real.log (1 / δ))) :
     Tendsto (fun δ ↦ expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) /
-      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) := by
-  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
-    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
-    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
-  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
-  · -- Below `T*(θ)`: the lower bound for `δ`-correct algorithms.
-    obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
-    filter_upwards [eventually_mul_ofReal_log_le_expectedStoppingTime hA hθ hi hc, hL]
-      with δ hδ hLδ
-    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
-      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
-  · -- Above `T*(θ)`: the upper bound.
-    exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
+      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) :=
+  tendsto_expectedStoppingTime_div_log_of_forall_eventually
+    (fun _ hc ↦ eventually_mul_ofReal_log_le_expectedStoppingTime hA hθ hi hc) h_upper
 
 end IdentTask
 

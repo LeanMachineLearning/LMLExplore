@@ -172,10 +172,9 @@ lemma mul_one_sub_le_expectedStoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (en
   have h_le : trajMeasure A.alg env {ω | τ ω ≤ T} ≤
       histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T} := by
     have hB : MeasurableSet {x : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n | x ∈ A.stopSet ∧ x.1 ≤ T} :=
-      A.measurableSet_stopSet.inter (measurable_sigma_fst (MeasurableSet.of_discrete
-        (s := {n | n ≤ T})))
-    rw [show {p : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T} =
-      Prod.fst ⁻¹' {x | x ∈ A.stopSet ∧ x.1 ≤ T} from rfl, ← Measure.fst_apply hB,
+      A.measurableSet_stopSet.inter (measurableSet_sigma_fst_le T)
+    rw [← Set.preimage_ofPred_eq (p := fun x : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n ↦ x ∈ A.stopSet ∧ x.1 ≤ T)
+      (f := (Prod.fst : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 → _)), ← Measure.fst_apply hB,
       fst_histOutputMeasure,
       ← (hseq.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).map_eq,
       Measure.map_apply (f := stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
@@ -185,7 +184,9 @@ lemma mul_one_sub_le_expectedStoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (en
     refine measure_mono fun ω hω ↦ ?_
     have hne : τ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.coe_ne_top) hω
     refine ⟨IdentAlg.stoppedHist_mem_stopSet_iff.2 hne, ?_⟩
-    -- the length of the stopped history is the stopping time (`IdentAlg.fst_stoppedHist`)
+    -- the length of the stopped history is the stopping time
+    change (A.stoppedHist IT.obs IT.action IT.feedback ω).1 ≤ T
+    rw [IdentAlg.fst_stoppedHist]
     exact WithTop.coe_le_coe.1 ((WithTop.natCast_untopA hne).trans_le hω)
   have h_compl : 1 - histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T} ≤
       trajMeasure A.alg env {ω | (T : ℝ≥0∞) + 1 ≤ ENat.toENNReal (τ ω)} := by

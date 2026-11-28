@@ -44,6 +44,9 @@ observations wherever it is positive.
 
 * `LMLExplore.histLikelihoodRatio_succ`: the recursion `L_{n+1}(h) = L_n(h|_n) · ρ(a_n, y_n)`.
 * `LMLExplore.measurable_histLikelihoodRatio`: its measurability, for countably many arms.
+* `LMLExplore.measurable_sigma_sum_round`, `LMLExplore.measurable_sum_mul_llr`: the measurability
+  of a sum of a function of the rounds of a history, and of the weighted log-likelihood ratio of an
+  observation.
 * `Learning.stepKernel_bandit_eq_withDensity`: the step kernel of a run against `ν` is the step
   kernel against `ν₀` with the density of the likelihood ratio of the observation of the round.
 * `Learning.IsAlgEnvSeq.hasLaw_history_withDensity_bandit`: the law of the history against `ν` is
@@ -152,6 +155,27 @@ lemma measurable_histLikelihoodRatio [Countable α] [MeasurableSingletonClass α
   refine Finset.measurable_prod _ fun i _ ↦ (measurable_armLikelihoodRatio ν ν₀).comp ?_
   exact ((Round.measurable_action).comp (measurable_pi_apply i)).prodMk
     ((Round.measurable_feedback).comp (measurable_pi_apply i))
+
+/-- The sum `∑_t g(a_t, y_t)` of a measurable function of the actions and the observations of the
+rounds of a history of variable length is measurable. -/
+lemma measurable_sigma_sum_round {𝓞 M : Type*} {m𝓞 : MeasurableSpace 𝓞} [AddCommMonoid M]
+    [MeasurableSpace M] [MeasurableAdd₂ M] {g : α → 𝓨 → M}
+    (hg : Measurable (Function.uncurry g)) :
+    Measurable fun x : Σ n : ℕ, Hist 𝓞 α 𝓨 n ↦ ∑ t, g (x.2 t).action (x.2 t).feedback :=
+  measurable_sigma fun n ↦ by
+    simpa only [Function.comp_def] using Finset.measurable_sum
+      (f := fun t (h : Hist 𝓞 α 𝓨 n) ↦ g (h t).action (h t).feedback) Finset.univ
+      fun t _ ↦ hg.comp (((Round.measurable_action (𝓞 := 𝓞)).comp
+        (measurable_pi_apply t)).prodMk ((Round.measurable_feedback (𝓞 := 𝓞)).comp
+          (measurable_pi_apply t)))
+
+/-- The weighted log-likelihood ratio `∑_{k ∈ s} w_k log (dν(a) / dκ_k(a))(y)` of an observation
+`y` of the arm `a` is measurable, for countably many arms. -/
+lemma measurable_sum_mul_llr [Countable α] [MeasurableSingletonClass α] {ι : Type*}
+    (ν : Kernel α 𝓨) (κ : ι → Kernel α 𝓨) (s : Finset ι) (w : ι → ℝ) :
+    Measurable fun p : α × 𝓨 ↦ ∑ k ∈ s, w k * llr (ν p.1) (κ k p.1) p.2 :=
+  measurable_from_prod_countable_right fun a ↦
+    Finset.measurable_sum _ fun k _ ↦ (measurable_llr (ν a) (κ k a)).const_mul (w k)
 
 end LMLExplore
 
@@ -362,16 +386,8 @@ theorem setLIntegral_stoppedHistMeasure_bandit_le {ι : Type*} {s : Finset ι} {
   set Λ : (Σ n : ℕ, Hist Unit α 𝓨 n) → ℝ := fun x ↦ ∑ t, ∑ k ∈ s,
     w k * llr (ν (x.2 t).action) (κ k (x.2 t).action) (x.2 t).feedback with hΛ
   set G := {x : Σ n : ℕ, Hist Unit α 𝓨 n | γ < Λ x} with hG
-  have hg : Measurable fun p : α × 𝓨 ↦ ∑ k ∈ s, w k * llr (ν p.1) (κ k p.1) p.2 :=
-    measurable_from_prod_countable_right fun a ↦
-      Finset.measurable_sum _ fun k _ ↦ (measurable_llr (ν a) (κ k a)).const_mul (w k)
-  have hΛm : Measurable Λ := by
-    refine measurable_sigma fun n ↦ ?_
-    simp only [hΛ, Function.comp_def]
-    exact Finset.measurable_sum (f := fun t (h : Hist Unit α 𝓨 n) ↦ ∑ k ∈ s,
-      w k * llr (ν (h t).action) (κ k (h t).action) (h t).feedback) Finset.univ fun t _ ↦ hg.comp
-      (((Round.measurable_action (𝓞 := Unit)).comp (measurable_pi_apply t)).prodMk
-        ((Round.measurable_feedback (𝓞 := Unit)).comp (measurable_pi_apply t)))
+  have hΛm : Measurable Λ := measurable_sigma_sum_round
+    (g := fun a y ↦ ∑ k ∈ s, w k * llr (ν a) (κ k a) y) (measurable_sum_mul_llr ν κ s w)
   have hGm : MeasurableSet G := measurableSet_lt measurable_const hΛm
   have hL (k : ι) : Measurable fun x : Σ n : ℕ, Hist Unit α 𝓨 n ↦
       (histLikelihoodRatio ν (κ k) x.1 x.2)⁻¹ * φ x :=

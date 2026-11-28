@@ -92,8 +92,7 @@ private lemma histOutputMeasure_stop_le_eq (env : Environment Unit α 𝓨) (T :
     histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T ∧ p.2 = i} =
       ∫⁻ x in A.stopSet, {x : Σ n : ℕ, Hist Unit α 𝓨 n | x.1 ≤ T}.indicator
         (fun x ↦ A.output x {i}) x ∂stoppedHistMeasure A.alg env A.stopSet := by
-  have hL : MeasurableSet {x : Σ n : ℕ, Hist Unit α 𝓨 n | x.1 ≤ T} :=
-    measurable_sigma_fst (MeasurableSet.of_discrete (s := {n | n ≤ T}))
+  have hL : MeasurableSet {x : Σ n : ℕ, Hist Unit α 𝓨 n | x.1 ≤ T} := measurableSet_sigma_fst_le T
   have h_prod : {p : (Σ n : ℕ, Hist Unit α 𝓨 n) × ℐ | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T ∧ p.2 = i} =
       (A.stopSet ∩ {x | x.1 ≤ T}) ×ˢ {i} := by
     ext p
@@ -114,16 +113,11 @@ private lemma stoppedHistMeasure_le_measure_exists (env : Environment Unit α �
         {ω | ∃ n ≤ T, γ < ∑ t ∈ range n, g (IT.action t ω) (IT.feedback t ω)} := by
   have hseq := IT.isAlgEnvSeq_trajMeasure A.alg env
   have hΛ : Measurable fun x : Σ n : ℕ, Hist Unit α 𝓨 n ↦ ∑ t, g (x.2 t).action (x.2 t).feedback :=
-    measurable_sigma fun n ↦ by
-      simpa only [Function.comp_def] using Finset.measurable_sum
-        (f := fun t (h : Hist Unit α 𝓨 n) ↦ g (h t).action (h t).feedback) Finset.univ
-        fun t _ ↦ hg.comp (((Round.measurable_action (𝓞 := Unit)).comp
-          (measurable_pi_apply t)).prodMk ((Round.measurable_feedback (𝓞 := Unit)).comp
-            (measurable_pi_apply t)))
+    measurable_sigma_sum_round hg
   have hB : MeasurableSet (A.stopSet ∩ {x : Σ n : ℕ, Hist Unit α 𝓨 n |
       γ < ∑ t, g (x.2 t).action (x.2 t).feedback} ∩ {x | x.1 ≤ T}) :=
     (A.measurableSet_stopSet.inter (measurableSet_lt measurable_const hΛ)).inter
-      (measurable_sigma_fst (MeasurableSet.of_discrete (s := {n | n ≤ T})))
+      (measurableSet_sigma_fst_le T)
   rw [← (hseq.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).map_eq,
     Measure.map_apply (f := stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
         (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) A.stopSet 0))
@@ -160,7 +154,7 @@ theorem IsDeltaCorrect.histOutputMeasure_le_add [Countable α] (hA : task.IsDelt
           ∑ θ' ∈ q.weights.support, q.weights θ' *
             llr (task.ν θ (IT.action t ω)) (task.ν θ' (IT.action t ω)) (IT.feedback t ω)} := by
   set L := {x : Σ n : ℕ, Hist Unit α 𝓨 n | x.1 ≤ T} with hL_def
-  have hL : MeasurableSet L := measurable_sigma_fst (MeasurableSet.of_discrete (s := {n | n ≤ T}))
+  have hL : MeasurableSet L := measurableSet_sigma_fst_le T
   set φ := L.indicator fun x ↦ A.output x {i} with hφ_def
   have hφ : Measurable φ :=
     (A.output.measurable_coe (measurableSet_singleton i)).indicator hL
@@ -168,8 +162,7 @@ theorem IsDeltaCorrect.histOutputMeasure_le_add [Countable α] (hA : task.IsDelt
   set g : α → 𝓨 → ℝ := fun a y ↦ ∑ θ' ∈ q.weights.support, q.weights θ' *
     llr (task.ν θ a) (task.ν θ' a) y with hg
   have hgm : Measurable (Function.uncurry g) :=
-    measurable_from_prod_countable_right fun a ↦ Finset.measurable_sum _ fun θ' _ ↦
-      (measurable_llr (task.ν θ a) (task.ν θ' a)).const_mul (q.weights θ')
+    measurable_sum_mul_llr (task.ν θ) task.ν q.weights.support q.weights
   have hw1 : ∑ θ' ∈ q.weights.support, q.weights θ' = 1 := q.total
   rw [histOutputMeasure_stop_le_eq]
   refine (Learning.setLIntegral_stoppedHistMeasure_bandit_le (fun θ' _ ↦ q.nonneg θ') hw1
@@ -286,8 +279,7 @@ private lemma eventually_histOutputMeasure_le_of_mem_correct [Nonempty α]
   set z : α → 𝓨 → ℝ := fun a y ↦ ∑ θ' ∈ q.weights.support, q.weights θ' *
     llr (task.ν θ a) (task.ν θ' a) y with hz
   have hzm : Measurable (Function.uncurry z) :=
-    measurable_from_prod_countable_right fun a ↦ Finset.measurable_sum _ fun θ' _ ↦
-      (measurable_llr (task.ν θ a) (task.ν θ' a)).const_mul (q.weights θ')
+    measurable_sum_mul_llr (task.ν θ) task.ν q.weights.support q.weights
   have hzint (a : α) : Integrable (z a) (task.ν θ a) :=
     integrable_finsetSum _ fun θ' hθ' ↦
       ((klDiv_ne_top_iff.1 (klDiv_ne_top_of_sum_lt (hqd a) hθ')).2).const_mul _
@@ -440,17 +432,9 @@ theorem tendsto_expectedStoppingTime_div_log_of_finite [Nonempty α]
       expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) ≤
         c * ENNReal.ofReal (Real.log (1 / δ))) :
     Tendsto (fun δ ↦ expectedStoppingTime (A δ) (Environment.bandit (task.ν θ)) /
-      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) := by
-  have hL : ∀ᶠ δ in 𝓝[>] 0, 0 < Real.log (1 / δ) := by
-    filter_upwards [Ioo_mem_nhdsGT one_pos] with δ hδ
-    exact Real.log_pos (one_lt_one_div hδ.1 hδ.2)
-  refine tendsto_order.2 ⟨fun a ha ↦ ?_, fun a ha ↦ ?_⟩
-  · obtain ⟨c, hac, hc⟩ := ENNReal.lt_iff_exists_nnreal_btwn.1 ha
-    filter_upwards [eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite hA hθ hfin hc, hL]
-      with δ hδ hLδ
-    exact hac.trans_le ((ENNReal.le_div_iff_mul_le (Or.inl (ENNReal.ofReal_pos.2 hLδ).ne')
-      (Or.inl ENNReal.ofReal_ne_top)).2 hδ)
-  · exact eventually_lt_of_limsup_lt ((limsup_expectedStoppingTime_div_log_le h_upper).trans_lt ha)
+      ENNReal.ofReal (Real.log (1 / δ))) (𝓝[>] 0) (𝓝 (task.charTime θ)) :=
+  tendsto_expectedStoppingTime_div_log_of_forall_eventually
+    (fun _ hc ↦ eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite hA hθ hfin hc) h_upper
 
 end IdentTask
 

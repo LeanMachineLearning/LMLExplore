@@ -54,9 +54,9 @@ most `M` rounds.
   `f t` on the event `history t ∈ notStoppedSet S t` is the integral of `∑ t < τ, f t` for an
   almost surely finite hitting time `τ` of `S`.
 * `Learning.history_mem_notStoppedBeforeSet_iff`,
-  `Learning.preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe`: the history of the first
-  `n` rounds has no strict prefix in `S` iff the hitting time `τ` of `S` is at least `n`, and on
-  `{τ = n}` the stopped history is the `n`-round history.
+  `Learning.preimage_stoppedValue_inter_preimage_hittingAfter_eq_preimage_history`: the history of
+  the first `n` rounds has no strict prefix in `S` iff the hitting time `τ` of `S` is at least `n`,
+  and on `{τ = n}` the stopped history is the `n`-round history.
 * `Learning.IsAlgEnvSeq.setLIntegral_stoppedHistMeasure_eq_tsum`: on `S`, the law of the stopped
   history is the sum over `n` of the laws of the `n`-round histories restricted to the histories
   that stop after exactly `n` rounds.
@@ -266,16 +266,15 @@ private lemma measure_history_preimage_eq (h : IsAlgEnvSeq O X Y alg env P)
 /-- On the event `{τ = n}`, where `τ` is the hitting time of the stopping rule `S`, the stopped
 history is the history of the first `n` rounds: the event that the stopped history lies in `B` and
 `τ = n` is the event that the `n`-round history has no strict prefix in `S` and lies in `S ∩ B`. -/
-lemma preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe
+lemma preimage_stoppedValue_inter_preimage_hittingAfter_eq_preimage_history
     (B : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) (n : ℕ) :
     stoppedValue (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) S 0) ⁻¹' B ∩
         hittingAfter (sigmaHistory O X Y) S 0 ⁻¹' {(n : WithTop ℕ)} =
       history O X Y n ⁻¹' (notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' (S ∩ B)) := by
   set τ := hittingAfter (sigmaHistory O X Y) S 0 with hτ_def
   set F := stoppedValue (sigmaHistory O X Y) τ with hF_def
-  have hF_of (ω : Ω) (hω : τ ω = n) : F ω = sigmaHistory O X Y n ω := by
-    rw [hF_def, stoppedValue, hω, WithTop.untopA, ← WithTop.coe_natCast, WithTop.untopD_coe,
-      Nat.cast_id]
+  have hF_of (ω : Ω) (hω : τ ω = n) : F ω = sigmaHistory O X Y n ω :=
+    stoppedValue_of_eq_natCast hω
   ext ω
   simp only [mem_inter_iff, mem_preimage, mem_singleton_iff,
     history_mem_notStoppedBeforeSet_iff]
@@ -326,14 +325,13 @@ lemma IsAlgEnvSeq.setLIntegral_stoppedHistMeasure_eq_tsum
   refine tsum_congr fun n ↦ ?_
   rw [setLIntegral_map (f := fun x : Hist 𝓞 𝓐 𝓨 n ↦ f ⟨n, x⟩) (hD n)
     (hf.comp (measurable_sigmaMk n)) (h.measurable_history n)]
-  have h_set := preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe (O := O) (X := X)
-    (Y := Y) (S := S) S n
+  have h_set := preimage_stoppedValue_inter_preimage_hittingAfter_eq_preimage_history (O := O)
+    (X := X) (Y := Y) (S := S) S n
   rw [inter_self] at h_set
   rw [h_set]
   refine setLIntegral_congr_fun ((h.measurable_history n) (hD n)) fun ω hω ↦ ?_
-  have hτn : τ ω = n := (h_set.symm ▸ hω : ω ∈ F ⁻¹' S ∩ τ ⁻¹' {(n : WithTop ℕ)}).2
-  have hFω : F ω = sigmaHistory O X Y n ω := by
-    simp only [F, stoppedValue, hτn, WithTop.untopA_natCast]
+  rw [← h_set] at hω
+  have hFω : F ω = sigmaHistory O X Y n ω := stoppedValue_of_eq_natCast hω.2
   rw [hFω, sigmaHistory_apply]
 
 /-- On the event `{τ = n}` the stopped history is the history of the first `n` rounds, so the
@@ -348,7 +346,7 @@ private lemma measure_stoppedValue_preimage_inter_eq_coe (hS : MeasurableSet S)
       trajMeasure alg' env' (stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
         (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0) ⁻¹' B ∩
           hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ⁻¹' {(n : WithTop ℕ)}) := by
-  rw [preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe]
+  rw [preimage_stoppedValue_inter_preimage_hittingAfter_eq_preimage_history]
   exact measure_history_preimage_eq (IT.isAlgEnvSeq_trajMeasure alg env)
     (IT.isAlgEnvSeq_trajMeasure alg' env') hS h_eq ((measurableSet_notStoppedBeforeSet hS n).inter
       ((measurable_sigmaMk n) (hS.inter hB))) inter_subset_left

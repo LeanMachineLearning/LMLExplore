@@ -7,7 +7,9 @@ module
 
 public import LMLExplore.SequentialLearning.LikelihoodRatio
 public import Mathlib.Probability.Moments.SubGaussian
-import Mathlib.MeasureTheory.Integral.DominatedConvergence
+public import Mathlib.Probability.StrongLaw
+import LMLExplore.Probability.Moments.SubGaussian.Basic
+import LMLExplore.Probability.StrongLaw
 
 /-!
 # A weak law of large numbers along bandit runs, uniform in the algorithm
@@ -20,12 +22,13 @@ they are `o(T)` up to the horizon `T` with probability tending to `1`, at a rate
 exceeds `ε T` for some `n ≤ T` tends to `0` as `T → ∞`, uniformly over the algorithms. No moment
 beyond the first is assumed.
 
-The proof truncates `z` at a level `M`. The truncated part has sub-Gaussian increments, and a
+The proof truncates `z` at a level `M`, with Mathlib's truncation `z_M = truncation (z a) M`, which
+is `z` on `(-M, M]` and `0` elsewhere. The truncated part has sub-Gaussian increments, and a
 time-uniform Hoeffding inequality (from the likelihood ratio supermartingales of
 `SequentialLearning/LikelihoodRatio.lean` and Ville's inequality) bounds its deviations by
 `exp (-ε² T / (8 M²))`. The remainder has expectation at most `2 T ∑_a E_{ν a}|z - z_M|` along
 every run, and Markov's inequality bounds it by `4 / ε ∑_a E_{ν a}|z - z_M|`, which tends to `0`
-as `M → ∞` by dominated convergence.
+as `M → ∞` (`ProbabilityTheory.tendsto_integral_abs_sub_truncation`).
 
 For `z` the log-likelihood ratio of `ν` against another bandit, `m a` is the relative entropy of the
 arm `a`, and this is the concentration of the log-likelihood ratio of the history on which the
@@ -55,50 +58,6 @@ public section
 open MeasureTheory ProbabilityTheory Learning Finset Real Filter
 
 open scoped ENNReal NNReal Topology
-
-namespace LMLExplore
-
-/-- The truncation `max (-M) (min M x)` of `x` at the level `M`. -/
-private noncomputable def clip (M x : ℝ) : ℝ := max (-M) (min M x)
-
-private lemma clip_mem_Icc {M : ℝ} (hM : 0 ≤ M) (x : ℝ) : clip M x ∈ Set.Icc (-M) M :=
-  ⟨le_max_left _ _, max_le (by linarith) (min_le_left _ _)⟩
-
-private lemma clip_eq_self {M x : ℝ} (hx : |x| ≤ M) : clip M x = x := by
-  rw [clip, min_eq_right (abs_le.1 hx).2, max_eq_right (abs_le.1 hx).1]
-
-private lemma abs_sub_clip_le {M : ℝ} (hM : 0 ≤ M) (x : ℝ) : |x - clip M x| ≤ |x| := by
-  rcases le_total M x with h | h
-  · rw [clip, min_eq_left h, max_eq_right (by linarith), abs_of_nonneg (by linarith),
-      abs_of_nonneg (by linarith)]
-    linarith
-  rcases le_total x (-M) with h' | h'
-  · rw [clip, min_eq_right h, max_eq_left h', abs_of_nonpos (by linarith),
-      abs_of_nonpos (by linarith)]
-    linarith
-  · rw [clip_eq_self (abs_le.2 ⟨h', h⟩), sub_self, abs_zero]
-    exact abs_nonneg x
-
-private lemma measurable_clip (M : ℝ) : Measurable (clip M) :=
-  measurable_const.max (measurable_const.min measurable_id)
-
-/-- The expected distance from an integrable function to its truncation at the level `M` tends to
-`0` as `M → ∞`. -/
-private lemma tendsto_integral_abs_sub_clip {𝓨 : Type*} {m𝓨 : MeasurableSpace 𝓨} {μ : Measure 𝓨}
-    {f : 𝓨 → ℝ} (hf : Integrable f μ) :
-    Tendsto (fun M ↦ ∫ y, |f y - clip M (f y)| ∂μ) atTop (𝓝 0) := by
-  have h := tendsto_integral_filter_of_dominated_convergence (l := atTop) (μ := μ)
-    (F := fun M y ↦ |f y - clip M (f y)|) (f := fun _ ↦ 0) (fun y ↦ |f y|)
-    (Eventually.of_forall fun M ↦ ((hf.aestronglyMeasurable.sub
-      ((measurable_clip M).comp_aemeasurable hf.aemeasurable).aestronglyMeasurable)).norm)
-    ((eventually_ge_atTop 0).mono fun M hM ↦ ae_of_all _ fun y ↦ by
-      rw [Real.norm_eq_abs, abs_abs]
-      exact abs_sub_clip_le hM (f y))
-    hf.abs (ae_of_all _ fun y ↦ tendsto_const_nhds.congr' ((eventually_ge_atTop |f y|).mono
-      fun M hM ↦ by simp only [clip_eq_self hM, sub_self, abs_zero]))
-  simpa using h
-
-end LMLExplore
 
 namespace Learning
 
@@ -136,17 +95,10 @@ theorem IsAlgEnvSeq.measure_exists_le_lt_sum_le_of_hasSubgaussianMGF
   set z : α → 𝓨 → ℝ := fun a y ↦ s * g a y - c * s ^ 2 / 2 with hz
   have hzm : Measurable (Function.uncurry z) :=
     (hg.const_mul s).sub_const _
-  have hle (a : α) : ∫⁻ y, ENNReal.ofReal (exp (z a y)) ∂ν a ≤ 1 := by
-    have h_int : Integrable (fun y ↦ exp (z a y)) (ν a) := by
-      simp only [hz, sub_eq_add_neg, exp_add]
-      exact ((hgc a).integrable_exp_mul s).mul_const _
-    rw [← ofReal_integral_eq_lintegral_ofReal h_int (ae_of_all _ fun _ ↦ (exp_pos _).le),
-      ENNReal.ofReal_le_one]
-    calc ∫ y, exp (z a y) ∂ν a = mgf (g a) (ν a) s * exp (-(c * s ^ 2 / 2)) := by
-          simp only [hz, sub_eq_add_neg, exp_add, mgf, integral_mul_const]
-    _ ≤ exp (c * s ^ 2 / 2) * exp (-(c * s ^ 2 / 2)) :=
-          mul_le_mul_of_nonneg_right ((hgc a).mgf_le s) (exp_pos _).le
-    _ = 1 := by rw [← exp_add, add_neg_cancel, exp_zero]
+  have hle (a : α) : ∫⁻ y, ENNReal.ofReal (exp (z a y)) ∂ν a ≤ 1 :=
+    (ofReal_integral_eq_lintegral_ofReal ((hgc a).integrable_exp_mul_sub s)
+      (ae_of_all _ fun _ ↦ (exp_pos _).le)).symm.trans_le
+        (ENNReal.ofReal_le_one.2 ((hgc a).integral_exp_mul_sub_le_one s))
   have hsup := supermartingale_exp_sum_of_lintegral_exp_le_one h hzm hle
   set κ : ℝ := x ^ 2 / (2 * c * T) with hκ
   -- on the event, the supermartingale exceeds `exp κ` at the round `n`
@@ -207,23 +159,22 @@ private lemma IsAlgEnvSeq.lintegral_ofReal_add_ofReal_integral_le
 /-- The remainder of the truncation at the level `M` up to the horizon `T`,
 `∑_{t < T} (|z - z_M|(A_t, Y_t) + E_{ν(A_t)}|z - z_M|)`, exceeds `ε T / 2` with probability at
 most `4 / ε ∑_a E_{ν a}|z - z_M|`, by Markov's inequality. -/
-private lemma IsAlgEnvSeq.measure_lt_sum_abs_sub_clip_le
+private lemma IsAlgEnvSeq.measure_lt_sum_abs_sub_truncation_le
     (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {z : α → 𝓨 → ℝ}
     (hz : Measurable (Function.uncurry z)) (hint : ∀ a, Integrable (z a) (ν a)) {ε M : ℝ}
-    (hε : 0 < ε) (hM : 0 ≤ M) {T : ℕ} (hT : 0 < T) :
-    P {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - clip M (z (A t ω) (Y t ω))| +
-        ∫ y, |z (A t ω) y - clip M (z (A t ω) y)| ∂ν (A t ω))} ≤
-      ENNReal.ofReal (4 / ε * ∑ a, ∫ y, |z a y - clip M (z a y)| ∂ν a) := by
-  set d : α → 𝓨 → ℝ := fun a y ↦ |z a y - clip M (z a y)| with hd
+    (hε : 0 < ε) {T : ℕ} (hT : 0 < T) :
+    P {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - truncation (z (A t ω)) M (Y t ω)| +
+        ∫ y, |z (A t ω) y - truncation (z (A t ω)) M y| ∂ν (A t ω))} ≤
+      ENNReal.ofReal (4 / ε * ∑ a, ∫ y, |z a y - truncation (z a) M y| ∂ν a) := by
+  set d : α → 𝓨 → ℝ := fun a y ↦ |z a y - truncation (z a) M y| with hd
   set r : α → ℝ := fun a ↦ ∫ y, d a y ∂ν a with hr
   have hdm : Measurable (Function.uncurry d) :=
-    continuous_abs.measurable.comp (hz.sub ((measurable_clip M).comp hz))
+    continuous_abs.measurable.comp (hz.sub ((measurable_id.indicator measurableSet_Ioc).comp hz))
   have hd0 (a : α) (y : 𝓨) : 0 ≤ d a y := abs_nonneg _
   have hr0 (a : α) : 0 ≤ r a := integral_nonneg (hd0 a)
   have hdint (a : α) : Integrable (d a) (ν a) := by
     refine ((hint a).sub ?_).abs
-    exact Integrable.of_mem_Icc (-M) M ((measurable_clip M).comp_aemeasurable
-      (hint a).aemeasurable) (ae_of_all _ fun y ↦ clip_mem_Icc hM (z a y))
+    exact (hint a).aestronglyMeasurable.integrable_truncation
   have hrm : Measurable r := measurable_of_countable r
   set ρ := ∑ a, r a with hρ
   have hρ0 : 0 ≤ ρ := sum_nonneg fun a _ ↦ hr0 a
@@ -270,15 +221,16 @@ private lemma IsAlgEnvSeq.measure_lt_sum_abs_sub_clip_le
 stochastic bandit `ν` with finitely many arms, let `z a y` be integrable under every arm law
 `ν a`. For `ε > 0`, every level of truncation `M > 0` and every horizon `T`, the probability that
 `∑_{t < n} (z(A_t, Y_t) - E_{ν(A_t)}[z])` exceeds `ε T` for some `n ≤ T` is at most
-`exp (-ε² T / (8 M²)) + 4 / ε ∑_a E_{ν a}|z - z_M|`, where `z_M = max (-M) (min M z)` is the
-truncation of `z` at the level `M`. The bound does not depend on the algorithm. -/
+`exp (-ε² T / (8 M²)) + 4 / ε ∑_a E_{ν a}|z - z_M|`, where `z_M = truncation (z a) M` is the
+truncation of `z` at the level `M`, equal to `z` on `(-M, M]` and to `0` elsewhere. The bound
+does not depend on the algorithm. -/
 theorem IsAlgEnvSeq.measure_exists_le_mul_lt_sum_sub_integral_le
     (h : IsAlgEnvSeq O A Y alg (Environment.bandit ν) P) {z : α → 𝓨 → ℝ}
     (hz : Measurable (Function.uncurry z)) (hint : ∀ a, Integrable (z a) (ν a)) {ε M : ℝ}
     (hε : 0 < ε) (hM : 0 < M) (T : ℕ) :
     P {ω | ∃ n ≤ T, ε * T < ∑ t ∈ range n, (z (A t ω) (Y t ω) - ∫ y, z (A t ω) y ∂ν (A t ω))} ≤
       ENNReal.ofReal (exp (-(ε ^ 2 * T / (8 * M ^ 2)))) +
-        ENNReal.ofReal (4 / ε * ∑ a, ∫ y, |z a y - max (-M) (min M (z a y))| ∂ν a) := by
+        ENNReal.ofReal (4 / ε * ∑ a, ∫ y, |z a y - truncation (z a) M y| ∂ν a) := by
   rcases Nat.eq_zero_or_pos T with rfl | hT
   · -- before the horizon `0` the sums are empty
     have : {ω | ∃ n ≤ 0, ε * (0 : ℕ) < ∑ t ∈ range n,
@@ -289,13 +241,14 @@ theorem IsAlgEnvSeq.measure_exists_le_mul_lt_sum_sub_integral_le
     exact bot_le
   have hT' : (0 : ℝ) < T := by exact_mod_cast hT
   -- the truncation `z_M` and its centred version `g`, which is `M²`-sub-Gaussian
-  set g : α → 𝓨 → ℝ := fun a y ↦ clip M (z a y) - ∫ y', clip M (z a y') ∂ν a with hg
-  have hzcm : Measurable fun p : α × 𝓨 ↦ clip M (z p.1 p.2) := (measurable_clip M).comp hz
+  set g : α → 𝓨 → ℝ := fun a y ↦ truncation (z a) M y - ∫ y', truncation (z a) M y' ∂ν a with hg
+  have hzcm : Measurable fun p : α × 𝓨 ↦ truncation (z p.1) M p.2 :=
+    (measurable_id.indicator measurableSet_Ioc).comp hz
   have hgm : Measurable (Function.uncurry g) :=
-    hzcm.sub ((measurable_of_countable fun a ↦ ∫ y', clip M (z a y') ∂ν a).comp measurable_fst)
-  have hzcint (a : α) : Integrable (fun y ↦ clip M (z a y)) (ν a) :=
-    Integrable.of_mem_Icc (-M) M ((measurable_clip M).comp_aemeasurable (hint a).aemeasurable)
-      (ae_of_all _ fun y ↦ clip_mem_Icc hM.le (z a y))
+    hzcm.sub ((measurable_of_countable fun a ↦ ∫ y', truncation (z a) M y' ∂ν a).comp
+      measurable_fst)
+  have hzcint (a : α) : Integrable (truncation (z a) M) (ν a) :=
+    (hint a).aestronglyMeasurable.integrable_truncation
   set c : ℝ≥0 := (‖M - -M‖₊ / 2) ^ 2 with hc
   have hcM : (c : ℝ) = M ^ 2 := by
     rw [hc, NNReal.coe_pow, NNReal.coe_div, coe_nnNorm, Real.norm_eq_abs, sub_neg_eq_add,
@@ -305,26 +258,27 @@ theorem IsAlgEnvSeq.measure_exists_le_mul_lt_sum_sub_integral_le
     rw [← NNReal.coe_pos, hcM]
     positivity
   have hgc (a : α) : HasSubgaussianMGF (g a) c (ν a) :=
-    hasSubgaussianMGF_of_mem_Icc ((measurable_clip M).comp_aemeasurable (hint a).aemeasurable)
-      (ae_of_all _ fun y ↦ clip_mem_Icc hM.le (z a y))
+    hasSubgaussianMGF_of_mem_Icc (hint a).aestronglyMeasurable.truncation.aemeasurable
+      (ae_of_all _ fun y ↦ abs_le.1 ((abs_truncation_le_bound _ _ y).trans_eq (abs_of_pos hM)))
   -- the deviation splits between the truncated part and the remainder
   have h_dec (ω : Ω) (n : ℕ) (hn : n ≤ T) :
       ∑ t ∈ range n, (z (A t ω) (Y t ω) - ∫ y, z (A t ω) y ∂ν (A t ω)) ≤
         ∑ t ∈ range n, g (A t ω) (Y t ω) + ∑ t ∈ range T,
-          (|z (A t ω) (Y t ω) - clip M (z (A t ω) (Y t ω))| +
-            ∫ y, |z (A t ω) y - clip M (z (A t ω) y)| ∂ν (A t ω)) := by
+          (|z (A t ω) (Y t ω) - truncation (z (A t ω)) M (Y t ω)| +
+            ∫ y, |z (A t ω) y - truncation (z (A t ω)) M y| ∂ν (A t ω)) := by
     have h_term (a : α) (y : 𝓨) : z a y - ∫ y', z a y' ∂ν a ≤ g a y +
-        (|z a y - clip M (z a y)| + ∫ y', |z a y' - clip M (z a y')| ∂ν a) := by
-      have h_mean : |∫ y', z a y' ∂ν a - ∫ y', clip M (z a y') ∂ν a| ≤
-          ∫ y', |z a y' - clip M (z a y')| ∂ν a := by
+        (|z a y - truncation (z a) M y| + ∫ y', |z a y' - truncation (z a) M y'| ∂ν a) := by
+      have h_mean : |∫ y', z a y' ∂ν a - ∫ y', truncation (z a) M y' ∂ν a| ≤
+          ∫ y', |z a y' - truncation (z a) M y'| ∂ν a := by
         rw [← integral_sub (hint a) (hzcint a)]
         simpa only [Real.norm_eq_abs] using
-          norm_integral_le_integral_norm (μ := ν a) fun y ↦ z a y - clip M (z a y)
-      have hga : g a y = clip M (z a y) - ∫ y', clip M (z a y') ∂ν a := rfl
-      linarith [le_abs_self (z a y - clip M (z a y)), neg_abs_le
-        (∫ y', z a y' ∂ν a - ∫ y', clip M (z a y') ∂ν a)]
-    calc _ ≤ ∑ t ∈ range n, (g (A t ω) (Y t ω) + (|z (A t ω) (Y t ω) - clip M (z (A t ω) (Y t ω))| +
-          ∫ y, |z (A t ω) y - clip M (z (A t ω) y)| ∂ν (A t ω))) :=
+          norm_integral_le_integral_norm (μ := ν a) fun y ↦ z a y - truncation (z a) M y
+      have hga : g a y = truncation (z a) M y - ∫ y', truncation (z a) M y' ∂ν a := rfl
+      linarith [le_abs_self (z a y - truncation (z a) M y), neg_abs_le
+        (∫ y', z a y' ∂ν a - ∫ y', truncation (z a) M y' ∂ν a)]
+    calc _ ≤ ∑ t ∈ range n, (g (A t ω) (Y t ω) +
+          (|z (A t ω) (Y t ω) - truncation (z (A t ω)) M (Y t ω)| +
+            ∫ y, |z (A t ω) y - truncation (z (A t ω)) M y| ∂ν (A t ω))) :=
         sum_le_sum fun t _ ↦ h_term _ _
     _ ≤ _ := by
         rw [sum_add_distrib]
@@ -332,15 +286,15 @@ theorem IsAlgEnvSeq.measure_exists_le_mul_lt_sum_sub_integral_le
   have h_sub : {ω | ∃ n ≤ T, ε * T < ∑ t ∈ range n,
       (z (A t ω) (Y t ω) - ∫ y, z (A t ω) y ∂ν (A t ω))} ⊆
       {ω | ∃ n ≤ T, ε * T / 2 < ∑ t ∈ range n, g (A t ω) (Y t ω)} ∪
-        {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - clip M (z (A t ω) (Y t ω))| +
-          ∫ y, |z (A t ω) y - clip M (z (A t ω) y)| ∂ν (A t ω))} := by
+        {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - truncation (z (A t ω)) M (Y t ω)| +
+          ∫ y, |z (A t ω) y - truncation (z (A t ω)) M y| ∂ν (A t ω))} := by
     rintro ω ⟨n, hnT, hn⟩
     by_contra hω
     simp only [Set.mem_union, Set.mem_ofPred_eq, not_or, not_exists, not_and, not_lt] at hω
     linarith [h_dec ω n hnT, hω.1 n hnT]
   calc _ ≤ P ({ω | ∃ n ≤ T, ε * T / 2 < ∑ t ∈ range n, g (A t ω) (Y t ω)} ∪
-        {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - clip M (z (A t ω) (Y t ω))| +
-          ∫ y, |z (A t ω) y - clip M (z (A t ω) y)| ∂ν (A t ω))}) := measure_mono h_sub
+        {ω | ε * T / 2 < ∑ t ∈ range T, (|z (A t ω) (Y t ω) - truncation (z (A t ω)) M (Y t ω)| +
+          ∫ y, |z (A t ω) y - truncation (z (A t ω)) M y| ∂ν (A t ω))}) := measure_mono h_sub
   _ ≤ _ := measure_union_le _ _
   _ ≤ _ := by
       gcongr
@@ -349,7 +303,7 @@ theorem IsAlgEnvSeq.measure_exists_le_mul_lt_sum_sub_integral_le
         rw [hcM]
         field_simp
         ring
-      · exact h.measure_lt_sum_abs_sub_clip_le hz hint hε hM.le hT
+      · exact h.measure_lt_sum_abs_sub_truncation_le hz hint hε hT
 
 end Learning
 
@@ -373,9 +327,9 @@ theorem eventually_measure_exists_le_mul_lt_sum_sub_integral_le {z : α → 𝓨
           (z (A t ω) (Y t ω) - ∫ y, z (A t ω) y ∂ν (A t ω))} ≤ ENNReal.ofReal η := by
   have := Fintype.ofFinite α
   -- choose a level of truncation with a small remainder, then a large horizon
-  have h_lim : Tendsto (fun M ↦ 4 / ε * ∑ a, ∫ y, |z a y - clip M (z a y)| ∂ν a) atTop
+  have h_lim : Tendsto (fun M ↦ 4 / ε * ∑ a, ∫ y, |z a y - truncation (z a) M y| ∂ν a) atTop
       (𝓝 (4 / ε * ∑ _a : α, (0 : ℝ))) :=
-    (tendsto_finsetSum _ fun a _ ↦ tendsto_integral_abs_sub_clip (hint a)).const_mul _
+    (tendsto_finsetSum _ fun a _ ↦ tendsto_integral_abs_sub_truncation (hint a)).const_mul _
   rw [sum_const_zero, mul_zero] at h_lim
   obtain ⟨M, hMη, hM⟩ := ((h_lim.eventually (gt_mem_nhds (half_pos hη))).and
     (eventually_gt_atTop (0 : ℝ))).exists
@@ -387,6 +341,6 @@ theorem eventually_measure_exists_le_mul_lt_sum_sub_integral_le {z : α → 𝓨
   filter_upwards [h_exp.eventually (gt_mem_nhds (half_pos hη))] with T hT Ω _ P _ alg O A Y h
   refine (h.measure_exists_le_mul_lt_sum_sub_integral_le hz hint hε hM T).trans ?_
   rw [← ENNReal.ofReal_add (exp_pos _).le (by positivity)]
-  exact ENNReal.ofReal_le_ofReal (by simp only [clip] at hMη; linarith)
+  exact ENNReal.ofReal_le_ofReal (by linarith)
 
 end LMLExplore
