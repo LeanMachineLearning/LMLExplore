@@ -8,13 +8,13 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 public import Mathlib.Probability.Distributions.Geometric
+import LMLExplore.InformationTheory.KullbackLeibler.Variational
 import LMLExplore.MeasureTheory.Function.SimpleFunc
 import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.PSeries
 import Mathlib.Analysis.Real.Pi.Bounds
 import Mathlib.NumberTheory.ZetaValues
-import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
 # The block criterion for `d = klInf` needs a finite smallest relative entropy
@@ -55,7 +55,8 @@ which the statistics of the neighbourhood move by less than its tolerance
 (`MeasureTheory.exists_measurable_finite_range_forall_abs_integral_map_sub_le`); it is at finite
 relative entropy from `ν`, which charges each of its finitely many points. The relative entropy
 `KL(Q ‖ P) = ∞` is proved by the Donsker–Varadhan inequality for the logarithm of the likelihood
-ratio on the points of `[199, J)`, where the terms `q_j log (q_j / p_j)` are at least
+ratio on the points of `[199, J)` (`InformationTheory.ofReal_sum_mul_log_sub_log_two_le_klDiv`),
+where the terms `q_j log (q_j / p_j)` are at least
 `1 / (5 (j + 1))`, and by the divergence of the harmonic series.
 
 The statements and proofs are adapted from `EValuesResearch/Results/Envelopes.lean` (commit
@@ -164,70 +165,6 @@ private lemma hasSum_inverseSquare :
   · ext j
     field_simp
   · field_simp
-
-/-- **The Donsker–Varadhan bound on a finite block of atoms.** For probability measures `Q` and
-`P` on a measurable space with measurable singletons and a finite set `F` of points charged by both,
-`∑_{j ∈ F} Q {j} log (Q {j} / P {j}) - log 2 ≤ KL(Q ‖ P)`. -/
-private lemma ofReal_sum_mul_log_sub_log_two_le_klDiv [MeasurableSingletonClass 𝓧]
-    (Q P : Measure 𝓧) [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (F : Finset 𝓧)
-    (hQ : ∀ j ∈ F, 0 < Q.real {j}) (hP : ∀ j ∈ F, 0 < P.real {j}) :
-    ENNReal.ofReal (∑ j ∈ F, Q.real {j} * Real.log (Q.real {j} / P.real {j}) - Real.log 2) ≤
-      klDiv Q P := by
-  classical
-  set q : 𝓧 → ℝ := fun j ↦ Q.real {j} with hq_def
-  set p : 𝓧 → ℝ := fun j ↦ P.real {j} with hp_def
-  -- the logarithm of the likelihood ratio on the points of `F`
-  set f : 𝓧 → ℝ := fun x ↦ ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ Real.log (q j / p j)) x
-    with hf_def
-  have hsingle (c : 𝓧 → ℝ) (x : 𝓧) :
-      ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ c j) x = if x ∈ F then c x else 0 := by
-    split_ifs with hx
-    · rw [Finset.sum_eq_single x (fun j _ hj ↦ Set.indicator_of_notMem
-        (by simpa using Ne.symm hj) _) (fun h ↦ absurd hx h)]
-      simp
-    · exact Finset.sum_eq_zero fun j hj ↦ Set.indicator_of_notMem
-        (by rintro rfl; exact hx hj) _
-  have hint_ind (μ : Measure 𝓧) [IsFiniteMeasure μ] (c : 𝓧 → ℝ) :
-      Integrable (fun x ↦ ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ c j) x) μ :=
-    integrable_finsetSum _ fun j _ ↦ (integrable_const _).indicator (measurableSet_singleton j)
-  have hexpf (x : 𝓧) : Real.exp (f x) =
-      1 + ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ q j / p j - 1) x := by
-    simp only [hf_def]
-    rw [hsingle, hsingle]
-    split_ifs with hx
-    · rw [Real.exp_log (div_pos (hQ x hx) (hP x hx))]; ring
-    · simp
-  have hexpi : Integrable (fun x ↦ Real.exp (f x)) P := by
-    simp_rw [hexpf]
-    exact (integrable_const 1).add (hint_ind _ _)
-  have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := Q) (ν := P)
-    (hint_ind _ _) hexpi
-  have hIf : ∫ x, f x ∂Q = ∑ j ∈ F, q j * Real.log (q j / p j) := by
-    rw [hf_def, integral_finsetSum _ fun j _ ↦
-      (integrable_const _).indicator (measurableSet_singleton j)]
-    exact Finset.sum_congr rfl fun j _ ↦ by
-      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul]
-  have hIe : ∫ x, Real.exp (f x) ∂P ≤ 2 := by
-    simp_rw [hexpf]
-    rw [integral_add (integrable_const 1) (hint_ind _ _), integral_const, probReal_univ,
-      one_smul, integral_finsetSum _ fun j _ ↦
-        (integrable_const _).indicator (measurableSet_singleton j)]
-    have hsum : ∑ j ∈ F, ∫ x, ({j} : Set 𝓧).indicator (fun _ ↦ q j / p j - 1) x ∂P
-        ≤ ∑ j ∈ F, Q.real {j} := by
-      refine Finset.sum_le_sum fun j hj ↦ ?_
-      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul, mul_sub,
-        mul_div_cancel₀ _ (hP j hj).ne', mul_one]
-      linarith [hP j hj]
-    have hF : ∑ j ∈ F, Q.real {j} ≤ 1 := by
-      rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ Set.disjoint_singleton.2 hij)
-        (fun j _ ↦ measurableSet_singleton j)]
-      exact measureReal_le_one
-    linarith
-  have hIe0 : 0 < ∫ x, Real.exp (f x) ∂P := integral_exp_pos hexpi
-  refine le_trans (ENNReal.ofReal_le_ofReal ?_) hDV
-  rw [hIf]
-  have := Real.log_le_log hIe0 hIe
-  linarith
 
 /-- From `j = 199` on, the term `q_j log (q_j / p_j)` of the inverse-square law
 `q_j = 6 / (π² (j + 1)²)` against the geometric law `p_j = 2 ^ (-(j + 1))` is at least

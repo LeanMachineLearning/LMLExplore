@@ -7,10 +7,10 @@ module
 
 public import LMLExplore.EValues.Examples.BipolarRate.Circle
 public import LMLExplore.MeasureTheory.Measure.TauEnvelope
-import LMLExplore.Analysis.Normed.Group.AddCircle
 import LMLExplore.EValues.BipolarRate.Envelope
 import LMLExplore.EValues.Examples.BipolarRate.FiniteSupport
 import LMLExplore.MeasureTheory.Function.SimpleFunc
+import LMLExplore.MeasureTheory.Group.AddCircle
 import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import Mathlib.MeasureTheory.Function.ContinuousMapDense
 import Mathlib.MeasureTheory.Integral.Average
@@ -68,9 +68,11 @@ A basic neighbourhood of `Q` meets the finite-support null at the mixture of `Q`
 less than its tolerance
 (`MeasureTheory.exists_measurable_finite_range_forall_abs_integral_map_sub_le`).
 For the coset null, the average `T_N f (x₀)` of a bounded measurable `f` on the coset
-`x₀ + (1 / N) ℤ` is a contraction of `L¹(volume)` in `f`, and tends to `∫ f` uniformly in `x₀`
-for a continuous `f`, by uniform continuity; with the density of the bounded continuous functions
-in `L¹`, some coset has averages of the statistics close to their integrals. The lower bound on
+`x₀ + (1 / N) ℤ` is a contraction of `L¹(volume)` in `f`
+(`UnitAddCircle.integral_abs_integral_uniformOn_coset_le`), and tends to `∫ f` uniformly in `x₀`
+for a continuous `f` (`UnitAddCircle.exists_forall_abs_integral_uniformOn_coset_sub_le`); with
+the density of the bounded continuous functions in `L¹`, some coset has averages of the
+statistics close to their integrals. The lower bound on
 the sequential envelope is the Donsker–Varadhan inequality for `t 𝟙_{sᶜ}`, with `s` the finite set
 that carries `F`, as `t → ∞`: probability measures `R k` that converge to `Q` on every measurable
 set give a vanishing mass to the countable set `C` of their atoms, hence to every finite set, so
@@ -100,15 +102,6 @@ namespace ProbabilityTheory
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ε : ℝ≥0∞}
 
 /-! ### The finite-support null -/
-
-/-- The members of the finite-support null are probability measures. -/
-private lemma isProbabilityMeasure_of_mem_finitelySupported_mixtures {Q : Measure 𝓧}
-    [IsProbabilityMeasure Q] (hε : ε ≤ 1) {P : Measure 𝓧}
-    (hP : P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
-      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}) :
-    IsProbabilityMeasure P := by
-  obtain ⟨F, hF, -, rfl⟩ := hP
-  exact ⟨by simp [tsub_add_cancel_of_le hε]⟩
 
 /-- **The neighbourhood envelope of the finite-support null is zero** [EVR26, Note 19]: for every
 probability measure `Q` on a measurable space with measurable singletons and `ε ≤ 1`, the
@@ -283,67 +276,7 @@ theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClas
         (lt_mem_nhds hc)).and (eventually_ge_atTop 0)).exists
       exact (EReal.coe_le_coe_iff.2 hct.le).trans (hlim t ht)
 
-/-! ### The cosets of the circle -/
-
-/-- The uniform law on the points `x₀ + j / N`, `j < N`, of the circle. -/
-private noncomputable def cosetLaw (x₀ : UnitAddCircle) (N : ℕ) : Measure UnitAddCircle :=
-  (N : ℝ≥0∞)⁻¹ • ∑ j ∈ Finset.range N,
-    Measure.dirac (x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle))
-
-/-- For `N ≠ 0`, the uniform law on the coset `x₀ + (1 / N) ℤ` of the circle is the uniform law on
-the points `x₀ + j / N`, `j < N`: these points are distinct and form the coset. -/
-private lemma uniformOn_coset_eq_cosetLaw (x₀ : UnitAddCircle) {N : ℕ} (hN : N ≠ 0) :
-    uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} =
-      cosetLaw x₀ N := by
-  classical
-  set f : ℕ → UnitAddCircle := fun j ↦ x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) with hf
-  have hN' : (0 : ℝ) < N := Nat.cast_pos.2 (Nat.pos_of_ne_zero hN)
-  -- the points `x₀ + j / N`, `j < N`, are distinct
-  have hinj : Set.InjOn f (Finset.range N) := by
-    intro j hj k hk h
-    have hmem (i : ℕ) (hi : i ∈ (Finset.range N : Set ℕ)) :
-        (i : ℝ) / N ∈ Set.Ico (0 : ℝ) (0 + 1) :=
-      ⟨by positivity, by rw [zero_add, div_lt_one hN']; exact_mod_cast Finset.mem_range.1 hi⟩
-    have h' := (AddCircle.coe_eq_coe_iff_of_mem_Ico (hmem j hj) (hmem k hk)).1 (add_left_cancel h)
-    exact_mod_cast (div_left_inj₀ hN'.ne').1 h'
-  -- and they form the coset
-  have hset : {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} =
-      ↑((Finset.range N).image f) := by
-    ext x
-    simp only [Set.mem_ofPred_eq, AddSubgroup.mem_zmultiples_iff, Finset.coe_image,
-      Finset.coe_range, Set.mem_image, Set.mem_Iio]
-    constructor
-    · rintro ⟨k, hk⟩
-      have hr := Int.emod_nonneg k (Int.natCast_ne_zero.2 hN)
-      have hrN := Int.emod_lt_of_pos k (Int.natCast_pos.2 (Nat.pos_of_ne_zero hN))
-      refine ⟨(k % N).toNat, by omega, ?_⟩
-      rw [hf, ← eq_sub_iff_add_eq', ← hk, ← AddCircle.coe_zsmul, zsmul_eq_mul]
-      have hj : (((k % N).toNat : ℕ) : ℝ) = k - N * ((k / N : ℤ) : ℝ) := by
-        rw [← Int.cast_natCast, Int.toNat_of_nonneg hr, Int.emod_def]
-        push_cast
-        ring
-      have hk' : (k : ℝ) * (N : ℝ)⁻¹ = (((k % N).toNat : ℕ) : ℝ) / N + ((k / N : ℤ) : ℝ) := by
-        rw [hj]
-        field_simp
-        ring
-      rw [hk', AddCircle.coe_add, ((AddCircle.coe_eq_zero_iff (1 : ℝ)).2 ⟨k / N, by simp⟩ :
-        (((k / N : ℤ) : ℝ) : UnitAddCircle) = 0), add_zero]
-    · rintro ⟨j, -, rfl⟩
-      refine ⟨j, ?_⟩
-      rw [hf, add_sub_cancel_left, ← AddCircle.coe_zsmul, zsmul_eq_mul, div_eq_mul_inv,
-        Int.cast_natCast]
-  rw [hset]
-  ext t ht
-  rw [uniformOn, cond_apply (Finset.measurableSet _), Measure.count_apply_finset,
-    Finset.card_image_of_injOn hinj, Finset.card_range, cosetLaw, smul_apply, smul_eq_mul,
-    _root_.sum_apply]
-  congr 1
-  have hT : ↑((Finset.range N).image f) ∩ t = (↑(((Finset.range N).image f).filter (· ∈ t)) :
-      Set UnitAddCircle) := by
-    ext
-    simp
-  rw [hT, Measure.count_apply_finset, Finset.card_filter, Nat.cast_sum, Finset.sum_image hinj]
-  simp [hf, Measure.dirac_apply' _ ht, Set.indicator_apply]
+/-! ### The coset null -/
 
 /-- The coset null is contained in the finite-support null. -/
 private lemma coset_mixtures_subset_finitelySupported_mixtures (ε : ℝ≥0∞) :
@@ -352,8 +285,9 @@ private lemma coset_mixtures_subset_finitelySupported_mixtures (ε : ℝ≥0∞)
     {(1 - ε) • F + ε • volume | (F : Measure UnitAddCircle) (_ : IsProbabilityMeasure F)
       (_ : ∃ s : Set UnitAddCircle, s.Finite ∧ F sᶜ = 0)} := by
   rintro _ ⟨x₀, N, rfl⟩
-  exact ⟨_, isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩, ⟨_, finite_coset x₀ N,
-    (uniformOn_eq_zero_iff (finite_coset x₀ N)).2 (Set.inter_compl_self _)⟩, rfl⟩
+  have hfin := UnitAddCircle.finite_coset x₀ N
+  exact ⟨_, isProbabilityMeasure_uniformOn hfin ⟨x₀, by simp⟩,
+    ⟨_, hfin, (uniformOn_eq_zero_iff hfin).2 (Set.inter_compl_self _)⟩, rfl⟩
 
 /-- The members of the coset null are probability measures. -/
 private lemma isProbabilityMeasure_of_mem_coset_mixtures (hε : ε ≤ 1) {P : Measure UnitAddCircle}
@@ -362,123 +296,6 @@ private lemma isProbabilityMeasure_of_mem_coset_mixtures (hε : ε ≤ 1) {P : M
     IsProbabilityMeasure P := by
   obtain ⟨x₀, N, rfl⟩ := hP
   exact isProbabilityMeasure_coset_mixture hε x₀ N
-
-/-- The integral against the uniform law on the points `x₀ + j / N` is their average. -/
-private lemma integral_cosetLaw (f : UnitAddCircle → ℝ) (x₀ : UnitAddCircle) (N : ℕ) :
-    ∫ x, f x ∂cosetLaw x₀ N =
-      (N : ℝ)⁻¹ * ∑ j ∈ Finset.range N, f (x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle)) := by
-  rw [cosetLaw, integral_smul_measure, integral_finsetSum_measure
-    fun j _ ↦ integrable_dirac eNorm_lt_top]
-  simp [integral_dirac, ENNReal.toReal_inv, smul_eq_mul]
-
-/-- The uniform law on a coset depends only on the coset: shifting the base point by a multiple
-of `1 / N` does not change it. -/
-private lemma cosetLaw_add_intCast_div (x₀ : UnitAddCircle) {N : ℕ} (hN : 0 < N) (m : ℤ) :
-    cosetLaw (x₀ + (((m : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle)) N = cosetLaw x₀ N := by
-  rw [← uniformOn_coset_eq_cosetLaw _ hN.ne', ← uniformOn_coset_eq_cosetLaw _ hN.ne']
-  congr 1
-  ext x
-  simp only [Set.mem_ofPred_eq]
-  have hc : (((m : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) ∈
-      AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle) :=
-    ⟨m, by beta_reduce; rw [← AddCircle.coe_zsmul, zsmul_eq_mul, div_eq_mul_inv]⟩
-  rw [sub_add_eq_sub_sub, sub_eq_add_neg (x - x₀)]
-  exact AddSubgroup.add_mem_cancel_right _ (neg_mem hc)
-
-/-- **Uniform Riemann sums on the cosets.** For a bounded continuous function `h` on the circle
-and `η > 0`, for `N` large the average of `h` on every coset `x₀ + (1 / N) ℤ` is within `η` of its
-integral: by uniform continuity, two coset averages are within `η`, and the average of the coset
-averages over `x₀` is the integral. -/
-private lemma exists_forall_abs_integral_cosetLaw_sub_le (h : UnitAddCircle →ᵇ ℝ) {η : ℝ}
-    (hη : 0 < η) : ∃ N₀ : ℕ, ∀ N, N₀ ≤ N → 0 < N → ∀ x₀,
-      |∫ x, h x ∂cosetLaw x₀ N - ∫ x, h x| ≤ η := by
-  obtain ⟨δ, hδ, hδh⟩ := Metric.uniformContinuous_iff.1
-    (CompactSpace.uniformContinuous_of_continuous h.continuous) η hη
-  obtain ⟨N₀, hN₀⟩ := exists_nat_gt (1 / δ)
-  refine ⟨N₀, fun N hN hN0 x₀ ↦ ?_⟩
-  have hN' : (0 : ℝ) < N := Nat.cast_pos.2 hN0
-  have hNδ : 1 / (2 * (N : ℝ)) < δ := by
-    have h1 : 1 / δ < N := hN₀.trans_le (by exact_mod_cast hN)
-    rw [div_lt_iff₀ hδ] at h1
-    rw [div_lt_iff₀ (by positivity)]
-    nlinarith
-  have hint (c : UnitAddCircle) : Integrable (fun y ↦ h (y + c)) (volume : Measure UnitAddCircle) :=
-    .of_bound (h.continuous.comp (continuous_id.add continuous_const)).aestronglyMeasurable ‖h‖
-      (.of_forall fun y ↦ h.norm_coe_le_norm _)
-  -- the average over the base points of the coset averages is the integral
-  have hTint : Integrable (fun y ↦ ∫ x, h x ∂cosetLaw y N) (volume : Measure UnitAddCircle) := by
-    simp_rw [integral_cosetLaw]
-    exact (integrable_finsetSum _ fun j _ ↦ hint _).const_mul _
-  have hmean : ∫ y, (∫ x, h x ∂cosetLaw y N) = ∫ x, h x := by
-    simp_rw [integral_cosetLaw]
-    rw [integral_const_mul, integral_finsetSum _ fun j _ ↦ hint _]
-    simp_rw [integral_add_right_eq_self (fun x ↦ h x)]
-    simp [hN'.ne']
-  -- two coset averages are within `η`
-  have hpt (y : UnitAddCircle) :
-      ‖∫ x, h x ∂cosetLaw x₀ N - ∫ x, h x ∂cosetLaw y N‖ ≤ η := by
-    obtain ⟨m, hm⟩ := UnitAddCircle.exists_norm_add_intCast_div_sub_le y x₀ hN0
-    rw [← cosetLaw_add_intCast_div y hN0 m, integral_cosetLaw, integral_cosetLaw, ← mul_sub,
-      ← Finset.sum_sub_distrib, Real.norm_eq_abs, abs_mul, abs_inv, Nat.abs_cast]
-    calc (N : ℝ)⁻¹ * |∑ j ∈ Finset.range N,
-          (h (x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle)) -
-            h (y + (((m : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) +
-              (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle)))|
-    _ ≤ (N : ℝ)⁻¹ * ∑ _j ∈ Finset.range N, η := by
-      gcongr
-      refine (Finset.abs_sum_le_sum_abs _ _).trans (Finset.sum_le_sum fun j _ ↦ ?_)
-      have hd : dist (x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle))
-          (y + (((m : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) +
-            (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle)) < δ := by
-        rw [dist_add_right, dist_comm, dist_eq_norm]
-        exact hm.trans_lt hNδ
-      have := hδh hd
-      rw [Real.dist_eq] at this
-      exact this.le
-    _ = η := by
-      simp [hN'.ne']
-  rw [← hmean]
-  calc |∫ x, h x ∂cosetLaw x₀ N - ∫ y, (∫ x, h x ∂cosetLaw y N)|
-  _ = ‖∫ y, (∫ x, h x ∂cosetLaw x₀ N - ∫ x, h x ∂cosetLaw y N)‖ := by
-    rw [integral_sub (integrable_const _) hTint, integral_const, probReal_univ, one_smul,
-      Real.norm_eq_abs]
-  _ ≤ η * (volume : Measure UnitAddCircle).real Set.univ :=
-    norm_integral_le_of_norm_le_const (.of_forall hpt)
-  _ = η := by rw [probReal_univ, mul_one]
-
-/-- The coset average of a bounded measurable function is an integrable function of the base
-point. -/
-private lemma integrable_integral_cosetLaw {f : UnitAddCircle → ℝ} (hf : Measurable f)
-    {C : ℝ} (hC : ∀ x, |f x| ≤ C) (N : ℕ) :
-    Integrable (fun x₀ ↦ ∫ x, f x ∂cosetLaw x₀ N) (volume : Measure UnitAddCircle) := by
-  simp_rw [integral_cosetLaw]
-  exact (integrable_finsetSum _ fun j _ ↦
-    LMLExplore.integrable_of_abs_le (hf.comp (measurable_add_const _)) (fun y ↦ hC _) _).const_mul _
-
-/-- **The coset averages are a contraction of `L¹`**: the integral over the base points of the
-absolute value of the coset average of `f` is at most the integral of `|f|`. -/
-private lemma integral_abs_integral_cosetLaw_le {f : UnitAddCircle → ℝ} (hf : Measurable f)
-    {C : ℝ} (hC : ∀ x, |f x| ≤ C) {N : ℕ} (hN : 0 < N) :
-    ∫ x₀, |∫ x, f x ∂cosetLaw x₀ N| ≤ ∫ x, ‖f x‖ := by
-  have hN' : (0 : ℝ) < N := Nat.cast_pos.2 hN
-  have hint (c : UnitAddCircle) :
-      Integrable (fun y ↦ |f (y + c)|) (volume : Measure UnitAddCircle) :=
-    LMLExplore.integrable_of_abs_le (hf.comp (measurable_add_const _)).abs
-      (fun y ↦ by rw [abs_abs]; exact hC _) _
-  calc ∫ x₀, |∫ x, f x ∂cosetLaw x₀ N|
-  _ ≤ ∫ x₀, (N : ℝ)⁻¹ * ∑ j ∈ Finset.range N,
-      |f (x₀ + (((j : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle))| := by
-    refine integral_mono (integrable_integral_cosetLaw hf hC N).abs
-      ((integrable_finsetSum _ fun j _ ↦ hint _).const_mul _) fun x₀ ↦ ?_
-    rw [integral_cosetLaw, abs_mul, abs_inv, Nat.abs_cast]
-    gcongr
-    exact Finset.abs_sum_le_sum_abs _ _
-  _ = ∫ x, ‖f x‖ := by
-    rw [integral_const_mul, integral_finsetSum _ fun j _ ↦ hint _]
-    simp_rw [integral_add_right_eq_self (fun x ↦ |f x|)]
-    simp [hN'.ne', Real.norm_eq_abs]
-
-/-! ### The coset null -/
 
 /-- **Every basic neighbourhood of Lebesgue measure meets the coset null** [EVR26, Note 19]. For
 `ε ≤ 1`, finitely many bounded measurable functions `g i` on the circle and `δ > 0`, some mixture
@@ -499,24 +316,29 @@ theorem exists_coset_mixture_forall_abs_integral_sub_le (hε : ε ≤ 1) {k : �
     LMLExplore.integrable_of_abs_le (hg i) (hC i) _
   choose h hh _ using fun i ↦ (hgi i).exists_boundedContinuous_integral_sub_le hη
   -- uniform Riemann sums on the cosets for the `h i`
-  choose N₀ hN₀ using fun i ↦ exists_forall_abs_integral_cosetLaw_sub_le (h i)
-    (η := δ / 4) (by positivity)
+  choose N₀ hN₀ using fun i ↦
+    UnitAddCircle.exists_forall_abs_integral_uniformOn_coset_sub_le (h i) (η := δ / 4)
+      (by positivity)
   set N : ℕ := (Finset.univ.sup N₀) + 1 with hN_def
   have hN : 0 < N := Nat.succ_pos _
   have hNi (i : Fin k) : N₀ i ≤ N := (Finset.le_sup (Finset.mem_univ i)).trans (Nat.le_succ _)
   -- a coset where every `g i - h i` has a small average
-  set F : UnitAddCircle → ℝ := fun x₀ ↦ ∑ i, |∫ x, (g i x - h i x) ∂cosetLaw x₀ N| with hF_def
+  set F : UnitAddCircle → ℝ := fun x₀ ↦ ∑ i, |∫ x, (g i x - h i x) ∂uniformOn
+    {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}| with hF_def
   have hgh_meas (i : Fin k) : Measurable fun x ↦ g i x - h i x :=
     (hg i).sub (h i).continuous.measurable
   have hgh_bdd (i : Fin k) (x : UnitAddCircle) : |g i x - h i x| ≤ C i + ‖h i‖ :=
     (abs_sub _ _).trans (add_le_add (hC i x) ((Real.norm_eq_abs _).symm.trans_le
       ((h i).norm_coe_le_norm x)))
-  have hFint (i : Fin k) := (integrable_integral_cosetLaw (hgh_meas i) (hgh_bdd i) N).abs
+  have hFint (i : Fin k) :=
+    (UnitAddCircle.integrable_integral_uniformOn_coset (hgh_meas i) (hgh_bdd i) hN.ne').abs
   have hFle : ∫ x₀, F x₀ ≤ δ / 4 := by
     rw [hF_def, integral_finsetSum _ fun i _ ↦ hFint i]
-    calc ∑ i, ∫ x₀, |∫ x, (g i x - h i x) ∂cosetLaw x₀ N|
+    calc ∑ i, ∫ x₀, |∫ x, (g i x - h i x) ∂uniformOn
+          {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}|
     _ ≤ ∑ _i : Fin k, η := Finset.sum_le_sum fun i _ ↦
-        (integral_abs_integral_cosetLaw_le (hgh_meas i) (hgh_bdd i) hN).trans (hh i)
+        (UnitAddCircle.integral_abs_integral_uniformOn_coset_le (hgh_meas i) (hgh_bdd i)
+          hN.ne').trans (hh i)
     _ = k * η := by simp
     _ ≤ δ / 4 := by
       rw [hη_def]
@@ -524,26 +346,27 @@ theorem exists_coset_mixture_forall_abs_integral_sub_le (hε : ε ≤ 1) {k : �
       _ ≤ δ / 4 * 1 := by gcongr; exact (div_le_one (by positivity)).2 (by linarith)
       _ = δ / 4 := mul_one _
   obtain ⟨x₀, hx₀⟩ := exists_le_integral (integrable_finsetSum _ fun i _ ↦ hFint i)
-  have hU := isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩
+  have hU := isProbabilityMeasure_uniformOn (UnitAddCircle.finite_coset x₀ N) ⟨x₀, by simp⟩
+  have h2 (i : Fin k) := hN₀ i N (hNi i) hN x₀
+  set U : Measure UnitAddCircle :=
+    uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} with hU_def
   refine ⟨_, ⟨x₀, N, rfl⟩, fun i ↦ ?_⟩
-  rw [uniformOn_coset_eq_cosetLaw x₀ hN.ne'] at hU ⊢
-  have hci : Integrable (g i) (cosetLaw x₀ N) := LMLExplore.integrable_of_abs_le (hg i) (hC i) _
-  have hhi : Integrable (h i) (cosetLaw x₀ N) := (h i).integrable _
+  have hci : Integrable (g i) U := LMLExplore.integrable_of_abs_le (hg i) (hC i) _
+  have hhi : Integrable (h i) U := (h i).integrable _
   refine LMLExplore.abs_integral_mixture_sub_le hε hci (hgi i) ?_
   -- the average of `g i` on the coset is close to its integral
-  have h1 : |∫ x, g i x ∂cosetLaw x₀ N - ∫ x, h i x ∂cosetLaw x₀ N| ≤ δ / 4 := by
+  have h1 : |∫ x, g i x ∂U - ∫ x, h i x ∂U| ≤ δ / 4 := by
     rw [← integral_sub hci hhi]
     refine le_trans ?_ (hx₀.trans hFle)
-    exact Finset.single_le_sum (f := fun i ↦ |∫ x, (g i x - h i x) ∂cosetLaw x₀ N|)
+    exact Finset.single_le_sum (f := fun i ↦ |∫ x, (g i x - h i x) ∂U|)
       (fun _ _ ↦ abs_nonneg _) (Finset.mem_univ i)
-  have h2 := hN₀ i N (hNi i) hN x₀
   have h3 : |(∫ x, h i x) - ∫ x, g i x| ≤ η := by
     rw [← integral_sub ((h i).integrable _) (hgi i)]
     refine abs_integral_le_integral_abs.trans (le_of_eq_of_le ?_ (hh i))
     simp_rw [Real.norm_eq_abs, abs_sub_comm]
-  have := abs_sub_le (∫ x, g i x ∂cosetLaw x₀ N) (∫ x, h i x ∂cosetLaw x₀ N) (∫ x, g i x)
-  have := abs_sub_le (∫ x, h i x ∂cosetLaw x₀ N) (∫ x, h i x) (∫ x, g i x)
-  linarith
+  have := abs_sub_le (∫ x, g i x ∂U) (∫ x, h i x ∂U) (∫ x, g i x)
+  have := abs_sub_le (∫ x, h i x ∂U) (∫ x, h i x) (∫ x, g i x)
+  linarith [h2 i]
 
 /-- **The neighbourhood envelope of the coset null is zero** [EVR26, Note 19]: the smallest
 relative entropy to the coset null is not lower semicontinuous at Lebesgue measure in the

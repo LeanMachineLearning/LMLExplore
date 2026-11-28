@@ -161,12 +161,21 @@ private lemma descFactorial_mul_lintegral_le [IsProbabilityMeasure Q] (hε : ε 
     exact lintegral_mono fun y ↦ hE.lintegral_le_one (pi_mem_sampleNull (hS y))
   _ = 1 := by simp
 
+/-- The members of the finite-support null, the mixtures `(1 - ε) F + ε Q` of probability
+measures for `ε ≤ 1`, are probability measures. -/
+lemma isProbabilityMeasure_of_mem_finitelySupported_mixtures [IsProbabilityMeasure Q]
+    (hε : ε ≤ 1) {P : Measure 𝓧}
+    (hP : P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
+      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}) :
+    IsProbabilityMeasure P := by
+  obtain ⟨F, hF, -, rfl⟩ := hP
+  exact ⟨by simp [tsub_add_cancel_of_le hε]⟩
+
 /-- The mixtures `(1 - ε) F + ε Q` of probability measures, for `ε ≤ 1`, have mass `1`. -/
 private lemma measure_univ_mixture_le_one [IsProbabilityMeasure Q] (hε : ε ≤ 1) :
     ∀ P ∈ {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
-      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}, P Set.univ ≤ 1 := by
-  rintro _ ⟨F, hF, -, rfl⟩
-  simp [tsub_add_cancel_of_le hε]
+      (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}, P Set.univ ≤ 1 :=
+  fun _ hP ↦ (isProbabilityMeasure_of_mem_finitelySupported_mixtures hε hP).measure_univ.le
 
 variable [MeasurableSingletonClass 𝓧]
 
