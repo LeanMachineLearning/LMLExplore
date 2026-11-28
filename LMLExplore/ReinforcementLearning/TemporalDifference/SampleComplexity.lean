@@ -526,8 +526,7 @@ private lemma abs_syncQLearning_sub_optQValue_le_sqrt (hγ : γ < 1)
   -- the quadratic variation is at most `β B ^ 2 (2 + 4 D)`
   -- with one action, the value estimates are the iterates and the unique policy is greedy for `Q*`
   have hπ (s' : 𝓢) : M.optQValue γ (s', default) = M.optValue γ s' := by
-    rw [← iSup_optQValue hγ (fun p ↦ (hR p).mono fun x hx ↦
-      abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩) s', ciSup_unique]
+    rw [← iSup_optQValue hγ (fun p ↦ ae_abs_le_of_ae_mem_Icc (hR p)) s', ciSup_unique]
   have hW := tdNoiseVarBound_le hγ hR hη hQ₀ hπ (m := (t + 1) / 2) (t := t) (by omega) hD₀
     (fun k hk s' ↦ by rw [ciSup_unique, ← hπ s']; exact hD k hk s')
     hβ₀.le (fun k hk ↦ mul_prod_le_of_window_of_le hγ hL0 hlo hhi htT (mem_Ico.1 hk).2 hTt

@@ -613,8 +613,7 @@ private lemma lt_abs_tdNoise_of_lt_abs_syncQLearning_sub_optQValue [Unique 𝓐]
       |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p|) :
     a < |tdNoise M γ η Q₀ (M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const))
       t ω p| := by
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have h₀ := Kernel.abs_tdPropagator_le
     (κ := M.saKernel (Kernel.deterministic (fun _ ↦ default) measurable_const)) (γ := γ)
     (k := 0) (t := t) (fun i hi ↦ learningRate_mem_Icc_of_mem_Ioc hη hi)
@@ -688,11 +687,8 @@ theorem mul_integral_variance_optValue_le (hγ : γ < 1)
         ∂(Kernel.resolvent γ (M.saKernel (Kernel.deterministic π (measurable_of_finite π))) p) ≤
       (C / (1 - γ)) ^ 2 := by
   have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr₀ (q : 𝓢 × 𝓐) : 0 ≤ meanReward M.R q := by
-    rw [meanReward_def]
-    exact integral_nonneg_of_ae ((hR q).mono fun x hx ↦ hx.1)
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
+  have hr₀ (q : 𝓢 × 𝓐) := (meanReward_mem_Icc_of_ae_mem_Icc (hR q)).1
   have hQ := optQValue_eq_integral_resolvent_of_greedy (M := M) hγ hRabs
     (measurable_of_finite π) hπ
   have hVB (y : 𝓢 × 𝓐) : ∫ z, meanReward M.R z ∂(Kernel.resolvent γ
@@ -748,8 +744,7 @@ theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x �
         β * ((C / (1 - γ)) ^ 2 + 4 * γ ^ 2 * (C / (1 - γ)) * D / (1 - γ)) := by
   have : Nonempty 𝓐 := ⟨π (Classical.arbitrary 𝓢)⟩
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hB := add_mul_div_one_sub_le (C := C) hγ
   set B := C / (1 - γ)
