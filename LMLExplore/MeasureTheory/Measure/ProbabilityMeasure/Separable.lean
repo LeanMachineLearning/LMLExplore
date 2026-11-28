@@ -87,6 +87,7 @@ def ratAtomLaws (d : ℕ → Ω) : Set (ProbabilityMeasure Ω) :=
 
 /-- A law carried by finitely many terms of `d`, with rational weights, is a sum
 `∑ j < N, (a j / M) • δ_{d j}`. -/
+@[simp]
 theorem mem_ratAtomLaws {d : ℕ → Ω} {P : ProbabilityMeasure Ω} :
     P ∈ ratAtomLaws d ↔ ∃ (N M : ℕ) (a : Fin N → ℕ),
       (P : Measure Ω) = ∑ j, ((a j : ℝ≥0∞) / M) • Measure.dirac (d j) := by
@@ -97,6 +98,46 @@ weights. -/
 theorem countable_ratAtomLaws (d : ℕ → Ω) : (ratAtomLaws d).Countable :=
   countable_iUnion fun _ ↦ countable_iUnion fun _ ↦ countable_iUnion fun _ ↦
     Subsingleton.countable fun _ hP _ hQ ↦ toMeasure_injective (hP.trans hQ.symm)
+
+/-- Rounding the masses of finitely many disjoint measurable sets down to multiples of `1 / M`
+keeps their sum at most `M`. -/
+private theorem sum_floor_measureReal_mul_le (P : Measure Ω) [IsProbabilityMeasure P]
+    {C : ℕ → Set Ω} (hC : ∀ k, MeasurableSet (C k)) (hCdisj : Pairwise (Disjoint on C))
+    (N M : ℕ) : ∑ k ∈ Finset.range N, ⌊P.real (C k) * M⌋₊ ≤ M := by
+  have h : ∑ k ∈ Finset.range N, P.real (C k) ≤ 1 := by
+    rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ hCdisj hij) fun k _ ↦ hC k]
+    exact measureReal_le_one
+  have h' : (∑ k ∈ Finset.range N, ⌊P.real (C k) * M⌋₊ : ℝ) ≤ M := calc
+    ∑ k ∈ Finset.range N, (⌊P.real (C k) * M⌋₊ : ℝ)
+    _ ≤ ∑ k ∈ Finset.range N, P.real (C k) * M :=
+      Finset.sum_le_sum fun k _ ↦ Nat.floor_le (by positivity)
+    _ ≤ M := by rw [← Finset.sum_mul]; nlinarith
+  exact_mod_cast h'
+
+/-- Rounding the mass of a set down to a multiple of `1 / M` loses at most `1 / M`. -/
+private theorem measure_le_floor_measureReal_mul_div_add (P : Measure Ω) [IsFiniteMeasure P]
+    (s : Set Ω) {M : ℕ} (hM : 0 < M) :
+    P s ≤ (⌊P.real s * M⌋₊ : ℝ≥0∞) / M + 1 / M := by
+  have hM0 : (0 : ℝ) < M := Nat.cast_pos.2 hM
+  have h : P.real s ≤ ((⌊P.real s * M⌋₊ + 1 : ℕ) : ℝ) / M := by
+    rw [le_div_iff₀ hM0]
+    push_cast
+    exact (Nat.lt_floor_add_one _).le
+  calc P s = ENNReal.ofReal (P.real s) := (ofReal_measureReal).symm
+  _ ≤ ENNReal.ofReal (((⌊P.real s * M⌋₊ + 1 : ℕ) : ℝ) / M) := ENNReal.ofReal_le_ofReal h
+  _ = _ := by
+    rw [ENNReal.ofReal_div_of_pos hM0, ENNReal.ofReal_natCast, ENNReal.ofReal_natCast]
+    push_cast
+    exact ENNReal.add_div
+
+/-- The law `∑ k < n, (a k / M) • δ_{d k}` is a probability measure when `∑ k < n, a k = M`
+and `M ≠ 0`. -/
+private theorem isProbabilityMeasure_sum_div_smul_dirac (d : ℕ → Ω) {n M : ℕ} {a : ℕ → ℕ}
+    (hM : M ≠ 0) (ha : ∑ k ∈ Finset.range n, a k = M) :
+    IsProbabilityMeasure
+      (∑ k ∈ Finset.range n, ((a k : ℝ≥0∞) / M) • Measure.dirac (d k)) := by
+  constructor
+  simp [ENNReal.div_eq_inv_mul, ← Finset.mul_sum, ← Nat.cast_sum, ha, ENNReal.inv_mul_cancel, hM]
 
 /-- **Laws with finitely many atoms are dense for the Lévy–Prokhorov distance.** On a
 pseudo-metric space, if the sequence `d` has dense range, every probability measure is within any
@@ -111,7 +152,6 @@ theorem exists_mem_ratAtomLaws_levyProkhorovDist_lt [PseudoMetricSpace Ω]
   -- the cells: the balls of radius `δ` around the terms of `d`, made disjoint
   set C := disjointed fun k ↦ Metric.ball (d k) δ
   have hC (k : ℕ) : MeasurableSet (C k) := .disjointed (fun _ ↦ measurableSet_ball) k
-  have hCdisj : Pairwise (Disjoint on C) := disjoint_disjointed _
   -- the first `N` cells carry all the mass but `δ`
   obtain ⟨n, hn⟩ := Filter.eventually_atTop.1 <|
     (Measure.tendsto_measure_compl_biUnion_lt_ball (P : Measure Ω) hd hδ).eventually
@@ -124,30 +164,16 @@ theorem exists_mem_ratAtomLaws_levyProkhorovDist_lt [PseudoMetricSpace Ω]
   obtain ⟨M, hM⟩ := exists_nat_gt ((N : ℝ) / δ)
   have hM0 : (0 : ℝ) < M := (by positivity : (0 : ℝ) ≤ N / δ).trans_lt hM
   have hNM : ∑ _k ∈ Finset.range N, (1 : ℝ≥0∞) / M ≤ ENNReal.ofReal δ := by
-    rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul, mul_one_div, ← ENNReal.ofReal_natCast,
-      ← ENNReal.ofReal_natCast M, ← ENNReal.ofReal_div_of_pos hM0]
-    refine ENNReal.ofReal_le_ofReal ?_
-    rw [div_le_iff₀ hM0]
-    rw [div_lt_iff₀ hδ] at hM
-    linarith
+    have h : (N : ℝ) / M ≤ δ := by
+      rw [div_lt_iff₀ hδ] at hM
+      rw [div_le_iff₀ hM0]
+      linarith
+    calc ∑ _k ∈ Finset.range N, (1 : ℝ≥0∞) / M = ENNReal.ofReal (N / M) := by
+          rw [ENNReal.ofReal_div_of_pos hM0]; simp [div_eq_mul_inv]
+    _ ≤ _ := ENNReal.ofReal_le_ofReal h
   set a : ℕ → ℕ := fun k ↦ ⌊(P : Measure Ω).real (C k) * M⌋₊
-  have hsum_a : ∑ k ∈ Finset.range N, a k ≤ M := by
-    have h : ∑ k ∈ Finset.range N, (P : Measure Ω).real (C k) ≤ 1 := by
-      rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ hCdisj hij) fun k _ ↦ hC k]
-      exact measureReal_le_one
-    have h' : (∑ k ∈ Finset.range N, a k : ℝ) ≤ M := calc
-      ∑ k ∈ Finset.range N, (a k : ℝ)
-      _ ≤ ∑ k ∈ Finset.range N, (P : Measure Ω).real (C k) * M :=
-        Finset.sum_le_sum fun k _ ↦ Nat.floor_le (by positivity)
-      _ ≤ M := by rw [← Finset.sum_mul]; nlinarith
-    exact_mod_cast h'
-  have hPa (k : ℕ) : (P : Measure Ω) (C k) ≤ (a k : ℝ≥0∞) / M + 1 / M := by
-    rw [← ofReal_measureReal, ← ENNReal.add_div, ← Nat.cast_one, ← Nat.cast_add,
-      ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_natCast M, ← ENNReal.ofReal_div_of_pos hM0]
-    refine ENNReal.ofReal_le_ofReal ?_
-    rw [le_div_iff₀ hM0]
-    push_cast
-    exact (Nat.lt_floor_add_one _).le
+  have hsum_a : ∑ k ∈ Finset.range N, a k ≤ M :=
+    sum_floor_measureReal_mul_le _ hC (disjoint_disjointed _) N M
   -- the law `Q`: the weight `a k / M` at `d k` for `k < N`, and the rest at `d N`
   set a' : ℕ → ℕ := fun k ↦ if k < N then a k else M - ∑ i ∈ Finset.range N, a i
   set Qm : Measure Ω := ∑ k ∈ Finset.range (N + 1), ((a' k : ℝ≥0∞) / M) • Measure.dirac (d k)
@@ -155,19 +181,16 @@ theorem exists_mem_ratAtomLaws_levyProkhorovDist_lt [PseudoMetricSpace Ω]
       Qm s = ∑ k ∈ Finset.range (N + 1), (a' k : ℝ≥0∞) / M * Measure.dirac (d k) s := by
     simp [Qm]
   have hQ : IsProbabilityMeasure Qm := by
-    constructor
-    have hsum : ∑ k ∈ Finset.range (N + 1), a' k = M := by
-      have h : ∑ k ∈ Finset.range N, a' k = ∑ k ∈ Finset.range N, a k :=
-        Finset.sum_congr rfl fun k hk ↦ by simp [a', Finset.mem_range.1 hk]
-      rw [Finset.sum_range_succ, h]
-      simpa [a'] using Nat.add_sub_cancel' hsum_a
-    simp_rw [hQm, measure_univ, mul_one, div_eq_mul_inv, ← Finset.sum_mul, ← Nat.cast_sum, hsum]
-    exact ENNReal.mul_inv_cancel (by simpa using hM0.ne') (ENNReal.natCast_ne_top _)
+    refine isProbabilityMeasure_sum_div_smul_dirac d (Nat.cast_pos.1 hM0).ne' ?_
+    have h : ∑ k ∈ Finset.range N, a' k = ∑ k ∈ Finset.range N, a k :=
+      Finset.sum_congr rfl fun k hk ↦ by simp [a', Finset.mem_range.1 hk]
+    rw [Finset.sum_range_succ, h]
+    simpa [a'] using Nat.add_sub_cancel' hsum_a
   refine ⟨⟨Qm, hQ⟩, mem_ratAtomLaws.2 ⟨N + 1, M, fun j ↦ a' j, ?_⟩, ?_⟩
   · exact (Fin.sum_univ_eq_sum_range (fun k ↦ ((a' k : ℝ≥0∞) / M) • Measure.dirac (d k))
       (N + 1)).symm
   -- the Lévy–Prokhorov distance is at most `2 δ`
-  change levyProkhorovDist (P : Measure Ω) Qm < ε
+  rw [coe_mk]
   refine (levyProkhorovDist_le_of_forall_le _ _ (by positivity : 0 ≤ 2 * δ)
     fun ε' B hε' hB ↦ ?_).trans_lt (by simp only [δ]; linarith)
   set T := Metric.thickening ε' B
@@ -179,7 +202,8 @@ theorem exists_mem_ratAtomLaws_levyProkhorovDist_lt [PseudoMetricSpace Ω]
     have hω : dist ω (d k) < δ := disjointed_subset _ k hωC
     rw [Measure.dirac_apply_of_mem (Metric.mem_thickening_iff.2
       ⟨ω, hωB, (dist_comm (d k) ω ▸ hω).trans (by linarith)⟩), mul_one]
-    exact (measure_mono inter_subset_right).trans (hPa k)
+    exact (measure_mono inter_subset_right).trans
+      (measure_le_floor_measureReal_mul_div_add _ _ (Nat.cast_pos.1 hM0))
   have hQT : ∑ k ∈ Finset.range N, (a k : ℝ≥0∞) / M * Measure.dirac (d k) T ≤ Qm T := by
     rw [hQm, Finset.sum_range_succ]
     refine le_add_right (Finset.sum_le_sum fun k hk ↦ ?_)
