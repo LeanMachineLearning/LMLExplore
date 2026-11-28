@@ -108,6 +108,9 @@ equation of these objects.
   supersolutions, `f + γ κ u ≤ u → R_γ f ≤ u` and `u ≤ f + γ κ u → u ≤ R_γ f`.
 * `ProbabilityTheory.Kernel.add_mul_integral_sqrt_le_sqrt`: if `w ≥ 0` is a supersolution for
   `b ^ 2`, then `√(w / (1 - γ))` is a supersolution for `b`.
+* `ProbabilityTheory.Kernel.le_add_pow_mul_of_le_add_sum_mul_integral`: comparison of an averaged
+  recursive inequality along a sequence of Markov kernels `κ i` with a common supersolution, by
+  generations of `L` iterations.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
   with two rewards `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_sub_integral_resolvent_le`:
@@ -876,6 +879,63 @@ theorem abs_integral_resolvent_sub_integral_resolvent_le_of_abs_sub_le (κ' : Ke
   exact le_three_mul_sqrt_of_le_mul_add hγ₀ hγ hC hm hε₀ hε hstep hnext hlast
 
 end Markov
+
+/-! ### Comparison with a common supersolution along a sequence of kernels -/
+
+/-- **Comparison with a common supersolution, by generations.** Let `L > 0`, let the functions
+`x k` satisfy the averaged recursive inequality
+`x k ≤ b + ∑_{k - L ≤ i < k} w k i γ κ i (x i)` for `m + L ≤ k ≤ t`, with nonnegative weights
+adding up to at most `1`, and let `u ≥ 0` be a common supersolution, `b + γ κ i u ≤ u` for
+`m ≤ i < t`. If `x k ≤ u + c` for `m ≤ k ≤ t`, with `c ≥ 0` and `γ ≥ 0`, then
+`x k ≤ u + γ ^ j c` for `m + j L ≤ k ≤ t`: each generation of `L` iterations contracts the excess
+over `u` by `γ`. -/
+theorem le_add_pow_mul_of_le_add_sum_mul_integral {κ : ℕ → Kernel α α}
+    [∀ i, IsMarkovKernel (κ i)] {x : ℕ → α → ℝ} {w : ℕ → ℕ → ℝ} {b u : α → ℝ} {γ c : ℝ}
+    {m L t : ℕ} (hγ : 0 ≤ γ) (hc : 0 ≤ c) (hu : ∀ y, 0 ≤ u y) (hL : 0 < L)
+    (hxi : ∀ i y, Integrable (x i) (κ i y)) (hui : ∀ i y, Integrable u (κ i y))
+    (hsup : ∀ i ∈ Finset.Ico m t, ∀ y, b y + γ * ∫ z, u z ∂(κ i y) ≤ u y)
+    (hw : ∀ k ∈ Finset.Icc (m + L) t, ∀ i ∈ Finset.Ico (k - L) k, 0 ≤ w k i)
+    (hw1 : ∀ k ∈ Finset.Icc (m + L) t, ∑ i ∈ Finset.Ico (k - L) k, w k i ≤ 1)
+    (hx : ∀ k ∈ Finset.Icc (m + L) t, ∀ y,
+      x k y ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)))
+    (hxc : ∀ k ∈ Finset.Icc m t, ∀ y, x k y ≤ u y + c) (j : ℕ) :
+    ∀ k ∈ Finset.Icc (m + j * L) t, ∀ y, x k y ≤ u y + γ ^ j * c := by
+  induction j with
+  | zero => simpa using hxc
+  | succ j ih =>
+    intro k hk y
+    obtain ⟨hk₁, hk₂⟩ := Finset.mem_Icc.1 hk
+    have hjL : j * L + L = (j + 1) * L := by ring
+    have hkL : k ∈ Finset.Icc (m + L) t := Finset.mem_Icc.2 ⟨by omega, hk₂⟩
+    -- the window of `k` lies in the previous generation
+    have hwin (i : ℕ) (hi : i ∈ Finset.Ico (k - L) k) :
+        i ∈ Finset.Icc (m + j * L) t ∧ i ∈ Finset.Ico m t := by
+      have := Finset.mem_Ico.1 hi
+      exact ⟨Finset.mem_Icc.2 ⟨by omega, by omega⟩, Finset.mem_Ico.2 ⟨by omega, by omega⟩⟩
+    -- `b ≤ u` at `y`, by the supersolution property at the last iteration of the window
+    have hbu : b y ≤ u y := by
+      have h₁ := hsup (k - 1) (hwin (k - 1) (Finset.mem_Ico.2 ⟨by omega, by omega⟩)).2 y
+      have h₂ : 0 ≤ γ * ∫ z, u z ∂(κ (k - 1) y) := mul_nonneg hγ (integral_nonneg hu)
+      linarith
+    calc x k y ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)) :=
+          hx k hkL y
+      _ ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * ((u y - b y) + γ ^ (j + 1) * c) := by
+        gcongr with i hi
+        · exact hw k hkL i hi
+        · calc γ * ∫ z, x i z ∂(κ i y) ≤ γ * ∫ z, (u z + γ ^ j * c) ∂(κ i y) :=
+                mul_le_mul_of_nonneg_left (integral_mono (hxi i y)
+                  ((hui i y).add (integrable_const _)) fun z ↦ ih i (hwin i hi).1 z) hγ
+            _ = γ * ∫ z, u z ∂(κ i y) + γ ^ (j + 1) * c := by
+                rw [integral_add (hui i y) (integrable_const _), integral_const, probReal_univ,
+                  one_smul]
+                ring
+            _ ≤ (u y - b y) + γ ^ (j + 1) * c := by linarith [hsup i (hwin i hi).2 y]
+      _ = b y + (∑ i ∈ Finset.Ico (k - L) k, w k i) * ((u y - b y) + γ ^ (j + 1) * c) := by
+        rw [Finset.sum_mul]
+      _ ≤ b y + 1 * ((u y - b y) + γ ^ (j + 1) * c) := by
+        gcongr
+        exact hw1 k hkL
+      _ = u y + γ ^ (j + 1) * c := by ring
 
 end ProbabilityTheory.Kernel
 

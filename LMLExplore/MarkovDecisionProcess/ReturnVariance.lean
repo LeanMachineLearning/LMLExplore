@@ -5,6 +5,7 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.MarkovDecisionProcess.Optimality
 public import LMLExplore.MarkovDecisionProcess.Value
 public import LMLExplore.Probability.MarkovChain.DiscountedReturn.Basic
 
@@ -78,6 +79,10 @@ of `π` in `M` and `M'` are close [LWCGC24, Lemmas 1 and 2].
   with the deviations in the form given by Bernstein's inequality at a level `L` and `ε = 2 L / N`.
   It is shared by `ReinforcementLearning/Generative/PolicyEvaluation.lean` [LWCGC24, Lemma 1] and
   `ReinforcementLearning/Generative/LeaveOneOut.lean` [LWCGC24, Lemma 5].
+* `Learning.MDP.sq_mul_variance_optValue_add_mul_integral_le`: with rewards in `[0, C]`, for every
+  Markov kernel `K` on the state-action pairs with `P (V* ^ 2) ≤ K (Q* ^ 2) + e`, the function
+  `(2 C ^ 2 / (1 - γ) + γ ^ 2 e) / (1 - γ) - Q* ^ 2` is a supersolution for `γ ^ 2 Var_P(V*)`
+  [LCCWC24, (97)–(98)], a closed form of [LCCWC24, Lemma 5].
 
 ## References
 
@@ -88,6 +93,8 @@ of `π` in `M` and `M'` are close [LWCGC24, Lemmas 1 and 2].
 * [G. Li, Y. Wei, Y. Chi, Y. Gu and Y. Chen, *Breaking the sample size barrier in model-based
   reinforcement learning with a generative model*, Operations Research, 2024][LWCGC24], Lemmas 1,
   2 and 11 (arXiv:2005.12900)
+* [G. Li, C. Cai, Y. Chen, Y. Wei and Y. Chi, *Is Q-learning minimax optimal? A tight sample
+  complexity analysis*, Operations Research, 2024][LCCWC24], Lemma 5 (arXiv:2102.06548)
 -/
 
 public section
@@ -370,5 +377,53 @@ theorem abs_value_sub_value_le_of_abs_integral_stateKernel_sub_le {M M' : MDP �
       _ ≤ C / ((1 - γ) * (γ * √(1 - γ)) ^ l) * L / N * 2 := by linarith
       _ = 2 * L / N * (C / ((1 - γ) * (γ * √(1 - γ)) ^ l)) := by ring
   · rw [div_div]
+
+end Learning.MDP
+
+/-! ### The one-step variances of the optimal value along near-greedy kernels -/
+
+namespace Learning.MDP
+
+variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Finite 𝓢]
+  [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐] [Nonempty 𝓐] [MeasurableSingletonClass 𝓐]
+  {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {C : ℝ}
+
+/-- **A supersolution for the one-step variances of the optimal value** [LCCWC24, (97)–(98)].
+With rewards in `[0, C]` and `γ < 1`, let `K` be a Markov kernel on the state-action pairs with
+`P (V* ^ 2) ≤ K (Q* ^ 2) + e` at `p`, as for the state-action kernel of a policy `π` with
+`V* ^ 2 ≤ Q* (·, π ·) ^ 2 + e`. Then `G - Q* ^ 2`, with
+`G = (2 C ^ 2 / (1 - γ) + γ ^ 2 e) / (1 - γ)`, satisfies at `p` the supersolution inequality
+`γ ^ 2 Var_P(V*) + γ K (G - Q* ^ 2) ≤ G - Q* ^ 2`. Since it holds for every such kernel at once,
+for `e ≥ 0` the discounted sums of `γ ^ 2 Var_P(V*)` along any sequence of near-greedy kernels
+are at most `G`: this is the content of [LCCWC24, Lemma 5], there obtained by telescoping along
+each sequence. -/
+theorem sq_mul_variance_optValue_add_mul_integral_le (hγ : γ < 1)
+    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) {K : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)} [IsMarkovKernel K]
+    {e : ℝ} {p : 𝓢 × 𝓐}
+    (hK : ∫ s, M.optValue γ s ^ 2 ∂(M.P p) ≤ ∫ q, M.optQValue γ q ^ 2 ∂(K p) + e) :
+    (γ : ℝ) ^ 2 * Var[M.optValue γ; M.P p] +
+        γ * ∫ q, ((2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) - M.optQValue γ q ^ 2) ∂(K p) ≤
+      (2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) - M.optQValue γ p ^ 2 := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
+  have hγ1 : (γ : ℝ) ≤ 1 := by exact_mod_cast hγ.le
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hQ₀ := optQValue_nonneg hγ hRabs (fun q ↦ (hr q).1) p
+  have hQB := (le_abs_self _).trans (abs_optQValue_le hγ hRabs p)
+  have hIK : 0 ≤ ∫ q, M.optQValue γ q ^ 2 ∂(K p) := integral_nonneg fun q ↦ sq_nonneg _
+  set G := (2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) with hG_def
+  have hG : (1 - γ) * G = 2 * (C / (1 - γ)) * C + γ ^ 2 * e := by
+    rw [hG_def]
+    field_simp
+  -- `Var_P(V*) = P (V* ^ 2) - (P V*) ^ 2` and the Bellman equation `Q* = r + γ P V*`
+  rw [variance_eq_sub .of_discrete, integral_sub (integrable_const _) .of_finite, integral_const,
+    probReal_univ, one_smul, optQValue_def (p := p)]
+  simp only [Pi.pow_apply]
+  have hQ := optQValue_def (M := M) (γ := γ) p
+  rw [hQ] at hQ₀ hQB
+  -- `P (V* ^ 2) ≤ K (Q* ^ 2) + e`, `γ ^ 2 K (Q* ^ 2) ≤ γ K (Q* ^ 2)` and `r Q* ≤ C ^ 2 / (1 - γ)`
+  nlinarith [mul_le_mul_of_nonneg_left hK (sq_nonneg (γ : ℝ)),
+    mul_nonneg (mul_nonneg γ.coe_nonneg (sub_nonneg.2 hγ1)) hIK,
+    mul_le_mul (hr p).2 hQB hQ₀ ((hr p).1.trans (hr p).2), sq_nonneg (meanReward M.R p)]
 
 end Learning.MDP

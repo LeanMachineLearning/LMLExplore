@@ -210,17 +210,14 @@ most `1`: they are part of the weights of `sum_learningRateWeight`, which add up
 theorem sum_Ioc_learningRateWeight_le_one (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : R) 1) (n t : ℕ) :
     ∑ i ∈ Ioc n t, learningRateWeight η t i ≤ 1 := by
   have hη' {k i : ℕ} (hi : i ∈ Ioc k t) := learningRate_mem_Icc_of_mem_Ioc hη hi
+  have hIcc : Icc 1 t = Ioc 0 t := Icc_add_one_left_eq_Ioc 0 t
   calc ∑ i ∈ Ioc n t, learningRateWeight η t i
-      ≤ ∑ i ∈ Icc 1 t, learningRateWeight η t i :=
-        sum_le_sum_of_subset_of_nonneg (fun i hi ↦ by
-          have := mem_Ioc.1 hi
-          exact mem_Icc.2 ⟨by omega, this.2⟩) fun i hi _ ↦ learningRateWeight_nonneg
-            (hη' (k := 0) (mem_Ioc.2 ⟨(mem_Icc.1 hi).1, (mem_Icc.1 hi).2⟩)).1
-            fun j hj ↦ (hη' hj).2
+      ≤ ∑ i ∈ Ioc 0 t, learningRateWeight η t i :=
+        sum_le_sum_of_subset_of_nonneg (Ioc_subset_Ioc_left (Nat.zero_le n)) fun i hi _ ↦
+          learningRateWeight_nonneg (hη' hi).1 fun j hj ↦ (hη' hj).2
     _ ≤ 1 := by
-      rw [sum_learningRateWeight]
-      exact sub_le_self _ (prod_nonneg fun j hj ↦ sub_nonneg.2
-        (hη' (k := 0) (mem_Ioc.2 ⟨(mem_Icc.1 hj).1, (mem_Icc.1 hj).2⟩)).2)
+      rw [← hIcc, sum_learningRateWeight, hIcc]
+      exact sub_le_self _ (prod_nonneg fun j hj ↦ sub_nonneg.2 (hη' hj).2)
 
 end Ordered
 

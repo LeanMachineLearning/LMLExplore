@@ -11,6 +11,7 @@ public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LMLExplore.Probability.HasCondDistrib
 public import LMLExplore.Probability.Kernel.Composition.KernelLemmas
 public import Mathlib.Probability.Independence.Conditional
+import Mathlib.Analysis.Convex.Integral
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 
 /-!
@@ -47,6 +48,10 @@ the dot notation `M.env` when the namespace `Learning` is open.
 * `Learning.MDP.ofDet P r hr`: the MDP with transition kernel `P` and deterministic rewards `r`.
 
 ## Main statements
+
+* `Learning.MDP.meanReward_mem_Icc_of_ae_mem_Icc`, `Learning.MDP.ae_abs_le_of_ae_mem_Icc`: real
+  rewards almost surely in `[c, d]` have a mean in `[c, d]`, and rewards in `[0, C]` are bounded
+  by `C` in absolute value.
 
 For every algorithm-environment sequence `IsAlgEnvSeq O A Y alg (M.env μ) P`:
 * `Learning.MDP.hasLaw_obs_zero`: the first state `O 0` has law `μ`, for a probability measure
@@ -116,6 +121,20 @@ lemma norm_meanReward_le (R : Kernel (𝓢 × 𝓐) 𝓡) [IsMarkovKernel R] {p 
   simpa [meanReward_def] using norm_integral_le_of_norm_le_const hR
 
 end MeanReward
+
+/-! ### Real rewards in an interval -/
+
+/-- Real rewards almost surely in `[c, d]` have a mean in `[c, d]`. -/
+lemma meanReward_mem_Icc_of_ae_mem_Icc {R : Kernel (𝓢 × 𝓐) ℝ} [IsMarkovKernel R] {p : 𝓢 × 𝓐}
+    {c d : ℝ} (hR : ∀ᵐ y ∂(R p), y ∈ Set.Icc c d) : meanReward R p ∈ Set.Icc c d := by
+  rw [meanReward_def]
+  exact (convex_Icc c d).integral_mem isClosed_Icc hR
+    (.of_mem_Icc c d measurable_id.aemeasurable hR)
+
+/-- Real rewards almost surely in `[0, C]` are almost surely bounded by `C` in absolute value. -/
+lemma ae_abs_le_of_ae_mem_Icc {R : Kernel (𝓢 × 𝓐) ℝ} {C : ℝ}
+    (hR : ∀ p, ∀ᵐ y ∂(R p), y ∈ Set.Icc 0 C) (p : 𝓢 × 𝓐) : ∀ᵐ y ∂(R p), |y| ≤ C :=
+  (hR p).mono fun _ hy ↦ abs_le.2 ⟨by linarith [hy.1, hy.2], hy.2⟩
 
 /-! ### Deterministic rewards -/
 

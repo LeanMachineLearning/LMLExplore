@@ -6,8 +6,8 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.ReinforcementLearning.QLearning.Synchronous
-import LMLExplore.Analysis.Convex.Integral
 import LMLExplore.MarkovDecisionProcess.MarkovPolicy
+import LMLExplore.MarkovDecisionProcess.ReturnVariance
 import LMLExplore.Probability.Kernel.Resolvent
 import LMLExplore.Probability.Moments.Variance
 
@@ -32,14 +32,14 @@ The source then expands this inequality `H = log T / (1 - γ)` times and bounds 
 `u` of `b + γ P^{π i} u ≤ u`, valid simultaneously for all the greedy kernels of the window:
 * if `x k ≤ b + ∑_{k - L ≤ i < k} w k i γ κ i (x i)` with weights summing to at most `1`, and
   `x ≤ u + c` on the iterations `m ≤ k ≤ t`, then `x k ≤ u + γ ^ j c` from the iteration
-  `m + j L` on (`LMLExplore.ReinforcementLearning.le_add_pow_mul_of_le_add_sum_mul_integral`);
+  `m + j L` on (`ProbabilityTheory.Kernel.le_add_pow_mul_of_le_add_sum_mul_integral`);
 * if `w ≥ 0` is a supersolution for `b ^ 2`, then `√(w / (1 - γ))` is one for `b`
   (`ProbabilityTheory.Kernel.add_mul_integral_sqrt_le_sqrt`), and the Freedman bound `b` of the
   noise is the square root of a combination of the one-step variances `Var_P(V*)`;
 * for every kernel `K` on pairs with `P (V* ^ 2) ≤ K (Q* ^ 2) + e`, such as the state-action
   kernel of a policy greedy for an iterate close to `Q*`, the function
   `(2 C ^ 2 / (1 - γ) + γ ^ 2 e) / (1 - γ) - Q* ^ 2` is a supersolution for `γ ^ 2 Var_P(V*)`
-  (`LMLExplore.ReinforcementLearning.sq_mul_variance_optValue_add_mul_integral_le`), the
+  (`Learning.MDP.sq_mul_variance_optValue_add_mul_integral_le`), the
   telescoping argument of [LCCWC24, (97)–(98)] in closed form.
 
 Together these bound `Δ t` from above with high probability, in terms of a bound `D` on the errors
@@ -47,11 +47,6 @@ of the window, as in [LCCWC24, Lemma 1].
 
 ## Main statements
 
-* `LMLExplore.ReinforcementLearning.le_add_pow_mul_of_le_add_sum_mul_integral`: comparison of an
-  averaged recursive inequality with a common supersolution, by generations of `L` iterations.
-* `LMLExplore.ReinforcementLearning.sq_mul_variance_optValue_add_mul_integral_le`: the
-  supersolution for the one-step variances of the optimal value along near-greedy kernels, a
-  closed form of [LCCWC24, Lemma 5].
 * `LMLExplore.ReinforcementLearning.syncQLearning_sub_optQValue_le_window`: the upper bound on the
   error unrolled over a window [LCCWC24, (38)–(39)].
 * `LMLExplore.ReinforcementLearning.measure_exists_lt_syncQLearning_sub_optQValue_le`: the
@@ -70,112 +65,17 @@ open scoped NNReal
 
 namespace LMLExplore.ReinforcementLearning
 
-/-! ### Comparison with a common supersolution -/
-
-section Comparison
-
-variable {α : Type*} {mα : MeasurableSpace α} {κ : ℕ → Kernel α α} [∀ i, IsMarkovKernel (κ i)]
-  {x : ℕ → α → ℝ} {w : ℕ → ℕ → ℝ} {b u : α → ℝ} {γ c : ℝ} {m L t : ℕ}
-
-/-- **Comparison with a common supersolution, by generations.** Let `L > 0`, let the functions
-`x k` satisfy the averaged recursive inequality
-`x k ≤ b + ∑_{k - L ≤ i < k} w k i γ κ i (x i)` for `m + L ≤ k ≤ t`, with nonnegative weights
-adding up to at most `1`, and let `u ≥ 0` be a common supersolution, `b + γ κ i u ≤ u` for
-`m ≤ i < t`. If `x k ≤ u + c` for `m ≤ k ≤ t`, with `c ≥ 0` and `γ ≥ 0`, then
-`x k ≤ u + γ ^ j c` for `m + j L ≤ k ≤ t`: each generation of `L` iterations contracts the excess
-over `u` by `γ`. -/
-theorem le_add_pow_mul_of_le_add_sum_mul_integral (hγ : 0 ≤ γ) (hc : 0 ≤ c) (hu : ∀ y, 0 ≤ u y)
-    (hL : 0 < L) (hxi : ∀ i y, Integrable (x i) (κ i y)) (hui : ∀ i y, Integrable u (κ i y))
-    (hsup : ∀ i ∈ Ico m t, ∀ y, b y + γ * ∫ z, u z ∂(κ i y) ≤ u y)
-    (hw : ∀ k ∈ Icc (m + L) t, ∀ i ∈ Ico (k - L) k, 0 ≤ w k i)
-    (hw1 : ∀ k ∈ Icc (m + L) t, ∑ i ∈ Ico (k - L) k, w k i ≤ 1)
-    (hx : ∀ k ∈ Icc (m + L) t, ∀ y,
-      x k y ≤ b y + ∑ i ∈ Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)))
-    (hxc : ∀ k ∈ Icc m t, ∀ y, x k y ≤ u y + c) (j : ℕ) :
-    ∀ k ∈ Icc (m + j * L) t, ∀ y, x k y ≤ u y + γ ^ j * c := by
-  induction j with
-  | zero => simpa using hxc
-  | succ j ih =>
-    intro k hk y
-    obtain ⟨hk₁, hk₂⟩ := mem_Icc.1 hk
-    have hjL : j * L + L = (j + 1) * L := by ring
-    have hkL : k ∈ Icc (m + L) t := mem_Icc.2 ⟨by omega, hk₂⟩
-    -- the window of `k` lies in the previous generation
-    have hwin (i : ℕ) (hi : i ∈ Ico (k - L) k) : i ∈ Icc (m + j * L) t ∧ i ∈ Ico m t := by
-      have := mem_Ico.1 hi
-      exact ⟨mem_Icc.2 ⟨by omega, by omega⟩, mem_Ico.2 ⟨by omega, by omega⟩⟩
-    -- `b ≤ u` at `y`, by the supersolution property at the last iteration of the window
-    have hbu : b y ≤ u y := by
-      have h₁ := hsup (k - 1) (hwin (k - 1) (mem_Ico.2 ⟨by omega, by omega⟩)).2 y
-      have h₂ : 0 ≤ γ * ∫ z, u z ∂(κ (k - 1) y) := mul_nonneg hγ (integral_nonneg hu)
-      linarith
-    calc x k y ≤ b y + ∑ i ∈ Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)) := hx k hkL y
-      _ ≤ b y + ∑ i ∈ Ico (k - L) k, w k i * ((u y - b y) + γ ^ (j + 1) * c) := by
-        gcongr with i hi
-        · exact hw k hkL i hi
-        · calc γ * ∫ z, x i z ∂(κ i y) ≤ γ * ∫ z, (u z + γ ^ j * c) ∂(κ i y) :=
-                mul_le_mul_of_nonneg_left (integral_mono (hxi i y)
-                  ((hui i y).add (integrable_const _)) fun z ↦ ih i (hwin i hi).1 z) hγ
-            _ = γ * ∫ z, u z ∂(κ i y) + γ ^ (j + 1) * c := by
-                rw [integral_add (hui i y) (integrable_const _), integral_const, probReal_univ,
-                  one_smul]
-                ring
-            _ ≤ (u y - b y) + γ ^ (j + 1) * c := by linarith [hsup i (hwin i hi).2 y]
-      _ = b y + (∑ i ∈ Ico (k - L) k, w k i) * ((u y - b y) + γ ^ (j + 1) * c) := by
-        rw [sum_mul]
-      _ ≤ b y + 1 * ((u y - b y) + γ ^ (j + 1) * c) := by
-        gcongr
-        exact hw1 k hkL
-      _ = u y + γ ^ (j + 1) * c := by ring
-
-end Comparison
-
 variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableSpace 𝓐} [Finite 𝓢]
   [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐] [Nonempty 𝓐] [MeasurableSingletonClass 𝓐]
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η : ℕ → ℝ} {Q₀ : 𝓢 × 𝓐 → ℝ} {C : ℝ}
 
-/-! ### The one-step variances of the optimal value along near-greedy kernels -/
-
-/-- **A supersolution for the one-step variances of the optimal value** [LCCWC24, (97)–(98)].
-With rewards in `[0, C]` and `γ < 1`, let `K` be a Markov kernel on the state-action pairs with
-`P (V* ^ 2) ≤ K (Q* ^ 2) + e` at `p`, as for the state-action kernel of a policy `π` with
-`V* ^ 2 ≤ Q* (·, π ·) ^ 2 + e`. Then `G - Q* ^ 2`, with
-`G = (2 C ^ 2 / (1 - γ) + γ ^ 2 e) / (1 - γ)`, satisfies at `p` the supersolution inequality
-`γ ^ 2 Var_P(V*) + γ K (G - Q* ^ 2) ≤ G - Q* ^ 2`. Since it holds for every such kernel at once,
-for `e ≥ 0` the discounted sums of `γ ^ 2 Var_P(V*)` along any sequence of near-greedy kernels
-are at most `G`: this is the content of [LCCWC24, Lemma 5], there obtained by telescoping along
-each sequence. -/
-theorem sq_mul_variance_optValue_add_mul_integral_le (hγ : γ < 1)
-    (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) {K : Kernel (𝓢 × 𝓐) (𝓢 × 𝓐)} [IsMarkovKernel K]
-    {e : ℝ} {p : 𝓢 × 𝓐}
-    (hK : ∫ s, M.optValue γ s ^ 2 ∂(M.P p) ≤ ∫ q, M.optQValue γ q ^ 2 ∂(K p) + e) :
-    (γ : ℝ) ^ 2 * Var[M.optValue γ; M.P p] +
-        γ * ∫ q, ((2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) - M.optQValue γ q ^ 2) ∂(K p) ≤
-      (2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) - M.optQValue γ p ^ 2 := by
+/-- For `γ < 1`, `C + γ (C / (1 - γ)) ≤ C / (1 - γ)` (with equality): the bound `C / (1 - γ)` is
+preserved by the targets `r + γ V` of the iterates. -/
+private lemma add_mul_div_one_sub_le (hγ : γ < 1) : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hγ1 : (γ : ℝ) ≤ 1 := by exact_mod_cast hγ.le
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
-  have hQ₀ := optQValue_nonneg hγ hRabs (fun q ↦ (hr q).1) p
-  have hQB := (le_abs_self _).trans (abs_optQValue_le hγ hRabs p)
-  have hIK : 0 ≤ ∫ q, M.optQValue γ q ^ 2 ∂(K p) := integral_nonneg fun q ↦ sq_nonneg _
-  set G := (2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) with hG_def
-  have hG : (1 - γ) * G = 2 * (C / (1 - γ)) * C + γ ^ 2 * e := by
-    rw [hG_def]
-    field_simp
-  -- `Var_P(V*) = P (V* ^ 2) - (P V*) ^ 2` and the Bellman equation `Q* = r + γ P V*`
-  rw [variance_eq_sub .of_discrete, integral_sub (integrable_const _) .of_finite, integral_const,
-    probReal_univ, one_smul, optQValue_def (p := p)]
-  simp only [Pi.pow_apply]
-  have hQ := optQValue_def (M := M) (γ := γ) p
-  rw [hQ] at hQ₀ hQB
-  -- `P (V* ^ 2) ≤ K (Q* ^ 2) + e`, `γ ^ 2 K (Q* ^ 2) ≤ γ K (Q* ^ 2)` and `r Q* ≤ C ^ 2 / (1 - γ)`
-  nlinarith [mul_le_mul_of_nonneg_left hK (sq_nonneg (γ : ℝ)),
-    mul_nonneg (mul_nonneg γ.coe_nonneg (sub_nonneg.2 hγ1)) hIK,
-    mul_le_mul (hr p).2 hQB hQ₀ ((hr p).1.trans (hr p).2), sq_nonneg (meanReward M.R p)]
+  refine le_of_eq ?_
+  field_simp
+  ring
 
 /-! ### The windowed error recursion -/
 
@@ -199,8 +99,7 @@ theorem syncQLearning_sub_optQValue_le_window (hγ : γ < 1)
         ∑ i ∈ Ico (k - L) k, learningRateWeight η k (i + 1) * (γ *
           ∫ q, (syncQLearning (meanReward M.R) γ η Q₀ i ω q - M.optQValue γ q)
             ∂(M.saKernel (Kernel.deterministic (π i) (measurable_of_finite _)) p)) := by
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
   have h := le_prod_mul_add_sum_learningRateWeight_mul_of_le (n := k - L)
     (x := fun t ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p)
     (y := fun i ↦ γ *
@@ -236,11 +135,8 @@ private lemma abs_iSup_sub_optValue_le_and_sq_optValue_le (hγ : γ < 1)
     (s : 𝓢) :
     |(⨆ a, Q (s, a)) - M.optValue γ s| ≤ D ∧
       M.optValue γ s ^ 2 ≤ M.optQValue γ (s, π s) ^ 2 + 4 * (C / (1 - γ)) * D := by
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr₀ (q : 𝓢 × 𝓐) : 0 ≤ meanReward M.R q := by
-    rw [meanReward_def]
-    exact integral_nonneg_of_ae ((hR q).mono fun x hx ↦ hx.1)
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hr₀ (q : 𝓢 × 𝓐) := (meanReward_mem_Icc_of_ae_mem_Icc (hR q)).1
   have hV : |(⨆ a, Q (s, a)) - M.optValue γ s| ≤ D := by
     rw [← iSup_optQValue hγ hRabs s]
     exact abs_ciSup_sub_ciSup_le (Set.finite_range _).bddAbove fun a ↦ hD (s, a)
@@ -278,15 +174,9 @@ private lemma sum_sq_mul_variance_iSup_syncQLearning_le (hγ : γ < 1)
         Var[fun s' ↦ ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ i ω (s', a); M.P p] ≤
       γ ^ 2 * β * (Var[M.optValue γ; M.P p] + 4 * (C / (1 - γ)) * D) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   have hB₀ : 0 ≤ C / (1 - γ) := div_nonneg ((hr p).1.trans (hr p).2) h1γ.le
   have hX : 0 ≤ γ ^ 2 * β * (Var[M.optValue γ; M.P p] + 4 * (C / (1 - γ)) * D) :=
     mul_nonneg (mul_nonneg (sq_nonneg _) hβ₀) (add_nonneg (variance_nonneg _ _)
@@ -376,8 +266,7 @@ private lemma sqrt_supersolution_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
           M.optQValue γ p ^ 2)) / (1 - γ)) ≤
         √(2 * a ^ 2 + 36 * β * ℓ * (C / (1 - γ)) * (C + 4 * γ ^ 2 * D)) / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
   have hC : 0 ≤ C := by
     obtain ⟨x, hx⟩ := (hR p).exists
     exact hx.1.trans hx.2
@@ -445,16 +334,10 @@ private lemma syncQLearning_sub_optQValue_le_of_noise_le (hγ : γ < 1)
         √(2 * (ρ * (C / (1 - γ)) + 2 * b * ℓ) ^ 2 +
           36 * β * ℓ * (C / (1 - γ)) * (C + 4 * γ ^ 2 * D)) / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hC : 0 ≤ C := (hr p).1.trans (hr p).2
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   rcases lt_or_ge t (m + L) with hmt | hmt
   · -- no window fits before `t`: then `J = 0`, and the bound is the range of the errors
     obtain rfl : J = 0 := by
@@ -514,7 +397,7 @@ private lemma syncQLearning_sub_optQValue_le_of_noise_le (hγ : γ < 1)
     simp only [hbf, ha_def]
     linarith
   -- the comparison with the supersolution `√(w / (1 - γ))`, by `J` generations of `L` iterations
-  have hcomp := le_add_pow_mul_of_le_add_sum_mul_integral (κ := K)
+  have hcomp := Kernel.le_add_pow_mul_of_le_add_sum_mul_integral (κ := K)
     (x := fun k q ↦ Q k q - M.optQValue γ q) (w := fun k i ↦ learningRateWeight η k (i + 1))
     (b := bf) (u := fun q ↦ √(w q / (1 - γ))) (c := B) γ.coe_nonneg hB₀
     (fun q ↦ Real.sqrt_nonneg _) hL (fun _ _ ↦ .of_finite) (fun _ _ ↦ .of_finite) hsup
@@ -555,13 +438,8 @@ private lemma measure_lt_sum_mul_iSup_syncQLearning_sub_integral_le (hγ : γ < 
   have := Fintype.ofFinite 𝓢
   have := Fintype.ofFinite 𝓐
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   have hB₀ : 0 ≤ C / (1 - γ) := div_nonneg ((hr p).1.trans (hr p).2) h1γ.le
   -- the weight of the noise of iteration `i` at the pair `p`
   obtain ⟨c, hc⟩ : ∃ c : ℕ → ℝ, ∀ i,
@@ -638,7 +516,7 @@ after replacing `δ` by `δ / (S A T)` the second term is of order
 `√(log⁴ T log (S A T log T / δ) (1 + D) / ((1 - γ) ^ 4 T))`, the bound of the source. The
 source expands the upper bound `H = log T / (1 - γ)` times along the greedy kernels; here the
 expansion is replaced by the comparison with a common supersolution
-(`LMLExplore.ReinforcementLearning.le_add_pow_mul_of_le_add_sum_mul_integral`), and the bound
+(`ProbabilityTheory.Kernel.le_add_pow_mul_of_le_add_sum_mul_integral`), and the bound
 has no factor `1 / γ ^ 2`. -/
 theorem measure_exists_lt_syncQLearning_sub_optQValue_le [Fintype 𝓢] [Fintype 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 C) (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)

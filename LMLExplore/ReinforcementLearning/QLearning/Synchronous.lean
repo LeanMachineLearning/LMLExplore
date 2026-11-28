@@ -245,11 +245,8 @@ theorem abs_syncQLearning_sub_optQValue_le [Countable 𝓐] [Nonempty 𝓐] (hγ
     (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ))) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
     |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p| ≤ C / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C :=
-    ⟨by rw [meanReward_def]; exact integral_nonneg_of_ae ((hR q).mono fun x hx ↦ hx.1),
-      (le_abs_self _).trans (abs_meanReward_le hRabs q)⟩
+  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
     refine le_of_eq ?_
     field_simp
