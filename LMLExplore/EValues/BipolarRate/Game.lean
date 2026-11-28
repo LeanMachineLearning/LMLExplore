@@ -21,7 +21,8 @@ logarithm under `Q` of the bet divided by its mean under `P` [EVR26].
 
 * The max–min value `⨆ g, ⨅ P ∈ T, betPayoff Q P g` is the largest e-power `maxEPower Q T`. A
   bet whose payoff is above `c` against every member of the null, divided by
-  `exp (∫ g ∂Q - c)`, is an e-variable with expected logarithm `c` under `Q`; conversely, the
+  `exp (∫ g ∂Q - c)`, is an e-variable with expected logarithm `c` under `Q`
+  (`ProbabilityTheory.isEVar_ofReal_exp_sub_add_of_lt_betPayoff`); conversely, the
   expected logarithm of an e-variable is approached by the means of bounded functions `g` with
   `exp g` an e-variable (`ProbabilityTheory.IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log`),
   whose payoffs against the null are at least `∫ g ∂Q`.
@@ -102,6 +103,37 @@ lemma integral_le_betPayoff (Q : Measure Ω) {P : Measure Ω} {g : Ω → ℝ} (
   rw [betPayoff_def]
   linarith
 
+/-- **A bet that beats `c` against the null, normalized, is an e-variable**: if the bounded bet
+`exp g` pays more than `c` against every member of a null `T` of measures of mass at most one,
+then `exp (g - ∫ g ∂Q + c)`, the bet divided by `exp (∫ g ∂Q - c)`, is an e-variable for `T`. This
+is a converse of `integral_le_betPayoff`. -/
+lemma isEVar_ofReal_exp_sub_add_of_lt_betPayoff (Q : Measure Ω) {T : Set (Measure Ω)}
+    (hT : ∀ P ∈ T, P Set.univ ≤ 1) {g : Ω → ℝ} (hg : Measurable g) {C : ℝ}
+    (hC : ∀ x, |g x| ≤ C) {c : ℝ} (hc : ∀ P ∈ T, c < betPayoff Q P g) :
+    IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g x - ∫ y, g y ∂Q + c))) T := by
+  set a := ∫ y, g y ∂Q
+  have heq (x : Ω) : Real.exp (g x - a + c) = Real.exp (g x) * Real.exp (c - a) := by
+    rw [← Real.exp_add]; ring_nf
+  refine ⟨by fun_prop, fun P hP ↦ ?_⟩
+  have : IsFiniteMeasure P := ⟨(hT P hP).trans_lt ENNReal.one_lt_top⟩
+  have hexp : Integrable (fun x ↦ Real.exp (g x)) P := LMLExplore.integrable_exp_of_abs_le hg hC P
+  rw [← ofReal_integral_eq_lintegral_ofReal (by simp_rw [heq]; exact hexp.mul_const _)
+    (.of_forall fun x ↦ (Real.exp_pos _).le), ENNReal.ofReal_le_one]
+  simp_rw [heq]
+  rw [integral_mul_const]
+  rcases (integral_nonneg fun x ↦ (Real.exp_pos (g x)).le : 0 ≤ ∫ x, Real.exp (g x) ∂P)
+    |>.eq_or_lt with h0 | hpos
+  · rw [← h0, zero_mul]
+    exact zero_le_one
+  -- the payoff against `P` is above `c`
+  have hcP := hc P hP
+  rw [betPayoff_def] at hcP
+  have hlt : ∫ x, Real.exp (g x) ∂P < Real.exp (a - c) :=
+    (Real.log_lt_iff_lt_exp hpos).1 (by linarith)
+  calc (∫ x, Real.exp (g x) ∂P) * Real.exp (c - a)
+  _ ≤ Real.exp (a - c) * Real.exp (c - a) := by gcongr
+  _ = 1 := by rw [← Real.exp_add]; simp
+
 /-! ### The values of the game -/
 
 /-- **The max–min value of the game is the largest e-power** [EVR26]. For a probability measure
@@ -118,41 +150,18 @@ theorem iSup_iInf_betPayoff_eq_maxEPower (Q : Measure Ω) [IsProbabilityMeasure 
     | bot => exact bot_le
     | top => exact absurd hc not_top_lt
     | coe c =>
+      have hX := isEVar_ofReal_exp_sub_add_of_lt_betPayoff Q hT hg hC fun P hP ↦
+        EReal.coe_lt_coe_iff.1 (hc.trans_le (iInf₂_le P hP))
       have hgQ : Integrable g Q := LMLExplore.integrable_of_abs_le hg hC Q
-      set a := ∫ x, g x ∂Q with ha
-      set X : Ω → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (Real.exp (g x - a + c)) with hX_def
-      have heq (x : Ω) : Real.exp (g x - a + c) = Real.exp (g x) * Real.exp (c - a) := by
-        rw [← Real.exp_add]; ring_nf
-      have hX : IsEVar X T := by
-        refine ⟨by fun_prop, fun P hP ↦ ?_⟩
-        have : IsFiniteMeasure P := ⟨(hT P hP).trans_lt ENNReal.one_lt_top⟩
-        have hexp : Integrable (fun x ↦ Real.exp (g x)) P :=
-          LMLExplore.integrable_exp_of_abs_le hg hC P
-        rw [← ofReal_integral_eq_lintegral_ofReal (by simp_rw [heq]; exact hexp.mul_const _)
-          (.of_forall fun x ↦ (Real.exp_pos _).le), ENNReal.ofReal_le_one]
-        simp_rw [heq]
-        rw [integral_mul_const]
-        rcases (integral_nonneg fun x ↦ (Real.exp_pos (g x)).le : 0 ≤ ∫ x, Real.exp (g x) ∂P)
-          |>.eq_or_lt with h0 | hpos
-        · rw [← h0, zero_mul]
-          exact zero_le_one
-        -- the payoff against `P` is above `c`
-        have hcP : (c : EReal) < betPayoff Q P g := hc.trans_le (iInf₂_le P hP)
-        rw [EReal.coe_lt_coe_iff, betPayoff_def] at hcP
-        have hlt : ∫ x, Real.exp (g x) ∂P < Real.exp (a - c) :=
-          (Real.log_lt_iff_lt_exp hpos).1 (by linarith)
-        calc (∫ x, Real.exp (g x) ∂P) * Real.exp (c - a)
-        _ ≤ Real.exp (a - c) * Real.exp (c - a) := by gcongr
-        _ = 1 := by rw [← Real.exp_add]; simp
-      calc (c : EReal) = ∫ᵉ x, ((g x - a + c : ℝ) : EReal) ∂Q := by
-            have h1 : Integrable (fun x ↦ g x - a) Q := hgQ.sub (integrable_const a)
-            rw [eintegral_eq_integral (f := fun x ↦ g x - a + c) (h1.add (integrable_const c)),
-              integral_add (f := fun x ↦ g x - a) (g := fun _ ↦ c) h1 (integrable_const c),
-              integral_sub (f := g) (g := fun _ ↦ a) hgQ (integrable_const a)]
-            simp [← ha]
-      _ = ∫ᵉ x, ENNReal.log (X x) ∂Q := by
+      calc (c : EReal) = ∫ᵉ x, ((g x - ∫ y, g y ∂Q + c : ℝ) : EReal) ∂Q := by
+            have h1 : Integrable (fun x ↦ g x - ∫ y, g y ∂Q) Q := hgQ.sub (integrable_const _)
+            have h2 : Integrable (fun x ↦ g x - ∫ y, g y ∂Q + c) Q := h1.add (integrable_const c)
+            rw [eintegral_eq_integral h2, integral_add h1 (integrable_const c),
+              integral_sub hgQ (integrable_const _)]
+            simp
+      _ = ∫ᵉ x, ENNReal.log (ENNReal.ofReal (Real.exp (g x - ∫ y, g y ∂Q + c))) ∂Q := by
             refine eintegral_congr_ae (.of_forall fun x ↦ ?_)
-            simp [hX_def, ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
+            simp [ENNReal.log_ofReal_of_pos (Real.exp_pos _)]
       _ ≤ maxEPower Q T := hX.eintegral_log_le_maxEPower Q
   · -- the expected logarithm of an e-variable is approached by bounded bets
     refine le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_
