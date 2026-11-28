@@ -41,6 +41,9 @@ most `M` rounds.
 
 * `Learning.notStoppedSet S n`: the `n`-round histories after which the stopping rule `S` has not
   stopped, that is, none of whose prefixes belong to `S`.
+* `Learning.notStoppedBeforeSet S n`: the `n`-round histories none of whose strict prefixes belong
+  to `S`; those of `S` among them are the histories after which `S` stops after exactly `n`
+  rounds.
 * `Learning.truncHist M`: the truncation of a history of variable length to at most `M` rounds.
 
 ## Main statements
@@ -50,6 +53,13 @@ most `M` rounds.
 * `Learning.tsum_setLIntegral_notStoppedSet`: the series over the rounds `t` of the integrals of
   `f t` on the event `history t ∈ notStoppedSet S t` is the integral of `∑ t < τ, f t` for an
   almost surely finite hitting time `τ` of `S`.
+* `Learning.history_mem_notStoppedBeforeSet_iff`,
+  `Learning.preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe`: the history of the first
+  `n` rounds has no strict prefix in `S` iff the hitting time `τ` of `S` is at least `n`, and on
+  `{τ = n}` the stopped history is the `n`-round history.
+* `Learning.IsAlgEnvSeq.setLIntegral_stoppedHistMeasure_eq_tsum`: on `S`, the law of the stopped
+  history is the sum over `n` of the laws of the `n`-round histories restricted to the histories
+  that stop after exactly `n` rounds.
 * `Learning.stoppedHistMeasure_congr`: if the step kernels of `(alg, env)` and `(alg', env')`
   agree on `notStoppedSet S n` for every `n`, then
   `stoppedHistMeasure alg env S = stoppedHistMeasure alg' env' S`.
@@ -159,12 +169,17 @@ section Congr
 
 /-- The `n`-round histories none of whose strict prefixes belong to `S`. Along a sequence, the
 history of the first `n` rounds belongs to this set if and only if the hitting time of `S` is at
-least `n`. -/
-private def notStoppedBeforeSet (S : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) (n : ℕ) :
+least `n` (`history_mem_notStoppedBeforeSet_iff`). -/
+def notStoppedBeforeSet (S : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) (n : ℕ) :
     Set (Hist 𝓞 𝓐 𝓨 n) :=
   {h | ∀ m (hm : m < n), (⟨m, fun i ↦ h (Fin.castLE hm.le i)⟩ : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) ∉ S}
 
-private lemma measurableSet_notStoppedBeforeSet (hS : MeasurableSet S) (n : ℕ) :
+lemma mem_notStoppedBeforeSet_iff {h : Hist 𝓞 𝓐 𝓨 n} :
+    h ∈ notStoppedBeforeSet S n ↔
+      ∀ m (hm : m < n), (⟨m, fun i ↦ h (Fin.castLE hm.le i)⟩ : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) ∉ S :=
+  Iff.rfl
+
+lemma measurableSet_notStoppedBeforeSet (hS : MeasurableSet S) (n : ℕ) :
     MeasurableSet (notStoppedBeforeSet S n) := by
   have : notStoppedBeforeSet S n = ⋂ m, ⋂ (hm : m < n),
       (fun h : Hist 𝓞 𝓐 𝓨 n ↦ (⟨m, fun i ↦ h (Fin.castLE hm.le i)⟩ : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) ⁻¹'
@@ -178,7 +193,9 @@ private lemma notStoppedSet_subset_notStoppedBeforeSet :
     notStoppedSet S n ⊆ notStoppedBeforeSet S n :=
   fun _ hh m hm ↦ hh m hm.le
 
-private lemma history_mem_notStoppedBeforeSet_iff :
+/-- The history of the first `n` rounds has no strict prefix in `S` if and only if the hitting
+time of `S` is at least `n`. -/
+lemma history_mem_notStoppedBeforeSet_iff :
     history O X Y n ω ∈ notStoppedBeforeSet S n ↔
       (n : WithTop ℕ) ≤ hittingAfter (sigmaHistory O X Y) S 0 ω := by
   rw [← not_lt]
@@ -246,6 +263,79 @@ private lemma measure_history_preimage_eq (h : IsAlgEnvSeq O X Y alg env P)
     ← Measure.restrict_eq_self (P'.map (history O' X' Y' n)) hDS,
     map_history_restrict_notStoppedBeforeSet h h' hS h_eq]
 
+/-- On the event `{τ = n}`, where `τ` is the hitting time of the stopping rule `S`, the stopped
+history is the history of the first `n` rounds: the event that the stopped history lies in `B` and
+`τ = n` is the event that the `n`-round history has no strict prefix in `S` and lies in `S ∩ B`. -/
+lemma preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe
+    (B : Set (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n)) (n : ℕ) :
+    stoppedValue (sigmaHistory O X Y) (hittingAfter (sigmaHistory O X Y) S 0) ⁻¹' B ∩
+        hittingAfter (sigmaHistory O X Y) S 0 ⁻¹' {(n : WithTop ℕ)} =
+      history O X Y n ⁻¹' (notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' (S ∩ B)) := by
+  set τ := hittingAfter (sigmaHistory O X Y) S 0 with hτ_def
+  set F := stoppedValue (sigmaHistory O X Y) τ with hF_def
+  have hF_of (ω : Ω) (hω : τ ω = n) : F ω = sigmaHistory O X Y n ω := by
+    rw [hF_def, stoppedValue, hω, WithTop.untopA, ← WithTop.coe_natCast, WithTop.untopD_coe,
+      Nat.cast_id]
+  ext ω
+  simp only [mem_inter_iff, mem_preimage, mem_singleton_iff,
+    history_mem_notStoppedBeforeSet_iff]
+  constructor
+  · rintro ⟨hFB, hτn⟩
+    have hne : τ ω ≠ ⊤ := by simp [hτn]
+    have h_mem : F ω ∈ S := by
+      rw [hF_def]
+      exact hittingAfter_mem_set_of_ne_top hne
+    rw [hF_of ω hτn] at hFB h_mem
+    exact ⟨hτn.ge, h_mem, hFB⟩
+  · rintro ⟨hle, hS', hB'⟩
+    have hτn : τ ω = n := le_antisymm (hittingAfter_le_of_mem (Nat.zero_le n) hS') hle
+    rw [hF_of ω hτn]
+    exact ⟨hB', hτn⟩
+
+/-- **The law of the stopped history as a sum over the stopping times.** On the stopping rule `S`,
+the integral of `f` under the law of the stopped history is the sum over `n` of the integrals of
+`f ⟨n, ·⟩` under the law of the history of the first `n` rounds, on the histories that stop
+after exactly `n` rounds: those of `S` without strict prefix in `S`. -/
+lemma IsAlgEnvSeq.setLIntegral_stoppedHistMeasure_eq_tsum
+    (h : IsAlgEnvSeq O X Y alg env P) (hS : MeasurableSet S)
+    {f : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) → ℝ≥0∞} (hf : Measurable f) :
+    ∫⁻ x in S, f x ∂stoppedHistMeasure alg env S =
+      ∑' n, ∫⁻ x in notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' S, f ⟨n, x⟩
+        ∂(P.map (history O X Y n)) := by
+  have hτ := measurable_hittingAfter_sigmaHistory h.measurable_obs h.measurable_action
+    h.measurable_feedback hS
+  have hF := measurable_stoppedValue_sigmaHistory h.measurable_obs h.measurable_action
+    h.measurable_feedback hτ
+  set τ := hittingAfter (sigmaHistory O X Y) S 0
+  set F := stoppedValue (sigmaHistory O X Y) τ
+  have hD (n : ℕ) : MeasurableSet (notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' S) :=
+    (measurableSet_notStoppedBeforeSet hS n).inter (measurable_sigmaMk n hS)
+  -- the stopped history lies in `S` exactly when `τ` is finite, and then `τ` is some `n`
+  have h_union : F ⁻¹' S = ⋃ n : ℕ, F ⁻¹' S ∩ τ ⁻¹' {(n : WithTop ℕ)} := by
+    ext ω
+    simp only [mem_preimage, mem_iUnion, mem_inter_iff, mem_singleton_iff]
+    refine ⟨fun hω ↦ ?_, fun ⟨_, hω, _⟩ ↦ hω⟩
+    obtain ⟨n, hn⟩ := WithTop.ne_top_iff_exists.1 (stoppedValue_hittingAfter_zero_mem_iff.1 hω)
+    exact ⟨n, hω, hn.symm⟩
+  have h_disj : Pairwise (Function.onFun Disjoint
+      fun n : ℕ ↦ F ⁻¹' S ∩ τ ⁻¹' {(n : WithTop ℕ)}) := fun n m hnm ↦
+    ((pairwise_disjoint_fiber τ) (by exact_mod_cast hnm)).mono inter_subset_right
+      inter_subset_right
+  rw [(h.hasLaw_stoppedValue_sigmaHistory hS).map_eq.symm, setLIntegral_map hS hf hF, h_union,
+    lintegral_iUnion (fun n ↦ (hF hS).inter (hτ (measurableSet_singleton _))) h_disj]
+  refine tsum_congr fun n ↦ ?_
+  rw [setLIntegral_map (f := fun x : Hist 𝓞 𝓐 𝓨 n ↦ f ⟨n, x⟩) (hD n)
+    (hf.comp (measurable_sigmaMk n)) (h.measurable_history n)]
+  have h_set := preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe (O := O) (X := X)
+    (Y := Y) (S := S) S n
+  rw [inter_self] at h_set
+  rw [h_set]
+  refine setLIntegral_congr_fun ((h.measurable_history n) (hD n)) fun ω hω ↦ ?_
+  have hτn : τ ω = n := (h_set.symm ▸ hω : ω ∈ F ⁻¹' S ∩ τ ⁻¹' {(n : WithTop ℕ)}).2
+  have hFω : F ω = sigmaHistory O X Y n ω := by
+    simp only [F, stoppedValue, hτn, WithTop.untopA_natCast]
+  rw [hFω, sigmaHistory_apply]
+
 /-- On the event `{τ = n}` the stopped history is the history of the first `n` rounds, so the
 events `{F ∈ B, τ = n}` have the same probability for the two pairs, where `τ` is the hitting time
 of `S` and `F` the stopped history. -/
@@ -258,33 +348,7 @@ private lemma measure_stoppedValue_preimage_inter_eq_coe (hS : MeasurableSet S)
       trajMeasure alg' env' (stoppedValue (sigmaHistory IT.obs IT.action IT.feedback)
         (hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0) ⁻¹' B ∩
           hittingAfter (sigmaHistory IT.obs IT.action IT.feedback) S 0 ⁻¹' {(n : WithTop ℕ)}) := by
-  set τ := hittingAfter (sigmaHistory (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
-    IT.feedback) S 0 with hτ_def
-  set F := stoppedValue (sigmaHistory (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action
-    IT.feedback) τ with hF_def
-  have hF_of (ω : ℕ → Round 𝓞 𝓐 𝓨) (hω : τ ω = n) :
-      F ω = sigmaHistory IT.obs IT.action IT.feedback n ω := by
-    rw [hF_def, stoppedValue, hω, WithTop.untopA, ← WithTop.coe_natCast, WithTop.untopD_coe,
-      Nat.cast_id]
-  have h_eq_pre : F ⁻¹' B ∩ τ ⁻¹' {(n : WithTop ℕ)} =
-      history IT.obs IT.action IT.feedback n ⁻¹'
-        (notStoppedBeforeSet S n ∩ Sigma.mk n ⁻¹' (S ∩ B)) := by
-    ext ω
-    simp only [mem_inter_iff, mem_preimage, mem_singleton_iff,
-      history_mem_notStoppedBeforeSet_iff]
-    constructor
-    · rintro ⟨hFB, hτn⟩
-      have hne : τ ω ≠ ⊤ := by simp [hτn]
-      have h_mem : F ω ∈ S := by
-        rw [hF_def]
-        exact hittingAfter_mem_set_of_ne_top hne
-      rw [hF_of ω hτn] at hFB h_mem
-      exact ⟨hτn.ge, h_mem, hFB⟩
-    · rintro ⟨hle, hS', hB'⟩
-      have hτn : τ ω = n := le_antisymm (hittingAfter_le_of_mem (Nat.zero_le n) hS') hle
-      rw [hF_of ω hτn]
-      exact ⟨hB', hτn⟩
-  rw [h_eq_pre]
+  rw [preimage_stoppedValue_inter_preimage_hittingAfter_eq_coe]
   exact measure_history_preimage_eq (IT.isAlgEnvSeq_trajMeasure alg env)
     (IT.isAlgEnvSeq_trajMeasure alg' env') hS h_eq ((measurableSet_notStoppedBeforeSet hS n).inter
       ((measurable_sigmaMk n) (hS.inter hB))) inter_subset_left

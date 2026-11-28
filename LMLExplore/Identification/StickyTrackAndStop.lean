@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.ExpFamilyThreshold
+public import LMLExplore.Identification.MultipleAnswerLowerBound
 public import LMLExplore.Identification.Task.Oracle
 
 /-!
@@ -106,6 +107,9 @@ targets are close to `w*(μ, ¬i_μ)`, and the sample-complexity reduction of
   `IdentTask.isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le`: with the thresholds
   `K log (2 n (n + 1)) + x_δ`, Sticky Track-and-Stop stops almost surely and is `δ`-PAC for every
   `δ ∈ (0, 1]`.
+* `tendsto_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le`:
+  **asymptotic optimality** [DK19, Theorems 1 and 11], `E_μ[τ_δ] / log (1 / δ) → T*(μ)`, from the
+  lower bound of `Identification/MultipleAnswerLowerBound.lean`.
 
 ## References
 
@@ -928,5 +932,46 @@ theorem isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le [Finite �
   simp only [stickyTrackAndStop_def] at h_stops ⊢
   exact isDeltaPAC_glrt_unionBoundThreshold_of_klDiv_le _ _ hδ hδ1 (hstop δ) hμ hν hkl
     (fun θ _ ↦ (Set.toFinite _).measurableSet) h_stops
+
+/-- **Sticky Track-and-Stop is asymptotically optimal** [DK19, Theorems 1 and 11]. Under the
+assumptions of `IdentTask.isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le`, which
+make Sticky Track-and-Stop with the thresholds `K log (2 n (n + 1)) + x_δ` `δ`-PAC, at every
+admissible model `μ`, `E_μ[τ_δ] / log (1 / δ) → T*(μ)` as `δ → 0`: its sample complexity
+matches the lower bound of tasks with several correct answers
+(`IdentTask.eventually_mul_ofReal_log_le_expectedStoppingTime_of_finite`). -/
+theorem tendsto_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_div_log_of_klDiv_le
+    [Finite ℐ] [MeasurableSingletonClass ℐ] (hT : ∀ a c, ¬ T a =ᵐ[ρ a] fun _ ↦ c)
+    (hμ : ∀ θ ∈ task.M, ∀ a, θ a ∈ (ρ a).expFamilyMeans (T a))
+    (hν : ∀ θ ∈ task.M, ∀ a, MGFDominatedOn id (task.ν θ a) (T a)
+      ((ρ a).expFamily (T a) ((ρ a).natParam (T a) (θ a))) Set.univ)
+    (hkl : ∀ θ ∈ task.M, ∀ (μ' : α → ℝ) a,
+      klDiv (task.ν μ' a) (task.ν θ a) ≤ (ρ a).expFamilyRate (T a) (μ' a) (θ a))
+    (h_sep : ∀ θ ∈ task.M, ∀ U ∈ 𝓝 θ, ∃ V ∈ 𝓝 θ, ∃ ε : ℝ, 0 < ε ∧ ∀ μ' ∈ V, ∀ θ' ∈ task.M,
+      (∀ a, klDiv (task.ν μ' a) (task.ν θ' a) ≤ ENNReal.ofReal ε) → θ' ∈ U)
+    (hp : 2 < p)
+    (hr_ge : ∀ (n : ℕ) h, unionBoundThreshold (Fintype.card α)
+      (unionBoundLevel (Fintype.card α) (((n : ℝ) + 1) ^ p)⁻¹) n ≤ r n h)
+    (hr_le : ∀ ε > 0, ∀ᶠ n in atTop, ∀ h, r n h ≤ ENNReal.ofReal (ε * √(n : ℝ)))
+    (hw_mem : ∀ i μ', w i μ' ∈ simplex α)
+    (hw_opt : ∀ θ ∈ task.M, ∀ᶠ μ' in 𝓝 θ,
+      w (task.stickyAnswer {θ}) μ' ∈ task.optAlloc μ' (task.stickyAnswer {θ}))
+    (hrec_ge : ∀ n h, task.glr (task.plugInCost empMean') n h
+      (task.stickyAnswer (task.confidenceRegion empMean' r n h)) ≤
+        task.glr (task.plugInCost empMean') n h (rec n h))
+    (h_cont : ∀ θ ∈ task.M, ∀ i, ∀ v ∈ simplex α, ContinuousWithinAt
+      (fun q : (α → ℝ) × (α → ℝ) ↦ task.altCost q.1 q.2 i) (Set.univ ×ˢ simplex α) (θ, v))
+    (h_charTime : ∀ θ ∈ task.M, task.charTime θ ≠ ∞) (hμM : μ ∈ task.M) :
+    Tendsto (fun δ ↦ expectedStoppingTime (task.stickyTrackAndStop empMean'
+      (task.confidenceRegion empMean' r) w hw
+      (fun n _ ↦ unionBoundThreshold (Fintype.card α) (unionBoundLevel (Fintype.card α) δ) n) rec
+      hrec (hstop δ)) (Environment.bandit (task.ν μ)) / ENNReal.ofReal (log (1 / δ)))
+      (𝓝[>] 0) (𝓝 (task.charTime μ)) := by
+  refine tendsto_expectedStoppingTime_div_log_of_finite ?_ hμM (Set.toFinite _) fun c hc ↦
+    eventually_expectedStoppingTime_stickyTrackAndStop_unionBoundThreshold_le_of_klDiv_le hT
+      (hμ μ hμM) (hν μ hμM) (hkl μ hμM) hμM (h_sep μ hμM) hp hr_ge hr_le hw_mem (hw_opt μ hμM)
+      hrec_ge (h_cont μ hμM) hc
+  filter_upwards [Ioc_mem_nhdsGT one_pos] with δ hδ
+  exact (isDeltaPAC_stickyTrackAndStop_unionBoundThreshold_of_klDiv_le hT hμ hν hkl h_sep hp hr_ge
+    hr_le hw_mem hw_opt hrec_ge h_cont h_charTime hδ.1 hδ.2).isDeltaCorrect
 
 end LMLExplore.Identification.IdentTask
