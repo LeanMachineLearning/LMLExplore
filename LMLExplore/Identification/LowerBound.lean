@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.Identification.ChangeOfMeasure
 public import LMLExplore.Identification.SampleComplexity
-public import LMLExplore.Identification.Task.DesignRate
+public import LMLExplore.Identification.Task.DesignRate.Basic
 public import LMLExplore.Identification.Task.TransportationCost
 import LMLExplore.EValues.BipolarRate.Design.Algorithm
 import LMLExplore.EValues.TestBet

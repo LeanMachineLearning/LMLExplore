@@ -133,12 +133,13 @@ theorem designGrowth_eq_iInf_sum_mul_klDiv_of_finite [Finite 𝓧] (μ : α → 
   have hqε : 1 ≤ (q : ℝ≥0) * ε := by
     rw [← inv_le_iff_one_le_mul₀ hε]
     exact hq.le
-  set r : α → ℕ := fun a ↦ if x a = 0 then 0 else ⌈(q : ℝ≥0) * x a⌉₊
+  set r : α → ℕ := proportionalDesign x 0 q
   have hr_ge (a : α) : (q : ℝ≥0∞) * x a ≤ r a := by
     by_cases hx : x a = 0
-    · simp [r, hx]
-    · simp only [r, hx, ↓reduceIte]
-      exact_mod_cast Nat.le_ceil _
+    · simp [hx]
+    · have := le_proportionalDesign (ε := 0) (m := q) hx
+      rw [add_zero] at this
+      exact_mod_cast this
   -- the bipolar rate of the tables of `r` exceeds `q ℓ`
   have hbr : ((q * ℓ : ℝ) : EReal) <
       bipolarRate (designLaw μ r) ((fun ν ↦ designLaw ν r) '' Λ) := by
@@ -157,11 +158,10 @@ theorem designGrowth_eq_iInf_sum_mul_klDiv_of_finite [Finite 𝓧] (μ : α → 
           rw [EReal.coe_ennreal_ofReal, max_eq_left (by positivity)]
     _ < _ := EReal.coe_ennreal_lt_coe_ennreal_iff.2 h4
   -- eventually `a_k ≥ k q ℓ` for the `k`-sample values `a_k` of the tables of `r`
+  have hΛr : ∀ P ∈ (fun ν ↦ designLaw ν r) '' Λ, P Set.univ ≤ 1 :=
+    fun _ ⟨ν, hν, h⟩ ↦ h ▸ designLaw_univ_le_one (hΛ1 ν hν) r
   obtain ⟨k₀, hk₀⟩ := eventually_atTop.1 ((tendsto_maxLogGrowth_div_bipolarRate (designLaw μ r)
-    (by
-      rintro _ ⟨ν, hν, rfl⟩
-      have := hΛ ν hν
-      exact prob_le_one)).eventually (eventually_gt_nhds hbr))
+    hΛr).eventually (eventually_gt_nhds hbr))
   refine ⟨q * (k₀ + 1) * ℓ, fun m hm ↦ ?_⟩
   rcases lt_or_ge m (q * (k₀ + 1)) with hmk | hmk
   · -- few observations: the value is nonnegative
@@ -173,25 +173,7 @@ theorem designGrowth_eq_iInf_sum_mul_klDiv_of_finite [Finite 𝓧] (μ : α → 
   have hk : k₀ + 1 ≤ k := (Nat.le_div_iff_mul_le hq0).2 (by rw [mul_comm]; exact hmk)
   have hk0 : 0 < k := by omega
   have hkq : (k : ℝ≥0) * q ≤ m := by exact_mod_cast Nat.div_mul_le_self m q
-  have hdesign : k • r ≤ proportionalDesign x ε m := by
-    intro a
-    by_cases hx : x a = 0
-    · simp [r, hx, proportionalDesign_of_eq_zero hx]
-    rw [proportionalDesign_of_ne_zero hx]
-    simp only [Pi.smul_apply, smul_eq_mul, r, hx, ↓reduceIte]
-    refine Nat.cast_le.1 (le_trans ?_ (Nat.le_ceil ((m : ℝ≥0) * (x a + ε))))
-    -- `k ⌈q x a⌉ ≤ k (q x a + 1) ≤ m x a + m ε`
-    have hceil : (⌈(q : ℝ≥0) * x a⌉₊ : ℝ≥0) ≤ q * x a + 1 :=
-      (Nat.ceil_lt_add_one zero_le).le
-    have hkε : (k : ℝ≥0) ≤ m * ε := by
-      calc (k : ℝ≥0) ≤ k * (q * ε) := le_mul_of_one_le_right zero_le hqε
-      _ = k * q * ε := (mul_assoc _ _ _).symm
-      _ ≤ m * ε := by gcongr
-    push_cast
-    calc (k : ℝ≥0) * ⌈(q : ℝ≥0) * x a⌉₊ ≤ k * (q * x a + 1) := by gcongr
-    _ = k * q * x a + k := by ring
-    _ ≤ m * x a + m * ε := by gcongr
-    _ = m * (x a + ε) := (mul_add _ _ _).symm
+  have hdesign : k • r ≤ proportionalDesign x ε m := nsmul_proportionalDesign_le hqε hkq
   calc ((m * ℓ - q * (k₀ + 1) * ℓ : ℝ) : EReal) ≤ ((k * (q * ℓ) : ℝ) : EReal) := by
         rw [EReal.coe_le_coe_iff]
         have h1 : (m : ℝ) ≤ k * q + q := by exact_mod_cast (Nat.lt_div_mul_add hq0).le
