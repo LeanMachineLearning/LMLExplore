@@ -9,11 +9,11 @@ public import LMLExplore.EValues.BipolarRate.CountableCover
 public import LMLExplore.EValues.BipolarRate.Design.Algorithm
 public import LMLExplore.InformationTheory.KullbackLeibler.Bernoulli
 import LMLExplore.Data.ENat.Basic
+import LMLExplore.Data.EReal.Operations
 import LMLExplore.EValues.BipolarRate.Design.Growth
 import LMLExplore.EValues.TestBet
 import LMLExplore.Probability.HasLaw
 import LMLExplore.SequentialLearning.StoppedHistory
-import TauCeti.Data.EReal.Operations
 
 /-!
 # Lower bounds on the pulls of an informative arm, with the bipolar rate
@@ -88,18 +88,6 @@ private lemma measure_univ_le_one_of_mem_image (hΛ : ∀ ν ∈ Λ, IsMarkovKer
   rintro _ ⟨ν, hν, rfl⟩
   have := hΛ ν hν
   exact prob_le_one
-
-/-- A rate `d ≥ 0` in `EReal` with `c d < x`, for a real `c > 0`, is a real `d.toReal ≥ 0` with
-`c d.toReal < x`. -/
-private lemma coe_toReal_eq_and_mul_toReal_lt {c x : ℝ} {d : EReal} (hc : 0 < c) (hd : 0 ≤ d)
-    (h : (c : EReal) * d < x) :
-    (d.toReal : EReal) = d ∧ 0 ≤ d.toReal ∧ c * d.toReal < x := by
-  have hdr : (d.toReal : EReal) = d :=
-    EReal.coe_toReal (EReal.ne_top_of_coe_mul_ne_top hc (ne_top_of_lt h))
-      (ne_bot_of_le_ne_bot EReal.zero_ne_bot hd)
-  refine ⟨hdr, EReal.toReal_nonneg hd, ?_⟩
-  rw [← hdr, ← EReal.coe_mul] at h
-  exact_mod_cast h
 
 /-- The arithmetic at a fixed horizon `n`, with `δ = 2 C' n ^ (p - 1)`: if
 `kl(1 - η, δ) ≤ X r`, with a margin `η (1 - p) ≤ ε` and `(1 - η) log (2 C') + log 2 < ε log n`,
@@ -308,7 +296,7 @@ theorem eventually_mul_log_le_integral_pullCount_of_forall_le_rpow
   rcases le_or_gt c 0 with hc0 | hc0
   · exact eventually_mul_log_le_integral_pullCount_of_nonpos hc0 _
   -- the rate is a real `r ≥ 0` with `c r < 1 - p`, so that `Λ` is nonempty
-  obtain ⟨hdr, hr, hcr⟩ := coe_toReal_eq_and_mul_toReal_lt hc0
+  obtain ⟨hdr, hr, hcr⟩ := EReal.coe_toReal_eq_and_mul_toReal_lt_of_coe_mul_lt hc0
     (bipolarRate_nonneg _ (measure_univ_le_one_of_mem_image hΛ)) hc
   set r := (bipolarRate (κ a) ((fun ν ↦ ν a) '' Λ)).toReal
   have hne : Λ.Nonempty := Set.ne_empty_iff_nonempty.1 fun h ↦ by simp [h] at hdr
@@ -378,7 +366,7 @@ theorem eventually_mul_log_le_integral_pullCount_of_bipolarRate
       ∫ ω, (pullCount IT.action a n ω : ℝ) ∂trajMeasure alg (Environment.bandit κ) := by
   rcases le_or_gt c 0 with hc0 | hc0
   · exact eventually_mul_log_le_integral_pullCount_of_nonpos hc0 _
-  obtain ⟨hdr, hr, hcr⟩ := coe_toReal_eq_and_mul_toReal_lt (x := 1) hc0
+  obtain ⟨hdr, hr, hcr⟩ := EReal.coe_toReal_eq_and_mul_toReal_lt_of_coe_mul_lt (x := 1) hc0
     (bipolarRate_nonneg _ (measure_univ_le_one_of_mem_image hΛ)) (by rwa [EReal.coe_one])
   set r := (bipolarRate (κ a) ((fun ν ↦ ν a) '' Λ)).toReal
   -- the exponent `p = (1 - c r) / 2 ∈ (0, 1)`, with `c r < 1 - p`
@@ -407,7 +395,7 @@ theorem eventually_mul_log_le_integral_pullCount_of_sigmaBipolarRate
       ∫ ω, (pullCount IT.action a n ω : ℝ) ∂trajMeasure alg (Environment.bandit κ) := by
   rcases le_or_gt c 0 with hc0 | hc0
   · exact eventually_mul_log_le_integral_pullCount_of_nonpos hc0 _
-  obtain ⟨hds, hs, hcs⟩ := coe_toReal_eq_and_mul_toReal_lt (x := 1) hc0
+  obtain ⟨hds, hs, hcs⟩ := EReal.coe_toReal_eq_and_mul_toReal_lt_of_coe_mul_lt (x := 1) hc0
     (sigmaBipolarRate_nonneg _ (measure_univ_le_one_of_mem_image hΛ)) (by rwa [EReal.coe_one])
   set s := (sigmaBipolarRate (κ a) ((fun ν ↦ ν a) '' Λ)).toReal
   -- a real `t > s` with `c t < 1`, and the exponent `p = (1 - c t) / 2 ∈ (0, 1)`
