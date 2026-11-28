@@ -70,9 +70,9 @@ learning rates in `[0, 1]` at every iteration, let `2 ^ K ≤ log T`, and let th
 Freedman's inequality, with the confidence level `δ / (2 S (T + 1))` and the bound
 `32 log³ T / (1 - γ) ^ 2 T` on the increments, hold at every iteration `t ≤ T` of the dyadic
 windows, `T ≤ 2 ^ K t`. Then the error of the `T`-th iterate is at
-most `windowBound (1 / (1 - γ)) (5476 s) K`, with `s = log³ T log (S T / δ) / ((1 - γ) ^ 3 T)`:
+most `Real.windowBound (1 / (1 - γ)) (5476 s) K`, with `s = log³ T log (S T / δ) / ((1 - γ) ^ 3 T)`:
 by `le_sqrt_mul_max_of_le_tdNoiseVarBound` and the induction over the dyadic windows, the errors
-at the iterations `T ≤ 2 ^ (K - j) t` are at most `windowBound (1 / (1 - γ)) (5476 s) j`. -/
+at the iterations `T ≤ 2 ^ (K - j) t` are at most `Real.windowBound (1 / (1 - γ)) (5476 s) j`. -/
 private lemma abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (1 / (1 - (γ : ℝ))))
     {T : ℕ} (hη : ∀ t, η (t + 1) ∈ Set.Icc (0 : ℝ) 1)
@@ -93,7 +93,7 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ < 1)
             max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / (δ / (2 * Fintype.card 𝓢 * (T + 1)))))))
     (p : 𝓢 × 𝓐) :
     |syncQLearning (meanReward M.R) γ η Q₀ T ω p - M.optQValue γ p| ≤
-      windowBound (1 / (1 - γ)) (5476 * s) K := by
+      Real.windowBound (1 / (1 - γ)) (5476 * s) K := by
   set B : ℝ := 1 / (1 - γ) with hB_def
   set r := 5476 * s with hr_def
   have hB1 : 1 ≤ B := by
@@ -103,19 +103,19 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_window (hγ : γ < 1)
   -- with one action, the unique policy is greedy for `Q*`
   have hπ (s' : 𝓢) : M.optQValue γ (s', default) = M.optValue γ s' := by
     rw [← iSup_optQValue hγ (fun p ↦ ae_abs_le_of_ae_mem_Icc (hR p)) s', ciSup_unique]
-  refine abs_le_of_dyadic (u := windowBound B r) (K := K)
+  refine abs_le_of_dyadic (u := Real.windowBound B r) (K := K)
     (e := fun t q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q)
     (fun t _ q ↦ ?_) (fun j _ t htT hTt hD q ↦ ?_) p
-  · rw [windowBound_zero]
+  · rw [Real.windowBound_zero]
     exact abs_syncQLearning_sub_optQValue_le hγ hR hη hQ₀ t ω q
   · -- the errors at the late iterations of the window give the bound at `t`
     have hTt' : T ≤ 2 ^ K * t :=
       hTt.trans (Nat.mul_le_mul_right _ (Nat.pow_le_pow_right two_pos (by omega)))
     obtain ⟨ht2, hTLt⟩ := two_le_and_le_log_mul_of_le_two_pow_mul hT8 hKL hTt'
-    rw [windowBound_succ]
+    rw [Real.windowBound_succ]
     refine le_sqrt_mul_max_of_le_tdNoiseVarBound hγ hR hQ₀ hη hlo hhi le_rfl h16 hL1
       (zero_le_one.trans (le_max_left _ _)) (max_one_log_ceil_logb_le hS hδ hδ₁ hT8 htT)
-      (by linarith) ?_ hBs ht2 htT hTLt hπ (windowBound_nonneg (by linarith) r j)
+      (by linarith) ?_ hBs ht2 htT hTLt hπ (Real.windowBound_nonneg (by linarith) r j)
       (fun k hk s' ↦ ?_) q (hgood t htT hTt' q)
     · have hL0 : Real.log T ≠ 0 := by positivity
       have h1γ : (1 : ℝ) - γ ≠ 0 := (sub_pos.2 (by exact_mod_cast hγ)).ne'

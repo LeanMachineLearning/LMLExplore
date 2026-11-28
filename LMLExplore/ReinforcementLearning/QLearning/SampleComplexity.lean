@@ -269,9 +269,9 @@ Under the assumptions of
   `Q*` hold, with the confidence level `δ / (2 S (T + 1) ^ 3)` and the bound
   `128 log⁴ T / (1 - γ) ^ 2 T` on the increments;
 * the upper bound of the windowed recursion with `J` blocks hold, for the bounds
-  `windowBound (1 / (1 - γ)) (69696 s) j` on the errors of the late iterations, `j < K`.
+  `Real.windowBound (1 / (1 - γ)) (69696 s) j` on the errors of the late iterations, `j < K`.
 
-Then the error of the `T`-th iterate is at most `windowBound (1 / (1 - γ)) (69696 s) K`, with
+Then the error of the `T`-th iterate is at most `Real.windowBound (1 / (1 - γ)) (69696 s) K`, with
 `s = log⁴ T log (S (T + 1) ^ 2 T / δ) / ((1 - γ) ^ 4 T)`. -/
 private lemma abs_syncQLearning_sub_optQValue_le_of_cube_window [Finite 𝓢] [Finite 𝓐] (hγ : γ < 1)
     (hR : ∀ p, ∀ᵐ x ∂(M.R p), x ∈ Set.Icc 0 1) (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (1 / (1 - (γ : ℝ))))
@@ -296,7 +296,7 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_cube_window [Finite 𝓢] [F
     (hup : ∀ j < K, ∀ t ≤ T, T ≤ 2 ^ K * t →
       (∀ k ∈ Ico ((t + 1) / 2) t, ∀ q,
         |syncQLearning (meanReward M.R) γ η Q₀ k ω q - M.optQValue γ q| ≤
-          windowBound (1 / (1 - γ)) (69696 * s) j) → ∀ q,
+          Real.windowBound (1 / (1 - γ)) (69696 * s) j) → ∀ q,
       syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q ≤
         γ ^ J * (1 / (1 - γ)) +
           √(2 * (1 / (T : ℝ) * (1 / (1 - γ)) +
@@ -306,10 +306,10 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_cube_window [Finite 𝓢] [F
             36 * (2 * (64 * Real.log T ^ 3) * Real.log T / ((1 - γ) * T)) *
               max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) /
                 (δ / (2 * (S * (T + 1) ^ 2) * (T + 1))))) * (1 / (1 - γ)) *
-              (1 + 4 * γ ^ 2 * windowBound (1 / (1 - γ)) (69696 * s) j)) / (1 - γ))
+              (1 + 4 * γ ^ 2 * Real.windowBound (1 / (1 - γ)) (69696 * s) j)) / (1 - γ))
     (p : 𝓢 × 𝓐) :
     |syncQLearning (meanReward M.R) γ η Q₀ T ω p - M.optQValue γ p| ≤
-      windowBound (1 / (1 - γ)) (69696 * s) K := by
+      Real.windowBound (1 / (1 - γ)) (69696 * s) K := by
   set L := Real.log T with hL_def
   set B : ℝ := 1 / (1 - γ) with hB_def
   set r := 69696 * s with hr_def
@@ -345,13 +345,13 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_cube_window [Finite 𝓢] [F
     rw [← hs]
     congr 1
     field_simp
-  have hx₀ := windowBound_nonneg (by linarith : 0 ≤ B) r
+  have hx₀ := Real.windowBound_nonneg (by linarith : 0 ≤ B) r
   have hγ2 : (γ : ℝ) ^ 2 ≤ 1 := pow_le_one₀ γ.coe_nonneg (by exact_mod_cast hγ.le)
   have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
-  refine abs_le_of_dyadic (u := windowBound B r) (K := K)
+  refine abs_le_of_dyadic (u := Real.windowBound B r) (K := K)
     (e := fun t q ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω q - M.optQValue γ q)
     (fun t _ q ↦ ?_) (fun j hj t htT hTt hD q ↦ ?_) p
-  · rw [windowBound_zero]
+  · rw [Real.windowBound_zero]
     exact abs_syncQLearning_sub_optQValue_le hγ hR hη hQ₀ t ω q
   · -- the bounds from below and from above at `t`, from the errors at the late iterations
     have hTt' : T ≤ 2 ^ K * t :=
@@ -370,13 +370,13 @@ private lemma abs_syncQLearning_sub_optQValue_le_of_cube_window [Finite 𝓢] [F
     have hupper := (hup j hj t htT hTt' hD q).trans (add_sqrt_div_le_sqrt_mul_max h1γ h1γ' hγ2
       (pow_nonneg γ.coe_nonneg J) hJ hρs (by positivity) hℓ₀ hℓ
       (by rw [← hs]; field_simp; ring) (by linarith) (hx₀ j))
-    have hLr : √(5476 * (4 * (1 - γ) * s) * max 1 (windowBound B r j)) ≤
-        √(r * max 1 (windowBound B r j)) := by
+    have hLr : √(5476 * (4 * (1 - γ) * s) * max 1 (Real.windowBound B r j)) ≤
+        √(r * max 1 (Real.windowBound B r j)) := by
       refine Real.sqrt_le_sqrt (mul_le_mul_of_nonneg_right ?_
         (zero_le_one.trans (le_max_left _ _)))
       rw [hr_def]
       nlinarith
-    rw [windowBound_succ]
+    rw [Real.windowBound_succ]
     exact abs_le.2 ⟨by linarith, hupper⟩
 
 /-- **The upper bound on the error of Q-learning with the learning rates of the window**, the
@@ -545,12 +545,12 @@ theorem measure_exists_lt_abs_syncQLearning_sub_optQValue_le_of_cube_window (hγ
   set E : ℕ → ℕ → Set (ℕ → 𝓢 × 𝓐 → 𝓢) := fun j t ↦ {ω |
     (∀ k ∈ Ico ((t + 1) / 2) t, ∀ q,
       |syncQLearning (meanReward M.R) γ η' Q₀ k ω q - M.optQValue γ q| ≤
-        windowBound B (69696 * s) j) ∧
+        Real.windowBound B (69696 * s) j) ∧
     ∃ p, γ ^ J * (1 / (1 - γ)) +
         √(2 * (1 / (T : ℝ) * (1 / (1 - γ)) +
             2 * (β * B) * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ'))) ^ 2 +
           36 * β * max 1 (Real.log ((⌈Real.logb 4 t⌉₊ + 1 : ℝ) / δ')) * (1 / (1 - γ)) *
-            (1 + 4 * γ ^ 2 * windowBound B (69696 * s) j)) / (1 - γ) <
+            (1 + 4 * γ ^ 2 * Real.windowBound B (69696 * s) j)) / (1 - γ) <
       syncQLearning (meanReward M.R) γ η' Q₀ t ω p - M.optQValue γ p}
   have hup (j t : ℕ) (ht : t ∈ I) :
       streamMeasure M.P (E j t) ≤ ENNReal.ofReal ((T + 1) * S * δ') :=

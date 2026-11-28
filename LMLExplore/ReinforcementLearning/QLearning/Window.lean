@@ -5,8 +5,8 @@ Authors: LMLExplore contributors
 -/
 module
 
+public import LMLExplore.Analysis.Real.Sqrt
 public import LMLExplore.ReinforcementLearning.TemporalDifference.Synchronous
-import LMLExplore.Analysis.Real.Sqrt
 import LMLExplore.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Analysis.SpecialFunctions.Log.Base
@@ -552,28 +552,6 @@ lemma le_and_mul_prod_le_of_mem_filter {γ : ℝ≥0} (hγ : γ < 1) {η : ℕ �
         mul_le_mul_of_nonneg_right (mul_le_mul h hγ1 γ.coe_nonneg hβ₀) (by positivity)
     _ = 2 * κ * Real.log T / ((1 - γ) * T) * (1 / (1 - γ)) := by ring
 
-/-- The bounds on the errors in the dyadic windows [LCCWC24, Appendix C]: `windowBound B r 0 = B`
-and `windowBound B r (j + 1) = √(r max 1 (windowBound B r j))`. -/
-noncomputable def windowBound (B r : ℝ) : ℕ → ℝ
-  | 0 => B
-  | j + 1 => √(r * max 1 (windowBound B r j))
-
-/-- The bound of the first window is the initial bound `B`. -/
-@[simp]
-lemma windowBound_zero (B r : ℝ) : windowBound B r 0 = B := by
-  rw [windowBound]
-
-/-- The bound of the window `j + 1` is `√(r max 1 (windowBound B r j))`. -/
-lemma windowBound_succ (B r : ℝ) (j : ℕ) :
-    windowBound B r (j + 1) = √(r * max 1 (windowBound B r j)) := by
-  rw [windowBound]
-
-/-- The bounds of the windows are nonnegative when the initial bound is. -/
-lemma windowBound_nonneg {B : ℝ} (hB : 0 ≤ B) (r : ℝ) (j : ℕ) : 0 ≤ windowBound B r j := by
-  cases j with
-  | zero => rwa [windowBound_zero]
-  | succ j => rw [windowBound_succ]; exact Real.sqrt_nonneg _
-
 /-- The final accuracy: if `0 ≤ r` and `7.39 r ≤ ε ^ 2`, then `e √r ≤ ε`. -/
 private lemma exp_one_mul_sqrt_le {r ε : ℝ} (hε : 0 < ε) (hr₀ : 0 ≤ r)
     (hrε : 7.39 * r ≤ ε ^ 2) : Real.exp 1 * √r ≤ ε := by
@@ -589,11 +567,10 @@ private lemma exp_one_mul_sqrt_le {r ε : ℝ} (hε : 0 < ε) (hr₀ : 0 ≤ r)
 is `windowBound B r K ≤ e √r ≤ ε`. -/
 lemma windowBound_le {B r ε : ℝ} {K : ℕ} (hK : 1 ≤ K) (hB : B ≤ Real.exp 1 ^ 2 ^ K)
     (hr₀ : 0 ≤ r) (hε : 0 < ε) (hε₁ : ε ≤ 1) (hrε : 7.39 * r ≤ ε ^ 2) :
-    windowBound B r K ≤ ε := by
+    Real.windowBound B r K ≤ ε := by
   have hr₁ : r ≤ 1 := by nlinarith [pow_le_one₀ (n := 2) hε.le hε₁]
-  exact (Real.le_mul_sqrt_of_le_sqrt_mul_max (u := windowBound B r) hr₀ hr₁
-    (Real.one_le_exp zero_le_one) hK (fun k _ ↦ (windowBound_succ B r k).le)
-    ((windowBound_zero B r).trans_le hB)).trans (exp_one_mul_sqrt_le hε hr₀ hrε)
+  exact (Real.windowBound_le_mul_sqrt hr₀ hr₁ (Real.one_le_exp zero_le_one) hK hB).trans
+    (exp_one_mul_sqrt_le hε hr₀ hrε)
 
 /-! ### The lower bound of one step of the recursion of the errors -/
 
