@@ -23,7 +23,8 @@ sequence of experts determines `D*` at every model `θ` whose laws of the arms a
 `task.ν θ a ≪ ρ a` for every arm `a`, for every answer `i`
 (`LMLExplore.Identification.IdentTask.DeterminesDesignRate`) [EVR26, Note 55, Lemma 6; Note 49,
 Lemma 1]. Run with these experts, the algorithm of [EVR26, Note 49] attains `D*` at every
-dominated model [EVR26, Note 49, Theorem 3].
+admissible dominated model with a single correct answer [EVR26, Note 49, Theorem 3]; that algorithm
+is not constructed in this file.
 
 For an answer `i` and a design `s ≠ 0`, the laws of the table of `s` at the alternatives to `i`
 form a null for i.i.d. tables, and at a model whose laws of the arms are dominated by the measures
@@ -76,17 +77,14 @@ theorem exists_isExpert_determinesDesignRate_of_absolutelyContinuous [Nonempty �
     ∃ (j : ℕ → ℐ) (S : ℕ → α → ℕ) (g : (e : ℕ) → ((Σ a, Fin (S e a)) → 𝓨) → ℝ),
       (∀ e, task.IsExpert (j e) (S e) (g e)) ∧
         ∀ θ, (∀ a, task.ν θ a ≪ ρ a) → ∀ i, task.DeterminesDesignRate j S g θ i := by
-  -- the laws of the tables of the design `s` at the alternatives to `i`
-  have hnull (i : ℐ) (s : α → ℕ) : ∀ P ∈ (fun ν ↦ designLaw ν s) ''
-      ((fun θ' a ↦ task.ν θ' a) '' task.alt i), P Set.univ ≤ 1 := by
-    rintro _ ⟨_, ⟨θ', -, rfl⟩, rfl⟩
-    exact prob_le_one
   -- the block bets for the tables of each design `s` against the alternatives to each answer `i`
   have key (i : ℐ) (s : α → ℕ) := by
     have : SFinite (designLaw (fun a ↦ (ρ a).toFinite) s) := by
       rw [designLaw_def]
       infer_instance
-    exact exists_iSup_integral_div_eq_bipolarRate (hnull i s) (designLaw (fun a ↦ (ρ a).toFinite) s)
+    exact exists_iSup_integral_div_eq_bipolarRate
+      (task.designLaw_univ_le_one_of_mem_image (task.alt i) s)
+      (designLaw (fun a ↦ (ρ a).toFinite) s)
   choose len h hlen hhm hhb hhe hrate using key
   -- the bet `h i s l` on `len i s l` tables of `s`, as a function of one table of `len i s l • s`
   let G (i : ℐ) (s : α → ℕ) (l : ℕ) : ((Σ a, Fin ((len i s l • s) a)) → 𝓨) → ℝ :=
@@ -110,23 +108,9 @@ theorem exists_isExpert_determinesDesignRate_of_absolutelyContinuous [Nonempty �
   obtain ⟨j, S, g, hg, hrange⟩ := exists_isExpert_range_eq_insert (Classical.arbitrary ℐ)
     (fun k : ℐ × {s : α → ℕ // s ≠ 0} × ℕ ↦ hG k.1 k.2.1.val k.2.1.property k.2.2)
   refine ⟨j, S, g, hg, fun θ hθ i ↦ (task.determinesDesignRate_iff_forall_lt hg).2 fun t ht ↦ ?_⟩
-  have hΛ : ∀ ν ∈ (fun θ' a ↦ task.ν θ' a) '' task.alt i, ∀ a, IsProbabilityMeasure (ν a) := by
-    rintro _ ⟨θ', -, rfl⟩ a
-    infer_instance
-  rw [designRate_eq_iSup_bipolarRate _ hΛ] at ht
   -- a design `s ≠ 0` whose tables have a bipolar rate above `t |s|`
-  obtain ⟨s, hs, hts⟩ : ∃ s : α → ℕ, s ≠ 0 ∧ (((∑ a, s a : ℕ) * t : ℝ) : EReal) <
-      bipolarRate (designLaw (fun a ↦ task.ν θ a) s)
-        ((fun ν ↦ designLaw ν s) '' ((fun θ' a ↦ task.ν θ' a) '' task.alt i)) := by
-    obtain ⟨s, hs⟩ := lt_iSup_iff.1 ht
-    rcases eq_or_ne s 0 with rfl | hs0
-    · have h1 : (0 : ℝ) < ((∑ a, (1 : α → ℕ) a : ℕ) : ℝ) := by
-        exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 (one_ne_zero : (1 : α → ℕ) ≠ 0))
-      refine ⟨1, one_ne_zero, lt_of_lt_of_le ?_ (bipolarRate_nonneg _ (hnull i 1))⟩
-      simp only [Pi.zero_apply, Finset.sum_const_zero, Nat.cast_zero, EReal.div_zero] at hs
-      exact EReal.coe_neg'.2 (mul_neg_of_pos_of_neg h1 (EReal.coe_neg'.1 hs))
-    · exact ⟨s, hs0, (EReal.coe_lt_div_natCast_iff
-        (Fintype.sum_pos (pos_iff_ne_zero.2 hs0))).1 hs⟩
+  obtain ⟨s, hs, hts⟩ := exists_ne_zero_mul_lt_bipolarRate_of_lt_designRate _
+    (task.isProbabilityMeasure_of_mem_image _) ht
   -- the laws of the tables at `θ` are dominated, so the block bets reach the bipolar rate
   have hac : designLaw (fun a ↦ task.ν θ a) s ≪ designLaw (fun a ↦ (ρ a).toFinite) s := by
     rw [designLaw_def, designLaw_def]
@@ -134,13 +118,11 @@ theorem exists_isExpert_determinesDesignRate_of_absolutelyContinuous [Nonempty �
   rw [← hrate i s _ hac] at hts
   obtain ⟨l, hl⟩ := lt_iSup_iff.1 hts
   rw [EReal.coe_lt_coe_iff] at hl
-  obtain ⟨e, he⟩ : (i, task.expertValue (len i s l • s) (G i s l)) ∈
-      Set.range (fun e ↦ (j e, task.expertValue (S e) (g e))) :=
-    hrange ▸ Set.mem_insert_of_mem _ ⟨(i, ⟨s, hs⟩, l), rfl⟩
-  simp only [Prod.mk.injEq] at he
-  refine ⟨e, he.1, ?_⟩
+  obtain ⟨e, hje, he⟩ :=
+    exists_eq_expertValue_of_range_eq_insert hrange ((i, ⟨s, hs⟩, l) : ℐ × _ × ℕ)
+  refine ⟨e, hje, ?_⟩
   have hN : (0 : ℝ) < ∑ a, s a := by exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 hs)
-  rw [he.2, hvalue, lt_div_iff₀ (by exact_mod_cast hN), mul_comm]
+  rw [he, hvalue, lt_div_iff₀ (by exact_mod_cast hN), mul_comm]
   exact_mod_cast hl
 
 end LMLExplore.Identification.IdentTask

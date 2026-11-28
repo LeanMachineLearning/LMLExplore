@@ -67,11 +67,8 @@ theorem exists_isExpert_lt_integral_of_lt_designValue {θ : Θ} {i : ℐ} {n : �
     ∃ g, task.IsExpert i n g ∧ q < ∫ y, g y ∂designLaw (fun a ↦ task.ν θ a) n := by
   rw [designValue_def, lt_maxEPower_iff] at hq
   obtain ⟨X, hX, hqX⟩ := hq
-  have hS : ∀ P ∈ (fun ν ↦ designLaw ν n) '' ((fun θ' a ↦ task.ν θ' a) '' task.alt i),
-      P Set.univ ≤ 1 := by
-    rintro _ ⟨_, ⟨θ', -, rfl⟩, rfl⟩
-    exact prob_le_one
-  obtain ⟨N, f, hfm, hfN, hfS, hfq⟩ := hX.exists_bounded_lt_integral_of_lt_eintegral_log _ hS hqX
+  obtain ⟨N, f, hfm, hfN, hfS, hfq⟩ := hX.exists_bounded_lt_integral_of_lt_eintegral_log _
+    (task.designLaw_univ_le_one_of_mem_image _ n) hqX
   exact ⟨f, ⟨hn, hfm, ⟨N, hfN⟩, fun θ' hθ' ↦ hfS _ ⟨_, ⟨θ', hθ', rfl⟩, rfl⟩⟩, hfq⟩
 
 /-- **Experts for countably many models** [EVR26, Note 55, Section 2]. For every countable set `T`
@@ -99,29 +96,14 @@ theorem exists_isExpert_determinesDesignRate_of_countable [Nonempty α] [Nonempt
     (fun k : T × {n : α → ℕ // n ≠ 0} × ℚ ↦ hG k.1.val k.2.1.val k.2.1.property k.2.2)
   refine ⟨j, S, g, hg, fun p hp ↦ (task.determinesDesignRate_iff_forall_lt hg).2 fun t ht ↦ ?_⟩
   -- a design `n ≠ 0` whose value exceeds `t |n|`
-  obtain ⟨n, hn, htn⟩ : ∃ n : α → ℕ, n ≠ 0 ∧ (((∑ a, n a : ℕ) * t : ℝ) : EReal) <
-      designValue (fun a ↦ task.ν p.1 a) ((fun θ' a ↦ task.ν θ' a) '' task.alt p.2) n := by
-    have hΛ : ∀ ν ∈ (fun θ' a ↦ task.ν θ' a) '' task.alt p.2, ∀ a, ν a Set.univ ≤ 1 := by
-      rintro _ ⟨θ', -, rfl⟩ a
-      exact prob_le_one
-    rw [designRate_def] at ht
-    obtain ⟨n, hn⟩ := lt_iSup_iff.1 ht
-    rcases eq_or_ne n 0 with rfl | hn0
-    · have h1 : (0 : ℝ) < ((∑ a, (1 : α → ℕ) a : ℕ) : ℝ) := by
-        exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 (one_ne_zero : (1 : α → ℕ) ≠ 0))
-      refine ⟨1, one_ne_zero, lt_of_lt_of_le ?_ (designValue_nonneg _ hΛ 1)⟩
-      simp only [Pi.zero_apply, Finset.sum_const_zero, Nat.cast_zero, EReal.div_zero] at hn
-      exact EReal.coe_neg'.2 (mul_neg_of_pos_of_neg h1 (EReal.coe_neg'.1 hn))
-    · exact ⟨n, hn0, (EReal.coe_lt_div_natCast_iff
-        (Fintype.sum_pos (pos_iff_ne_zero.2 hn0))).1 hn⟩
+  obtain ⟨n, hn, htn⟩ := (lt_designRate_iff fun ν hν a ↦
+    have := task.isProbabilityMeasure_of_mem_image _ ν hν a; prob_le_one).1 ht
   have hN : (0 : ℝ) < ∑ a, n a := by exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 hn)
   obtain ⟨q, htq, hq⟩ := EReal.lt_iff_exists_rat_btwn.1 htn
-  obtain ⟨e, he⟩ : (p.2, task.expertValue n (G p n hn q)) ∈
-      Set.range (fun e ↦ (j e, task.expertValue (S e) (g e))) :=
-    hrange ▸ Set.mem_insert_of_mem _ ⟨(⟨p, hp⟩, ⟨n, hn⟩, q), rfl⟩
-  simp only [Prod.mk.injEq] at he
-  refine ⟨e, he.1, ?_⟩
-  rw [he.2, expertValue_def, lt_div_iff₀ (by exact_mod_cast hN), mul_comm]
+  obtain ⟨e, hje, he⟩ :=
+    exists_eq_expertValue_of_range_eq_insert hrange ((⟨p, hp⟩, ⟨n, hn⟩, q) : T × _ × ℚ)
+  refine ⟨e, hje, ?_⟩
+  rw [he, expertValue_def, lt_div_iff₀ (by exact_mod_cast hN), mul_comm]
   exact_mod_cast (EReal.coe_lt_coe_iff.1 htq).trans (hGq _ _ _ _ hq)
 
 /-- **Experts for one model** [EVR26, Note 55, Section 2]. For every model `θ` and every answer

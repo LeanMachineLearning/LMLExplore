@@ -30,8 +30,9 @@ observation. It is at most `D*(θ, ¬j)` at every model `θ`, since `exp g` is o
 e-variables in the value of the design `S`, and at most `0` at the alternatives to `j`. A sequence
 of experts *determines `D*` at `θ` for the answer `i`* if the values at `θ` of its experts of the
 answer `i` have supremum `D*(θ, ¬i)` [EVR26, Note 55, Definition 4]. An algorithm that runs the
-experts of a sequence on fresh blocks and bets with the best of them attains `D*` at every model
-at which the sequence determines `D*` [EVR26, Note 55, Theorem 5].
+experts of a sequence on fresh blocks and bets with the best of them attains `D*` at every
+admissible model with a single correct answer at which the sequence determines `D*`
+[EVR26, Note 55, Theorem 5]; that algorithm is not constructed in this file.
 
 ## Main definitions
 
@@ -118,6 +119,19 @@ structure DeterminesDesignRate (j : ℕ → ℐ) (S : ℕ → α → ℕ)
   /-- The values at `θ` of the experts of the answer `i` have supremum `D*`. -/
   iSup_eq : ⨆ (e : ℕ) (_ : j e = i), (task.expertValue (S e) (g e) θ : EReal) =
     designRate (fun a ↦ task.ν θ a) ((fun θ' a ↦ task.ν θ' a) '' task.alt i)
+
+omit [Fintype α] in
+/-- The laws of the arms at the models of a set `s` are probability measures. -/
+theorem isProbabilityMeasure_of_mem_image (s : Set Θ) :
+    ∀ ν ∈ (fun θ' a ↦ task.ν θ' a) '' s, ∀ a, IsProbabilityMeasure (ν a) := by
+  rintro _ ⟨θ', -, rfl⟩ a
+  infer_instance
+
+/-- The laws of the tables of a design `n` at the models of a set `s` have mass at most `1`. -/
+theorem designLaw_univ_le_one_of_mem_image (s : Set Θ) (n : α → ℕ) :
+    ∀ P ∈ (fun ν ↦ designLaw ν n) '' ((fun θ' a ↦ task.ν θ' a) '' s), P Set.univ ≤ 1 := by
+  rintro _ ⟨_, ⟨θ', -, rfl⟩, rfl⟩
+  exact prob_le_one
 
 variable {task} {θ : Θ} {i : ℐ}
 
@@ -248,6 +262,19 @@ theorem exists_isExpert_range_eq_insert [Nonempty α] {ι : Type*} [Countable ι
   rw [h, Option.range_eq]
   congr 2
   exact funext fun θ ↦ expertValue_zero task 1 θ
+
+/-- In a sequence of experts whose answers and values are those of a family together with the zero
+expert, as given by `exists_isExpert_range_eq_insert`, every expert `(jj k, SS k, gg k)` of the
+family has the answer and the values of some expert of the sequence. -/
+theorem exists_eq_expertValue_of_range_eq_insert {ι : Type*} {i₀ : ℐ} {jj : ι → ℐ}
+    {SS : ι → α → ℕ} {gg : (k : ι) → ((Σ a, Fin (SS k a)) → 𝓨) → ℝ}
+    (hrange : Set.range (fun e ↦ (j e, task.expertValue (S e) (g e))) =
+      insert (i₀, 0) (Set.range fun k ↦ (jj k, task.expertValue (SS k) (gg k)))) (k : ι) :
+    ∃ e, j e = jj k ∧ task.expertValue (S e) (g e) = task.expertValue (SS k) (gg k) := by
+  obtain ⟨e, he⟩ : (jj k, task.expertValue (SS k) (gg k)) ∈
+      Set.range (fun e ↦ (j e, task.expertValue (S e) (g e))) :=
+    hrange ▸ Set.mem_insert_of_mem _ ⟨k, rfl⟩
+  exact ⟨e, Prod.mk.inj he⟩
 
 end Sequence
 

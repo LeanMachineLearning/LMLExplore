@@ -214,6 +214,32 @@ lemma designRate_le_iff {c : EReal} (hc : 0 ≤ c) :
   · simpa using hc
   exact (EReal.div_natCast_le_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hn))).2 (h n hn)
 
+/-- If a real `t` is below the supremum over the designs `n` of `f n / ∑ a, n a`, for a function
+`f` of the designs that is nonnegative at the design `1`, then some design `n ≠ 0` has `f n` above
+`t` times its number of observations: the empty design contributes `0 ≤ f 1 / ∑ a, 1`. -/
+lemma exists_ne_zero_mul_lt_of_lt_iSup_div [Nonempty α] {f : (α → ℕ) → EReal} (h1 : 0 ≤ f 1)
+    {t : ℝ} (ht : (t : EReal) < ⨆ n : α → ℕ, f n / ((∑ a, n a : ℕ) : EReal)) :
+    ∃ n : α → ℕ, n ≠ 0 ∧ (((∑ a, n a : ℕ) * t : ℝ) : EReal) < f n := by
+  obtain ⟨n, hn⟩ := lt_iSup_iff.1 ht
+  rcases eq_or_ne n 0 with rfl | hn0
+  · have h1' : (0 : ℝ) < ((∑ a, (1 : α → ℕ) a : ℕ) : ℝ) := by
+      exact_mod_cast Fintype.sum_pos (pos_iff_ne_zero.2 (one_ne_zero : (1 : α → ℕ) ≠ 0))
+    refine ⟨1, one_ne_zero, lt_of_lt_of_le ?_ h1⟩
+    simp only [Pi.zero_apply, Finset.sum_const_zero, Nat.cast_zero, EReal.div_zero] at hn
+    exact EReal.coe_neg'.2 (mul_neg_of_pos_of_neg h1' (EReal.coe_neg'.1 hn))
+  · exact ⟨n, hn0, (EReal.coe_lt_div_natCast_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hn0))).1 hn⟩
+
+/-- A real `t` is below the rate of the designs against instances of measures of mass at most `1`
+if and only if the value of some design that is not empty is above its number of observations
+times `t`. -/
+lemma lt_designRate_iff [Nonempty α] (hΛ : ∀ ν ∈ Λ, ∀ a, ν a Set.univ ≤ 1) {t : ℝ} :
+    (t : EReal) < designRate μ Λ ↔
+      ∃ n : α → ℕ, n ≠ 0 ∧ (((∑ a, n a : ℕ) * t : ℝ) : EReal) < designValue μ Λ n := by
+  refine ⟨fun ht ↦ exists_ne_zero_mul_lt_of_lt_iSup_div (designValue_nonneg μ hΛ 1) ht, ?_⟩
+  rintro ⟨n, hn, htn⟩
+  exact ((EReal.coe_lt_div_natCast_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hn))).2 htn).trans_le
+    (designValue_div_le_designRate μ Λ n)
+
 /-- The rate of the designs is antitone in the set of instances. -/
 @[gcongr]
 lemma designRate_anti (h : Λ ⊆ Λ') : designRate μ Λ' ≤ designRate μ Λ :=
@@ -386,6 +412,20 @@ theorem designRate_eq_iSup_bipolarRate (μ : α → Measure 𝓧) [∀ a, IsProb
     · simpa using designRate_nonneg μ Λ
     exact (EReal.div_natCast_le_iff (Fintype.sum_pos (pos_iff_ne_zero.2 hr))).2
       (bipolarRate_designLaw_le μ hΛ hr)
+
+/-- If a real `t` is below the rate of the designs, the tables of some design `r` that is not
+empty have a bipolar rate against the tables of the instances of `Λ` above `t` times the number of
+observations of `r`. -/
+theorem exists_ne_zero_mul_lt_bipolarRate_of_lt_designRate [Nonempty α] (μ : α → Measure 𝓧)
+    [∀ a, IsProbabilityMeasure (μ a)] (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) {t : ℝ}
+    (ht : (t : EReal) < designRate μ Λ) :
+    ∃ r : α → ℕ, r ≠ 0 ∧ (((∑ a, r a : ℕ) * t : ℝ) : EReal) <
+      bipolarRate (designLaw μ r) ((fun ν ↦ designLaw ν r) '' Λ) := by
+  rw [designRate_eq_iSup_bipolarRate μ hΛ] at ht
+  refine exists_ne_zero_mul_lt_of_lt_iSup_div (bipolarRate_nonneg _ ?_) ht
+  rintro _ ⟨ν, hν, rfl⟩
+  have := hΛ ν hν
+  exact prob_le_one
 
 /-! ### One source -/
 
