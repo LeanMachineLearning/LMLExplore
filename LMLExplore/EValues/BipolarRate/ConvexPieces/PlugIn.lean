@@ -349,7 +349,7 @@ private lemma exists_forall_eventually_mem_Icc_lam {C : Set (ι → ℝ)} {lam :
     refine (((continuous_apply i).tendsto ψ).eventually (lt_mem_nhds (by linarith [(ha i).1]))).and
       ?_
     exact (((continuous_const.sub (continuous_apply i)).tendsto ψ).eventually
-      (lt_mem_nhds (show a / 2 < 1 - ψ i by linarith [(ha i).2])))
+      (lt_mem_nhds (b := 1 - ψ i) (by linarith [(ha i).2])))
   have hN2 : ∀ᶠ φ in 𝓝 ψ, klDiv (prodBernoulli φ) (prodBernoulli η) < ENNReal.ofReal B := by
     have hcont : Continuous fun φ : ι → ℝ ↦ ∑ i, klBer (φ i) (η i) :=
       continuous_finsetSum _ fun i _ ↦ (continuous_klBer_left (hη01 i trivial)).comp
@@ -391,6 +391,26 @@ private lemma exists_forall_eventually_mem_Icc_lam {C : Set (ι → ℝ)} {lam :
   have := key (1 - φ i) (1 - lam φ i) (h1 i).2 ⟨by linarith [hθi.2], by linarith [hθi.1]⟩
     (by linarith)
   linarith [min_le_left δ₁ b]
+
+/-- **A sum is bounded below by a bounded exponential product.** For `s > 0`, if the product over
+`k < n` of `exp (-s x k - s² L² / 2)` is less than `N`, then the sum of the `x k` over `k < n` is
+at least `-log N / s - n s L²`. -/
+private lemma neg_log_div_sub_le_sum_of_prod_lt {s L : ℝ} (hs : 0 < s) {x : ℕ → ℝ} {n N : ℕ}
+    (h : ∏ k ∈ Finset.range n, ENNReal.ofReal (Real.exp (-s * x k - s ^ 2 * L ^ 2 / 2)) < N) :
+    -(Real.log N) / s - n * (s * L ^ 2) ≤ ∑ k ∈ Finset.range n, x k := by
+  rw [← ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le, ← Real.exp_sum] at h
+  have hN0 : (0 : ℝ) < N := by
+    have h0 : (0 : ℝ≥0∞) < N := lt_of_le_of_lt zero_le h
+    exact_mod_cast h0
+  rw [← ENNReal.ofReal_natCast, ENNReal.ofReal_lt_ofReal_iff hN0] at h
+  have h' := (Real.lt_log_iff_exp_lt hN0).2 h
+  rw [Finset.sum_sub_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul,
+    ← Finset.mul_sum] at h'
+  have : -(Real.log N) / s ≤ ∑ k ∈ Finset.range n, x k + n * (s * L ^ 2) := by
+    rw [div_le_iff₀ hs]
+    nlinarith [mul_nonneg (Nat.cast_nonneg n : (0 : ℝ) ≤ n)
+      (mul_nonneg (sq_nonneg s) (sq_nonneg L))]
+  linarith
 
 /-- **The plug-in projections lose nothing to first order.** For predictable estimates `ψhat k`
 tending to `ψ` almost surely under the i.i.d. law of `prodBernoulli ψ`, the sums over `k < n` of
@@ -544,24 +564,8 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
           exact Finset.sum_le_sum fun k _ ↦ neg_abs_le _
   -- the truncated sum, from the bound on the exponential process
   have hlower (n : ℕ) : -(Real.log N) / s - n * (s * L ^ 2) ≤
-      ∑ k ∈ Finset.range n, D' (ψhat k ω) (ω k) := by
-    have h := hN n
-    have hW_eq : ∏ k ∈ Finset.range n, g m k ω (ω k) = ENNReal.ofReal (Real.exp
-        (∑ k ∈ Finset.range n, (-s * D' (ψhat k ω) (ω k) - s ^ 2 * L ^ 2 / 2))) := by
-      rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
-    rw [hW_eq] at h
-    have hN0 : (0 : ℝ) < N := by
-      have h0 : (0 : ℝ≥0∞) < N := lt_of_le_of_lt zero_le h
-      exact_mod_cast h0
-    rw [← ENNReal.ofReal_natCast, ENNReal.ofReal_lt_ofReal_iff hN0] at h
-    have h' := (Real.lt_log_iff_exp_lt hN0).2 h
-    rw [Finset.sum_sub_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul,
-      ← Finset.mul_sum] at h'
-    have : -(Real.log N) / s ≤ ∑ k ∈ Finset.range n, D' (ψhat k ω) (ω k) + n * (s * L ^ 2) := by
-      rw [div_le_iff₀ hs0]
-      nlinarith [mul_nonneg (Nat.cast_nonneg n : (0 : ℝ) ≤ n)
-        (mul_nonneg (sq_nonneg s) (sq_nonneg L))]
-    linarith
+      ∑ k ∈ Finset.range n, D' (ψhat k ω) (ω k) :=
+    neg_log_div_sub_le_sum_of_prod_lt hs0 (by simpa only [hg, ← hs] using hN n)
   obtain ⟨n₀, hn₀⟩ : ∃ n₀ : ℕ, 2 * (Real.log N / s + R₀) / ε ≤ n₀ := exists_nat_ge _
   filter_upwards [eventually_ge_atTop n₀] with n hn
   have hn' : 2 * (Real.log N / s + R₀) ≤ ε * n :=
@@ -625,11 +629,11 @@ theorem ae_tendsto_log_minPlugInLikelihoodRatio_div [Finite κ] {C : κ → Set 
         EReal.top_div_of_pos_ne_top (by exact_mod_cast hn) (EReal.natCast_ne_top n)]
     -- `KL_inf` is at most the relative entropy to each oracle projection `lam j ψ`
     set K₀ := Finset.univ.inf' Finset.univ_nonempty fun j ↦
-      (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal
+      (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal with hK₀
     have hKK₀ : K ≤ K₀ := by
       obtain ⟨j₀, -, hj₀⟩ := Finset.exists_mem_eq_inf' Finset.univ_nonempty fun j ↦
         (klDiv (prodBernoulli ψ) (prodBernoulli (lam j ψ))).toReal
-      rw [show K₀ = _ from hj₀,
+      rw [hK₀, hj₀,
         EReal.coe_ennreal_toReal (klDiv_prodBernoulli_ne_top ψ (hlam01 j₀ ψ hψ)),
         ← klIntegral_eq_klDiv (by simp)]
       exact klInf_le_klIntegral (mem_image_of_mem _ (mem_iUnion.2 ⟨j₀, hlam j₀ ψ hψ⟩))

@@ -87,19 +87,6 @@ namespace ProbabilityTheory
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} [MeasurableSingletonClass 𝓧]
   {H₀ H₁ : Set (Measure 𝓧)} {M M' : ℕ → (ℕ → 𝓧) → ℝ≥0∞}
 
-/-- The test of a test supermartingale for the i.i.d. null of laws that charge every point has
-level `β` under the i.i.d. law of every probability measure of the effective null. -/
-private lemma isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet
-    (hH₁ : ∀ P ∈ H₁, IsProbabilityMeasure P) (hpos : ∀ P ∈ H₁, ∀ x, P {x} ≠ 0)
-    (hM' : IsTestSupermartingale M' Filtration.piLT (iidNull H₁)) {R : Measure 𝓧}
-    [IsProbabilityMeasure R] (hR : R ∈ effectiveSet H₁) (β : ℝ≥0∞) :
-    IsLevelStoppingTime (hittingAfter M' (Ici β⁻¹) 0) Filtration.piLT
-      {Measure.infinitePi fun _ : ℕ ↦ R} β :=
-  have hR' : R ∈ effectiveSet H₁ ∩ {P | IsProbabilityMeasure P} := ⟨hR, inferInstance⟩
-  (((isTestSupermartingale_sequentialNull_effectiveSet_of_iidNull hH₁ hpos hM').anti_set
-    (singleton_subset_iff.2 (infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦
-      hR'))).isEProcess (by rintro _ rfl; infer_instance)).isLevelStoppingTime_hittingAfter β
-
 section Bets
 
 variable {Ω : Type*} {𝓖 : MeasurableSpace Ω} {mΩ : MeasurableSpace Ω} {Q₀ R₀ : Measure Ω}
@@ -142,7 +129,7 @@ private lemma klBer_one_le_of_forall_eintegral_log_le (hAT : MeasurableSet[𝓖]
       (by rwa [lintegral_indicator_one hAm, Measure.restrict_apply hAm]))
   have hae : ∀ᵐ ω ∂Q₀, ENNReal.log (testBet b 1 (A.indicator 1) ω) =
       ((-Real.log b : ℝ) : EReal) := by
-    filter_upwards [show ∀ᵐ ω ∂Q₀, ω ∈ A from ae_iff.2 hAc] with ω hω
+    filter_upwards [mem_ae_iff.2 hAc] with ω hω
     rw [testBet_indicator_of_mem hω, ENNReal.log_ofReal_of_pos (by positivity), div_eq_inv_mul,
       mul_one, Real.log_inv]
   rw [eintegral_congr_ae hae, eintegral_const, measure_univ, EReal.coe_ennreal_one,
@@ -202,22 +189,6 @@ private lemma klBer_le_of_forall_eintegral_log_le (hAT : MeasurableSet[𝓖] A)
 
 end Bets
 
-/-- On a countable alphabet, the largest e-power of a set `H₁` of probability measures under a
-probability measure `Q` is the infimum of the relative entropies from `Q` to the countable
-mixtures of members of `H₁`. -/
-private lemma toENNReal_maxEPower_eq_iInf_klDiv [Countable 𝓧]
-    (hH₁ : ∀ P ∈ H₁, IsProbabilityMeasure P) (Q : Measure 𝓧) [IsProbabilityMeasure Q] :
-    (maxEPower Q H₁).toENNReal = ⨅ R ∈ sigmaConvexHull H₁, klDiv Q R := by
-  rw [maxEPower_eq_iInf_klIntegral_sigmaConvexHull (μ := Measure.count)
-    (fun P _ s hs ↦ by rw [Measure.count_eq_zero_iff] at hs; simp [hs])
-    (fun P hP ↦ (hH₁ P hP).measure_univ.le)]
-  have hR : ∀ R ∈ sigmaConvexHull H₁, klIntegral Q R = (klDiv Q R : EReal) := fun R hR ↦ by
-    have := isProbabilityMeasure_of_mem_sigmaConvexHull hH₁ hR
-    exact klIntegral_eq_klDiv (by simp)
-  rw [iInf_congr fun R ↦ iInf_congr fun hR' ↦ hR R hR']
-  simp_rw [← EReal.coe_ennreal_iInf]
-  rw [EReal.toENNReal_coe]
-
 /-- **A test between two nulls makes at least `kl(1 - α, β) / a₁` observations**
 [EVR26, Note 32, Statement 1]. On a countable alphabet, let `H₁` be a set of probability measures
 that charge every point, `H₀` a set of measures, `M` an e-process for the i.i.d. null of `H₀`,
@@ -270,22 +241,24 @@ theorem klBer_div_maxEPower_le_lintegral_min_hittingAfter [Countable 𝓧]
       (hβ1.trans_lt ENNReal.one_lt_top).ne, ENNReal.toReal_one] at h
   -- a test with a finite expected number of observations stops almost surely
   have hTQ : ∀ᵐ ω ∂Q₀, min (τ ω) (τ' ω) ≠ ⊤ := by
-    filter_upwards [ae_lt_top (measurable_from_top.comp hT.measurable_enat) hm] with ω hω h
-    exact (show ENat.toENNReal (min (τ ω) (τ' ω)) < ⊤ from hω).ne (ENat.toENNReal_eq_top.2 h)
+    filter_upwards [ae_lt_top (f := fun ω ↦ ENat.toENNReal (min (τ ω) (τ' ω)))
+      (measurable_from_top.comp hT.measurable_enat) hm] with ω hω h
+    exact hω.ne (ENat.toENNReal_eq_top.2 h)
   -- the event that the second test rejects first, known at the stopping time
-  set A := {ω | τ' ω ≤ τ ω}
+  set A := {ω | τ' ω ≤ τ ω} with hA
   have hAT : MeasurableSet[hT.measurableSpace] A :=
     (IsStoppingTime.measurableSet_min_iff hτ hτ' A).2
       ⟨IsStoppingTime.measurableSet_stopping_time_le hτ' hτ,
         IsStoppingTime.measurableSet_le_stopping_time hτ' hτ⟩
   have hAm : MeasurableSet A := hT.measurableSpace_le _ hAT
-  set s := {ω | min (τ ω) (τ' ω) ≠ ⊤}
+  set s := {ω | min (τ ω) (τ' ω) ≠ ⊤} with hs
   -- under the i.i.d. law of `Q ∈ H₀`, the first test rejects with probability at most `α`
   have hAc : Q₀ Aᶜ ≤ ENNReal.ofReal a := by
     rw [← hαa]
     refine (measure_mono fun ω hω ↦ ?_).trans
       ((hM.isLevelStoppingTime_hittingAfter α).measure_lt_top_le Q₀ (infinitePi_mem_iidNull hQ))
-    exact lt_of_lt_of_le (not_le.1 (show ¬ τ' ω ≤ τ ω from hω)) le_top
+    rw [hA, mem_compl_iff, mem_ofPred_eq, not_le] at hω
+    exact hω.trans_le le_top
   have hQA : ENNReal.ofReal (1 - a) ≤ Q₀ A := by
     calc ENNReal.ofReal (1 - a) = 1 - ENNReal.ofReal a := by
           rw [ENNReal.ofReal_sub _ ha0, ENNReal.ofReal_one]
@@ -314,8 +287,9 @@ theorem klBer_div_maxEPower_le_lintegral_min_hittingAfter [Countable 𝓧]
       ((isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet hH₁ hpos hM'
         (isSigmaConvex_effectiveSet.sigmaConvexHull_subset subset_effectiveSet hR)
         β).measure_lt_top_le _ rfl)
-    have h2 : min (τ ω) (τ' ω) ≠ ⊤ := hω.2
-    rw [min_eq_right (show τ' ω ≤ τ ω from hω.1)] at h2
+    rw [hA, hs, mem_inter_iff, mem_ofPred_eq, mem_ofPred_eq] at hω
+    obtain ⟨h1, h2⟩ := hω
+    rw [min_eq_right h1] at h2
     exact lt_top_iff_ne_top.2 h2
   rw [toENNReal_maxEPower_eq_iInf_klDiv hH₁ Q]
   rcases eq_or_ne m 0 with hm0 | hm0

@@ -60,6 +60,9 @@ only `log (1/α) / d` observations to first order
 * `ProbabilityTheory.isTestSupermartingale_sequentialNull_effectiveSet_of_iidNull`: a test
   supermartingale for the i.i.d. null of laws that charge every point is a test supermartingale
   for the sequential null of the probability measures of its effective null.
+* `ProbabilityTheory.isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet`: its test
+  of level `α` has level `α` for the i.i.d. law of every probability measure of the effective
+  null.
 * `ProbabilityTheory.isTestSupermartingale_iidNull_convexHull`,
   `ProbabilityTheory.isTestSupermartingale_infinitePi_of_tendsto` [EVR26, Note 32, Statement 1]:
   it is a test supermartingale for the i.i.d. null of the convex hull, and, on a countable
@@ -138,6 +141,22 @@ theorem isTestSupermartingale_sequentialNull_effectiveSet_of_iidNull
       have := hS₁ Q hQ
       simpa [hconst] using hM.lintegral_zero_le _ (infinitePi_mem_iidNull hQ)
   simpa [hconst] using h1
+
+/-- **The tests of a test supermartingale have level `α` on the effective null.** Let `S₁` be a
+set of probability measures on `𝓧`, each of which charges every point, and `M` a test
+supermartingale for the i.i.d. null of `S₁`, in the filtration `Filtration.piLT` of the past
+observations. The test that rejects the first time `M` reaches `α⁻¹` has level `α` for the i.i.d.
+law of every probability measure `Q₁` of the effective null of `S₁`. -/
+theorem isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hpos : ∀ P ∈ S₁, ∀ x, P {x} ≠ 0)
+    (hM : IsTestSupermartingale M Filtration.piLT (iidNull S₁)) {Q₁ : Measure 𝓧}
+    [IsProbabilityMeasure Q₁] (hQ₁ : Q₁ ∈ effectiveSet S₁) (α : ℝ≥0∞) :
+    IsLevelStoppingTime (hittingAfter M (Ici α⁻¹) 0) Filtration.piLT
+      {Measure.infinitePi fun _ : ℕ ↦ Q₁} α :=
+  have hQ₁' : Q₁ ∈ effectiveSet S₁ ∩ {P | IsProbabilityMeasure P} := ⟨hQ₁, inferInstance⟩
+  (((isTestSupermartingale_sequentialNull_effectiveSet_of_iidNull hS₁ hpos hM).anti_set
+    (singleton_subset_iff.2 (infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦
+      hQ₁'))).isEProcess (by rintro _ rfl; infer_instance)).isLevelStoppingTime_hittingAfter α
 
 /-- **Test supermartingales see the convex hull of the null** [EVR26, Note 32, Statement 1].
 Let `S₁` be a set of probability measures on `𝓧`, each of which charges every point. A test

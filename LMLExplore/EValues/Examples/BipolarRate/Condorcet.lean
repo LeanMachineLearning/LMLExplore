@@ -28,9 +28,11 @@ the Condorcet winner", closed, is the set of the laws `prodBernoulli θ` for `θ
 * The alternative is a mixture of three laws of the null, the coins `(19/20, 1/2, c)`,
   `(1/2, 19/20, c)` and `(t, t, c)` with `t = (11/100 - √(7/1000)) / (3/10)`, with weights about
   `0.5523`, `0.3300` and `0.1177`. So one observation carries no evidence, `a₁ = 0`, and every test
-  supermartingale for the i.i.d. null, being one for the i.i.d. null of the convex hull
-  (`ProbabilityTheory.isTestSupermartingale_iidNull_convexHull`), has tests with no power against
-  the alternative: they reject with probability at most their level under its i.i.d. law.
+  supermartingale for the i.i.d. null has tests of level `α` for the i.i.d. laws of the effective
+  null, which contains the convex hull
+  (`ProbabilityTheory.isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet`): they have
+  no power against the alternative, rejecting with probability at most their level under its
+  i.i.d. law.
 * The bipolar rate is nevertheless the smallest relative entropy `KL_inf` from the alternative to
   the null, `kl(3/5, 1/2)`, about `0.0201`, attained at the coins `(7/10, 1/2, c)`: on the finite
   alphabet of the three coins, the bipolar rate is `KL_inf` for every null
@@ -259,10 +261,9 @@ theorem measure_hittingAfter_lt_top_le_condorcet {c : ℝ} (hc : c ∈ Icc (1 / 
   have hS : ∀ P ∈ prodBernoulli '' condorcetParams, IsProbabilityMeasure P := by
     rintro _ ⟨θ, -, rfl⟩
     infer_instance
-  have hM' := (isTestSupermartingale_iidNull_convexHull hS
-    prodBernoulli_singleton_ne_zero_of_mem_condorcetParams hM).anti_set
-      (singleton_subset_iff.2 (infinitePi_mem_iidNull (prodBernoulli_condorcet_mem_convexHull hc)))
-  exact ((hM'.isEProcess (by rintro _ rfl; infer_instance)).isLevelStoppingTime_hittingAfter
+  exact (isLevelStoppingTime_hittingAfter_infinitePi_of_mem_effectiveSet hS
+    prodBernoulli_singleton_ne_zero_of_mem_condorcetParams hM
+    (convexHull_subset_effectiveSet (prodBernoulli_condorcet_mem_convexHull hc))
     α).measure_lt_top_le _ rfl
 
 /-- **The smallest relative entropy to the Condorcet null** [EVR26, Note 32, Statement 3]. For
