@@ -18,8 +18,8 @@ At a model `θ` of an identification task, the rate `D*` of the designs of the l
 characteristic time of [GK16] when `i` is correct
 (`LMLExplore.Identification.IdentTask.designRate_le_answerValue`,
 `LMLExplore.Identification.IdentTask.designRate_le_inv_charTime`). When the observations take
-finitely many values, these bounds are equalities [EVR26, Note 41, Proposition 5]: the rate of
-the designs is then the entropy constant
+finitely many values, these bounds are equalities, the second when `i` is the single correct
+answer [EVR26, Note 41, Proposition 5]: the rate of the designs is then the entropy constant
 (`ProbabilityTheory.designRate_eq_iSup_iInf_sum_mul_klDiv_of_finite`), which is `D(θ, ¬i)`. So on
 a finite alphabet the lower bound `kl(δ, 1 - δ) ≤ D* E_θ[τ]` of
 `LMLExplore.Identification.IdentTask.IsDeltaCorrect.klBer_le_designRate_mul_expectedStoppingTime`

@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.EValues.BipolarRate.Design.Growth
+import LMLExplore.Basic.ENNReal.BigOperators
 import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.Finite
 import TauCeti.Data.EReal.Operations
@@ -32,20 +33,17 @@ alphabet the two constants are equal [EVR26, Note 41, Proposition 5], and the gr
 Both equalities come from the bipolar rates of the tables of the designs. The table of a design
 `r` lives on a finite alphabet, where the bipolar rate is the smallest relative entropy to the
 null (`ProbabilityTheory.bipolarRate_eq_klInf_of_finite`), so by the tensorization of the
-relative entropy its bipolar rate is `⨅ ν ∈ Λ, ∑ a, r a * klDiv (μ a) (ν a)`. More generally,
-whenever the bipolar rates of the tables of the designs `r ≠ 0` are `⨅ s ∈ S, ∑ a, r a * k s a`
-for a family of costs `k s : α → ℝ≥0∞`, the rate of the designs is
-`⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` [EVR26, Note 41, Section 5].
+relative entropy (`ProbabilityTheory.klDiv_designLaw`) its bipolar rate is
+`⨅ ν ∈ Λ, ∑ a, r a * klDiv (μ a) (ν a)`. Whenever the bipolar rates of the tables of the designs
+`r ≠ 0` are `⨅ s ∈ S, ∑ a, r a * k s a` for a family of costs `k s : α → ℝ≥0∞`, the rate of the
+designs is `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` [EVR26, Note 41, Section 5]
+(`ProbabilityTheory.designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq`).
 
 ## Main statements
 
-* `ProbabilityTheory.klDiv_designLaw`: the relative entropy between the tables of a design is
-  `∑ a, n a * klDiv (μ a) (ν a)`.
 * `ProbabilityTheory.bipolarRate_designLaw_eq_iInf_sum_mul_klDiv_of_finite`: on a finite
   alphabet, the bipolar rate of the tables of a design `r` is
   `⨅ ν ∈ Λ, ∑ a, r a * klDiv (μ a) (ν a)`.
-* `ProbabilityTheory.designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq`: the rate of the
-  designs when the bipolar rates of the tables are given by a family of costs.
 * `ProbabilityTheory.designRate_eq_iSup_iInf_sum_mul_klDiv_of_finite`: on a finite alphabet, the
   rate of the designs is the entropy constant.
 * `ProbabilityTheory.designGrowth_eq_iInf_sum_mul_klDiv_of_finite`: on a finite alphabet, the
@@ -53,10 +51,10 @@ for a family of costs `k s : α → ℝ≥0∞`, the rate of the designs is
 
 ## Implementation notes
 
-The lower bounds take the designs `⌈m w⌉` for the rate, and `⌈q x⌉` on the support of `x` for the
-growth. Since the bound `⨅ s ∈ S, ∑ a, w a * k s a` is monotone and positively homogeneous in
-`w`, and `⌈m w⌉` has at most `m + Fintype.card α` observations, no concavity or continuity of the
-bound in `w` is used. The statements and proofs are adapted from
+The lower bound on the growth takes the designs `⌈q x⌉` on the support of `x`. Since the bound
+`⨅ ν ∈ Λ, ∑ a, x a * klDiv (μ a) (ν a)` is monotone and positively homogeneous in `x`
+(`ENNReal.mul_iInf_sum_mul_le_iInf_sum_mul`), no concavity or continuity of the bound in `x` is
+used. The statements and proofs are adapted from
 `EValuesResearch/Results/DesignConstants.lean` (commit `cb8238f`) in the paper project
 `RemyDegenne/evalues_research`, rewritten on the API of LMLExplore.
 
@@ -78,14 +76,6 @@ namespace ProbabilityTheory
 
 variable {α 𝓧 : Type*} [Fintype α] {m𝓧 : MeasurableSpace 𝓧} {Λ : Set (α → Measure 𝓧)}
 
-/-- The relative entropy between the tables of a design under two instances of probability
-measures is `∑ a, n a * klDiv (μ a) (ν a)`, by the tensorization of the relative entropy. -/
-theorem klDiv_designLaw (μ ν : α → Measure 𝓧) [∀ a, IsProbabilityMeasure (μ a)]
-    [∀ a, IsProbabilityMeasure (ν a)] (n : α → ℕ) :
-    klDiv (designLaw μ n) (designLaw ν n) = ∑ a, (n a : ℝ≥0∞) * klDiv (μ a) (ν a) := by
-  rw [designLaw_def, designLaw_def, klDiv_pi, Fintype.sum_sigma]
-  simp
-
 /-- **The bipolar rate of the tables of a design on a finite alphabet.** On a finite type, with
 any σ-algebra, the bipolar rate of the tables of the design `r` against the tables of the
 instances of `Λ` is `⨅ ν ∈ Λ, ∑ a, r a * klDiv (μ a) (ν a)`, with `0 * ∞ = 0`
@@ -105,101 +95,6 @@ theorem bipolarRate_designLaw_eq_iInf_sum_mul_klDiv_of_finite [Finite 𝓧] (μ 
   refine iInf_congr fun ν ↦ iInf_congr fun hν ↦ ?_
   have := hΛ ν hν
   exact klDiv_designLaw μ ν r
-
-/-- **The rate of the designs from the bipolar rates of the tables.** If the bipolar rate of the
-tables of every design `r ≠ 0` is `⨅ s ∈ S, ∑ a, r a * k s a` for a family of costs
-`k s : α → ℝ≥0∞`, then the rate of the designs is `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the
-probability vectors `w`, with `0 * ∞ = 0` [EVR26, Note 41, Section 5]. -/
-theorem designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq {ι : Type*} (μ : α → Measure 𝓧)
-    [∀ a, IsProbabilityMeasure (μ a)] (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a))
-    {S : Set ι} {k : ι → α → ℝ≥0∞}
-    (h : ∀ r : α → ℕ, r ≠ 0 → bipolarRate (designLaw μ r) ((fun ν ↦ designLaw ν r) '' Λ) =
-      ((⨅ s ∈ S, ∑ a, (r a : ℝ≥0∞) * k s a : ℝ≥0∞) : EReal)) :
-    designRate μ Λ = ((⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S,
-      ∑ a, ENNReal.ofReal (w a) * k s a : ℝ≥0∞) : EReal) := by
-  set V := ⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a
-  refine le_antisymm ?_ ?_
-  · -- the bound of the design `r` is `|r|` times the bound of its proportions `r / |r|`
-    rw [designRate_eq_iSup_bipolarRate μ hΛ]
-    refine iSup_le fun r ↦ ?_
-    rcases eq_or_ne r 0 with rfl | hr
-    · simpa using EReal.coe_ennreal_nonneg V
-    have hN := Fintype.sum_pos (pos_iff_ne_zero.2 hr)
-    set N := ∑ a, r a
-    have hN0 : (N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 hN.ne'
-    set w : α → ℝ := fun a ↦ r a / N
-    have hw : w ∈ LMLExplore.simplex α := by
-      refine LMLExplore.mem_simplex_iff.2 ⟨fun a ↦ by positivity, ?_⟩
-      rw [← Finset.sum_div, ← Nat.cast_sum, div_self (by exact_mod_cast hN.ne')]
-    have hr_eq (a : α) : (r a : ℝ≥0∞) = N * ENNReal.ofReal (w a) := by
-      rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast hN), ENNReal.ofReal_natCast,
-        ENNReal.ofReal_natCast, ENNReal.mul_div_cancel hN0 (ENNReal.natCast_ne_top N)]
-    rw [h r hr, EReal.div_natCast_le_iff hN, ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul,
-      EReal.coe_ennreal_le_coe_ennreal_iff]
-    calc ⨅ s ∈ S, ∑ a, (r a : ℝ≥0∞) * k s a
-    _ = N * ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a := by
-      simp_rw [ENNReal.mul_iInf_of_ne hN0 (ENNReal.natCast_ne_top N), Finset.mul_sum,
-        ← mul_assoc, hr_eq]
-    _ ≤ N * V := by
-      gcongr
-      exact le_iSup₂ (f := fun w _ ↦ ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a) w hw
-  rw [← EReal.coe_toENNReal (designRate_nonneg μ Λ), EReal.coe_ennreal_le_coe_ennreal_iff]
-  refine iSup₂_le fun w hw ↦ ?_
-  obtain ⟨hw0, hw1⟩ := LMLExplore.mem_simplex_iff.1 hw
-  set g := ⨅ s ∈ S, ∑ a, ENNReal.ofReal (w a) * k s a
-  set D := (designRate μ Λ).toENNReal
-  set K := Fintype.card α
-  -- for every `m ≥ 1`, the design `⌈m w⌉` gives `m g ≤ (m + K) D`
-  have key (m : ℕ) (hm : 0 < m) : (m : ℝ≥0∞) * g ≤ (m + K) * D := by
-    set r : α → ℕ := fun a ↦ ⌈(m : ℝ) * w a⌉₊
-    have hr_ge (a : α) : (m : ℝ) * w a ≤ r a := Nat.le_ceil _
-    have hr_le (a : α) : (r a : ℝ) ≤ m * w a + 1 :=
-      (Nat.ceil_lt_add_one (mul_nonneg (Nat.cast_nonneg _) (hw0 a))).le
-    have hsum_ge : (m : ℝ) ≤ ∑ a, (r a : ℝ) := by
-      calc (m : ℝ) = ∑ a, (m : ℝ) * w a := by rw [← Finset.mul_sum, hw1, mul_one]
-      _ ≤ ∑ a, (r a : ℝ) := Finset.sum_le_sum fun a _ ↦ hr_ge a
-    have hsum_le : ∑ a, r a ≤ m + K := by
-      have h : (∑ a, (r a : ℝ)) ≤ m + K := by
-        calc ∑ a, (r a : ℝ) ≤ ∑ a, ((m : ℝ) * w a + 1) := Finset.sum_le_sum fun a _ ↦ hr_le a
-        _ = m + K := by
-          rw [Finset.sum_add_distrib, ← Finset.mul_sum, hw1, mul_one, Finset.sum_const,
-            Finset.card_univ, nsmul_eq_mul, mul_one]
-      exact_mod_cast h
-    have hr0 : r ≠ 0 := by
-      rintro hr
-      have : (m : ℝ) ≤ 0 := by simpa [hr] using hsum_ge
-      exact (Nat.cast_pos.2 hm).not_ge this
-    -- `m g` is at most the bound of `r`, which is the bipolar rate of its tables
-    have h1 : (m : ℝ≥0∞) * g ≤ ⨅ s ∈ S, ∑ a, (r a : ℝ≥0∞) * k s a := by
-      refine le_iInf₂ fun s hs ↦ (mul_le_mul_right (iInf₂_le s hs) _).trans ?_
-      rw [Finset.mul_sum]
-      refine Finset.sum_le_sum fun a _ ↦ ?_
-      rw [← mul_assoc, ← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (Nat.cast_nonneg _),
-        ← ENNReal.ofReal_natCast]
-      exact mul_le_mul_left (ENNReal.ofReal_le_ofReal (hr_ge a)) _
-    have h2 := bipolarRate_designLaw_le μ hΛ hr0
-    rw [h r hr0, ← EReal.coe_toENNReal (designRate_nonneg μ Λ),
-      ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul,
-      EReal.coe_ennreal_le_coe_ennreal_iff] at h2
-    refine h1.trans (h2.trans (mul_le_mul_left ?_ _))
-    exact_mod_cast hsum_le
-  -- letting `m → ∞`, `g ≤ D`
-  rcases eq_or_ne D ⊤ with hD | hD
-  · rw [hD]
-    exact le_top
-  refine ENNReal.le_of_forall_pos_le_add fun ε hε _ ↦ ?_
-  obtain ⟨m, hm⟩ := ENNReal.exists_nat_gt (ENNReal.div_ne_top
-    (ENNReal.mul_ne_top (ENNReal.natCast_ne_top K) hD) (ENNReal.coe_ne_zero.2 hε.ne'))
-  have hm' : (K : ℝ≥0∞) * D ≤ (m + 1 : ℕ) * ε := by
-    rw [ENNReal.div_lt_iff (Or.inl (ENNReal.coe_ne_zero.2 hε.ne')) (Or.inl ENNReal.coe_ne_top)]
-      at hm
-    exact hm.le.trans (mul_le_mul_left (by exact_mod_cast Nat.le_succ m) _)
-  have hm0 : ((m + 1 : ℕ) : ℝ≥0∞) ≠ 0 := by exact_mod_cast Nat.succ_ne_zero m
-  refine (ENNReal.mul_le_mul_iff_right hm0 (ENNReal.natCast_ne_top _)).1 ?_
-  calc ((m + 1 : ℕ) : ℝ≥0∞) * g ≤ ((m + 1 : ℕ) + K) * D := key (m + 1) m.succ_pos
-  _ = (m + 1 : ℕ) * D + K * D := add_mul _ _ _
-  _ ≤ (m + 1 : ℕ) * D + (m + 1 : ℕ) * ε := by gcongr
-  _ = (m + 1 : ℕ) * (D + ε) := (mul_add _ _ _).symm
 
 /-- **The rate of the designs on a finite alphabet is the entropy constant.** On a finite type,
 with any σ-algebra, the rate of the designs of an instance `μ` against any set `Λ` of instances is
@@ -254,12 +149,8 @@ theorem designGrowth_eq_iInf_sum_mul_klDiv_of_finite [Finite 𝓧] (μ : α → 
       rw [mul_comm, mul_comm (q : ℝ≥0∞)]
       exact ENNReal.mul_lt_mul_left (by exact_mod_cast hq0.ne') (ENNReal.natCast_ne_top q) h1
     -- the bound is monotone and positively homogeneous in the proportions
-    have h3 : (q : ℝ≥0∞) * g ≤ ⨅ ν ∈ Λ, ∑ a, (r a : ℝ≥0∞) * klDiv (μ a) (ν a) := by
-      refine le_iInf₂ fun ν hν ↦ (mul_le_mul_right (iInf₂_le ν hν) _).trans ?_
-      rw [Finset.mul_sum]
-      refine Finset.sum_le_sum fun a _ ↦ ?_
-      rw [← mul_assoc]
-      exact mul_le_mul_left (hr_ge a) _
+    have h3 : (q : ℝ≥0∞) * g ≤ ⨅ ν ∈ Λ, ∑ a, (r a : ℝ≥0∞) * klDiv (μ a) (ν a) :=
+      ENNReal.mul_iInf_sum_mul_le_iInf_sum_mul hr_ge
     have h4 := h2.trans_le h3
     rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (Nat.cast_nonneg _)] at h4
     calc ((q * ℓ : ℝ) : EReal) = ((ENNReal.ofReal (q * ℓ) : ℝ≥0∞) : EReal) := by
