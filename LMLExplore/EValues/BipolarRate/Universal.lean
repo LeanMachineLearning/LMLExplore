@@ -11,12 +11,10 @@ public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
-import LMLExplore.Analysis.SpecialFunctions.Log.TruncLog
 import LMLExplore.Analysis.SpecificLimits.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
 import LMLExplore.EValues.EProcess.Closure
 import LMLExplore.EValues.Null.PrefixBet
-import LMLExplore.MeasureTheory.Integral.EReal
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
@@ -168,64 +166,18 @@ private lemma exists_seq_boundedLogEVarSet [MeasurableSpace.CountablyGenerated �
   obtain ⟨i, hi⟩ := (hint.eventually (lt_mem_nhds hc)).exists
   exact ⟨_, hi⟩
 
-/-- For `a > 0`, some `ε ∈ (0, 1)` has `log (1 - ε) = -a`. -/
-private lemma exists_log_one_sub_eq_neg {a : ℝ} (ha : 0 < a) :
-    ∃ ε : ℝ, 0 < ε ∧ ε < 1 ∧ Real.log (1 - ε) = -a := by
-  refine ⟨1 - Real.exp (-a), ?_, by linarith [Real.exp_pos (-a)],
-    by rw [sub_sub_cancel, Real.log_exp]⟩
-  have : Real.exp (-a) < 1 := by simpa using Real.exp_lt_exp.2 (show -a < 0 by linarith)
-  linarith
-
 /-- **Truncation.** If an `m`-sample e-variable has expected logarithm larger than `c` under
-`Q ^ m`, so has the truncated logarithm of its mixture with a constant, which is bounded. -/
+`Q ^ m`, so has a member of `boundedLogEVarSet S₁ m N` for some `N`, by
+`IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log`. -/
 private lemma exists_mem_boundedLogEVarSet_lt_integral (Q : Measure 𝓧) [IsProbabilityMeasure Q]
     (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {m : ℕ}
     {E : (Fin m → 𝓧) → ℝ≥0∞} (hE : IsEVar E (sampleNull S₁ m))
     {c : ℝ} (hc : (c : EReal) < ∫ᵉ x, ENNReal.log (E x) ∂Measure.pi (fun _ : Fin m ↦ Q)) :
     ∃ N : ℕ, ∃ f ∈ boundedLogEVarSet S₁ m N, c < ∫ x, f x ∂Measure.pi (fun _ : Fin m ↦ Q) := by
-  obtain ⟨c', hcc', hc'⟩ := EReal.lt_iff_exists_real_btwn.1 hc
-  rw [EReal.coe_lt_coe_iff] at hcc'
-  set η := c' - c with hη
-  have hη0 : 0 < η := by linarith
-  obtain ⟨ε, hε0, hε1, hlogε⟩ := exists_log_one_sub_eq_neg (half_pos hη0)
-  set μ := Measure.pi (fun _ : Fin m ↦ Q)
-  -- truncate the logarithm at a level `k`, by monotone convergence
-  obtain ⟨k, hk⟩ : ∃ k : ℕ, ((c + η / 2 : ℝ) : EReal) < ∫ᵉ x, min (ENNReal.log (E x)) k ∂μ := by
-    by_contra h
-    simp only [not_exists, not_lt] at h
-    have h' := hc'.le.trans (eintegral_le_of_forall_min_le
-      (ENNReal.measurable_log.comp hE.measurable) h)
-    rw [EReal.coe_le_coe_iff] at h'
-    linarith
-  -- mix with the constant `ε`, which bounds the logarithm below
-  set F : (Fin m → 𝓧) → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε
-  set f : (Fin m → 𝓧) → ℝ := fun x ↦ ENNReal.truncLog k (F x)
-  have hF0 : ∀ x, F x ≠ 0 := fun x ↦ by simp [F, hε0]
-  have hlogε0 : Real.log ε ≤ k := (Real.log_nonpos hε0.le hε1.le).trans (Nat.cast_nonneg k)
-  set N := ⌈max (k : ℝ) (-Real.log ε)⌉₊
-  have hfb : ∀ x, |f x| ≤ N := by
-    intro x
-    have h1 := ENNReal.truncLog_le (c := k) (hF0 x)
-    have h2 := ENNReal.log_le_truncLog hε0 (le_add_self : ENNReal.ofReal ε ≤ F x) hlogε0
-    have h3 := Nat.le_ceil (max (k : ℝ) (-Real.log ε))
-    have h4 := le_max_left (k : ℝ) (-Real.log ε)
-    have h5 := le_max_right (k : ℝ) (-Real.log ε)
-    rw [abs_le]
-    exact ⟨by linarith, by linarith⟩
-  have hfm : Measurable f :=
-    (ENNReal.measurable_truncLog _).comp ((measurable_const.mul hE.measurable).add measurable_const)
-  have hint : Integrable f μ := Integrable.of_bound hfm.aestronglyMeasurable _
-    (ae_of_all _ fun x ↦ by rw [Real.norm_eq_abs]; exact hfb x)
-  refine ⟨N, f, ⟨hfm, hfb, fun P hP ↦ ?_⟩, ?_⟩
-  · calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂Measure.pi (fun _ : Fin m ↦ P)
-    _ ≤ ∫⁻ x, F x ∂Measure.pi (fun _ : Fin m ↦ P) :=
-      lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
-    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal (measure_univ_le_one_of_mem_sampleNull hS₁ m)
-      hε0.le hε1.le).lintegral_le_one (pi_mem_sampleNull hP)
-  · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂μ - Real.log (1 - ε) : ℝ) : EReal) :=
-      hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
-    rw [EReal.coe_lt_coe_iff, hlogε] at h
-    linarith
+  obtain ⟨N, f, hfm, hfN, hfP, hcf⟩ := hE.exists_bounded_lt_integral_of_lt_eintegral_log _
+    (measure_univ_le_one_of_mem_sampleNull hS₁ m) hc
+  exact ⟨⌈N⌉₊, f, ⟨hfm, fun x ↦ (hfN x).trans (Nat.le_ceil N),
+    fun P hP ↦ hfP _ (pi_mem_sampleNull hP)⟩, hcf⟩
 
 /-- An exponent below the bipolar rate is beaten by the expected logarithm of an e-variable of
 some number of observations. -/

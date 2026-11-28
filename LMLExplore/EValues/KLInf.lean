@@ -10,6 +10,7 @@ public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
 import LMLExplore.EValues.DPI
 import Mathlib.InformationTheory.KullbackLeibler.DataProcessing
+import Statlib.Divergence.KullbackLeibler.CondKL
 import Statlib.ForMathlib.InformationTheory.KullbackLeibler.EIntegral
 import TauCeti.Data.EReal.Operations
 
@@ -33,6 +34,9 @@ For `S = {c • Q}` with `0 < c < 1`, the largest e-power is `-log c`, while `kl
 
 Both definitions are prototyped in `notes/book/Suggested.lean` of the paper project
 `RemyDegenne/evalues_research` (commit `88fb487`), where `klInf` is `ℝ≥0∞`-valued and uses `klDiv`.
+The tensorization `ProbabilityTheory.klInf_pi_sampleNull` is adapted from the proof of
+`bipolarRate_le_seqTauEnvelope` in `EValuesResearch/Results/Envelopes.lean` (commit `83205cb`) of
+the same project.
 
 ## Main definitions
 
@@ -51,6 +55,8 @@ Both definitions are prototyped in `notes/book/Suggested.lean` of the paper proj
 * `ProbabilityTheory.klIntegral_map_le`: data processing for `klIntegral` along a measurable map.
 * `ProbabilityTheory.klInf_eq_iInf_klDiv`: for a null whose members have the mass of `Q`, `klInf`
   is the smallest `klDiv`.
+* `ProbabilityTheory.klInf_pi_sampleNull`: the smallest relative entropy from `n ≠ 0`
+  observations to the `n`-sample null is `n` times the smallest relative entropy to the null.
 * `ProbabilityTheory.maxEPower_effectiveSet`: a null and its effective null have the same largest
   e-power.
 * `ProbabilityTheory.maxEPower_eq_klInf_effectiveSet`: Statlib's duality,
@@ -212,6 +218,26 @@ theorem klInf_nonneg [IsFiniteMeasure Q] (hS : ∀ P ∈ S, P univ ≤ Q univ) :
   le_klInf_iff.2 fun P hP ↦
     have : IsFiniteMeasure P := ⟨(hS P hP).trans_lt (measure_lt_top Q univ)⟩
     klIntegral_nonneg (hS P hP)
+
+/-- The smallest relative entropy from `n ≠ 0` observations of law `Q` to the `n`-sample null of a
+null of probability measures is `n` times the smallest relative entropy from `Q` to the null, by
+the tensorization of the relative entropy. -/
+theorem klInf_pi_sampleNull (Q : Measure Ω) [IsProbabilityMeasure Q]
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) {n : ℕ} (hn : n ≠ 0) :
+    klInf (Measure.pi fun _ : Fin n ↦ Q) (sampleNull S n) = n * klInf Q S := by
+  have hn' : (n : ℝ≥0∞) ≠ 0 := by exact_mod_cast hn
+  rw [klInf_eq_coe_iInf_klDiv fun μ hμ ↦ by
+      have := isProbabilityMeasure_of_mem_sampleNull hS n μ hμ
+      simp [measure_univ],
+    klInf_eq_coe_iInf_klDiv fun P hP ↦ by have := hS P hP; simp [measure_univ],
+    ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul, sampleNull_def, iInf_image,
+    ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
+  congr 1
+  refine iInf_congr fun P ↦ ?_
+  rw [ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
+  refine iInf_congr fun hP ↦ ?_
+  have := hS P hP
+  rw [klDiv_pi_const, Fintype.card_fin]
 
 /-! ### The largest e-power -/
 

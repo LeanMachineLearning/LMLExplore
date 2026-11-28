@@ -10,6 +10,7 @@ public import LMLExplore.MeasureTheory.Measure.AbsolutelyContinuousSet
 public import LMLExplore.Probability.Independence.Integration
 public import LMLExplore.Probability.QuasiSure
 public import Statlib.EValues.EVariable
+import LMLExplore.MeasureTheory.Integral.EReal
 
 /-!
 # Exact e-variables, Markov's inequality and products of independent e-variables
@@ -52,6 +53,9 @@ e-variables are `ℝ≥0∞`-valued.
   e-variable for `{P}`.
 * `ProbabilityTheory.IsEVar.ofReal_one_sub_mul_add_ofReal`: for `ε ∈ [0, 1]`, the mixture
   `(1 - ε) E + ε` of an e-variable with the constant `1` is an e-variable.
+* `ProbabilityTheory.IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log`: an expected
+  logarithm `∫ᵉ log E ∂Q > c` of an e-variable is beaten by the mean of a bounded measurable `f`
+  with `exp f` an e-variable.
 * `ProbabilityTheory.isEVar_tsum_mul`, `ProbabilityTheory.isEVar_finsetSum_mul`: a countable or
   finite mixture `∑ i, w i * E i` of e-variables, with weights of sum at most `1`, is an
   e-variable; `ProbabilityTheory.isExactEVar_tsum_mul`,
@@ -68,6 +72,13 @@ e-variables are `ℝ≥0∞`-valued.
   product of (exact) e-variables, from a family that is independent under every member of the
   null, is an (exact) e-variable. Statlib's `ProbabilityTheory.IsEVar.prod` treats the two
   coordinates of a product space, where independence holds by construction.
+
+## Implementation notes
+
+The truncation lemma `ProbabilityTheory.IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log` is
+adapted from `exists_bounded_lt_integral_of_lt_eintegral_log` of
+`EValuesResearch/Results/PartitionRate.lean` (commit `83205cb`) in the paper project
+`RemyDegenne/evalues_research`.
 
 ## References
 
@@ -199,6 +210,60 @@ theorem IsEVar.ofReal_one_sub_mul_add_ofReal (hS : ∀ P ∈ S, P univ ≤ 1) (h
   convert h using 1
   ext x
   simp
+
+/-- **Bounded logarithms of e-variables.** If an e-variable `E` for a null of measures of mass at
+most one has expected logarithm larger than `c` under a probability measure `Q`, then some bounded
+measurable `f`, with `exp f` an e-variable for the null, has mean larger than `c` under `Q`: the
+logarithm of the mixture `(1 - ε) E + ε`, truncated above, for `ε` small and a large truncation
+level. -/
+theorem IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log (Q : Measure Ω)
+    [IsProbabilityMeasure Q] (hS : ∀ P ∈ S, P univ ≤ 1) (hE : IsEVar E S) {c : ℝ}
+    (hc : (c : EReal) < ∫ᵉ x, ENNReal.log (E x) ∂Q) :
+    ∃ (N : ℝ) (f : Ω → ℝ), Measurable f ∧ (∀ x, |f x| ≤ N) ∧
+      (∀ P ∈ S, ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂P ≤ 1) ∧ c < ∫ x, f x ∂Q := by
+  obtain ⟨c', hcc', hc'⟩ := EReal.lt_iff_exists_real_btwn.1 hc
+  rw [EReal.coe_lt_coe_iff] at hcc'
+  set η := c' - c with hη
+  have hη0 : 0 < η := by linarith
+  -- `ε ∈ (0, 1)` with `log (1 - ε) = - η / 2`
+  set ε := 1 - Real.exp (-(η / 2)) with hε
+  have hexp : Real.exp (-(η / 2)) < 1 := Real.exp_lt_one_iff.2 (by linarith)
+  have hε0 : 0 < ε := by linarith
+  have hε1 : ε < 1 := by linarith [Real.exp_pos (-(η / 2))]
+  have hlogε : Real.log (1 - ε) = -(η / 2) := by rw [hε, sub_sub_cancel, Real.log_exp]
+  -- truncate the logarithm at a level `k`, by monotone convergence
+  obtain ⟨k, hk⟩ : ∃ k : ℕ, ((c + η / 2 : ℝ) : EReal) < ∫ᵉ x, min (ENNReal.log (E x)) k ∂Q := by
+    by_contra h
+    simp only [not_exists, not_lt] at h
+    have h' := hc'.le.trans (eintegral_le_of_forall_min_le
+      (ENNReal.measurable_log.comp hE.measurable) h)
+    rw [EReal.coe_le_coe_iff] at h'
+    linarith
+  -- mix with the constant `ε`, which bounds the logarithm below
+  set F : Ω → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (1 - ε) * E x + ENNReal.ofReal ε
+  set f : Ω → ℝ := fun x ↦ ENNReal.truncLog k (F x)
+  have hF0 : ∀ x, F x ≠ 0 := fun x ↦ by simp [F, hε0]
+  have hlogε0 : Real.log ε ≤ k := (Real.log_nonpos hε0.le hε1.le).trans (Nat.cast_nonneg k)
+  have hfb : ∀ x, |f x| ≤ max (k : ℝ) (-Real.log ε) := by
+    intro x
+    have h1 := ENNReal.truncLog_le (c := k) (hF0 x)
+    have h2 := ENNReal.log_le_truncLog hε0 (le_add_self : ENNReal.ofReal ε ≤ F x) hlogε0
+    have h4 := le_max_left (k : ℝ) (-Real.log ε)
+    have h5 := le_max_right (k : ℝ) (-Real.log ε)
+    rw [abs_le]
+    exact ⟨by linarith, by linarith⟩
+  have hfm : Measurable f :=
+    (ENNReal.measurable_truncLog _).comp ((measurable_const.mul hE.measurable).add measurable_const)
+  have hint : Integrable f Q := Integrable.of_bound hfm.aestronglyMeasurable _
+    (ae_of_all _ fun x ↦ by rw [Real.norm_eq_abs]; exact hfb x)
+  refine ⟨_, f, hfm, hfb, fun P hP ↦ ?_, ?_⟩
+  · calc ∫⁻ x, ENNReal.ofReal (Real.exp (f x)) ∂P
+    _ ≤ ∫⁻ x, F x ∂P := lintegral_mono fun x ↦ ENNReal.ofReal_exp_truncLog_le (hF0 x)
+    _ ≤ 1 := (hE.ofReal_one_sub_mul_add_ofReal hS hε0.le hε1.le).lintegral_le_one hP
+  · have h : ((c + η / 2 : ℝ) : EReal) < ((∫ x, f x ∂Q - Real.log (1 - ε) : ℝ) : EReal) :=
+      hk.trans_le (eintegral_min_log_le_integral_truncLog_sub hε0 hε1 k hint)
+    rw [EReal.coe_lt_coe_iff, hlogε] at h
+    linarith
 
 /-! ### E-variables and null sets -/
 
