@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.Identification.SampleComplexity
 public import LMLExplore.SequentialLearning.Algorithms.OfSeq
+public import LMLExplore.SequentialLearning.StoppedHistory
 
 /-!
 # Fixed-budget and fixed-design identification algorithms
@@ -82,8 +83,8 @@ lemma IsFixedBudget.mem_stopSet_iff (hA : IsFixedBudget A T) {h : Σ n, Hist �
 /-- The stopping time of a fixed-budget algorithm with budget `T` is `T`. -/
 lemma IsFixedBudget.stoppingTime_eq (hA : IsFixedBudget A T) (ω : Ω) :
     A.stoppingTime O X Y ω = T := by
-  rw [IdentAlg.stoppingTime_eq_coe_iff, hA.mem_stopSet_iff]
-  exact ⟨rfl, fun j hj h ↦ hj.ne (hA.mem_stopSet_iff.1 h)⟩
+  rw [IdentAlg.stoppingTime_def, isFixedBudget_iff.1 hA]
+  exact hittingAfter_sigmaHistory_setOf_fst_eq T ω
 
 /-- The stopping time of a fixed-budget algorithm is finite. -/
 lemma IsFixedBudget.stoppingTime_ne_top (hA : IsFixedBudget A T) (ω : Ω) :
@@ -100,18 +101,17 @@ lemma IsFixedBudget.toNat_stoppingTime (hA : IsFixedBudget A T) (ω : Ω) :
 /-- The history at the stopping time of a fixed-budget algorithm with budget `T` is the history
 of the first `T` rounds. -/
 lemma IsFixedBudget.stoppedHist_eq (hA : IsFixedBudget A T) (ω : Ω) :
-    A.stoppedHist O X Y ω = ⟨T, history O X Y T ω⟩ :=
-  IdentAlg.stoppedHist_eq_of_stoppingTime_eq (hA.stoppingTime_eq ω)
+    A.stoppedHist O X Y ω = ⟨T, history O X Y T ω⟩ := by
+  rw [IdentAlg.stoppedHist_def, IdentAlg.stoppingTime_def, isFixedBudget_iff.1 hA,
+    stoppedValue_sigmaHistory_hittingAfter_setOf_fst_eq, sigmaHistory_apply]
 
 /-- The law of the history at the stopping time of a fixed-budget algorithm with budget `T` is
 the law of the history of the first `T` rounds. -/
 lemma IsFixedBudget.stoppedHistMeasure_eq (hA : IsFixedBudget A T) (env : Environment 𝓞 𝓐 𝓨) :
     stoppedHistMeasure A.alg env A.stopSet
       = (trajMeasure A.alg env).map (sigmaHistory IT.obs IT.action IT.feedback T) := by
-  rw [stoppedHistMeasure]
-  congr 1
-  funext traj
-  exact hA.stoppedHist_eq (O := IT.obs) (X := IT.action) (Y := IT.feedback) traj
+  rw [isFixedBudget_iff.1 hA]
+  exact stoppedHistMeasure_setOf_fst_eq A.alg env T
 
 /-- The law of the output of a fixed-budget algorithm with budget `T`: the output rule on the
 histories of `T` rounds applied to the law of the history of the first `T` rounds. -/
