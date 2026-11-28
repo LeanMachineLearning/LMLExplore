@@ -20,7 +20,6 @@ import LMLExplore.EValues.EProcess.Closure
 import LMLExplore.EValues.EProcess.LevelStoppingTime
 import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
-import LMLExplore.Probability.Independence.Wald
 import LMLExplore.Probability.Process.LevelCrossing
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
@@ -117,7 +116,7 @@ The limits of the tests take each bound from a general result, except the last o
   latest at `len i` times the first time the random walk of the values of `g i - δ` on the blocks
   reaches `log (1/α)` plus a constant. Its increments are bounded above and have mean
   `∫ g i ∂Q₁ ^ len i - δ > c * len i`, and Wald's bound on first passage times
-  (`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`) gives
+  (`ProbabilityTheory.lintegral_hittingAfter_sum_seqBlock_le`) gives
   `limsup 𝔼[τ α] / log (1/α) ≤ 1 / c`.
 
 The statements on the e-process are the theorem of [EVR26, Note 13]
@@ -555,14 +554,56 @@ private lemma neg_sub_le_log_weight {δ : ℝ} (hδ : 0 < δ) (i k : ℕ) :
   push_cast
   nlinarith
 
+/-- **The pathwise bound on the time of the tests.** For `len i ≥ 1`, `δ > 0` and
+`L ≥ log (1/α)`, the mixture reaches `α⁻¹` at the latest at `len i` times the first time the
+random walk of the values of `g i - δ` on the blocks of `len i` observations reaches `L + A`, for
+the constant `A = (i + 1) log 2 + 2 δ + 2 log (2 / δ)`: by then the term of these blocks of `g i`
+reaches `α⁻¹`, since its weight costs at most `δ` per block, up to `A`
+(`neg_sub_le_log_weight`). -/
+private lemma toENNReal_hittingAfter_blockMixture_le {i : ℕ} (hlen : 1 ≤ len i) {δ : ℝ}
+    (hδ : 0 < δ) {α : ℝ≥0∞} {L : ℝ} (hL : ENNReal.log α⁻¹ ≤ L) (ω : ℕ → 𝓧) :
+    ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω) ≤
+      len i * ENat.toENNReal (hittingAfter
+        (fun k ω ↦ ∑ j ∈ Finset.range k, (g i (seqBlock (len i) j ω) - δ))
+        (Set.Ici (L + ((i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))))) 0 ω) := by
+  set N := hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, (g i (seqBlock (len i) j ω) - δ))
+    (Set.Ici (L + ((i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))))) 0 ω with hN
+  rcases eq_or_ne N ⊤ with hNt | hNt
+  · rw [ENat.toENNReal_eq_top.2 hNt,
+      ENNReal.mul_top (by exact_mod_cast (Nat.one_le_iff_ne_zero.1 hlen))]
+    exact le_top
+  obtain ⟨k, hk⟩ := WithTop.ne_top_iff_exists.1 hNt
+  have hmem := hittingAfter_mem_set_of_ne_top hNt
+  rw [← hN, ← hk, Set.mem_Ici] at hmem
+  -- `hmem` is stated at `(k : WithTop ℕ).untopA`, which is `k` by definition
+  replace hmem : L + ((i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))) ≤
+      ∑ j ∈ Finset.range k, (g i (seqBlock (len i) j ω) - δ) := hmem
+  rw [Finset.sum_sub_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul] at hmem
+  -- after `k` blocks of `g i`, the term of these blocks has reached `α⁻¹`
+  have hle : hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω ≤ (k * len i : ℕ) := by
+    refine hittingAfter_le_of_mem (Nat.zero_le _) ?_
+    rw [Set.mem_Ici, ← ENNReal.log_le_log_iff]
+    refine hL.trans (le_trans ?_ (ENNReal.log_le_log (blockMixtureTerm_le_blockMixture le_rfl ω)))
+    rw [← ofReal_exp_eq_blockMixtureTerm, ENNReal.log_ofReal_exp, EReal.coe_le_coe_iff]
+    linarith [neg_sub_le_log_weight hδ i k]
+  calc ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
+  _ ≤ ENat.toENNReal ((k * len i : ℕ) : ℕ∞) := ENat.toENNReal_le.2 hle
+  _ = len i * ENat.toENNReal N := by
+    have h2 : ENat.toENNReal N = k := by
+      rw [← hk]
+      exact ENat.toENNReal_coe k
+    rw [h2, ENat.toENNReal_coe]
+    push_cast
+    ring
+
 /-- **The expected time of the tests, from one block bet.** Let `g i` be a member of the family
 with `c * len i < ∫ g i ∂Q₁ ^ len i`, for some `c > 0`. The first time `τ α` at which the mixture
 reaches `α⁻¹` satisfies `limsup_{α → 0} 𝔼[τ α] / log (1/α) ≤ 1 / c` under the i.i.d. law of
 `Q₁`. With `δ` half of the margin `∫ g i ∂Q₁ ^ len i - c * len i`, the mixture reaches `α⁻¹`
 at the latest at `len i` times the first time the random walk of the values of `g i - δ` on the
-blocks reaches `log (1/α)` plus a constant. This walk has increments bounded above and of mean
-`∫ g i ∂Q₁ ^ len i - δ`, and Wald's bound on first passage times concludes
-(`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`). -/
+blocks reaches `log (1/α)` plus a constant (`toENNReal_hittingAfter_blockMixture_le`). This walk
+has increments bounded above and of mean `∫ g i ∂Q₁ ^ len i - δ`, and Wald's bound on first
+passage times concludes (`ProbabilityTheory.lintegral_hittingAfter_sum_seqBlock_le`). -/
 private lemma limsup_lintegral_hittingAfter_blockMixture_div_log_le (Q₁ : Measure 𝓧)
     [IsProbabilityMeasure Q₁] {i : ℕ} (hlen : 1 ≤ len i) (hg : Measurable (g i)) {C : ℝ}
     (hgC : ∀ x, |g i x| ≤ C) {c : ℝ} (hc : 0 < c)
@@ -583,29 +624,14 @@ private lemma limsup_lintegral_hittingAfter_blockMixture_div_log_le (Q₁ : Meas
   have hm0 : (0 : ℝ) < m := by exact_mod_cast hlen
   have ha0 : 0 < a := lt_of_le_of_lt (by positivity) hca
   set A := (i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))
-  -- the random walk of the values of `g i - δ` on the blocks
-  set Y : ℕ → (ℕ → 𝓧) → ℝ := fun j ω ↦ g i (seqBlock m j ω) - δ
-  have hYi : iIndepFun Y (Measure.infinitePi fun _ : ℕ ↦ Q₁) :=
-    (iIndepFun_seqBlock (fun _ : ℕ ↦ Q₁) m).comp (fun _ x ↦ g i x - δ)
-      (fun _ ↦ hg.sub_const δ)
-  have hYm : ∀ j, Measurable (Y j) := fun j ↦ (hg.comp (measurable_seqBlock m j)).sub_const δ
-  have hYa : ∀ j, a ≤ ∫ ω, Y j ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
-    intro j
-    have hint : Integrable (fun ω ↦ g i (seqBlock m j ω)) (Measure.infinitePi fun _ : ℕ ↦ Q₁) :=
-      .of_bound (hg.comp (measurable_seqBlock m j)).aestronglyMeasurable C
-        (ae_of_all _ fun ω ↦ by
-          rw [Real.norm_eq_abs]
-          exact hgC _)
-    -- the `j`-th block has the law `Q₁ ^ m`
-    have hmp := measurePreserving_seqBlock (fun _ : ℕ ↦ Q₁) m j
-    simp only [Y]
-    rw [integral_sub hint (integrable_const δ), ← integral_map
-      (measurable_seqBlock m j).aemeasurable (hmp.map_eq ▸ hg.aestronglyMeasurable), hmp.map_eq,
-      integral_const, probReal_univ, one_smul]
-  have hYC : ∀ j, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), Y j ω ≤ C := fun j ↦
-    ae_of_all _ fun ω ↦ by
-      simp only [Y]
-      linarith [le_abs_self (g i (seqBlock m j ω)), hgC (seqBlock m j ω)]
+  -- the random walk of the values of `g i - δ` on the blocks: increments at most `C`, of mean `a`
+  have hint : Integrable (g i) (Measure.pi fun _ : Fin m ↦ Q₁) :=
+    .of_bound hg.aestronglyMeasurable C (ae_of_all _ fun x ↦ by
+      rw [Real.norm_eq_abs]
+      exact hgC x)
+  have hva : a = ∫ x, g i x - δ ∂Measure.pi fun _ : Fin m ↦ Q₁ := by
+    rw [integral_sub hint (integrable_const δ), integral_const, probReal_univ, one_smul]
+  have hvC (x : Fin m → 𝓧) : g i x - δ ≤ C := by linarith [le_abs_self (g i x), hgC x]
   refine ENNReal.limsup_div_toENNReal_log_inv_le (K := ENNReal.ofReal (m * (A + C) / a))
     ENNReal.ofReal_ne_top fun α hα0 hα1 ↦ ?_
   set L := (ENNReal.log α⁻¹).toReal with hL
@@ -613,50 +639,16 @@ private lemma limsup_lintegral_hittingAfter_blockMixture_div_log_le (Q₁ : Meas
   have hLL : (ENNReal.log α⁻¹).toENNReal = ENNReal.ofReal L := EReal.toENNReal_of_ne_top hlogtop
   have hL0 : 0 ≤ L := EReal.toReal_nonneg
     (ENNReal.zero_lt_log_iff.2 (ENNReal.one_lt_inv.2 hα1)).le
-  -- the pathwise bound by the first time the walk reaches `L + A`
-  have hpath : ∀ ω, ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω) ≤
-      m * ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
-        (Set.Ici (L + A)) 0 ω) := by
-    intro ω
-    set N := hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω) (Set.Ici (L + A)) 0 ω
-      with hN
-    rcases eq_or_ne N ⊤ with hNt | hNt
-    · have h1 : ENat.toENNReal N = ⊤ := ENat.toENNReal_eq_top.2 hNt
-      rw [h1, ENNReal.mul_top (by positivity)]
-      exact le_top
-    obtain ⟨k, hk⟩ := WithTop.ne_top_iff_exists.1 hNt
-    have hmem := hittingAfter_mem_set_of_ne_top hNt
-    rw [← hN, ← hk] at hmem
-    replace hmem : L + A ≤ ∑ j ∈ Finset.range k, Y j ω := hmem
-    have hle : hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω ≤ (k * m : ℕ) := by
-      refine hittingAfter_le_of_mem (Nat.zero_le _) ?_
-      rw [Set.mem_Ici, ← ENNReal.log_le_log_iff]
-      refine (EReal.le_coe_toReal hlogtop).trans ?_
-      refine le_trans ?_ (ENNReal.log_le_log (blockMixtureTerm_le_blockMixture le_rfl ω))
-      rw [← ofReal_exp_eq_blockMixtureTerm, ENNReal.log_ofReal_exp, EReal.coe_le_coe_iff]
-      have hsum : ∑ j ∈ Finset.range k, Y j ω =
-          ∑ j ∈ Finset.range k, g i (seqBlock m j ω) - δ * k := by
-        simp only [Y, Finset.sum_sub_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul]
-        ring
-      have hw := neg_sub_le_log_weight hδ0 i k
-      rw [hsum] at hmem
-      rw [← hL]
-      linarith
-    calc ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
-    _ ≤ ENat.toENNReal ((k * m : ℕ) : ℕ∞) := ENat.toENNReal_le.2 hle
-    _ = m * ENat.toENNReal N := by
-      have h2 : ENat.toENNReal N = k := by
-        rw [← hk]
-        exact ENat.toENNReal_coe k
-      rw [h2, ENat.toENNReal_coe]
-      push_cast
-      ring
-  have hwald := hYi.lintegral_hittingAfter_sum_le hYm ha0 hYa hYC (L + A)
+  have hwald := lintegral_hittingAfter_sum_seqBlock_le (fun _ ↦ Q₁) (hg.sub_const δ) hvC ha0
+    (fun _ ↦ hva.le) (L + A)
   calc ∫⁻ ω, ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
       ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
-  _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
-        (Set.Ici (L + A)) 0 ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := lintegral_mono hpath
-  _ = m * ∫⁻ ω, ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
+  _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter
+        (fun k ω ↦ ∑ j ∈ Finset.range k, (g i (seqBlock m j ω) - δ))
+        (Set.Ici (L + A)) 0 ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) :=
+    lintegral_mono (toENNReal_hittingAfter_blockMixture_le hlen hδ0 (EReal.le_coe_toReal hlogtop))
+  _ = m * ∫⁻ ω, ENat.toENNReal (hittingAfter
+        (fun k ω ↦ ∑ j ∈ Finset.range k, (g i (seqBlock m j ω) - δ))
         (Set.Ici (L + A)) 0 ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) :=
     lintegral_const_mul' _ _ (ENNReal.natCast_ne_top m)
   _ ≤ m * ENNReal.ofReal ((L + A + C) / a) := by gcongr
