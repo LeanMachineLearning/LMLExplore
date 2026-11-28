@@ -29,8 +29,8 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
   integrable for every finite measure.
 * `LMLExplore.integrable_integral_kernel_of_abs_le`: for a Markov kernel `κ`, the integral
   `a ↦ ∫ f d(κ a)` of a measurable `f` with `|f| ≤ B` is integrable for every finite measure.
-* `LMLExplore.sum_measureReal_preimage_singleton_inter`, `LMLExplore.integral_comp_eq_sum`: the
-  masses and integrals over the cells of a finite measurable partition `π : β → Fin k`.
+* `LMLExplore.integral_comp_eq_sum`: the integral of a function of a finite measurable partition
+  `π : β → Fin k` is the sum over the cells of its values times their masses.
 * `LMLExplore.exists_measurable_fin_step_le`: a measurable `g` with `|g| ≤ N` is, within `δ > 0`,
   approximated from below by a step function on a finite measurable partition.
 -/
@@ -75,17 +75,6 @@ lemma integrable_integral_kernel_of_abs_le {α : Type*} [MeasurableSpace α] {f 
     (fun _ ↦ abs_integral_le_of_abs_le hfB) μ
 
 /-! ### Finite measurable partitions -/
-
-/-- The masses of a finite measure on the traces in a set `C` of the cells of a finite measurable
-partition sum to the mass of `C`. -/
-lemma sum_measureReal_preimage_singleton_inter (μ : Measure β) [IsFiniteMeasure μ]
-    {k : ℕ} {π : β → Fin k} (hπ : Measurable π) (C : Set β) :
-    ∑ j, μ.real (π ⁻¹' {j} ∩ C) = μ.real C := by
-  have := sum_measureReal_preimage_singleton (μ := μ.restrict C) Finset.univ (f := π)
-    (fun j _ ↦ hπ (measurableSet_singleton j))
-  simpa only [Finset.coe_univ, preimage_univ, measureReal_restrict_apply
-    (hπ (measurableSet_singleton _)), measureReal_restrict_apply MeasurableSet.univ,
-    univ_inter] using this
 
 /-- The integral of a function of a finite measurable partition `π` is the sum over the cells of
 its values times their masses. -/
