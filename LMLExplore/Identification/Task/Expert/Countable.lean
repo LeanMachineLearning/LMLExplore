@@ -6,7 +6,6 @@ Authors: LMLExplore contributors
 module
 
 public import LMLExplore.Identification.Task.Expert.Basic
-import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.EVariable
 
 /-!

@@ -7,7 +7,6 @@ module
 
 public import LMLExplore.Identification.Task.Expert.Basic
 public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
-import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.Universal
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
 import Mathlib.MeasureTheory.Measure.WithDensityFinite
