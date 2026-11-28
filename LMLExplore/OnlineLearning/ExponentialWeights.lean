@@ -32,11 +32,7 @@ increment of the potential from `L` to `L + ℓ`, and the potential is nonincrea
 nonincreasing learning rates `η t` the mix losses of the weights
 `p t = softmax (-(η t • ∑ s < t, y s))` telescope: their sum is at most the potential at the last
 learning rate, which is at most the cumulative loss of every coordinate plus `log k / η (n - 1)`
-[dRvEGK14, Section 2]. These facts are the case of the prior `∑ a, w a • δ_a` and the temperature
-`η⁻¹` of the Gibbs mixtures of `LMLExplore.OnlineLearning.GibbsMixture`, from which they are
-derived: the mix loss is `MeasureTheory.Measure.mixLoss` of that prior
-(`mixLoss_eq_mixLoss_weightedMeasure`), and the exponential weights are the Gibbs measure of the
-uniform prior (`weightedMeasure_softmax`). The regret is therefore at most
+[dRvEGK14, Section 2]. The regret is therefore at most
 `log k / η (n - 1)` plus the sum of the *mixability gaps* `⟨p t, y t⟩ - mixLoss (η t) (p t) (y t)`,
 with `⟨p, y⟩ = ∑ b, p b * y b`. Since
 `log x ≤ x - 1`, the mixability gap is at most `(∑ b, p b * (exp (-(η * y b)) - 1 + η * y b)) / η`.
@@ -53,6 +49,13 @@ the regret bound of AdaHedge (`LMLExplore.OnlineLearning.AdaHedge`), and the mix
 is the maximum over the simplex of the stability term of follow the regularized leader with the
 negative entropy at `p`, by the Gibbs variational principle
 (`isGreatest_sum_sub_mul_sub_sum_mul_log_div_div` in `LMLExplore.OnlineLearning.Simplex`).
+
+For nonnegative weights `w`, the mix loss is `MeasureTheory.Measure.mixLoss` of the prior
+`∑ a, w a • δ_a` at the temperature `η⁻¹` (`mixLoss_eq_mixLoss_weightedMeasure`), and the
+exponential weights are the Gibbs measure of the uniform prior (`weightedMeasure_softmax`). The
+bounds `mixLoss_le_sum_mul` and `le_mixLoss` on the mix loss, the telescoping step
+(`mixLoss_softmax`) and the monotonicity of the potential in `η` (`hedgePotential_le_of_le`) are
+derived from these identities and the Gibbs mixtures of `LMLExplore.OnlineLearning.GibbsMixture`.
 
 ## Main definitions
 
