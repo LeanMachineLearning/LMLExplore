@@ -69,14 +69,6 @@ variable {𝓢 𝓐 : Type*} {m𝓢 : MeasurableSpace 𝓢} {m𝓐 : MeasurableS
   [Nonempty 𝓢] [MeasurableSingletonClass 𝓢] [Finite 𝓐] [Nonempty 𝓐] [MeasurableSingletonClass 𝓐]
   {M : MDP 𝓢 𝓐 ℝ} {γ : ℝ≥0} {η : ℕ → ℝ} {Q₀ : 𝓢 × 𝓐 → ℝ} {C : ℝ}
 
-/-- For `γ < 1`, `C + γ (C / (1 - γ)) ≤ C / (1 - γ)` (with equality): the bound `C / (1 - γ)` is
-preserved by the targets `r + γ V` of the iterates. -/
-private lemma add_mul_div_one_sub_le (hγ : γ < 1) : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  refine le_of_eq ?_
-  field_simp
-  ring
-
 /-! ### The windowed error recursion -/
 
 /-- **The upper bound on the error unrolled over a window** [LCCWC24, (38)–(39)]. With rewards in
@@ -99,7 +91,7 @@ theorem syncQLearning_sub_optQValue_le_window (hγ : γ < 1)
         ∑ i ∈ Ico (k - L) k, learningRateWeight η k (i + 1) * (γ *
           ∫ q, (syncQLearning (meanReward M.R) γ η Q₀ i ω q - M.optQValue γ q)
             ∂(M.saKernel (Kernel.deterministic (π i) (measurable_of_finite _)) p)) := by
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have h := le_prod_mul_add_sum_learningRateWeight_mul_of_le (n := k - L)
     (x := fun t ↦ syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p)
     (y := fun i ↦ γ *
@@ -135,7 +127,7 @@ private lemma abs_iSup_sub_optValue_le_and_sq_optValue_le (hγ : γ < 1)
     (s : 𝓢) :
     |(⨆ a, Q (s, a)) - M.optValue γ s| ≤ D ∧
       M.optValue γ s ^ 2 ≤ M.optQValue γ (s, π s) ^ 2 + 4 * (C / (1 - γ)) * D := by
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hr₀ (q : 𝓢 × 𝓐) := (meanReward_mem_Icc_of_ae_mem_Icc (hR q)).1
   have hV : |(⨆ a, Q (s, a)) - M.optValue γ s| ≤ D := by
     rw [← iSup_optQValue hγ hRabs s]
@@ -174,7 +166,7 @@ private lemma sum_sq_mul_variance_iSup_syncQLearning_le (hγ : γ < 1)
         Var[fun s' ↦ ⨆ a, syncQLearning (meanReward M.R) γ η Q₀ i ω (s', a); M.P p] ≤
       γ ^ 2 * β * (Var[M.optValue γ; M.P p] + 4 * (C / (1 - γ)) * D) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hB := add_mul_div_one_sub_le (C := C) hγ
   have hB₀ : 0 ≤ C / (1 - γ) := div_nonneg ((hr p).1.trans (hr p).2) h1γ.le
@@ -266,7 +258,7 @@ private lemma sqrt_supersolution_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R
           M.optQValue γ p ^ 2)) / (1 - γ)) ≤
         √(2 * a ^ 2 + 36 * β * ℓ * (C / (1 - γ)) * (C + 4 * γ ^ 2 * D)) / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hC : 0 ≤ C := by
     obtain ⟨x, hx⟩ := (hR p).exists
     exact hx.1.trans hx.2
@@ -334,7 +326,7 @@ private lemma syncQLearning_sub_optQValue_le_of_noise_le (hγ : γ < 1)
         √(2 * (ρ * (C / (1 - γ)) + 2 * b * ℓ) ^ 2 +
           36 * β * ℓ * (C / (1 - γ)) * (C + 4 * γ ^ 2 * D)) / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hC : 0 ≤ C := (hr p).1.trans (hr p).2
   have hB := add_mul_div_one_sub_le (C := C) hγ

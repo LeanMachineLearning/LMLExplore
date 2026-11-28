@@ -406,7 +406,7 @@ theorem sq_mul_variance_optValue_add_mul_integral_le (hγ : γ < 1)
       (2 * (C / (1 - γ)) * C + γ ^ 2 * e) / (1 - γ) - M.optQValue γ p ^ 2 := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
   have hγ1 : (γ : ℝ) ≤ 1 := by exact_mod_cast hγ.le
-  have hRabs := ae_abs_le_of_ae_mem_Icc hR
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
   have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
   have hQ₀ := optQValue_nonneg hγ hRabs (fun q ↦ (hr q).1) p
   have hQB := (le_abs_self _).trans (abs_optQValue_le hγ hRabs p)

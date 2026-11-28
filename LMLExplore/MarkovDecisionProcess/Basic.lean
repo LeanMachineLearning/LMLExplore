@@ -11,7 +11,7 @@ public import LeanMachineLearning.SequentialLearning.IonescuTulceaSpace
 public import LMLExplore.Probability.HasCondDistrib
 public import LMLExplore.Probability.Kernel.Composition.KernelLemmas
 public import Mathlib.Probability.Independence.Conditional
-import Mathlib.Analysis.Convex.Integral
+import LMLExplore.Analysis.Convex.Integral
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 
 /-!
@@ -128,13 +128,12 @@ end MeanReward
 lemma meanReward_mem_Icc_of_ae_mem_Icc {R : Kernel (𝓢 × 𝓐) ℝ} [IsMarkovKernel R] {p : 𝓢 × 𝓐}
     {c d : ℝ} (hR : ∀ᵐ y ∂(R p), y ∈ Set.Icc c d) : meanReward R p ∈ Set.Icc c d := by
   rw [meanReward_def]
-  exact (convex_Icc c d).integral_mem isClosed_Icc hR
-    (.of_mem_Icc c d measurable_id.aemeasurable hR)
+  exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id hR
 
 /-- Real rewards almost surely in `[0, C]` are almost surely bounded by `C` in absolute value. -/
-lemma ae_abs_le_of_ae_mem_Icc {R : Kernel (𝓢 × 𝓐) ℝ} {C : ℝ}
-    (hR : ∀ p, ∀ᵐ y ∂(R p), y ∈ Set.Icc 0 C) (p : 𝓢 × 𝓐) : ∀ᵐ y ∂(R p), |y| ≤ C :=
-  (hR p).mono fun _ hy ↦ abs_le.2 ⟨by linarith [hy.1, hy.2], hy.2⟩
+lemma ae_abs_le_of_ae_mem_Icc {R : Kernel (𝓢 × 𝓐) ℝ} {p : 𝓢 × 𝓐} {C : ℝ}
+    (hR : ∀ᵐ y ∂(R p), y ∈ Set.Icc 0 C) : ∀ᵐ y ∂(R p), |y| ≤ C :=
+  hR.mono fun _ hy ↦ abs_le.2 ⟨by linarith [hy.1, hy.2], hy.2⟩
 
 /-! ### Deterministic rewards -/
 

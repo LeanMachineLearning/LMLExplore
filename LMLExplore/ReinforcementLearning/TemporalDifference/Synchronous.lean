@@ -568,13 +568,8 @@ theorem measure_three_mul_sqrt_add_lt_mul_tdNoise_le [Nonempty 𝓐]
   have := Fintype.ofFinite 𝓢
   have := Fintype.ofFinite 𝓐
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   have hηk (k : ℕ) : ∀ i ∈ Ioc (k + 1) t, η i ∈ Set.Icc (0 : ℝ) 1 := fun i hi ↦
     learningRate_mem_Icc_of_mem_Ioc hη hi
   have hc (k : ℕ) : |σ * (η (k + 1) * γ)| = η (k + 1) * γ := by
@@ -755,13 +750,8 @@ theorem tdNoiseVarBound_le (hγ : γ < 1) (hR : ∀ p, ∀ᵐ x ∂(M.R p), x �
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
   have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
     abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C := by
-    rw [meanReward_def]
-    exact integral_mem_Icc_of_ae_mem_Icc aemeasurable_id (hR q)
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   set B := C / (1 - γ)
   -- the value estimates and the optimal value lie in `[-B, B]`
   have hV (k : ℕ) (s : 𝓢) : |⨆ a, syncQLearning (meanReward M.R) γ η Q₀ k ω (s, a)| ≤ B := by
