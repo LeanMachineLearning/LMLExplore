@@ -32,6 +32,7 @@ total variation converge to the `n`-fold product of `ν`.
   probability measures is at most the sum of the distances between the factors.
 * `MeasureTheory.etvDist_pi_const_le_card_mul`: the distance between the `ι`-fold products of two
   probability measures is at most `Fintype.card ι` times the distance between them.
+* `MeasureTheory.tvDist_pi_le_sum`: the real-valued form of `MeasureTheory.etvDist_pi_le_sum`.
 
 ## Implementation notes
 
@@ -91,5 +92,16 @@ theorem etvDist_pi_const_le_card_mul {Y : Type*} {mY : MeasurableSpace Y} (μ ν
     etvDist (Measure.pi fun _ : ι ↦ μ) (Measure.pi fun _ : ι ↦ ν) ≤
       Fintype.card ι * etvDist μ ν :=
   (etvDist_pi_le_sum _ _).trans_eq (by simp)
+
+/-- **Total variation distance between product measures, in `ℝ`.** The real-valued form of
+`MeasureTheory.etvDist_pi_le_sum`: the distance between two finite products of probability
+measures is at most the sum of the distances between the factors. -/
+theorem tvDist_pi_le_sum (μ ν : ∀ i, Measure (X i)) [∀ i, IsProbabilityMeasure (μ i)]
+    [∀ i, IsProbabilityMeasure (ν i)] :
+    tvDist (Measure.pi μ) (Measure.pi ν) ≤ ∑ i, tvDist (μ i) (ν i) := by
+  simp only [tvDist]
+  rw [← ENNReal.toReal_sum fun i _ ↦ etvDist_ne_top (μ i) (ν i)]
+  exact ENNReal.toReal_mono (ENNReal.sum_ne_top.2 fun i _ ↦ etvDist_ne_top (μ i) (ν i))
+    (etvDist_pi_le_sum μ ν)
 
 end MeasureTheory
