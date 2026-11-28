@@ -14,14 +14,15 @@ High-probability statements are proved by bounding the probability of a bad even
 finitely many indices and taking a union bound. This file records that step once: if each of the
 events `s i`, `i : ι` with `ι` finite, has probability at most `δ / card ι`, then with probability
 at least `1 - δ` none of them happens. The events need not be measurable. It also records the
-intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a`
-and `1 - b`, then `s ∩ t` has probability at least `1 - a - b`. Finally, it records that a set of
-nonzero finite mass has positive real mass, so that the products of the real masses of points
-under a finite measure that charges every point are positive, that finite products of ratios of
-masses are the `ofReal` of the products of the ratios of the real masses, that the real masses
-of the points of a finite space sum to `1` under a probability measure, as do the products of the
-real masses of the coordinates of the samples `x : ι → α`, and that the real mass is monotone
-under almost-everywhere inclusion.
+intersection of two high-probability events: if `s` and `t` have probabilities at least `1 - a` and
+`1 - b`, then `s ∩ t` has probability at least `1 - a - b`, and that the masses of the traces in a
+set of the cells of a finite measurable partition sum to the mass of the set. Finally, it records
+that a set of nonzero finite mass has positive real mass, so that the products of the real masses of
+points under a finite measure that charges every point are positive, that finite products of ratios
+of masses are the `ofReal` of the products of the ratios of the real masses, that the real masses of
+the points of a finite space sum to `1` under a probability measure, as do the products of the real
+masses of the coordinates of the samples `x : ι → α`, and that the real mass is monotone under
+almost-everywhere inclusion.
 
 ## Main statements
 
@@ -29,6 +30,8 @@ under almost-everywhere inclusion.
   confidence `δ / card ι` for each index.
 * `LMLExplore.one_sub_sub_le_measureReal_inter`: two events of probabilities at least `1 - a` and
   `1 - b` both happen with probability at least `1 - a - b`.
+* `LMLExplore.sum_measureReal_preimage_singleton_inter`: the masses of the traces in a set `C` of
+  the cells of a finite measurable partition `π : Ω → Fin k` sum to the mass of `C`.
 * `MeasureTheory.measureReal_pos_of_ne_zero`: a set of nonzero finite mass has positive real mass.
 * `MeasureTheory.prod_measureReal_singleton_pos`: `0 < ∏ i, μ.real {x i}` for a finite measure `μ`
   that charges every point.
@@ -77,6 +80,17 @@ lemma one_sub_sub_le_measureReal_inter [IsProbabilityMeasure μ] {s t : Set Ω} 
   have h := measureReal_union_add_inter (μ := μ) (s := s) ht
   have h₁ : μ.real (s ∪ t) ≤ 1 := measureReal_le_one
   linarith
+
+/-- The masses of a finite measure on the traces in a set `C` of the cells of a finite measurable
+partition sum to the mass of `C`. -/
+lemma sum_measureReal_preimage_singleton_inter (μ : Measure Ω) [IsFiniteMeasure μ]
+    {k : ℕ} {π : Ω → Fin k} (hπ : Measurable π) (C : Set Ω) :
+    ∑ j, μ.real (π ⁻¹' {j} ∩ C) = μ.real C := by
+  have := sum_measureReal_preimage_singleton (μ := μ.restrict C) Finset.univ (f := π)
+    (fun j _ ↦ hπ (measurableSet_singleton j))
+  simpa only [Finset.coe_univ, preimage_univ, measureReal_restrict_apply
+    (hπ (measurableSet_singleton _)), measureReal_restrict_apply MeasurableSet.univ,
+    univ_inter] using this
 
 end LMLExplore
 

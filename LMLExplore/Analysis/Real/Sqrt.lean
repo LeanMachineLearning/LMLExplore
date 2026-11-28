@@ -58,6 +58,9 @@ import TauCeti.Analysis.SpecialFunctions.Sqrt
 * `Real.le_mul_sqrt_of_le_sqrt_mul_max`: the square-root recursion [LCCWC24, Appendix B.4]. If
   `0 ≤ r ≤ 1`, `c ≥ 1`, `u (k + 1) ≤ √(r max 1 (u k))` for `k < K` and `u 0 ≤ c ^ 2 ^ K`, then
   `u K ≤ c √r`. It bounds the errors of synchronous TD learning on dyadic windows of iterations.
+* `Real.windowBound`: the extremal sequence `u 0 = B`, `u (j + 1) = √(r max 1 (u j))` of this
+  recursion, and `Real.windowBound_le_mul_sqrt`: `windowBound B r K ≤ c √r` under the same
+  conditions.
 
 ## References
 
@@ -346,5 +349,36 @@ theorem le_mul_sqrt_of_le_sqrt_mul_max {u : ℕ → ℝ} {r c : ℝ} {K : ℕ} (
   calc u K ^ 2 ^ K ≤ r ^ (2 ^ K - 1) * c ^ 2 ^ K := hK'
     _ ≤ √r ^ 2 ^ K * c ^ 2 ^ K := by gcongr
     _ = (c * √r) ^ 2 ^ K := by rw [mul_pow, mul_comm]
+
+/-- The extremal sequence of the square-root recursion `Real.le_mul_sqrt_of_le_sqrt_mul_max`:
+`windowBound B r 0 = B` and `windowBound B r (j + 1) = √(r max 1 (windowBound B r j))`. It is the
+sequence of the bounds on the errors of synchronous Q-learning and TD learning on dyadic windows
+of iterations [LCCWC24, Appendix C]. -/
+noncomputable def windowBound (B r : ℝ) : ℕ → ℝ
+  | 0 => B
+  | j + 1 => √(r * max 1 (windowBound B r j))
+
+/-- The first term of `windowBound B r` is the initial bound `B`. -/
+@[simp]
+theorem windowBound_zero (B r : ℝ) : windowBound B r 0 = B := by
+  rw [windowBound]
+
+/-- The term `j + 1` of `windowBound B r` is `√(r max 1 (windowBound B r j))`. -/
+@[simp]
+theorem windowBound_succ (B r : ℝ) (j : ℕ) :
+    windowBound B r (j + 1) = √(r * max 1 (windowBound B r j)) := by
+  rw [windowBound]
+
+/-- The terms of `windowBound B r` are nonnegative when the initial bound is. -/
+theorem windowBound_nonneg {B : ℝ} (hB : 0 ≤ B) (r : ℝ) (j : ℕ) : 0 ≤ windowBound B r j := by
+  cases j with
+  | zero => rwa [windowBound_zero]
+  | succ j => rw [windowBound_succ]; exact Real.sqrt_nonneg _
+
+/-- If `0 ≤ r ≤ 1`, `c ≥ 1`, `K ≥ 1` and `B ≤ c ^ 2 ^ K`, then `windowBound B r K ≤ c √r`. -/
+theorem windowBound_le_mul_sqrt {B r c : ℝ} {K : ℕ} (hr₀ : 0 ≤ r) (hr : r ≤ 1) (hc : 1 ≤ c)
+    (hK : 1 ≤ K) (hB : B ≤ c ^ 2 ^ K) : windowBound B r K ≤ c * √r :=
+  le_mul_sqrt_of_le_sqrt_mul_max hr₀ hr hc hK (fun k _ ↦ (windowBound_succ B r k).le)
+    ((windowBound_zero B r).trans_le hB)
 
 end Real

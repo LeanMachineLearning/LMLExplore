@@ -48,6 +48,9 @@ time of an identification algorithm.
 * `LMLExplore.Identification.expectedStoppingTime_le_add_tsum_measure_compl`: if the algorithm
   has stopped after `T` rounds on an event `E T` for every `T ≥ T₀`, then
   `𝔼[τ] ≤ T₀ + ∑_{T ≥ T₀} P((E T)ᶜ)` [DKM19, Lemma 1].
+* `LMLExplore.Identification.mul_one_sub_le_expectedStoppingTime`: Markov's inequality
+  `(T + 1) (1 - P(τ ≤ T)) ≤ 𝔼[τ]`, with `P(τ ≤ T)` the probability that the algorithm stops after
+  at most `T` rounds.
 * `Learning.IdentAlg.lintegral_stoppingTime_eq_sum_lintegral_pullCount`,
   `LMLExplore.Identification.expectedStoppingTime_eq_sum_lintegral_pullCount`: Wald's identity
   `𝔼[τ] = ∑ a, 𝔼[N_a(τ)]` at the stopping time `τ` of an identification algorithm that stops
@@ -153,6 +156,55 @@ lemma expectedStoppingTime_le_add_tsum_measure_compl [IsProbabilityMeasure P]
   exact lintegral_toENNReal_le_add_tsum_measure_compl (measurable_to_countable' (α := ℕ∞) fun n ↦
     A.measurable_stoppingTime h.measurable_obs h.measurable_action h.measurable_feedback
       (measurableSet_singleton (α := WithTop ℕ) n)).aemeasurable hE
+
+/-- The expected stopping time is at least `(T + 1) (1 - P(τ ≤ T))`, where `P(τ ≤ T)` is the
+probability that the algorithm stops after at most `T` rounds. -/
+lemma mul_one_sub_le_expectedStoppingTime (A : IdentAlg 𝓞 𝓐 𝓨 𝓓) (env : Environment 𝓞 𝓐 𝓨)
+    (T : ℕ) :
+    ((T : ℝ≥0∞) + 1) * (1 - histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T}) ≤
+      expectedStoppingTime A env := by
+  have hseq := IT.isAlgEnvSeq_trajMeasure A.alg env
+  have hτ := A.measurable_stoppingTime hseq.measurable_obs hseq.measurable_action
+    hseq.measurable_feedback
+  set τ := A.stoppingTime (IT.obs (𝓞 := 𝓞) (𝓐 := 𝓐) (𝓨 := 𝓨)) IT.action IT.feedback
+  -- the algorithm stops by `T` exactly when the stopped history is in the stopping rule and has
+  -- at most `T` rounds
+  have h_le : trajMeasure A.alg env {ω | τ ω ≤ T} ≤
+      histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T} := by
+    have hB : MeasurableSet {x : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n | x ∈ A.stopSet ∧ x.1 ≤ T} :=
+      A.measurableSet_stopSet.inter (measurableSet_sigma_fst_le T)
+    rw [← Set.preimage_ofPred_eq (p := fun x : Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n ↦ x ∈ A.stopSet ∧ x.1 ≤ T)
+      (f := (Prod.fst : (Σ n : ℕ, Hist 𝓞 𝓐 𝓨 n) × 𝓓 → _)), ← Measure.fst_apply hB,
+      fst_histOutputMeasure,
+      ← (hseq.hasLaw_stoppedValue_sigmaHistory A.measurableSet_stopSet).map_eq,
+      ← IdentAlg.stoppingTime_def, ← IdentAlg.stoppedHist_def,
+      Measure.map_apply (A.measurable_stoppedHist hseq.measurable_obs hseq.measurable_action
+        hseq.measurable_feedback) hB]
+    refine measure_mono fun ω hω ↦ ?_
+    have hne : τ ω ≠ ⊤ := ne_top_of_le_ne_top (WithTop.coe_ne_top) hω
+    refine ⟨IdentAlg.stoppedHist_mem_stopSet_iff.2 hne, ?_⟩
+    -- the length of the stopped history is the stopping time
+    rw [IdentAlg.fst_stoppedHist]
+    exact WithTop.coe_le_coe.1 ((WithTop.natCast_untopA hne).trans_le hω)
+  have h_compl : 1 - histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T} ≤
+      trajMeasure A.alg env {ω | (T : ℝ≥0∞) + 1 ≤ ENat.toENNReal (τ ω)} := by
+    calc 1 - histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T}
+    _ ≤ 1 - trajMeasure A.alg env {ω | τ ω ≤ T} := tsub_le_tsub_left h_le 1
+    _ = trajMeasure A.alg env {ω | τ ω ≤ T}ᶜ :=
+        (prob_compl_eq_one_sub (measurableSet_le hτ measurable_const)).symm
+    _ ≤ _ := by
+        refine measure_mono fun ω hω ↦ ?_
+        simp only [Set.mem_compl_iff, Set.mem_ofPred_eq, not_le] at hω ⊢
+        have h' : ((T + 1 : ℕ) : ℕ∞) ≤ τ ω := ENat.natCast_add_one_le_iff.2 hω
+        calc (T : ℝ≥0∞) + 1 = ENat.toENNReal ((T + 1 : ℕ) : ℕ∞) := by
+              rw [ENat.toENNReal_coe, Nat.cast_add_one]
+        _ ≤ _ := ENat.toENNReal_le.2 h'
+  calc ((T : ℝ≥0∞) + 1) * (1 - histOutputMeasure A env {p | p.1 ∈ A.stopSet ∧ p.1.1 ≤ T})
+  _ ≤ ((T : ℝ≥0∞) + 1) * trajMeasure A.alg env {ω | (T : ℝ≥0∞) + 1 ≤ ENat.toENNReal (τ ω)} := by
+      gcongr
+  _ ≤ ∫⁻ ω, ENat.toENNReal (τ ω) ∂trajMeasure A.alg env :=
+      mul_meas_ge_le_lintegral₀ (Measurable.of_discrete.comp hτ).aemeasurable _
+  _ = expectedStoppingTime A env := (expectedStoppingTime_def A env).symm
 
 end LMLExplore.Identification
 
