@@ -188,11 +188,14 @@ lemma seqTauEnvelope_mono (h : ∀ R, IsProbabilityMeasure R → Φ R ≤ Ψ R) 
 
 /-- **The neighbourhood envelope is at most the sequential envelope.** Probability measures that
 converge to `Q` on every measurable set have integrals of bounded measurable functions that
-converge to those of `Q`, so they are eventually in every basic neighbourhood of `Q`. -/
-theorem tauEnvelope_le_seqTauEnvelope (Φ : Measure Ω → EReal) (Q : Measure Ω)
-    [IsProbabilityMeasure Q] :
+converge to those of `Q`, so they are eventually in every basic neighbourhood of `Q`. No
+assumption on `Q` is needed: if such a sequence exists, then `Q univ = 1`. -/
+theorem tauEnvelope_le_seqTauEnvelope (Φ : Measure Ω → EReal) (Q : Measure Ω) :
     tauEnvelope Φ Q ≤ seqTauEnvelope Φ Q := by
   refine le_seqTauEnvelope_iff.2 fun R hR hRQ ↦ tauEnvelope_le_iff.2 fun k g hg hgb ε hε ↦ ?_
+  -- `Q` is a probability measure, as the limit of `R n univ = 1`
+  have : IsProbabilityMeasure Q := ⟨tendsto_nhds_unique (hRQ _ MeasurableSet.univ)
+    (tendsto_const_nhds.congr fun n ↦ (hR n).measure_univ.symm)⟩
   have hev : ∀ᶠ n in atTop, ∀ i, |∫ x, g i x ∂R n - ∫ x, g i x ∂Q| ≤ ε := by
     refine eventually_all.2 fun i ↦ ?_
     obtain ⟨C, hC⟩ := hgb i
