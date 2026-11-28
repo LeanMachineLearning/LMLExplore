@@ -200,7 +200,7 @@ private lemma zmultiples_subset_ratCircle (N : ℕ) :
   ring
 
 /-- The coset `x₀ + (1 / N) ℤ` of the circle is finite. -/
-private lemma finite_coset (x₀ : UnitAddCircle) (N : ℕ) :
+lemma finite_coset (x₀ : UnitAddCircle) (N : ℕ) :
     {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}.Finite := by
   have h : IsOfFinAddOrder (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle) := by
     rcases eq_or_ne N 0 with rfl | hN
@@ -212,7 +212,7 @@ private lemma finite_coset (x₀ : UnitAddCircle) (N : ℕ) :
   exact (Set.toFinite _).preimage (sub_left_injective.injOn)
 
 /-- The members of the coset null are probability measures. -/
-private lemma isProbabilityMeasure_coset_mixture (hε : ε ≤ 1) (x₀ : UnitAddCircle) (N : ℕ) :
+lemma isProbabilityMeasure_coset_mixture (hε : ε ≤ 1) (x₀ : UnitAddCircle) (N : ℕ) :
     IsProbabilityMeasure ((1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume) := by
   have := isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩

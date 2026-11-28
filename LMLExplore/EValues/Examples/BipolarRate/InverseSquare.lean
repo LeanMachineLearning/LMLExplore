@@ -35,6 +35,9 @@ logarithm of the likelihood ratio grows linearly in `j` while `Q` has an infinit
 
 ## Main statements
 
+* `ProbabilityTheory.exists_klDiv_ne_top_forall_abs_integral_sub_le`: if a measure `ν` charges
+  every point, every basic neighbourhood of a probability measure `μ` contains a
+  probability measure at finite relative entropy from `ν`.
 * `ProbabilityTheory.exists_klDiv_pi_ne_top_forall_abs_integral_sub_le`: if `P` charges every
   point, every basic neighbourhood of every `Q ^ n` contains a probability measure at finite
   relative entropy from `P ^ n`.
@@ -47,9 +50,10 @@ logarithm of the likelihood ratio grows linearly in `j` while `Q` has an infinit
 
 ## Implementation notes
 
-The law carried by a finite set is the image of `Q ^ n` by a measurable map with finite range
-along which the statistics of the neighbourhood move by less than its tolerance
-(`MeasureTheory.exists_measurable_finite_range_forall_abs_comp_sub_lt`). The relative entropy
+The law carried by a finite set is the image of `μ` by a measurable map with finite range along
+which the statistics of the neighbourhood move by less than its tolerance
+(`MeasureTheory.exists_measurable_finite_range_forall_abs_integral_map_sub_le`); it is at finite
+relative entropy from `ν`, which charges each of its finitely many points. The relative entropy
 `KL(Q ‖ P) = ∞` is proved by the Donsker–Varadhan inequality for the logarithm of the likelihood
 ratio on the points of `[199, J)`, where the terms `q_j log (q_j / p_j)` are at least
 `1 / (5 (j + 1))`, and by the divergence of the harmonic series.
@@ -78,31 +82,21 @@ variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧}
 
 /-! ### Basic neighbourhoods contain laws at finite relative entropy -/
 
-/-- **Every basic neighbourhood of `Q ^ n` contains a law at finite relative entropy from
-`P ^ n`** when `P` charges every point [EVR26, Note 15]: the image of `Q ^ n` by a measurable map
-with finite range along which the statistics `g i` move by less than `ε` is in the
-neighbourhood, and it is carried by a finite set whose points `P ^ n` charges. -/
-theorem exists_klDiv_pi_ne_top_forall_abs_integral_sub_le
-    (Q P : Measure 𝓧) [IsProbabilityMeasure Q] [SigmaFinite P] (hP : ∀ x, P {x} ≠ 0) (n : ℕ)
-    {k : ℕ} {g : Fin k → (Fin n → 𝓧) → ℝ} (hg : ∀ i, Measurable (g i))
+/-- **Every basic neighbourhood of `μ` contains a law at finite relative entropy from `ν`** when
+the measure `ν` charges every point: for a probability measure `μ`, finitely many
+bounded measurable real functions `g i` and `ε > 0`, some probability measure `R` has
+`|∫ g i ∂R - ∫ g i ∂μ| ≤ ε` for every `i` and `klDiv R ν ≠ ∞`. -/
+theorem exists_klDiv_ne_top_forall_abs_integral_sub_le
+    (μ ν : Measure 𝓧) [IsProbabilityMeasure μ] (hν : ∀ x, ν {x} ≠ 0)
+    {ι : Type*} [Finite ι] {g : ι → 𝓧 → ℝ} (hg : ∀ i, Measurable (g i))
     (hgb : ∀ i, ∃ C, ∀ x, |g i x| ≤ C) {ε : ℝ} (hε : 0 < ε) :
-    ∃ R : Measure (Fin n → 𝓧), IsProbabilityMeasure R ∧
-      (∀ i, |∫ x, g i x ∂R - ∫ x, g i x ∂(Measure.pi fun _ : Fin n ↦ Q)| ≤ ε) ∧
-      klDiv R (Measure.pi fun _ : Fin n ↦ P) ≠ ∞ := by
-  set μ := Measure.pi fun _ : Fin n ↦ Q
-  set ν := Measure.pi fun _ : Fin n ↦ P
-  obtain ⟨s, hs, hsf, hsg⟩ := exists_measurable_finite_range_forall_abs_comp_sub_lt hg hgb hε
-  refine ⟨μ.map s, inferInstance, fun i ↦ ?_, ?_⟩
-  · -- the integrals of the `g i` move by less than `ε`
-    obtain ⟨C, hC⟩ := hgb i
-    rw [integral_map hs.aemeasurable (hg i).aestronglyMeasurable,
-      ← integral_sub (LMLExplore.integrable_of_abs_le (f := fun x ↦ g i (s x)) ((hg i).comp hs)
-        (fun x ↦ hC (s x)) μ) (LMLExplore.integrable_of_abs_le (hg i) hC μ)]
-    exact LMLExplore.abs_integral_le_of_abs_le fun x ↦ (hsg i x).le
-  -- `P ^ n` charges every point, and the image of `Q ^ n` is carried by the finite range of `s`
-  have hν (x : Fin n → 𝓧) : ν {x} ≠ 0 := by
-    rw [Measure.pi_singleton]
-    exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hP (x i)
+    ∃ R : Measure 𝓧, IsProbabilityMeasure R ∧ (∀ i, |∫ x, g i x ∂R - ∫ x, g i x ∂μ| ≤ ε) ∧
+      klDiv R ν ≠ ∞ := by
+  -- the image of `μ` by a map with finite range along which the `g i` move by less than `ε`
+  obtain ⟨s, hs, hsf, hsg⟩ :=
+    exists_measurable_finite_range_forall_abs_integral_map_sub_le hg hgb hε μ
+  refine ⟨μ.map s, inferInstance, fun i ↦ (hsg i).trans_eq (by rw [probReal_univ, mul_one]), ?_⟩
+  -- `ν` charges every point, and the image of `μ` is carried by the finite range of `s`
   refine klDiv_ne_top (Measure.AbsolutelyContinuous.mk fun A _ hA ↦ ?_) ?_
   · rw [Set.eq_empty_of_forall_notMem fun x hx ↦
       hν x (measure_mono_null (Set.singleton_subset_iff.2 hx) hA), measure_empty]
@@ -113,6 +107,22 @@ theorem exists_klDiv_pi_ne_top_forall_abs_integral_sub_le
     rw [Function.comp_apply, Real.norm_eq_abs]
     exact Finset.single_le_sum (f := fun y ↦ |llr (μ.map s) ν y|) (fun _ _ ↦ abs_nonneg _)
       (hsf.mem_toFinset.2 ⟨x, rfl⟩)
+
+/-- **Every basic neighbourhood of `Q ^ n` contains a law at finite relative entropy from
+`P ^ n`** when `P` is a σ-finite measure that charges every point [EVR26, Note 15]: for a
+probability measure `Q`, finitely many bounded measurable real functions `g i` on `𝓧 ^ n` and
+`ε > 0`, some probability measure `R` has `|∫ g i ∂R - ∫ g i ∂(Q ^ n)| ≤ ε` for every `i` and
+`klDiv R (P ^ n) ≠ ∞`. -/
+theorem exists_klDiv_pi_ne_top_forall_abs_integral_sub_le
+    (Q P : Measure 𝓧) [IsProbabilityMeasure Q] [SigmaFinite P] (hP : ∀ x, P {x} ≠ 0) (n : ℕ)
+    {k : ℕ} {g : Fin k → (Fin n → 𝓧) → ℝ} (hg : ∀ i, Measurable (g i))
+    (hgb : ∀ i, ∃ C, ∀ x, |g i x| ≤ C) {ε : ℝ} (hε : 0 < ε) :
+    ∃ R : Measure (Fin n → 𝓧), IsProbabilityMeasure R ∧
+      (∀ i, |∫ x, g i x ∂R - ∫ x, g i x ∂(Measure.pi fun _ : Fin n ↦ Q)| ≤ ε) ∧
+      klDiv R (Measure.pi fun _ : Fin n ↦ P) ≠ ∞ :=
+  exists_klDiv_ne_top_forall_abs_integral_sub_le _ _ (fun x ↦ by
+    rw [Measure.pi_singleton]
+    exact Finset.prod_ne_zero_iff.2 fun i _ ↦ hP (x i)) hg hgb hε
 
 /-- **The block criterion fails at an infinite relative entropy** [EVR26, Note 15]. For a
 probability measure `P` that charges every point and a probability measure `Q` with
@@ -155,14 +165,120 @@ private lemma hasSum_inverseSquare :
     field_simp
   · field_simp
 
+/-- **The Donsker–Varadhan bound on a finite block of atoms.** For probability measures `Q` and
+`P` on a measurable space with measurable singletons and a finite set `F` of points charged by both,
+`∑_{j ∈ F} Q {j} log (Q {j} / P {j}) - log 2 ≤ KL(Q ‖ P)`. -/
+private lemma ofReal_sum_mul_log_sub_log_two_le_klDiv [MeasurableSingletonClass 𝓧]
+    (Q P : Measure 𝓧) [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (F : Finset 𝓧)
+    (hQ : ∀ j ∈ F, 0 < Q.real {j}) (hP : ∀ j ∈ F, 0 < P.real {j}) :
+    ENNReal.ofReal (∑ j ∈ F, Q.real {j} * Real.log (Q.real {j} / P.real {j}) - Real.log 2) ≤
+      klDiv Q P := by
+  classical
+  set q : 𝓧 → ℝ := fun j ↦ Q.real {j} with hq_def
+  set p : 𝓧 → ℝ := fun j ↦ P.real {j} with hp_def
+  -- the logarithm of the likelihood ratio on the points of `F`
+  set f : 𝓧 → ℝ := fun x ↦ ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ Real.log (q j / p j)) x
+    with hf_def
+  have hsingle (c : 𝓧 → ℝ) (x : 𝓧) :
+      ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ c j) x = if x ∈ F then c x else 0 := by
+    split_ifs with hx
+    · rw [Finset.sum_eq_single x (fun j _ hj ↦ Set.indicator_of_notMem
+        (by simpa using Ne.symm hj) _) (fun h ↦ absurd hx h)]
+      simp
+    · exact Finset.sum_eq_zero fun j hj ↦ Set.indicator_of_notMem
+        (by rintro rfl; exact hx hj) _
+  have hint_ind (μ : Measure 𝓧) [IsFiniteMeasure μ] (c : 𝓧 → ℝ) :
+      Integrable (fun x ↦ ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ c j) x) μ :=
+    integrable_finsetSum _ fun j _ ↦ (integrable_const _).indicator (measurableSet_singleton j)
+  have hexpf (x : 𝓧) : Real.exp (f x) =
+      1 + ∑ j ∈ F, ({j} : Set 𝓧).indicator (fun _ ↦ q j / p j - 1) x := by
+    simp only [hf_def]
+    rw [hsingle, hsingle]
+    split_ifs with hx
+    · rw [Real.exp_log (div_pos (hQ x hx) (hP x hx))]; ring
+    · simp
+  have hexpi : Integrable (fun x ↦ Real.exp (f x)) P := by
+    simp_rw [hexpf]
+    exact (integrable_const 1).add (hint_ind _ _)
+  have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := Q) (ν := P)
+    (hint_ind _ _) hexpi
+  have hIf : ∫ x, f x ∂Q = ∑ j ∈ F, q j * Real.log (q j / p j) := by
+    rw [hf_def, integral_finsetSum _ fun j _ ↦
+      (integrable_const _).indicator (measurableSet_singleton j)]
+    exact Finset.sum_congr rfl fun j _ ↦ by
+      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul]
+  have hIe : ∫ x, Real.exp (f x) ∂P ≤ 2 := by
+    simp_rw [hexpf]
+    rw [integral_add (integrable_const 1) (hint_ind _ _), integral_const, probReal_univ,
+      one_smul, integral_finsetSum _ fun j _ ↦
+        (integrable_const _).indicator (measurableSet_singleton j)]
+    have hsum : ∑ j ∈ F, ∫ x, ({j} : Set 𝓧).indicator (fun _ ↦ q j / p j - 1) x ∂P
+        ≤ ∑ j ∈ F, Q.real {j} := by
+      refine Finset.sum_le_sum fun j hj ↦ ?_
+      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul, mul_sub,
+        mul_div_cancel₀ _ (hP j hj).ne', mul_one]
+      linarith [hP j hj]
+    have hF : ∑ j ∈ F, Q.real {j} ≤ 1 := by
+      rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ Set.disjoint_singleton.2 hij)
+        (fun j _ ↦ measurableSet_singleton j)]
+      exact measureReal_le_one
+    linarith
+  have hIe0 : 0 < ∫ x, Real.exp (f x) ∂P := integral_exp_pos hexpi
+  refine le_trans (ENNReal.ofReal_le_ofReal ?_) hDV
+  rw [hIf]
+  have := Real.log_le_log hIe0 hIe
+  linarith
+
+/-- From `j = 199` on, the term `q_j log (q_j / p_j)` of the inverse-square law
+`q_j = 6 / (π² (j + 1)²)` against the geometric law `p_j = 2 ^ (-(j + 1))` is at least
+`1 / (5 (j + 1))`. -/
+private lemma inv_five_mul_inv_le_inverseSquare_mul_log (j : ℕ) (hj : 199 ≤ j) :
+    (1 / 5) * (1 / ((j : ℝ) + 1)) ≤ 6 / (π ^ 2 * ((j : ℝ) + 1) ^ 2) *
+      Real.log (6 / (π ^ 2 * ((j : ℝ) + 1) ^ 2) / (2⁻¹ : ℝ) ^ (j + 1)) := by
+  set x : ℝ := (j : ℝ) + 1 with hx_def
+  have hx : 200 ≤ x := by rw [hx_def]; exact_mod_cast (show 200 ≤ j + 1 by omega)
+  have hxpos : 0 < x := by linarith
+  have hlog2 := Real.log_two_gt_d9
+  have hπ := Real.pi_lt_d2
+  have hπpos := Real.pi_pos
+  have hlogπ : Real.log π ≤ π - 1 := Real.log_le_sub_one_of_pos hπpos
+  have hlog6 : 0 ≤ Real.log 6 := Real.log_nonneg (by norm_num)
+  have hlogx : Real.log x ≤ x ^ (1 / 2 : ℝ) / (1 / 2) :=
+    Real.log_le_rpow_div hxpos.le (by norm_num)
+  set r := x ^ (1 / 2 : ℝ) with hr
+  have hr2 : r ^ 2 = x := by
+    rw [hr, ← Real.rpow_natCast, ← Real.rpow_mul hxpos.le]; norm_num
+  have hr0 : 0 ≤ r := Real.rpow_nonneg hxpos.le _
+  have hr14 : 14 ≤ r := by nlinarith
+  -- the logarithm of the likelihood ratio is at least `x / 3`
+  have hjx : ((j + 1 : ℕ) : ℝ) = x := by rw [hx_def]; push_cast; ring
+  have hqpos : 0 < 6 / (π ^ 2 * x ^ 2) := by positivity
+  have hppos : 0 < (2⁻¹ : ℝ) ^ (j + 1) := by positivity
+  have hlogq : Real.log (6 / (π ^ 2 * x ^ 2)) = Real.log 6 - 2 * Real.log π - 2 * Real.log x := by
+    rw [Real.log_div (by norm_num) (by positivity), Real.log_mul (by positivity)
+      (by positivity), Real.log_pow, Real.log_pow]
+    push_cast
+    ring
+  have hlogp : Real.log ((2⁻¹ : ℝ) ^ (j + 1)) = -(x * Real.log 2) := by
+    rw [Real.log_pow, Real.log_inv, hjx]
+    ring
+  have hL : x / 3 ≤ Real.log (6 / (π ^ 2 * x ^ 2) / (2⁻¹ : ℝ) ^ (j + 1)) := by
+    rw [Real.log_div hqpos.ne' hppos.ne', hlogq, hlogp]
+    nlinarith
+  have hπ2 : π ^ 2 ≤ 10 := by nlinarith
+  calc (1 / 5) * (1 / x) = 2 / (10 * x) := by field_simp; ring
+  _ ≤ 2 / (π ^ 2 * x) :=
+    div_le_div_of_nonneg_left (by norm_num) (by positivity) (by nlinarith)
+  _ = 6 / (π ^ 2 * x ^ 2) * (x / 3) := by field_simp; ring
+  _ ≤ 6 / (π ^ 2 * x ^ 2) * Real.log (6 / (π ^ 2 * x ^ 2) / (2⁻¹ : ℝ) ^ (j + 1)) :=
+    mul_le_mul_of_nonneg_left hL hqpos.le
+
 /-- **The inverse-square law is at infinite relative entropy from the geometric law.** The law
 `Q {j} = 6 / (π² (j + 1)²)` on `ℕ` has `KL(Q ‖ P) = ∞` for the geometric law
 `P {j} = 2 ^ (-(j + 1))` [EVR26, Note 15]. With
 `ProbabilityTheory.not_bipolarRate_eq_klInf_iff_of_klDiv_eq_top`, the bipolar rate of `Q` against
 `{P}` and the smallest relative entropy are both infinite, while every basic neighbourhood of
-every `Q ^ n` contains a law at finite relative entropy from `P ^ n`. The Donsker–Varadhan bound
-with the logarithm of the likelihood ratio on the points `j ∈ [199, J)` is
-`∑ q_j log (q_j / p_j) - log 2`, and the terms are at least `1 / (5 (j + 1))`. -/
+every `Q ^ n` contains a law at finite relative entropy from `P ^ n`. -/
 theorem klDiv_inverseSquare_geometricMeasure_eq_top :
     klDiv (Measure.sum fun j : ℕ ↦
         ENNReal.ofReal (6 / (π ^ 2 * ((j : ℝ) + 1) ^ 2)) • Measure.dirac j)
@@ -172,125 +288,29 @@ theorem klDiv_inverseSquare_geometricMeasure_eq_top :
   set P := geometricMeasure (⟨2⁻¹, by norm_num, by norm_num⟩ : unitInterval) with hP_def
   have : IsProbabilityMeasure Q :=
     hasSum_inverseSquare.isProbabilityMeasure_sum_dirac fun j ↦ by positivity
-  set q : ℕ → ℝ := fun j ↦ 6 / (π ^ 2 * ((j : ℝ) + 1) ^ 2) with hq_def
-  set p : ℕ → ℝ := fun j ↦ (2⁻¹ : ℝ) ^ (j + 1) with hp_def
-  have hqpos (j : ℕ) : 0 < q j := by positivity
-  have hppos (j : ℕ) : 0 < p j := by positivity
-  have hq (j : ℕ) : Q.real {j} = q j := by
+  have hq (j : ℕ) : Q.real {j} = 6 / (π ^ 2 * ((j : ℝ) + 1) ^ 2) := by
     rw [measureReal_def, hQ_def, Measure.sum_smul_dirac_singleton,
-      ENNReal.toReal_ofReal (hqpos j).le]
-  have hp (j : ℕ) : P.real {j} = p j := by
-    rw [hP_def, geometricMeasure_real_singleton fun h ↦ by simpa using congrArg Subtype.val h,
-      hp_def]
+      ENNReal.toReal_ofReal (by positivity)]
+  have hp (j : ℕ) : P.real {j} = (2⁻¹ : ℝ) ^ (j + 1) := by
+    rw [hP_def, geometricMeasure_real_singleton fun h ↦ by simpa using congrArg Subtype.val h]
     norm_num
     ring
-  -- the Donsker–Varadhan bound on a block of points
-  have key (F : Finset ℕ) : ENNReal.ofReal (∑ j ∈ F, q j * Real.log (q j / p j) - Real.log 2) ≤
-      klDiv Q P := by
-    set f : ℕ → ℝ := fun x ↦ ∑ j ∈ F, ({j} : Set ℕ).indicator (fun _ ↦ Real.log (q j / p j)) x
-      with hf_def
-    have hsingle (c : ℕ → ℝ) (x : ℕ) :
-        ∑ j ∈ F, ({j} : Set ℕ).indicator (fun _ ↦ c j) x = if x ∈ F then c x else 0 := by
-      split_ifs with hx
-      · rw [Finset.sum_eq_single x (fun j _ hj ↦ Set.indicator_of_notMem
-          (by simpa using Ne.symm hj) _) (fun h ↦ absurd hx h)]
-        simp
-      · exact Finset.sum_eq_zero fun j hj ↦ Set.indicator_of_notMem
-          (by rintro rfl; exact hx hj) _
-    have hint_ind (μ : Measure ℕ) [IsFiniteMeasure μ] (c : ℕ → ℝ) :
-        Integrable (fun x ↦ ∑ j ∈ F, ({j} : Set ℕ).indicator (fun _ ↦ c j) x) μ :=
-      integrable_finsetSum _ fun j _ ↦ (integrable_const _).indicator (measurableSet_singleton j)
-    have hexpf (x : ℕ) : Real.exp (f x) =
-        1 + ∑ j ∈ F, ({j} : Set ℕ).indicator (fun _ ↦ q j / p j - 1) x := by
-      simp only [hf_def]
-      rw [hsingle, hsingle]
-      split_ifs
-      · rw [Real.exp_log (div_pos (hqpos _) (hppos _))]; ring
-      · simp
-    have hexpi : Integrable (fun x ↦ Real.exp (f x)) P := by
-      simp_rw [hexpf]
-      exact (integrable_const 1).add (hint_ind _ _)
-    have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := Q) (ν := P)
-      (hint_ind _ _) hexpi
-    have hIf : ∫ x, f x ∂Q = ∑ j ∈ F, q j * Real.log (q j / p j) := by
-      rw [hf_def, integral_finsetSum _ fun j _ ↦
-        (integrable_const _).indicator (measurableSet_singleton j)]
-      exact Finset.sum_congr rfl fun j _ ↦ by
-        rw [integral_indicator_const _ (measurableSet_singleton j), hq, smul_eq_mul]
-    have hIe : ∫ x, Real.exp (f x) ∂P ≤ 2 := by
-      simp_rw [hexpf]
-      rw [integral_add (integrable_const 1) (hint_ind _ _), integral_const, probReal_univ,
-        one_smul, integral_finsetSum _ fun j _ ↦
-          (integrable_const _).indicator (measurableSet_singleton j)]
-      have hsum : ∑ j ∈ F, ∫ x, ({j} : Set ℕ).indicator (fun _ ↦ q j / p j - 1) x ∂P
-          ≤ ∑ j ∈ F, Q.real {j} := by
-        refine Finset.sum_le_sum fun j _ ↦ ?_
-        rw [integral_indicator_const _ (measurableSet_singleton j), hp, smul_eq_mul, hq,
-          mul_sub, mul_div_cancel₀ _ (hppos j).ne', mul_one]
-        linarith [hppos j]
-      have hF : ∑ j ∈ F, Q.real {j} ≤ 1 := by
-        rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ Set.disjoint_singleton.2 hij)
-          (fun j _ ↦ measurableSet_singleton j)]
-        exact measureReal_le_one
-      linarith
-    have hIe0 : 0 < ∫ x, Real.exp (f x) ∂P := integral_exp_pos hexpi
-    refine le_trans (ENNReal.ofReal_le_ofReal ?_) hDV
-    rw [hIf]
-    have := Real.log_le_log hIe0 hIe
-    linarith
-  -- the terms of the sums are at least `1 / (5 (j + 1))` from `j = 199` on
-  have hterm (j : ℕ) (hj : 199 ≤ j) :
-      (1 / 5) * (1 / ((j : ℝ) + 1)) ≤ q j * Real.log (q j / p j) := by
-    set x : ℝ := (j : ℝ) + 1 with hx_def
-    have hx : 200 ≤ x := by rw [hx_def]; exact_mod_cast (show 200 ≤ j + 1 by omega)
-    have hxpos : 0 < x := by linarith
-    have hlog2 := Real.log_two_gt_d9
-    have hπ := Real.pi_lt_d2
-    have hπpos := Real.pi_pos
-    have hlogπ : Real.log π ≤ π - 1 := Real.log_le_sub_one_of_pos hπpos
-    have hlog6 : 0 ≤ Real.log 6 := Real.log_nonneg (by norm_num)
-    have hlogx : Real.log x ≤ x ^ (1 / 2 : ℝ) / (1 / 2) :=
-      Real.log_le_rpow_div hxpos.le (by norm_num)
-    set r := x ^ (1 / 2 : ℝ) with hr
-    have hr2 : r ^ 2 = x := by
-      rw [hr, ← Real.rpow_natCast, ← Real.rpow_mul hxpos.le]; norm_num
-    have hr0 : 0 ≤ r := Real.rpow_nonneg hxpos.le _
-    have hr14 : 14 ≤ r := by nlinarith
-    -- the logarithm of the likelihood ratio is at least `x / 3`
-    have hjx : ((j + 1 : ℕ) : ℝ) = x := by rw [hx_def]; push_cast; ring
-    have hq' : q j = 6 / (π ^ 2 * x ^ 2) := by rw [hq_def, hx_def]
-    have hlogq : Real.log (q j) = Real.log 6 - 2 * Real.log π - 2 * Real.log x := by
-      rw [hq', Real.log_div (by norm_num) (by positivity), Real.log_mul (by positivity)
-        (by positivity), Real.log_pow, Real.log_pow]
-      push_cast
-      ring
-    have hlogp : Real.log (p j) = -(x * Real.log 2) := by
-      rw [hp_def]
-      simp only
-      rw [Real.log_pow, Real.log_inv, hjx]
-      ring
-    have hL : x / 3 ≤ Real.log (q j / p j) := by
-      rw [Real.log_div (hqpos j).ne' (hppos j).ne', hlogq, hlogp]
-      nlinarith
-    have hπ2 : π ^ 2 ≤ 10 := by nlinarith
-    calc (1 / 5) * (1 / x) = 2 / (10 * x) := by field_simp; ring
-    _ ≤ 2 / (π ^ 2 * x) :=
-      div_le_div_of_nonneg_left (by norm_num) (by positivity) (by nlinarith)
-    _ = q j * (x / 3) := by rw [hq']; field_simp; ring
-    _ ≤ q j * Real.log (q j / p j) := mul_le_mul_of_nonneg_left hL (hqpos j).le
   -- the harmonic series diverges
   refine ENNReal.eq_top_of_forall_nnreal_le fun T ↦ ?_
   have hH := Real.tendsto_sum_range_one_div_nat_succ_atTop
   obtain ⟨J, hJ⟩ := (hH.eventually (eventually_ge_atTop
     (5 * ((T : ℝ) + Real.log 2) + ∑ i ∈ Finset.range 199, 1 / ((i : ℝ) + 1)))).and
       (eventually_ge_atTop 199) |>.exists
-  refine le_trans ?_ (key (Finset.Ico 199 J))
+  refine le_trans ?_ (ofReal_sum_mul_log_sub_log_two_le_klDiv Q P (Finset.Ico 199 J)
+    (fun j _ ↦ by rw [hq]; positivity) (fun j _ ↦ by rw [hp]; positivity))
   rw [← ENNReal.ofReal_coe_nnreal]
   refine ENNReal.ofReal_le_ofReal ?_
   have hsum : (1 / 5) * ∑ j ∈ Finset.Ico 199 J, 1 / ((j : ℝ) + 1) ≤
-      ∑ j ∈ Finset.Ico 199 J, q j * Real.log (q j / p j) := by
+      ∑ j ∈ Finset.Ico 199 J, Q.real {j} * Real.log (Q.real {j} / P.real {j}) := by
     rw [Finset.mul_sum]
-    exact Finset.sum_le_sum fun j hj ↦ hterm j (Finset.mem_Ico.1 hj).1
+    refine Finset.sum_le_sum fun j hj ↦ ?_
+    rw [hq, hp]
+    exact inv_five_mul_inv_le_inverseSquare_mul_log j (Finset.mem_Ico.1 hj).1
   rw [Finset.sum_Ico_eq_sub _ hJ.2] at hsum
   linarith [hJ.1]
 

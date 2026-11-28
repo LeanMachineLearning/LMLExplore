@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.Examples.BipolarRate.Circle
 public import LMLExplore.MeasureTheory.Measure.TauEnvelope
+import LMLExplore.Analysis.Normed.Group.AddCircle
 import LMLExplore.EValues.BipolarRate.Envelope
 import LMLExplore.EValues.Examples.BipolarRate.FiniteSupport
 import LMLExplore.MeasureTheory.Function.SimpleFunc
@@ -64,13 +65,17 @@ sufficient, and the supremum over the number of observations in the variational 
 
 A basic neighbourhood of `Q` meets the finite-support null at the mixture of `Q` with the image of
 `Q` by a measurable map with finite range along which the statistics of the neighbourhood move by
-less than its tolerance (`MeasureTheory.exists_measurable_finite_range_forall_abs_comp_sub_lt`).
+less than its tolerance
+(`MeasureTheory.exists_measurable_finite_range_forall_abs_integral_map_sub_le`).
 For the coset null, the average `T_N f (x₀)` of a bounded measurable `f` on the coset
 `x₀ + (1 / N) ℤ` is a contraction of `L¹(volume)` in `f`, and tends to `∫ f` uniformly in `x₀`
 for a continuous `f`, by uniform continuity; with the density of the bounded continuous functions
 in `L¹`, some coset has averages of the statistics close to their integrals. The lower bound on
 the sequential envelope is the Donsker–Varadhan inequality for `t 𝟙_{sᶜ}`, with `s` the finite set
-that carries `F`, as `t → ∞`.
+that carries `F`, as `t → ∞`: probability measures `R k` that converge to `Q` on every measurable
+set give a vanishing mass to the countable set `C` of their atoms, hence to every finite set, so
+that `klInf (R k) S ≥ t (1 - R k C) - log (ε e^t + 1 - ε)`. The lower bound for the coset null is
+that of the larger finite-support null.
 
 The statements and proofs are adapted from `EValuesResearch/Results/Envelopes.lean` and
 `EValuesResearch/Results/RateVersusKL.lean` (commit `83205cb`) in the paper project
@@ -94,27 +99,6 @@ namespace ProbabilityTheory
 
 variable {𝓧 : Type*} {m𝓧 : MeasurableSpace 𝓧} {ε : ℝ≥0∞}
 
-/-- Mixing a measure `F` with `Q`, with weights `1 - ε` and `ε`, brings its integral of `f`
-closer to that of `Q`. -/
-private lemma abs_integral_mixture_sub_le {F Q : Measure 𝓧} (hε : ε ≤ 1) {f : 𝓧 → ℝ}
-    (hfF : Integrable f F) (hfQ : Integrable f Q) {δ : ℝ} (h : |∫ x, f x ∂F - ∫ x, f x ∂Q| ≤ δ) :
-    |∫ x, f x ∂((1 - ε) • F + ε • Q) - ∫ x, f x ∂Q| ≤ δ := by
-  have hεt : ε ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top hε
-  rw [integral_add_measure (hfF.smul_measure (by simp)) (hfQ.smul_measure hεt),
-    integral_smul_measure, integral_smul_measure]
-  have hsum : (1 - ε).toReal + ε.toReal = 1 := by
-    rw [← ENNReal.toReal_add (by simp) hεt, tsub_add_cancel_of_le hε, ENNReal.toReal_one]
-  have h1 : 0 ≤ (1 - ε).toReal := ENNReal.toReal_nonneg
-  have h1' : (1 - ε).toReal ≤ 1 := by linarith [ENNReal.toReal_nonneg (a := ε)]
-  have heq : (1 - ε).toReal • (∫ x, f x ∂F) + ε.toReal • (∫ x, f x ∂Q) - ∫ x, f x ∂Q =
-      (1 - ε).toReal * (∫ x, f x ∂F - ∫ x, f x ∂Q) := by
-    rw [smul_eq_mul, smul_eq_mul]
-    linear_combination (∫ x, f x ∂Q) * hsum
-  rw [heq, abs_mul, abs_of_nonneg h1]
-  calc (1 - ε).toReal * |∫ x, f x ∂F - ∫ x, f x ∂Q|
-  _ ≤ 1 * δ := mul_le_mul h1' h (abs_nonneg _) zero_le_one
-  _ = δ := one_mul δ
-
 /-! ### The finite-support null -/
 
 /-- The members of the finite-support null are probability measures. -/
@@ -126,10 +110,10 @@ private lemma isProbabilityMeasure_of_mem_finitelySupported_mixtures {Q : Measur
   obtain ⟨F, hF, -, rfl⟩ := hP
   exact ⟨by simp [tsub_add_cancel_of_le hε]⟩
 
-/-- **The neighbourhood envelope of the finite-support null is zero** [EVR26, Note 19]. For every
-probability measure `Q` on a measurable space with measurable singletons and `ε ≤ 1`, every basic
-neighbourhood of `Q` contains a mixture `(1 - ε) F + ε Q` with `F` carried by a finite set, at
-which the smallest relative entropy to the null vanishes. -/
+/-- **The neighbourhood envelope of the finite-support null is zero** [EVR26, Note 19]: for every
+probability measure `Q` on a measurable space with measurable singletons and `ε ≤ 1`, the
+neighbourhood envelope at `Q` of the smallest relative entropy to the null of the mixtures
+`(1 - ε) F + ε Q`, with `F` carried by a finite set, is `0`. -/
 theorem tauEnvelope_klInf_finitelySupported_mixtures_eq_zero [MeasurableSingletonClass 𝓧]
     (Q : Measure 𝓧) [IsProbabilityMeasure Q] (hε : ε ≤ 1) :
     tauEnvelope (fun R ↦ klInf R {(1 - ε) • F + ε • Q | (F : Measure 𝓧)
@@ -142,7 +126,8 @@ theorem tauEnvelope_klInf_finitelySupported_mixtures_eq_zero [MeasurableSingleto
     ((maxEPower_nonneg Q fun P hP ↦ (hS P hP).measure_univ.le).trans
       (maxEPower_le_tauEnvelope_klInf Q S hS))
   -- the image of `Q` by a map with finite range along which the `g i` move by less than `δ`
-  obtain ⟨s, hs, hsf, hsg⟩ := exists_measurable_finite_range_forall_abs_comp_sub_lt hg hgb hδ
+  obtain ⟨s, hs, hsf, hsg⟩ :=
+    exists_measurable_finite_range_forall_abs_integral_map_sub_le hg hgb hδ Q
   have hF : Q.map s (Set.range s)ᶜ = 0 := by
     rw [Measure.map_apply hs hsf.measurableSet.compl, Set.preimage_compl, Set.preimage_range,
       Set.compl_univ, measure_empty]
@@ -150,23 +135,98 @@ theorem tauEnvelope_klInf_finitelySupported_mixtures_eq_zero [MeasurableSingleto
   have := hS _ hP
   refine (tauNbhdInf_le this fun i ↦ ?_).trans ((klInf_le_klIntegral hP).trans ?_)
   · obtain ⟨C, hC⟩ := hgb i
-    refine abs_integral_mixture_sub_le hε (LMLExplore.integrable_of_abs_le (hg i) hC _)
-      (LMLExplore.integrable_of_abs_le (hg i) hC _) ?_
-    rw [integral_map hs.aemeasurable (hg i).aestronglyMeasurable,
-      ← integral_sub (LMLExplore.integrable_of_abs_le (f := fun x ↦ g i (s x)) ((hg i).comp hs)
-        (fun x ↦ hC (s x)) Q) (LMLExplore.integrable_of_abs_le (hg i) hC Q)]
-    exact LMLExplore.abs_integral_le_of_abs_le fun x ↦ (hsg i x).le
+    exact LMLExplore.abs_integral_mixture_sub_le hε (LMLExplore.integrable_of_abs_le (hg i) hC _)
+      (LMLExplore.integrable_of_abs_le (hg i) hC _)
+      ((hsg i).trans_eq (by rw [probReal_univ, mul_one]))
   · rw [klIntegral_eq_klDiv rfl, klDiv_self, EReal.coe_ennreal_zero]
 
+/-- **The Donsker–Varadhan bound against the finite-support null.** For `t ≥ 0` and a
+probability measure `R` whose atoms all lie in a set `C`, the smallest relative entropy from `R`
+to the null of the mixtures `(1 - ε) F + ε Q`, with `F` carried by a finite set and `Q` without
+atoms, is at least `t (1 - R C) - log (ε e^t + 1 - ε)`. -/
+private lemma le_klInf_finitelySupported_mixtures [MeasurableSingletonClass 𝓧]
+    (Q : Measure 𝓧) [IsProbabilityMeasure Q] [NullSingletonClass Q] (hε : ε ≤ 1)
+    (R : Measure 𝓧) [IsProbabilityMeasure R] {C : Set 𝓧} (hC : ∀ x ∉ C, R {x} = 0) {t : ℝ}
+    (ht : 0 ≤ t) :
+    ((t * (1 - R.real C) - Real.log (ε.toReal * Real.exp t + (1 - ε.toReal)) : ℝ) : EReal) ≤
+      klInf R {(1 - ε) • F + ε • Q | (F : Measure 𝓧) (_ : IsProbabilityMeasure F)
+        (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)} := by
+  set e := ε.toReal with he_def
+  refine le_klInf_iff.2 fun P hP ↦ ?_
+  have hPp := isProbabilityMeasure_of_mem_finitelySupported_mixtures hε hP
+  obtain ⟨F, hF, ⟨s, hs, hFs⟩, rfl⟩ := hP
+  have hsm : MeasurableSet sᶜ := hs.measurableSet.compl
+  set f : 𝓧 → ℝ := sᶜ.indicator fun _ ↦ t with hf_def
+  have hexp_eq :
+      (fun x ↦ Real.exp (f x)) = fun x ↦ 1 + sᶜ.indicator (fun _ ↦ Real.exp t - 1) x := by
+    ext x
+    by_cases hx : x ∈ sᶜ <;> simp [f, hx]
+  have hexpi : Integrable (fun x ↦ Real.exp (f x)) ((1 - ε) • F + ε • Q) := by
+    rw [hexp_eq]
+    exact (integrable_const 1).add ((integrable_const _).indicator hsm)
+  have hQs : Q sᶜ = 1 := by
+    rw [measure_compl hs.measurableSet (measure_ne_top _ _), hs.measure_zero Q, measure_univ,
+      tsub_zero]
+  have hPs : ((1 - ε) • F + ε • Q).real sᶜ = e := by
+    simp [measureReal_def, hFs, hQs, he_def]
+  have hZ : ∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q) = e * Real.exp t + (1 - e) := by
+    rw [hexp_eq, integral_add (integrable_const _) ((integrable_const _).indicator hsm),
+      integral_const, integral_indicator_const _ hsm, hPs]
+    simp only [probReal_univ, smul_eq_mul, one_mul]
+    ring
+  -- a finite set has at most the mass of the atoms
+  have hRs : R.real s ≤ R.real C := by
+    have hdiff : R (s \ C) = 0 := by
+      rw [← Set.biUnion_of_singleton (s \ C),
+        measure_biUnion_null_iff (hs.countable.mono Set.sdiff_subset)]
+      exact fun x hx ↦ hC x hx.2
+    have h := measure_le_inter_add_sdiff R s C
+    rw [hdiff, add_zero] at h
+    exact ENNReal.toReal_mono (measure_ne_top _ _) (h.trans (measure_mono Set.inter_subset_right))
+  have hRf : ∫ x, f x ∂R = t * (1 - R.real s) := by
+    rw [hf_def, integral_indicator_const _ hsm, probReal_compl_eq_one_sub hs.measurableSet,
+      smul_eq_mul, mul_comm]
+  have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := R)
+    (ν := (1 - ε) • F + ε • Q) ((integrable_const t).indicator hsm) hexpi
+  rw [klIntegral_eq_klDiv (by simp [tsub_add_cancel_of_le hε])]
+  calc ((t * (1 - R.real C) - Real.log (e * Real.exp t + (1 - e)) : ℝ) : EReal)
+  _ ≤ ((∫ x, f x ∂R - Real.log (∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q)) : ℝ) :
+      EReal) := by
+    rw [hRf, hZ]
+    exact EReal.coe_le_coe_iff.2 (by nlinarith)
+  _ ≤ ((ENNReal.ofReal (∫ x, f x ∂R -
+      Real.log (∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q))) : ℝ≥0∞) : EReal) := by
+    rw [EReal.coe_ennreal_ofReal]
+    exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
+  _ ≤ (klDiv R ((1 - ε) • F + ε • Q) : EReal) :=
+    EReal.coe_ennreal_le_coe_ennreal_iff.2 hDV
+
+/-- For `0 < e ≤ 1`, `t - log (e e^t + 1 - e) → - log e` as `t → ∞`. -/
+private lemma tendsto_sub_log_mul_exp_add {e : ℝ} (he : 0 < e) (he1 : e ≤ 1) :
+    Tendsto (fun t ↦ t - Real.log (e * Real.exp t + (1 - e))) atTop (𝓝 (-Real.log e)) := by
+  -- `t - log (e e^t + 1 - e) = - log (e + (1 - e) e^{-t})`
+  have heq (t : ℝ) : t - Real.log (e * Real.exp t + (1 - e)) =
+      -Real.log (e + (1 - e) * Real.exp (-t)) := by
+    have hpos : 0 < e + (1 - e) * Real.exp (-t) := by
+      have := Real.exp_pos (-t)
+      nlinarith
+    have h2 : e * Real.exp t + (1 - e) = Real.exp t * (e + (1 - e) * Real.exp (-t)) := by
+      rw [mul_add, ← mul_assoc, mul_comm (Real.exp t) (1 - e), mul_assoc, ← Real.exp_add,
+        add_neg_cancel, Real.exp_zero, mul_one, mul_comm]
+    rw [h2, Real.log_mul (Real.exp_pos t).ne' hpos.ne', Real.log_exp]
+    ring
+  simp_rw [heq]
+  have h1 : Tendsto (fun t : ℝ ↦ e + (1 - e) * Real.exp (-t)) atTop (𝓝 e) := by
+    simpa using (Real.tendsto_exp_neg_atTop_nhds_zero.const_mul (1 - e)).const_add e
+  exact ((Real.continuousAt_log he.ne').tendsto.comp h1).neg
+
 /-- **The sequential envelope of the finite-support null is `log (1 / ε)`** [EVR26, Note 19].
-For a probability measure `Q` without atoms on a measurable space with measurable singletons, the
-smallest relative entropy to the null of the mixtures `(1 - ε) F + ε Q`, with `F` carried by a
-finite set, is lower semicontinuous at `Q` in the sequential sense, while the bipolar rate is `0`
-(`ProbabilityTheory.bipolarRate_finitelySupported_mixtures_eq_zero`). Probability measures `R k`
-that converge to `Q` on every measurable set give a vanishing mass to the countable set `C` of
-their atoms, hence to every finite set; a member `(1 - ε) F + ε Q` with `F` carried by a finite
-set `s` gives mass `ε` to the complement of `s`, and the Donsker–Varadhan bound for `t 𝟙_{sᶜ}`
-gives `klDiv (R k) P ≥ t (1 - R k C) - log (ε e^t + 1 - ε)`. Let `k → ∞`, then `t → ∞`. -/
+For a probability measure `Q` without atoms on a measurable space with measurable singletons and
+`ε ≤ 1`, the sequential envelope at `Q` of the smallest relative entropy to the null of the
+mixtures `(1 - ε) F + ε Q`, with `F` carried by a finite set, is `log (1 / ε)`, the smallest
+relative entropy itself (`ProbabilityTheory.klInf_finitelySupported_mixtures`): it is lower
+semicontinuous at `Q` in the sequential sense, while the bipolar rate is `0`
+(`ProbabilityTheory.bipolarRate_finitelySupported_mixtures_eq_zero`). -/
 theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClass 𝓧]
     (Q : Measure 𝓧) [IsProbabilityMeasure Q] [NullSingletonClass Q] (hε : ε ≤ 1) :
     seqTauEnvelope (fun R ↦ klInf R {(1 - ε) • F + ε • Q | (F : Measure 𝓧)
@@ -176,7 +236,6 @@ theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClas
     (_ : ∃ s : Set 𝓧, s.Finite ∧ F sᶜ = 0)}
   refine le_antisymm (seqTauEnvelope_le.trans (klInf_finitelySupported_mixtures Q hε).le)
     (le_seqTauEnvelope_iff.2 fun R hR hRQ ↦ ?_)
-  have := hR
   -- the countable set of the atoms of all the `R k`
   set C : Set 𝓧 := ⋃ k, {x | 0 < R k {x}} with hC_def
   have hCc : C.Countable := Set.countable_iUnion fun k ↦
@@ -187,63 +246,11 @@ theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClas
     rw [hCc.measure_zero Q] at h
     simpa [measureReal_def, Function.comp_def] using
       (ENNReal.tendsto_toReal ENNReal.zero_ne_top).comp h
+  have hatoms (k : ℕ) (x : 𝓧) (hx : x ∉ C) : R k {x} = 0 := by
+    simp only [hC_def, Set.mem_iUnion, Set.mem_ofPred_eq, not_exists, not_lt] at hx
+    exact le_antisymm (hx k) zero_le
   set e := ε.toReal with he_def
   have he1 : e ≤ 1 := ENNReal.toReal_le_of_le_ofReal zero_le_one (by simpa using hε)
-  -- the bound at a level `t ≥ 0`, for each `k`
-  have key (t : ℝ) (ht : 0 ≤ t) (k : ℕ) :
-      ((t * (1 - (R k).real C) - Real.log (e * Real.exp t + (1 - e)) : ℝ) : EReal) ≤
-        klInf (R k) S := by
-    refine le_klInf_iff.2 fun P hP ↦ ?_
-    have hPp := isProbabilityMeasure_of_mem_finitelySupported_mixtures hε hP
-    obtain ⟨F, hF, ⟨s, hs, hFs⟩, rfl⟩ := hP
-    have hsm : MeasurableSet sᶜ := hs.measurableSet.compl
-    set f : 𝓧 → ℝ := sᶜ.indicator fun _ ↦ t with hf_def
-    have hexp_eq :
-        (fun x ↦ Real.exp (f x)) = fun x ↦ 1 + sᶜ.indicator (fun _ ↦ Real.exp t - 1) x := by
-      ext x
-      by_cases hx : x ∈ sᶜ <;> simp [f, hx]
-    have hexpi : Integrable (fun x ↦ Real.exp (f x)) ((1 - ε) • F + ε • Q) := by
-      rw [hexp_eq]
-      exact (integrable_const 1).add ((integrable_const _).indicator hsm)
-    have hQs : Q sᶜ = 1 := by
-      rw [measure_compl hs.measurableSet (measure_ne_top _ _), hs.measure_zero Q, measure_univ,
-        tsub_zero]
-    have hPs : ((1 - ε) • F + ε • Q).real sᶜ = e := by
-      simp [measureReal_def, hFs, hQs, he_def]
-    have hZ : ∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q) = e * Real.exp t + (1 - e) := by
-      rw [hexp_eq, integral_add (integrable_const _) ((integrable_const _).indicator hsm),
-        integral_const, integral_indicator_const _ hsm, hPs]
-      simp only [probReal_univ, smul_eq_mul, one_mul]
-      ring
-    -- a finite set has at most the mass of the atoms
-    have hRs : (R k).real s ≤ (R k).real C := by
-      have hdiff : R k (s \ C) = 0 := by
-        rw [← Set.biUnion_of_singleton (s \ C),
-          measure_biUnion_null_iff (hs.countable.mono Set.sdiff_subset)]
-        intro x hx
-        have hxC : x ∉ C := hx.2
-        simp only [hC_def, Set.mem_iUnion, Set.mem_ofPred_eq, not_exists, not_lt] at hxC
-        exact le_antisymm (hxC k) zero_le
-      have h := measure_le_inter_add_sdiff (R k) s C
-      rw [hdiff, add_zero] at h
-      exact ENNReal.toReal_mono (measure_ne_top _ _) (h.trans (measure_mono Set.inter_subset_right))
-    have hRf : ∫ x, f x ∂R k = t * (1 - (R k).real s) := by
-      rw [hf_def, integral_indicator_const _ hsm, probReal_compl_eq_one_sub hs.measurableSet,
-        smul_eq_mul, mul_comm]
-    have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := R k)
-      (ν := (1 - ε) • F + ε • Q) ((integrable_const t).indicator hsm) hexpi
-    rw [klIntegral_eq_klDiv (by simp [tsub_add_cancel_of_le hε])]
-    calc ((t * (1 - (R k).real C) - Real.log (e * Real.exp t + (1 - e)) : ℝ) : EReal)
-    _ ≤ ((∫ x, f x ∂R k - Real.log (∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q)) : ℝ) :
-        EReal) := by
-      rw [hRf, hZ]
-      exact EReal.coe_le_coe_iff.2 (by nlinarith)
-    _ ≤ ((ENNReal.ofReal (∫ x, f x ∂R k -
-        Real.log (∫ x, Real.exp (f x) ∂((1 - ε) • F + ε • Q))) : ℝ≥0∞) : EReal) := by
-      rw [EReal.coe_ennreal_ofReal]
-      exact EReal.coe_le_coe_iff.2 (le_max_left _ _)
-    _ ≤ (klDiv (R k) ((1 - ε) • F + ε • Q) : EReal) :=
-      EReal.coe_ennreal_le_coe_ennreal_iff.2 hDV
   -- let `k → ∞`
   have hlim (t : ℝ) (ht : 0 ≤ t) : ((t - Real.log (e * Real.exp t + (1 - e)) : ℝ) : EReal) ≤
       liminf (fun k ↦ klInf (R k) S) atTop := by
@@ -253,7 +260,8 @@ theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClas
       refine (continuous_coe_real_ereal.tendsto _).comp ?_
       simpa using ((hRC.const_sub 1).const_mul t).sub_const (Real.log (e * Real.exp t + (1 - e)))
     rw [← htend.liminf_eq]
-    exact liminf_le_liminf (Eventually.of_forall (key t ht))
+    exact liminf_le_liminf (Eventually.of_forall fun k ↦
+      le_klInf_finitelySupported_mixtures Q hε (R k) (hatoms k) ht)
   -- let `t → ∞`
   refine le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_
   induction c using EReal.rec with
@@ -269,27 +277,11 @@ theorem seqTauEnvelope_klInf_finitelySupported_mixtures [MeasurableSingletonClas
     · have hεt : ε ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top hε
       have hepos : 0 < e := ENNReal.toReal_pos hε0 hεt
       have hlogε : ENNReal.log ε⁻¹ = ((-Real.log e : ℝ) : EReal) := by
-        rw [ENNReal.log_inv, ENNReal.log_pos_real hε0 hεt]
-        rfl
+        rw [ENNReal.log_inv, ENNReal.log_pos_real hε0 hεt, EReal.coe_neg]
       rw [hlogε, EReal.coe_lt_coe_iff] at hc
-      -- `t - log (e e^t + 1 - e) = - log (e + (1 - e) e^{-t}) → - log e`
-      have hφ : Tendsto (fun t : ℝ ↦ -Real.log (e + (1 - e) * Real.exp (-t))) atTop
-          (𝓝 (-Real.log e)) := by
-        have h1 : Tendsto (fun t : ℝ ↦ e + (1 - e) * Real.exp (-t)) atTop (𝓝 e) := by
-          simpa using (Real.tendsto_exp_neg_atTop_nhds_zero.const_mul (1 - e)).const_add e
-        exact ((Real.continuousAt_log hepos.ne').tendsto.comp h1).neg
-      obtain ⟨t, hct, ht⟩ := ((hφ.eventually (lt_mem_nhds hc)).and
-        (eventually_ge_atTop 0)).exists
-      refine le_trans (EReal.coe_le_coe_iff.2 hct.le) (le_of_eq_of_le ?_ (hlim t ht))
-      congr 1
-      have hpos : 0 < e + (1 - e) * Real.exp (-t) := by
-        have := Real.exp_pos (-t)
-        nlinarith
-      have h2 : e * Real.exp t + (1 - e) = Real.exp t * (e + (1 - e) * Real.exp (-t)) := by
-        rw [mul_add, ← mul_assoc, mul_comm (Real.exp t) (1 - e), mul_assoc, ← Real.exp_add,
-          add_neg_cancel, Real.exp_zero, mul_one, mul_comm]
-      rw [h2, Real.log_mul (Real.exp_pos t).ne' hpos.ne', Real.log_exp]
-      ring
+      obtain ⟨t, hct, ht⟩ := (((tendsto_sub_log_mul_exp_add hepos he1).eventually
+        (lt_mem_nhds hc)).and (eventually_ge_atTop 0)).exists
+      exact (EReal.coe_le_coe_iff.2 hct.le).trans (hlim t ht)
 
 /-! ### The cosets of the circle -/
 
@@ -338,9 +330,8 @@ private lemma uniformOn_coset_eq_cosetLaw (x₀ : UnitAddCircle) {N : ℕ} (hN :
         (((k / N : ℤ) : ℝ) : UnitAddCircle) = 0), add_zero]
     · rintro ⟨j, -, rfl⟩
       refine ⟨j, ?_⟩
-      rw [hf, add_sub_cancel_left, ← AddCircle.coe_zsmul, zsmul_eq_mul, div_eq_mul_inv]
-      push_cast
-      rfl
+      rw [hf, add_sub_cancel_left, ← AddCircle.coe_zsmul, zsmul_eq_mul, div_eq_mul_inv,
+        Int.cast_natCast]
   rw [hset]
   ext t ht
   rw [uniformOn, cond_apply (Finset.measurableSet _), Measure.count_apply_finset,
@@ -354,24 +345,6 @@ private lemma uniformOn_coset_eq_cosetLaw (x₀ : UnitAddCircle) {N : ℕ} (hN :
   rw [hT, Measure.count_apply_finset, Finset.card_filter, Nat.cast_sum, Finset.sum_image hinj]
   simp [hf, Measure.dirac_apply' _ ht, Set.indicator_apply]
 
-/-- The coset `x₀ + (1 / N) ℤ` of the circle is finite. -/
-private lemma finite_coset (x₀ : UnitAddCircle) (N : ℕ) :
-    {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}.Finite := by
-  have h : IsOfFinAddOrder (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle) := by
-    rcases eq_or_ne N 0 with rfl | hN
-    · simp
-    refine isOfFinAddOrder_iff_nsmul_eq_zero.2 ⟨N, Nat.pos_of_ne_zero hN, ?_⟩
-    rw [← AddCircle.coe_nsmul, nsmul_eq_mul, mul_inv_cancel₀ (Nat.cast_ne_zero.2 hN)]
-    exact AddCircle.coe_period 1
-  have := h.finite_zmultiples
-  exact (Set.toFinite _).preimage sub_left_injective.injOn
-
-/-- The uniform law on a coset `x₀ + (1 / N) ℤ` of the circle is a probability measure. -/
-private lemma isProbabilityMeasure_uniformOn_coset (x₀ : UnitAddCircle) (N : ℕ) :
-    IsProbabilityMeasure (uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
-      (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}) :=
-  isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩
-
 /-- The coset null is contained in the finite-support null. -/
 private lemma coset_mixtures_subset_finitelySupported_mixtures (ε : ℝ≥0∞) :
     {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} +
@@ -379,16 +352,16 @@ private lemma coset_mixtures_subset_finitelySupported_mixtures (ε : ℝ≥0∞)
     {(1 - ε) • F + ε • volume | (F : Measure UnitAddCircle) (_ : IsProbabilityMeasure F)
       (_ : ∃ s : Set UnitAddCircle, s.Finite ∧ F sᶜ = 0)} := by
   rintro _ ⟨x₀, N, rfl⟩
-  exact ⟨_, isProbabilityMeasure_uniformOn_coset x₀ N, ⟨_, finite_coset x₀ N,
+  exact ⟨_, isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩, ⟨_, finite_coset x₀ N,
     (uniformOn_eq_zero_iff (finite_coset x₀ N)).2 (Set.inter_compl_self _)⟩, rfl⟩
 
 /-- The members of the coset null are probability measures. -/
 private lemma isProbabilityMeasure_of_mem_coset_mixtures (hε : ε ≤ 1) {P : Measure UnitAddCircle}
     (hP : P ∈ {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume | (x₀ : UnitAddCircle) (N : ℕ)}) :
-    IsProbabilityMeasure P :=
-  isProbabilityMeasure_of_mem_finitelySupported_mixtures hε
-    (coset_mixtures_subset_finitelySupported_mixtures ε hP)
+    IsProbabilityMeasure P := by
+  obtain ⟨x₀, N, rfl⟩ := hP
+  exact isProbabilityMeasure_coset_mixture hε x₀ N
 
 /-- The integral against the uniform law on the points `x₀ + j / N` is their average. -/
 private lemma integral_cosetLaw (f : UnitAddCircle → ℝ) (x₀ : UnitAddCircle) (N : ℕ) :
@@ -411,29 +384,6 @@ private lemma cosetLaw_add_intCast_div (x₀ : UnitAddCircle) {N : ℕ} (hN : 0 
     ⟨m, by beta_reduce; rw [← AddCircle.coe_zsmul, zsmul_eq_mul, div_eq_mul_inv]⟩
   rw [sub_add_eq_sub_sub, sub_eq_add_neg (x - x₀)]
   exact AddSubgroup.add_mem_cancel_right _ (neg_mem hc)
-
-/-- For any two points of the circle and `N ≠ 0`, some shift of the first by a multiple of
-`1 / N` is within `1 / (2 N)` of the second. -/
-private lemma exists_norm_add_intCast_div_sub_le (y x₀ : UnitAddCircle) {N : ℕ} (hN : 0 < N) :
-    ∃ m : ℤ, ‖y + (((m : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) - x₀‖ ≤ 1 / (2 * N) := by
-  obtain ⟨t, ht⟩ := QuotientAddGroup.mk_surjective (x₀ - y)
-  have hN' : (0 : ℝ) < N := Nat.cast_pos.2 hN
-  refine ⟨round (N * t), ?_⟩
-  have h : y + ((((round (N * t) : ℤ) : ℝ) / (N : ℝ) : ℝ) : UnitAddCircle) - x₀ =
-      ((((round (N * t) : ℤ) : ℝ) / N - t : ℝ) : UnitAddCircle) := by
-    rw [AddCircle.coe_sub]
-    change _ = _ - (QuotientAddGroup.mk t : UnitAddCircle)
-    rw [ht]
-    abel
-  rw [h, UnitAddCircle.norm_eq]
-  calc |(((round (N * t) : ℤ) : ℝ) / N - t) - round ((((round (N * t) : ℤ) : ℝ) / N - t))|
-  _ ≤ |(((round (N * t) : ℤ) : ℝ) / N - t) - ((0 : ℤ) : ℝ)| := round_le _ 0
-  _ = |N * t - round (N * t)| / N := by
-    rw [Int.cast_zero, sub_zero, ← abs_neg, neg_sub,
-      show t - ((round (N * t) : ℤ) : ℝ) / N = (N * t - round (N * t)) / N by field_simp,
-      abs_div, abs_of_pos hN']
-  _ ≤ (1 / 2) / N := by gcongr; exact abs_sub_round _
-  _ = 1 / (2 * N) := by field_simp
 
 /-- **Uniform Riemann sums on the cosets.** For a bounded continuous function `h` on the circle
 and `η > 0`, for `N` large the average of `h` on every coset `x₀ + (1 / N) ℤ` is within `η` of its
@@ -463,12 +413,11 @@ private lemma exists_forall_abs_integral_cosetLaw_sub_le (h : UnitAddCircle →�
     simp_rw [integral_cosetLaw]
     rw [integral_const_mul, integral_finsetSum _ fun j _ ↦ hint _]
     simp_rw [integral_add_right_eq_self (fun x ↦ h x)]
-    rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul, ← mul_assoc, inv_mul_cancel₀ hN'.ne',
-      one_mul]
+    simp [hN'.ne']
   -- two coset averages are within `η`
   have hpt (y : UnitAddCircle) :
       ‖∫ x, h x ∂cosetLaw x₀ N - ∫ x, h x ∂cosetLaw y N‖ ≤ η := by
-    obtain ⟨m, hm⟩ := exists_norm_add_intCast_div_sub_le y x₀ hN0
+    obtain ⟨m, hm⟩ := UnitAddCircle.exists_norm_add_intCast_div_sub_le y x₀ hN0
     rw [← cosetLaw_add_intCast_div y hN0 m, integral_cosetLaw, integral_cosetLaw, ← mul_sub,
       ← Finset.sum_sub_distrib, Real.norm_eq_abs, abs_mul, abs_inv, Nat.abs_cast]
     calc (N : ℝ)⁻¹ * |∑ j ∈ Finset.range N,
@@ -487,8 +436,7 @@ private lemma exists_forall_abs_integral_cosetLaw_sub_le (h : UnitAddCircle →�
       rw [Real.dist_eq] at this
       exact this.le
     _ = η := by
-      rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul, ← mul_assoc, inv_mul_cancel₀ hN'.ne',
-        one_mul]
+      simp [hN'.ne']
   rw [← hmean]
   calc |∫ x, h x ∂cosetLaw x₀ N - ∫ y, (∫ x, h x ∂cosetLaw y N)|
   _ = ‖∫ y, (∫ x, h x ∂cosetLaw x₀ N - ∫ x, h x ∂cosetLaw y N)‖ := by
@@ -528,9 +476,7 @@ private lemma integral_abs_integral_cosetLaw_le {f : UnitAddCircle → ℝ} (hf 
   _ = ∫ x, ‖f x‖ := by
     rw [integral_const_mul, integral_finsetSum _ fun j _ ↦ hint _]
     simp_rw [integral_add_right_eq_self (fun x ↦ |f x|)]
-    rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul, ← mul_assoc, inv_mul_cancel₀ hN'.ne',
-      one_mul]
-    simp_rw [Real.norm_eq_abs]
+    simp [hN'.ne', Real.norm_eq_abs]
 
 /-! ### The coset null -/
 
@@ -578,12 +524,12 @@ theorem exists_coset_mixture_forall_abs_integral_sub_le (hε : ε ≤ 1) {k : �
       _ ≤ δ / 4 * 1 := by gcongr; exact (div_le_one (by positivity)).2 (by linarith)
       _ = δ / 4 := mul_one _
   obtain ⟨x₀, hx₀⟩ := exists_le_integral (integrable_finsetSum _ fun i _ ↦ hFint i)
-  have hU := isProbabilityMeasure_uniformOn_coset x₀ N
+  have hU := isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩
   refine ⟨_, ⟨x₀, N, rfl⟩, fun i ↦ ?_⟩
   rw [uniformOn_coset_eq_cosetLaw x₀ hN.ne'] at hU ⊢
   have hci : Integrable (g i) (cosetLaw x₀ N) := LMLExplore.integrable_of_abs_le (hg i) (hC i) _
   have hhi : Integrable (h i) (cosetLaw x₀ N) := (h i).integrable _
-  refine abs_integral_mixture_sub_le hε hci (hgi i) ?_
+  refine LMLExplore.abs_integral_mixture_sub_le hε hci (hgi i) ?_
   -- the average of `g i` on the coset is close to its integral
   have h1 : |∫ x, g i x ∂cosetLaw x₀ N - ∫ x, h i x ∂cosetLaw x₀ N| ≤ δ / 4 := by
     rw [← integral_sub hci hhi]
@@ -618,8 +564,7 @@ theorem tauEnvelope_klInf_coset_mixtures_eq_zero (hε : ε ≤ 1) :
 
 /-- **The sequential envelope of the coset null is `log (1 / ε)`** [EVR26, Note 19]: the
 smallest relative entropy to the coset null is lower semicontinuous at Lebesgue measure in the
-sequential sense. The lower bound is that of the larger finite-support null
-(`ProbabilityTheory.seqTauEnvelope_klInf_finitelySupported_mixtures`). -/
+sequential sense. -/
 theorem seqTauEnvelope_klInf_coset_mixtures (hε : ε ≤ 1) :
     seqTauEnvelope (fun R ↦ klInf R {(1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume | (x₀ : UnitAddCircle) (N : ℕ)})
