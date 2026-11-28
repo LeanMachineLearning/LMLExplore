@@ -73,7 +73,10 @@ A function of the images of the coordinates under measurable maps to finite type
 
 The product of `n` copies of the product of `k` copies of a σ-finite measure is the product of
 `n * k` copies, through the measurable equivalence `MeasurableEquiv.piFinProdFin` that lists the
-blocks one after the other.
+blocks one after the other. The equivalence and its measure preservation are adapted from
+`blockEquiv` and `map_blockEquiv_pi` of `EValuesResearch/Results/PartitionRate.lean`, used in
+`EValuesResearch/Results/Envelopes.lean` (both at commit `83205cb`), in the paper project
+`RemyDegenne/evalues_research`, where the measures are probability measures.
 
 ## Main definitions
 

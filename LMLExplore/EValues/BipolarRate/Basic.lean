@@ -63,8 +63,6 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_pi_sampleNull`, `ProbabilityTheory.bipolarRate_pi_sampleNull`:
   `n` observations of blocks of `k` observations are `n * k` observations, so the bipolar rate of
   the blocks is `k` times the bipolar rate.
-* `ProbabilityTheory.klInf_pi_sampleNull`: the smallest relative entropy from `n ≠ 0`
-  observations to the `n`-sample null is `n` times the smallest relative entropy to the null.
 * `ProbabilityTheory.maxLogGrowth_singleton`: the growth of `n` observations against the simple
   null `{P}` of a measure of mass at most one is `n * klIntegral Q₁ P`.
 * `ProbabilityTheory.bipolarRate_singleton`: for a simple null `{P}`, the bipolar rate is
@@ -78,9 +76,21 @@ else: no domination, convexity or compactness.
   `m` observations given by the e-variable `1/2 + (1/2) e ^ t 1_A`, valid when
   `e ^ t P ^ m (A) ≤ 1` for every member `P` of the null.
 
+## Implementation notes
+
+The block lemmas `ProbabilityTheory.maxLogGrowth_pi_sampleNull` and
+`ProbabilityTheory.bipolarRate_pi_sampleNull` are adapted from `maxLogGrowth_pi_sampleNull` and
+`bipolarRate_pi_sampleNull_le` of `EValuesResearch/Results/PartitionRate.lean`, and are used as in
+`EValuesResearch/Results/Envelopes.lean` (both at commit `83205cb`), in the paper project
+`RemyDegenne/evalues_research`; they serve the comparison of the bipolar rate with the envelopes of
+the smallest relative entropy [EVR26, Note 15].
+
 ## References
 
 * [RR26] A. Ram and A. Ramdas, *The optimal betting wealth growth rate*, arXiv:2604.25280v1.
+* [EVR26] *Answers to open questions in e-values and anytime-valid inference*, notes and the Lean
+  library `EValuesResearch` of github.com/RemyDegenne/evalues_research, 2026; written and refereed
+  by AI agents: Note 15, *When does the bipolar rate equal KL_inf? A variational formula*.
 -/
 
 public section
@@ -342,26 +352,6 @@ lemma maxLogGrowth_le_mul_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁
   _ = n * (klDiv Q₁ P : EReal) := by
     rw [maxEPower_singleton_eq_klDiv, klDiv_pi_const]
     simp
-
-/-- The smallest relative entropy from `n ≠ 0` observations of law `Q₁` to the `n`-sample null of a
-null of probability measures is `n` times the smallest relative entropy from `Q₁` to the null, by
-the tensorization of the relative entropy. -/
-lemma klInf_pi_sampleNull (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
-    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hn : n ≠ 0) :
-    klInf (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n) = n * klInf Q₁ S₁ := by
-  have hn' : (n : ℝ≥0∞) ≠ 0 := by exact_mod_cast hn
-  rw [klInf_eq_coe_iInf_klDiv fun μ hμ ↦ by
-      have := isProbabilityMeasure_of_mem_sampleNull hS₁ n μ hμ
-      simp [measure_univ],
-    klInf_eq_coe_iInf_klDiv fun P hP ↦ by have := hS₁ P hP; simp [measure_univ],
-    ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul, sampleNull_def, iInf_image,
-    ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
-  congr 1
-  refine iInf_congr fun P ↦ ?_
-  rw [ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
-  refine iInf_congr fun hP ↦ ?_
-  have := hS₁ P hP
-  rw [klDiv_pi_const, Fintype.card_fin]
 
 /-- For a probability measure `Q₁` and a measure `P` of mass at most one, the largest expected
 logarithm of an `n`-sample e-variable for the simple null `{P}` is `n * klIntegral Q₁ P`: the

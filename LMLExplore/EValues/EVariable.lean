@@ -73,6 +73,13 @@ e-variables are `ℝ≥0∞`-valued.
   null, is an (exact) e-variable. Statlib's `ProbabilityTheory.IsEVar.prod` treats the two
   coordinates of a product space, where independence holds by construction.
 
+## Implementation notes
+
+The truncation lemma `ProbabilityTheory.IsEVar.exists_bounded_lt_integral_of_lt_eintegral_log` is
+adapted from `exists_bounded_lt_integral_of_lt_eintegral_log` of
+`EValuesResearch/Results/PartitionRate.lean` (commit `83205cb`) in the paper project
+`RemyDegenne/evalues_research`.
+
 ## References
 
 * [LRR25] M. Larsson, A. Ramdas and J. Ruf, *The numeraire e-variable and reverse information
