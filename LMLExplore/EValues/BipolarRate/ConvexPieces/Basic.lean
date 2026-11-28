@@ -72,6 +72,10 @@ test of the minimum then attains the lower bound `log (1/α) / d` on expected st
 
 ## Main statements
 
+* `ProbabilityTheory.log_iInf_prod_measure_div_eq`: the logarithm of a minimum of products of
+  ratios of masses is the minimum of the sums of the logarithms of the real ratios.
+* `ProbabilityTheory.ae_tendsto_inf'_sum_log_div`: the strong law for the minimum of the sums of
+  the log-likelihood ratios.
 * `ProbabilityTheory.ae_tendsto_log_minLikelihoodRatio_div`,
   `ProbabilityTheory.tendsto_eintegral_log_minLikelihoodRatio_div`: on a finite alphabet,
   `(1/n) log` of the minimum tends to `min_j KL(Q ‖ P j)`, almost surely and in expectation.
@@ -85,7 +89,9 @@ test of the minimum then attains the lower bound `log (1/α) / d` on expected st
 * `ProbabilityTheory.isEProcess_minLikelihoodRatio_prodBernoulli`,
   `ProbabilityTheory.isLevelStoppingTime_hittingAfter_minLikelihoodRatio_prodBernoulli`
   [EVR26, Note 32, Statement 2]: the minimum over the pieces is an e-process for the union of the
-  sequential nulls of the pieces, and its test of level `α` has level `α`.
+  sequential nulls of the pieces, and its test of level `α` has level `α`;
+  `ProbabilityTheory.iidNull_prodBernoulli_iUnion_subset`: the i.i.d. null of the union is in the
+  union of the sequential nulls of the pieces.
 * `ProbabilityTheory.ae_tendsto_log_minLikelihoodRatio_prodBernoulli_div`,
   `ProbabilityTheory.bipolarRate_prodBernoulli_iUnion_eq_klInf` [EVR26, Note 32, Statement 2]:
   `(1/n) log` of the minimum tends to `KL_inf` almost surely, and the bipolar rate is `KL_inf`.
@@ -159,23 +165,27 @@ private lemma coe_iInf_klDiv_eq [Finite 𝓧] [Fintype κ] [Nonempty κ] [IsFini
       (iInf_le (fun j ↦ klDiv Q (P j)) (Classical.arbitrary κ)))]
 
 omit [MeasurableSingletonClass 𝓧] in
-/-- **The logarithm of the minimum of the likelihood ratios** on a path of atoms of `Q` and of the
-`P j` is the minimum of the sums of the log-likelihood ratios. -/
-private lemma log_minLikelihoodRatio_eq [Fintype κ] [Nonempty κ] [IsFiniteMeasure Q]
-    [∀ j, IsFiniteMeasure (P j)] {ω : ℕ → 𝓧} (hQ : ∀ k, Q {ω k} ≠ 0)
-    (hP : ∀ j k, P j {ω k} ≠ 0) (n : ℕ) :
-    ENNReal.log (minLikelihoodRatio Q P n ω) = ((Finset.univ.inf' Finset.univ_nonempty fun j ↦
-      ∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k}) : ℝ) : EReal) := by
+/-- **The logarithm of a minimum of products of ratios of masses**, of finite measures that charge
+the sets, is the minimum of the sums of the logarithms of the ratios of the real masses. At the
+points of a path of observations, this is the logarithm of a minimum of likelihood ratios. -/
+theorem log_iInf_prod_measure_div_eq {ι : Type*} [Fintype κ] [Nonempty κ] {μ : ι → Measure 𝓧}
+    {ν : κ → ι → Measure 𝓧} [∀ i, IsFiniteMeasure (μ i)] [∀ j i, IsFiniteMeasure (ν j i)]
+    {t : ι → Set 𝓧} (hμ : ∀ i, μ i (t i) ≠ 0) (hν : ∀ j i, ν j i (t i) ≠ 0) (s : Finset ι) :
+    ENNReal.log (⨅ j, ∏ i ∈ s, μ i (t i) / ν j i (t i)) =
+      ((Finset.univ.inf' Finset.univ_nonempty fun j ↦
+        ∑ i ∈ s, Real.log ((μ i).real (t i) / (ν j i).real (t i)) : ℝ) : EReal) := by
+  set S : κ → ℝ := fun j ↦ ∑ i ∈ s, Real.log ((μ i).real (t i) / (ν j i).real (t i))
   -- each product of ratios is the exponential of the sum of the logarithms of the real ratios
-  have hprod (j : κ) : ∏ k ∈ Finset.range n, Q {ω k} / P j {ω k} = ENNReal.ofReal (Real.exp
-      (∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k}))) := by
-    rw [prod_measure_div_eq_ofReal_prod fun k _ ↦ hP j k, Real.exp_sum]
-    exact congrArg ENNReal.ofReal (Finset.prod_congr rfl fun k _ ↦ (Real.exp_log (div_pos
-      (measureReal_pos_of_ne_zero (hQ k)) (measureReal_pos_of_ne_zero (hP j k)))).symm)
-  set S : κ → ℝ := fun j ↦ ∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k})
+  have hprod (j : κ) : ∏ i ∈ s, μ i (t i) / ν j i (t i) = ENNReal.ofReal (Real.exp (S j)) := by
+    rw [Real.exp_sum, ENNReal.ofReal_prod_of_nonneg fun _ _ ↦ (Real.exp_pos _).le]
+    refine Finset.prod_congr rfl fun i _ ↦ ?_
+    rw [Real.exp_log (div_pos (measureReal_pos_of_ne_zero (hμ i))
+        (measureReal_pos_of_ne_zero (hν j i))),
+      ENNReal.ofReal_div_of_pos (measureReal_pos_of_ne_zero (hν j i)), ofReal_measureReal,
+      ofReal_measureReal]
   obtain ⟨j₀, -, hj₀⟩ := Finset.exists_mem_eq_inf' Finset.univ_nonempty S
-  have hM : minLikelihoodRatio Q P n ω = ENNReal.ofReal (Real.exp (S j₀)) := by
-    simp_rw [minLikelihoodRatio_def, hprod]
+  have hM : ⨅ j, ∏ i ∈ s, μ i (t i) / ν j i (t i) = ENNReal.ofReal (Real.exp (S j₀)) := by
+    simp_rw [hprod]
     refine le_antisymm (iInf_le _ j₀) (le_iInf fun j ↦ ENNReal.ofReal_le_ofReal
       (Real.exp_le_exp.2 ?_))
     rw [← hj₀]
@@ -183,6 +193,16 @@ private lemma log_minLikelihoodRatio_eq [Fintype κ] [Nonempty κ] [IsFiniteMeas
   rw [hM, ENNReal.log_ofReal]
   simp only [(Real.exp_pos (S j₀)).not_ge, ite_false, Real.log_exp]
   rw [hj₀]
+
+omit [MeasurableSingletonClass 𝓧] in
+/-- **The logarithm of the minimum of the likelihood ratios** on a path of atoms of `Q` and of the
+`P j` is the minimum of the sums of the log-likelihood ratios. -/
+private lemma log_minLikelihoodRatio_eq [Fintype κ] [Nonempty κ] [IsFiniteMeasure Q]
+    [∀ j, IsFiniteMeasure (P j)] {ω : ℕ → 𝓧} (hQ : ∀ k, Q {ω k} ≠ 0)
+    (hP : ∀ j k, P j {ω k} ≠ 0) (n : ℕ) :
+    ENNReal.log (minLikelihoodRatio Q P n ω) = ((Finset.univ.inf' Finset.univ_nonempty fun j ↦
+      ∑ k ∈ Finset.range n, Real.log (Q.real {ω k} / (P j).real {ω k}) : ℝ) : EReal) :=
+  log_iInf_prod_measure_div_eq (μ := fun _ ↦ Q) (ν := fun j _ ↦ P j) (t := fun k ↦ {ω k}) hQ hP _
 
 omit [MeasurableSingletonClass 𝓧] in
 /-- Almost surely under the i.i.d. law of `Q`, every observation is an atom of `Q`, and of every
@@ -206,7 +226,7 @@ private lemma exists_forall_abs_log_div_le [Finite 𝓧] [Finite κ] :
 /-- **The strong law for the minimum of the log-likelihood ratios.** Almost surely under the
 i.i.d. law of `Q`, the minimum over `j` of the sums of the log-likelihood ratios against `P j`,
 divided by `n`, tends to the minimum of the relative entropies. -/
-private lemma ae_tendsto_inf'_sum_log_div [Finite 𝓧] [Fintype κ] [Nonempty κ]
+theorem ae_tendsto_inf'_sum_log_div [Finite 𝓧] [Fintype κ] [Nonempty κ]
     [IsProbabilityMeasure Q] [∀ j, IsProbabilityMeasure (P j)] (hQP : ∀ j, Q ≪ P j) :
     ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q),
       Tendsto (fun n : ℕ ↦ (Finset.univ.inf' Finset.univ_nonempty fun j ↦
@@ -502,7 +522,7 @@ theorem isEProcess_minLikelihoodRatio_prodBernoulli [Countable κ] (hC : ∀ j, 
 
 /-- The i.i.d. laws of the coins with parameters in a union of pieces are drawn sequentially from
 the laws of one piece. -/
-private lemma iidNull_prodBernoulli_iUnion_subset :
+theorem iidNull_prodBernoulli_iUnion_subset :
     iidNull (prodBernoulli '' ⋃ j, C j) ⊆
       ⋃ j, sequentialNull (fun _ _ ↦ prodBernoulli '' C j) (fun k ω ↦ ω k) Filtration.piLT := by
   intro μ hμ

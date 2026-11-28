@@ -8,6 +8,7 @@ module
 public import Mathlib.Analysis.Convex.Basic
 public import Mathlib.Analysis.Convex.Hull
 public import Mathlib.MeasureTheory.Measure.Sum
+public import Mathlib.MeasureTheory.Measure.Typeclasses.Probability
 
 /-!
 # σ-convex sets of measures
@@ -32,6 +33,10 @@ hypothesis is σ-convex.
   `MeasureTheory.IsSigmaConvex.sigmaConvexHull_subset`: the countable mixtures of members of `𝒞`
   form the smallest σ-convex set that contains `𝒞`.
 * `MeasureTheory.convexHull_subset_sigmaConvexHull`: the finite mixtures are countable mixtures.
+* `MeasureTheory.isProbabilityMeasure_of_mem_sigmaConvexHull`: the countable mixtures of
+  probability measures are probability measures.
+* `MeasureTheory.add_add_smul_mem_convexHull`: a mixture of three members with real weights of
+  sum one is in the convex hull.
 
 ## References
 
@@ -136,5 +141,39 @@ theorem IsSigmaConvex.sigmaConvexHull_subset {𝒞 𝒟 : Set (Measure Ω)} (h�
 theorem convexHull_subset_sigmaConvexHull {𝒞 : Set (Measure Ω)} :
     convexHull ℝ≥0∞ 𝒞 ⊆ sigmaConvexHull 𝒞 :=
   convexHull_min subset_sigmaConvexHull isSigmaConvex_sigmaConvexHull.convex
+
+/-- The countable mixtures of probability measures are probability measures. -/
+theorem isProbabilityMeasure_of_mem_sigmaConvexHull {𝒞 : Set (Measure Ω)}
+    (h𝒞 : ∀ P ∈ 𝒞, IsProbabilityMeasure P) {ν : Measure Ω} (hν : ν ∈ sigmaConvexHull 𝒞) :
+    IsProbabilityMeasure ν := by
+  obtain ⟨w, Qs, hw, hQs, rfl⟩ := mem_sigmaConvexHull_iff.1 hν
+  constructor
+  rw [Measure.sum_apply _ MeasurableSet.univ]
+  simp [fun i ↦ (h𝒞 _ (hQs i)).measure_univ, hw]
+
+/-- A mixture of three members of a set of measures, with real weights of sum one, is in its
+convex hull. -/
+theorem add_add_smul_mem_convexHull {𝒞 : Set (Measure Ω)} {P₁ P₂ P₃ : Measure Ω} (h₁ : P₁ ∈ 𝒞)
+    (h₂ : P₂ ∈ 𝒞) (h₃ : P₃ ∈ 𝒞) {w₁ w₂ w₃ : ℝ} (hw₁ : 0 ≤ w₁) (hw₂ : 0 ≤ w₂) (hw₃ : 0 ≤ w₃)
+    (hw : w₁ + w₂ + w₃ = 1) :
+    ENNReal.ofReal w₁ • P₁ + ENNReal.ofReal w₂ • P₂ + ENNReal.ofReal w₃ • P₃ ∈
+      convexHull ℝ≥0∞ 𝒞 := by
+  have h𝒞 := convex_convexHull ℝ≥0∞ 𝒞
+  rcases (add_nonneg hw₁ hw₂).eq_or_lt with h0 | h0
+  · obtain rfl : w₁ = 0 := by linarith
+    obtain rfl : w₂ = 0 := by linarith
+    obtain rfl : w₃ = 1 := by linarith
+    simpa using subset_convexHull ℝ≥0∞ 𝒞 h₃
+  -- the mixture of the first two, with weights `w₁ / (w₁ + w₂)` and `w₂ / (w₁ + w₂)`
+  have h12 : ENNReal.ofReal (w₁ / (w₁ + w₂)) • P₁ + ENNReal.ofReal (w₂ / (w₁ + w₂)) • P₂ ∈
+      convexHull ℝ≥0∞ 𝒞 := by
+    refine h𝒞 (subset_convexHull ℝ≥0∞ 𝒞 h₁) (subset_convexHull ℝ≥0∞ 𝒞 h₂) zero_le zero_le ?_
+    rw [← ENNReal.ofReal_add (by positivity) (by positivity), ← add_div, div_self h0.ne',
+      ENNReal.ofReal_one]
+  have h := h𝒞 h12 (subset_convexHull ℝ≥0∞ 𝒞 h₃) (zero_le (a := ENNReal.ofReal (w₁ + w₂)))
+    (zero_le (a := ENNReal.ofReal w₃)) (by rw [← ENNReal.ofReal_add h0.le hw₃, hw,
+      ENNReal.ofReal_one])
+  rwa [smul_add, smul_smul, smul_smul, ← ENNReal.ofReal_mul h0.le, ← ENNReal.ofReal_mul h0.le,
+    mul_div_cancel₀ _ h0.ne', mul_div_cancel₀ _ h0.ne'] at h
 
 end MeasureTheory

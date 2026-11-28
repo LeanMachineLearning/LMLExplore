@@ -11,6 +11,7 @@ public import LMLExplore.MeasureTheory.Measure.SigmaConvex
 import Mathlib.Analysis.SpecialFunctions.Log.ENNRealLogExp
 import Mathlib.MeasureTheory.Integral.Indicator
 import Mathlib.Topology.Instances.EReal.Lemmas
+import TauCeti.Data.EReal.Operations
 
 /-!
 # Countable mixtures suffice for the largest e-power of a dominated null
@@ -36,6 +37,8 @@ the smallest one (`ProbabilityTheory.maxEPower_eq_iInf_klIntegral_sigmaConvexHul
   with `S ⊆ 𝒞 ⊆ effectiveSet S`, `maxEPower Q S = ⨅ m ∈ 𝒞, klIntegral Q m`.
 * `ProbabilityTheory.maxEPower_eq_iInf_klIntegral_sigmaConvexHull`: **countable mixtures suffice**
   [EVR26, Note 48, Theorem 2].
+* `ProbabilityTheory.toENNReal_maxEPower_eq_iInf_klDiv`: on a countable alphabet, with the relative
+  entropy `klDiv`.
 
 ## Implementation notes
 
@@ -405,5 +408,23 @@ theorem maxEPower_eq_iInf_klIntegral_sigmaConvexHull [IsProbabilityMeasure Q] [S
     maxEPower Q S = ⨅ m ∈ sigmaConvexHull S, klIntegral Q m :=
   maxEPower_eq_iInf_klIntegral_of_isSigmaConvex hSμ hS isSigmaConvex_sigmaConvexHull
     subset_sigmaConvexHull (isSigmaConvex_effectiveSet.sigmaConvexHull_subset subset_effectiveSet)
+
+open InformationTheory in
+/-- **Countable mixtures suffice for the largest e-power, on a countable alphabet.** On a countable
+alphabet with measurable singletons, the largest e-power of a set `S` of probability measures
+under a probability measure `Q` is the infimum of the relative entropies `KL(Q ‖ m)` over the
+countable mixtures `m` of members of `S`: the counting measure dominates every measure. -/
+theorem toENNReal_maxEPower_eq_iInf_klDiv [Countable Ω] [MeasurableSingletonClass Ω]
+    (hS : ∀ P ∈ S, IsProbabilityMeasure P) (Q : Measure Ω) [IsProbabilityMeasure Q] :
+    (maxEPower Q S).toENNReal = ⨅ m ∈ sigmaConvexHull S, klDiv Q m := by
+  rw [maxEPower_eq_iInf_klIntegral_sigmaConvexHull (μ := Measure.count)
+    (fun P _ s hs ↦ by rw [Measure.count_eq_zero_iff] at hs; simp [hs])
+    (fun P hP ↦ (hS P hP).measure_univ.le)]
+  have hm : ∀ m ∈ sigmaConvexHull S, klIntegral Q m = (klDiv Q m : EReal) := fun m hm ↦ by
+    have := isProbabilityMeasure_of_mem_sigmaConvexHull hS hm
+    exact klIntegral_eq_klDiv (by simp)
+  rw [iInf_congr fun m ↦ iInf_congr fun hm' ↦ hm m hm']
+  simp_rw [← EReal.coe_ennreal_iInf]
+  rw [EReal.toENNReal_coe]
 
 end ProbabilityTheory
