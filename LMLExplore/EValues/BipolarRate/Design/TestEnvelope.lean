@@ -29,14 +29,14 @@ For a set `Λ` of instances and weights `x : α → ℝ≥0`, the weighted small
 `Ψ_x(κ) = ⨅ ν ∈ Λ, ∑ a, x a * KL(κ a, ν a)` (`ProbabilityTheory.weightedKLInf`) and its envelope
 on the boxes around `μ` with test functions in the `G a`,
 `Ψ^G_x(μ) = ⨆ (V around μ), ⨅ κ ∈ V, Ψ_x(κ)` (`ProbabilityTheory.testEnvelope`), bound the
-growth `D̄(x)` of the designs proportional to `x` (`ProbabilityTheory.designGrowth`) when the test
+growth `D(x)` of the designs proportional to `x` (`ProbabilityTheory.designGrowth`) when the test
 functions are integrable under the instances of `Λ`:
 
-  `Ψ^G_x(μ) ≤ D̄(x) ≤ Ψ_x(μ)`, and so `⨆ w ∈ Δ, Ψ^G_w(μ) ≤ D* ≤ ⨆ w ∈ Δ, Ψ_w(μ)`
+  `Ψ^G_x(μ) ≤ D(x) ≤ Ψ_x(μ)`, and so `⨆ w ∈ Δ, Ψ^G_w(μ) ≤ D* ≤ ⨆ w ∈ Δ, Ψ_w(μ)`
 
 for the rate `D*` of the designs (`ProbabilityTheory.designRate`) [EVR26, Note 55, Proposition 8].
 The equality `Ψ^G_x(μ) = Ψ_x(μ)` is a lower semicontinuity of `Ψ_x` at `μ` for the topology of the
-test functions; under it `D̄(x) = Ψ_x(μ)`, and under it at the allocations with rational
+test functions; under it `D(x) = Ψ_x(μ)`, and under it at the allocations with rational
 coordinates `D* = ⨆ w ∈ Δ, Ψ_w(μ)`. The upper bounds are the entropy bounds
 `ProbabilityTheory.designGrowth_le_iInf_sum_mul_klDiv` and
 `ProbabilityTheory.designRate_le_iSup_iInf_sum_mul_klDiv`.
@@ -62,7 +62,7 @@ the designs proportional to `x`.
 ## Main statements
 
 * `ProbabilityTheory.testEnvelope_le_designGrowth`,
-  `ProbabilityTheory.designGrowth_le_weightedKLInf`: `Ψ^G_x(μ) ≤ D̄(x) ≤ Ψ_x(μ)`.
+  `ProbabilityTheory.designGrowth_le_weightedKLInf`: `Ψ^G_x(μ) ≤ D(x) ≤ Ψ_x(μ)`.
 * `ProbabilityTheory.iSup_testEnvelope_le_designRate`,
   `ProbabilityTheory.designRate_le_iSup_weightedKLInf`: `⨆ w ∈ Δ, Ψ^G_w(μ) ≤ D* ≤ ⨆ w ∈ Δ, Ψ_w(μ)`.
 * `ProbabilityTheory.designGrowth_eq_weightedKLInf_of_testEnvelope_eq`,
@@ -465,7 +465,7 @@ variable [Fintype α]
 
 /-- The lower bound on the growth of the designs for one box: if the box `testBox F q ε` of
 measurable test functions, integrable under the instances of `Λ`, is around `μ`, then
-`⨅ κ ∈ V, Ψ_x(κ) ≤ D̄(x)` for that box `V`. -/
+`⨅ κ ∈ V, Ψ_x(κ) ≤ D(x)` for that box `V`. -/
 private lemma iInf_weightedKLInf_le_designGrowth
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hFm : ∀ a, ∀ g ∈ F a, Measurable g)
     (hFΛ : ∀ ν ∈ Λ, ∀ a, ∀ g ∈ F a, Integrable g (ν a)) (hV : IsTestBoxAround F q ε μ)
@@ -540,7 +540,7 @@ private lemma iInf_weightedKLInf_le_designGrowth
 
 /-- **The lower bound on the growth of the designs** [EVR26, Note 55, Proposition 8]. If the test
 functions are measurable and integrable under every instance of `Λ`, an instance of probability
-measures, then `Ψ^G_x(μ) ≤ D̄(x)` for every `x`. Nothing is assumed on `μ`: a box around `μ`
+measures, then `Ψ^G_x(μ) ≤ D(x)` for every `x`. Nothing is assumed on `μ`: a box around `μ`
 makes `μ` an instance of probability measures under which its test functions are integrable. -/
 theorem testEnvelope_le_designGrowth (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a))
     (hGm : ∀ a, ∀ g ∈ G a, Measurable g) (hGΛ : ∀ ν ∈ Λ, ∀ a, ∀ g ∈ G a, Integrable g (ν a))
@@ -553,7 +553,7 @@ theorem testEnvelope_le_designGrowth (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityM
   exact iInf_weightedKLInf_le_designGrowth hΛ (fun a g hg ↦ hGm a g (hFG a hg))
     (fun ν hν a g hg ↦ hGΛ ν hν a g (hFG a hg)) hV x
 
-/-- **The upper bound on the growth of the designs**: `D̄(x) ≤ Ψ_x(μ)`. This is the entropy bound
+/-- **The upper bound on the growth of the designs**: `D(x) ≤ Ψ_x(μ)`. This is the entropy bound
 `ProbabilityTheory.designGrowth_le_iInf_sum_mul_klDiv`, written with `weightedKLInf`. -/
 theorem designGrowth_le_weightedKLInf [∀ a, IsProbabilityMeasure (μ a)]
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (x : α → ℝ≥0) :
@@ -562,7 +562,7 @@ theorem designGrowth_le_weightedKLInf [∀ a, IsProbabilityMeasure (μ a)]
 
 /-- **The growth of the designs in the equality case** [EVR26, Note 55, Proposition 8]: if the
 test functions are measurable and integrable under the instances of `Λ` and
-`Ψ^G_x(μ) = Ψ_x(μ)`, then `D̄(x) = Ψ_x(μ)`. -/
+`Ψ^G_x(μ) = Ψ_x(μ)`, then `D(x) = Ψ_x(μ)`. -/
 theorem designGrowth_eq_weightedKLInf_of_testEnvelope_eq [∀ a, IsProbabilityMeasure (μ a)]
     (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a)) (hGm : ∀ a, ∀ g ∈ G a, Measurable g)
     (hGΛ : ∀ ν ∈ Λ, ∀ a, ∀ g ∈ G a, Integrable g (ν a))
