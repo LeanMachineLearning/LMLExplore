@@ -269,14 +269,14 @@ theorem designValue_le_iInf_sum_mul_klDiv [∀ a, IsProbabilityMeasure (μ a)]
 
 /-- **The rate of the designs from bounds on the values.** If the value of every design `n ≠ 0`
 is at most `⨅ s ∈ S, ∑ a, n a * k s a` for a family of costs `k s : α → ℝ≥0∞`, then the rate of
-the designs is at most `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the probability vectors `w`:
-the bound of the design `n` is `∑ a, n a` times the bound of its proportions. -/
+the designs is at most `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the probability vectors `w`. -/
 theorem designRate_le_iSup_iInf_of_forall_designValue_le {ι : Type*} {S : Set ι}
     {k : ι → α → ℝ≥0∞}
     (h : ∀ n : α → ℕ, n ≠ 0 →
       designValue μ Λ n ≤ ((⨅ s ∈ S, ∑ a, (n a : ℝ≥0∞) * k s a : ℝ≥0∞) : EReal)) :
     designRate μ Λ ≤ ((⨆ w ∈ LMLExplore.simplex α, ⨅ s ∈ S,
       ∑ a, ENNReal.ofReal (w a) * k s a : ℝ≥0∞) : EReal) := by
+  -- the bound of the design `n` is `∑ a, n a` times the bound of its proportions
   refine (designRate_le_iff (EReal.coe_ennreal_nonneg _)).2 fun n hn ↦ ?_
   set N := ∑ a, n a
   have hN : (N : ℝ≥0∞) ≠ 0 := Nat.cast_ne_zero.2 (Fintype.sum_pos (pos_iff_ne_zero.2 hn)).ne'
@@ -422,9 +422,7 @@ theorem designRate_eq_iSup_bipolarRate (μ : α → Measure 𝓧) [∀ a, IsProb
 /-- **The rate of the designs from the bipolar rates of the tables.** If the bipolar rate of the
 tables of every design `r ≠ 0` is `⨅ s ∈ S, ∑ a, r a * k s a` for a family of costs
 `k s : α → ℝ≥0∞`, then the rate of the designs is `⨆ w ∈ Δ, ⨅ s ∈ S, ∑ a, w a * k s a` over the
-probability vectors `w`, with `0 * ∞ = 0` [EVR26, Note 41, Section 5]. The lower bound takes the
-designs `⌈m w⌉`: since the bound is monotone and positively homogeneous in `w`, and `⌈m w⌉` has at
-most `m + Fintype.card α` observations, no concavity or continuity of the bound in `w` is used. -/
+probability vectors `w`, with `0 * ∞ = 0` [EVR26, Note 41, Section 5]. -/
 theorem designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq {ι : Type*} (μ : α → Measure 𝓧)
     [∀ a, IsProbabilityMeasure (μ a)] (hΛ : ∀ ν ∈ Λ, ∀ a, IsProbabilityMeasure (ν a))
     {S : Set ι} {k : ι → α → ℝ≥0∞}
@@ -436,6 +434,9 @@ theorem designRate_eq_iSup_iInf_of_bipolarRate_designLaw_eq {ι : Type*} (μ : �
   · -- the value of a design is the growth of one table of that design
     rw [← h n hn, ← one_smul ℕ n, ← maxLogGrowth_designLaw μ hΛ n 1, one_smul]
     exact maxLogGrowth_one_le_bipolarRate _ _
+  -- the lower bound takes the designs `⌈m w⌉`: since the bound is monotone and positively
+  -- homogeneous in `w`, and `⌈m w⌉` has at most `m + Fintype.card α` observations, no concavity
+  -- or continuity of the bound in `w` is used
   rw [← EReal.coe_toENNReal (designRate_nonneg μ Λ), EReal.coe_ennreal_le_coe_ennreal_iff]
   refine iSup₂_le fun w hw ↦ ENNReal.le_of_forall_natCast_mul_le_add_mul (Fintype.card α)
     fun m hm ↦ ?_
