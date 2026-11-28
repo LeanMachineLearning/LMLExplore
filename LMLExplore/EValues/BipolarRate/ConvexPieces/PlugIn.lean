@@ -178,20 +178,6 @@ theorem adapted_minPlugInLikelihoodRatio
   Filtration.measurable_piLT_of_dependsOn_of_countable fun _ _ hxy ↦
     iInf_congr fun j ↦ dependsOn_plugInLikelihoodRatio hψhat (lam j) n hxy
 
-omit [Fintype ι] in
-/-- With predictable estimates, a function of the estimate of round `k` and of an observation is
-jointly measurable for the past before `k` and the observation, with no measurability of the
-function: the alphabet of the coins is finite. -/
-private lemma measurable_uncurry_comp_estimate [Finite ι]
-    (hψhat : Adapted (Filtration.piLT (X := fun _ : ℕ ↦ ι → Bool)) ψhat) {Z : Type*}
-    [MeasurableSpace Z] (F : (ι → ℝ) → (ι → Bool) → Z) (k : ℕ) :
-    Measurable[(Filtration.piLT k).prod inferInstance]
-      (Function.uncurry fun ω y ↦ F (ψhat k ω) y) := by
-  refine @measurable_from_prod_countable_left _ _ _ (Filtration.piLT k) _ _ _ _ _ fun y ↦ ?_
-  refine Filtration.measurable_piLT_of_dependsOn_of_countable fun x x' hxx' ↦ ?_
-  simp only [Function.uncurry_apply_pair]
-  rw [(hψhat k).dependsOn_of_piLT hxx']
-
 /-! ### Validity -/
 
 /-- **The plug-in likelihood ratio against the projection on a convex piece is a test
@@ -216,7 +202,7 @@ theorem isTestSupermartingale_plugInLikelihoodRatio {C : Set (ι → ℝ)} (hC :
   refine isTestSupermartingale_prod_sequentialNull
     (r := fun k ω y ↦ prodBernoulli (ψhat k ω) {y} / prodBernoulli (lam (ψhat k ω)) {y})
     (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self)
-    (measurable_uncurry_comp_estimate hψhat fun φ y ↦
+    (hψhat.measurable_uncurry_comp_piLT_of_countable fun φ y ↦
       prodBernoulli φ {y} / prodBernoulli (lam φ) {y})
     fun k ω ↦ isEVar_prodBernoulli_div_prodBernoulli hC hC01 _ (hlam01 _ (hψhat01 k ω))
       (hlam _ (hψhat01 k ω)) (hmin _ (hψhat01 k ω))
@@ -513,7 +499,7 @@ private lemma ae_forall_eventually_neg_mul_le_sum_log_sub {C : Set (ι → ℝ)}
     -- given the past, the factor is an e-variable by Hoeffding's lemma
     refine (isTestSupermartingale_prod_sequentialNull (S₁ := fun _ _ ↦ {P}) (r := g m)
       (fun k ↦ Filtration.measurable_piLT_apply k.lt_succ_self)
-      (measurable_uncurry_comp_estimate hψhat fun φ y ↦
+      (hψhat.measurable_uncurry_comp_piLT_of_countable fun φ y ↦
         ENNReal.ofReal (Real.exp (-sm m * D' φ y - sm m ^ 2 * L ^ 2 / 2))) fun k ω ↦
         ⟨measurable_of_countable _, fun ν hν ↦ ?_⟩).anti_set (singleton_subset_iff.2
           (infinitePi_mem_sequentialNull fun _ ↦ .of_forall fun _ ↦ rfl))

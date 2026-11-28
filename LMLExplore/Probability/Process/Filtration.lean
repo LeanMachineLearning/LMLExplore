@@ -58,6 +58,9 @@ time `n`.
   sequences a measurable function of the first `n` coordinates is measurable at time `n` of
   `piLT`; `MeasureTheory.Filtration.measurable_piLT_of_dependsOn_of_countable`: on a countable
   alphabet, every function of the first `n` coordinates is.
+* `MeasureTheory.Adapted.measurable_uncurry_comp_piLT_of_countable`: on countable alphabets, a
+  function of the value at time `k` of a `piLT`-adapted process and of a new term is jointly
+  measurable for `piLT k` and the new term.
 * `MeasurableSet.dependsOn_of_piLT`: membership in a set measurable at time `i` of `piLT` only
   depends on the coordinates `j < i`.
 * `Measurable.apply_eq_of_piLT_zero`, `Measurable.apply_update_eq_of_piLT`: a function measurable
@@ -259,6 +262,20 @@ lemma measurable_piLT_of_dependsOn_of_countable {𝓧 β : Type*} [MeasurableSpa
     [MeasurableSingletonClass 𝓧] [MeasurableSpace β] {f : (ℕ → 𝓧) → β} {n : ℕ}
     (hfn : DependsOn f (Set.Iio n)) : Measurable[piLT n] f :=
   measurable_piLT_of_dependsOn (hfn.measurable_of_countable (Set.finite_Iio n)) hfn
+
+/-- On countable alphabets with measurable singletons, for a process `u` adapted to
+`Filtration.piLT`, a function `(ω, y) ↦ F (u k ω) y` of the value at time `k` and of a new term is
+jointly measurable for the strict past `piLT k` and the new term, with no measurability of `F`. -/
+lemma _root_.MeasureTheory.Adapted.measurable_uncurry_comp_piLT_of_countable
+    {𝓧 β 𝓨 Z : Type*} [MeasurableSpace 𝓧] [Countable 𝓧] [MeasurableSingletonClass 𝓧]
+    [MeasurableSpace β] [MeasurableSingletonClass β] [MeasurableSpace 𝓨] [Countable 𝓨]
+    [MeasurableSingletonClass 𝓨] [MeasurableSpace Z] {u : ℕ → (ℕ → 𝓧) → β}
+    (hu : Adapted piLT u) (F : β → 𝓨 → Z) (k : ℕ) :
+    Measurable[(piLT k).prod inferInstance] (Function.uncurry fun ω y ↦ F (u k ω) y) := by
+  refine @measurable_from_prod_countable_left _ _ _ (piLT k) _ _ _ _ _ fun y ↦ ?_
+  refine measurable_piLT_of_dependsOn_of_countable fun x x' hxx' ↦ ?_
+  simp only [Function.uncurry_apply_pair]
+  rw [(hu k).dependsOn_of_piLT hxx']
 
 /-- A stopping time of the strict past `Filtration.piLT` of the coordinates of a sequence is
 determined by the coordinates before it: if `τ ω = n` and `ω'` agrees with `ω` before `n`, then
