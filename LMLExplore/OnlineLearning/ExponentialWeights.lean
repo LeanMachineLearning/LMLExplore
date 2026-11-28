@@ -7,9 +7,10 @@ module
 
 public import LMLExplore.Analysis.Convex.Simplex
 public import LMLExplore.Analysis.SpecialFunctions.Exp
+public import LMLExplore.MeasureTheory.Measure.Weighted
+public import LMLExplore.OnlineLearning.GibbsMixture
 public import Mathlib.Algebra.BigOperators.Field
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
-import Mathlib.Analysis.MeanInequalitiesPow
 import TauCeti.Analysis.SpecialFunctions.Exp.QuadraticBound
 
 /-!
@@ -31,8 +32,9 @@ increment of the potential from `L` to `L + ℓ`, and the potential is nonincrea
 nonincreasing learning rates `η t` the mix losses of the weights
 `p t = softmax (-(η t • ∑ s < t, y s))` telescope: their sum is at most the potential at the last
 learning rate, which is at most the cumulative loss of every coordinate plus `log k / η (n - 1)`
-[dRvEGK14, Section 2]. The regret is therefore at most `log k / η (n - 1)` plus the sum of the
-*mixability gaps* `⟨p t, y t⟩ - mixLoss (η t) (p t) (y t)`, with `⟨p, y⟩ = ∑ b, p b * y b`. Since
+[dRvEGK14, Section 2]. The regret is therefore at most
+`log k / η (n - 1)` plus the sum of the *mixability gaps* `⟨p t, y t⟩ - mixLoss (η t) (p t) (y t)`,
+with `⟨p, y⟩ = ∑ b, p b * y b`. Since
 `log x ≤ x - 1`, the mixability gap is at most `(∑ b, p b * (exp (-(η * y b)) - 1 + η * y b)) / η`.
 
 For nonnegative losses this gives the local-norm bound
@@ -47,6 +49,13 @@ the regret bound of AdaHedge (`LMLExplore.OnlineLearning.AdaHedge`), and the mix
 is the maximum over the simplex of the stability term of follow the regularized leader with the
 negative entropy at `p`, by the Gibbs variational principle
 (`isGreatest_sum_sub_mul_sub_sum_mul_log_div_div` in `LMLExplore.OnlineLearning.Simplex`).
+
+For nonnegative weights `w`, the mix loss is `MeasureTheory.Measure.mixLoss` of the prior
+`∑ a, w a • δ_a` at the temperature `η⁻¹` (`mixLoss_eq_mixLoss_weightedMeasure`), and the
+exponential weights are the Gibbs measure of the uniform prior (`weightedMeasure_softmax`). The
+bounds `mixLoss_le_sum_mul` and `le_mixLoss` on the mix loss, the telescoping step
+(`mixLoss_softmax`) and the monotonicity of the potential in `η` (`hedgePotential_le_of_le`) are
+derived from these identities and the Gibbs mixtures of `LMLExplore.OnlineLearning.GibbsMixture`.
 
 ## Main definitions
 
@@ -69,6 +78,12 @@ negative entropy at `p`, by the Gibbs variational principle
   `η ≥ 0`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 / 2 * ∑ b, p b * y b ^ 2`.
 * `sum_mul_exp_neg_sub_one_add_le_of_neg_one_le`: for nonnegative weights `p` and a loss `y` with
   `η * y b ≥ -1`, `∑ b, p b * (exp (-(η * y b)) - 1 + η * y b) ≤ η ^ 2 * ∑ b, p b * y b ^ 2`.
+* `mixLoss_eq_mixLoss_weightedMeasure`: the mix loss of weights `w ≥ 0` is the mix loss of the
+  prior `weightedMeasure w` at the temperature `η⁻¹`.
+* `hedgePotential_eq_mixLoss_weightedMeasure`: the potential is the mix loss of the uniform prior
+  at the temperature `η⁻¹`.
+* `weightedMeasure_softmax`: the exponential weights `softmax (-(η • L))` are the Gibbs measure of
+  `L` under the uniform prior at the temperature `η⁻¹`.
 * `mixLoss_le_sum_mul`, `le_mixLoss`: the mix loss lies between the smallest loss and `⟨w, ℓ⟩`.
 * `mixLoss_softmax`: the mix loss of exponential weights is the increment of the potential.
 * `hedgePotential_le_of_le`: the potential is nonincreasing in the learning rate.
@@ -109,7 +124,7 @@ formalization of [SSKM26] in the paper project `RemyDegenne/Schlisselberg2026Hid
 
 public section
 
-open Finset Real
+open Finset Real MeasureTheory
 
 namespace LMLExplore.OnlineLearning
 
@@ -245,33 +260,34 @@ lemma le_mixLoss_iff {η : ℝ} (hη : 0 < η) {w ℓ : α → ℝ} {c : ℝ} :
     c ≤ mixLoss η w ℓ ↔ log (∑ a, w a * exp (-η * ℓ a)) ≤ -η * c := by
   rw [mixLoss_def, le_neg_inv_mul_iff hη]
 
+/-- The mix loss of nonnegative weights `w` at the learning rate `η` is the mix loss of the
+prior `weightedMeasure w = ∑ a, w a • δ_a` at the temperature `η⁻¹`
+(`MeasureTheory.Measure.mixLoss`). -/
+lemma mixLoss_eq_mixLoss_weightedMeasure [MeasurableSpace α] [MeasurableSingletonClass α]
+    {w : α → ℝ} (hw : ∀ a, 0 ≤ w a) (η : ℝ) (ℓ : α → ℝ) :
+    mixLoss η w ℓ = (weightedMeasure w).mixLoss ℓ η⁻¹ := by
+  rw [mixLoss_def, Measure.mixLoss_def, integral_weightedMeasure_eq_sum hw]
+  congr 3 with a
+  rw [smul_eq_mul, div_inv_eq_mul, neg_mul, neg_mul, mul_comm η]
+
 /-- The mix loss is at most the loss `⟨w, ℓ⟩` of the weights, by Jensen's inequality. -/
 lemma mixLoss_le_sum_mul {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) (ℓ : α → ℝ) :
     mixLoss η w ℓ ≤ ∑ a, w a * ℓ a := by
-  have hw' := mem_simplex_iff.1 hw
-  have h := convexOn_exp.map_sum_le (t := univ) (w := w) (p := fun a ↦ -η * ℓ a)
-    (fun a _ ↦ hw'.1 a) hw'.2 (fun _ _ ↦ Set.mem_univ _)
-  simp only [smul_eq_mul] at h
-  have hsum : ∑ a, w a * (-η * ℓ a) = -η * ∑ a, w a * ℓ a := by
-    rw [Finset.mul_sum]
-    exact Finset.sum_congr rfl fun a _ ↦ by ring
-  rw [hsum] at h
-  rw [mixLoss_le_iff hη, ← log_exp (-η * ∑ a, w a * ℓ a)]
-  exact log_le_log (exp_pos _) h
+  let _ : MeasurableSpace α := ⊤
+  have hw0 := (mem_simplex_iff.1 hw).1
+  have := isProbabilityMeasure_weightedMeasure hw
+  have h := Measure.mixLoss_le_integral (μ := weightedMeasure w) (L := ℓ) (inv_pos.2 hη)
+    Integrable.of_finite Integrable.of_finite
+  rwa [integral_weightedMeasure_eq_sum hw0, ← mixLoss_eq_mixLoss_weightedMeasure hw0] at h
 
 /-- The mix loss of losses at least `lo` is at least `lo`. -/
 lemma le_mixLoss {w : α → ℝ} (hw : w ∈ simplex α) {η : ℝ} (hη : 0 < η) {ℓ : α → ℝ} {lo : ℝ}
     (hℓ : ∀ a, lo ≤ ℓ a) :
     lo ≤ mixLoss η w ℓ := by
-  have hw' := mem_simplex_iff.1 hw
-  have hle : ∑ a, w a * exp (-η * ℓ a) ≤ exp (-η * lo) := by
-    calc ∑ a, w a * exp (-η * ℓ a) ≤ ∑ a, w a * exp (-η * lo) :=
-          Finset.sum_le_sum fun a _ ↦ mul_le_mul_of_nonneg_left
-            (exp_le_exp.2 (by nlinarith [hℓ a])) (hw'.1 a)
-      _ = exp (-η * lo) := by rw [← Finset.sum_mul, hw'.2, one_mul]
-  have hpos := sum_mul_pos_of_mem_simplex hw fun a ↦ exp_pos (-η * ℓ a)
-  rw [le_mixLoss_iff hη, ← log_exp (-η * lo)]
-  exact log_le_log hpos hle
+  let _ : MeasurableSpace α := ⊤
+  have := isProbabilityMeasure_weightedMeasure hw
+  rw [mixLoss_eq_mixLoss_weightedMeasure (mem_simplex_iff.1 hw).1]
+  exact Measure.le_mixLoss (inv_pos.2 hη) Integrable.of_finite (ae_of_all _ hℓ)
 
 /-- The potential `-(1/η) log ((1/K) ∑ a, exp (-η L a))` of exponential weights with learning rate
 `η` at the cumulative loss vector `L`, with `K` the cardinality of `α`. -/
@@ -286,23 +302,39 @@ lemma hedgePotential_eq_mixLoss (η : ℝ) (L : α → ℝ) :
     hedgePotential η L = mixLoss η (fun _ ↦ (Fintype.card α : ℝ)⁻¹) L := by
   simp_rw [hedgePotential_def, mixLoss_def, Finset.sum_div, div_eq_inv_mul]
 
+/-- The potential is the mix loss of the cumulative losses under the uniform prior
+`weightedMeasure fun _ ↦ 1 / K`, at the temperature `η⁻¹`. -/
+lemma hedgePotential_eq_mixLoss_weightedMeasure [MeasurableSpace α] [MeasurableSingletonClass α]
+    (η : ℝ) (L : α → ℝ) :
+    hedgePotential η L = (weightedMeasure fun _ : α ↦ (Fintype.card α : ℝ)⁻¹).mixLoss L η⁻¹ := by
+  rw [hedgePotential_eq_mixLoss, mixLoss_eq_mixLoss_weightedMeasure fun _ ↦ by positivity]
+
+/-- **Exponential weights are a Gibbs measure**: the weights `softmax (-(η • L))` are the masses of
+the Gibbs measure of the cumulative losses `L` under the uniform prior, at the temperature `η⁻¹`. -/
+lemma weightedMeasure_softmax [MeasurableSpace α] [MeasurableSingletonClass α] [Nonempty α]
+    (η : ℝ) (L : α → ℝ) :
+    weightedMeasure (softmax (-(η • L))) =
+      (weightedMeasure fun _ : α ↦ (Fintype.card α : ℝ)⁻¹).gibbs L η⁻¹ := by
+  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
+  have hZ : 0 < ∑ b, exp (-(η * L b)) := Finset.sum_pos (fun b _ ↦ exp_pos _) univ_nonempty
+  refine Measure.ext_iff_singleton.2 fun a ↦ ?_
+  rw [weightedMeasure_singleton, Measure.gibbs_apply, lintegral_singleton,
+    weightedMeasure_singleton, integral_weightedMeasure_eq_sum fun _ ↦ inv_nonneg.2 hK.le,
+    ← ENNReal.ofReal_mul (by positivity)]
+  congr 1
+  simp_rw [softmax_apply, Pi.neg_apply, Pi.smul_apply, smul_eq_mul, div_inv_eq_mul, neg_mul,
+    mul_comm (L _) η, ← Finset.mul_sum]
+  field_simp
+
 /-- The mix loss of the exponential weights `softmax (-(η • L))` is the increment
 `Φ_η(L + ℓ) - Φ_η(L)` of the potential. -/
 lemma mixLoss_softmax [Nonempty α] (η : ℝ) (L ℓ : α → ℝ) :
     mixLoss η (softmax (-(η • L))) ℓ = hedgePotential η (L + ℓ) - hedgePotential η L := by
-  have hZ : 0 < ∑ a, exp (-η * L a) := Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty
-  have hZ' : 0 < ∑ a, exp (-η * (L + ℓ) a) := Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  have hsum : ∑ a, softmax (-(η • L)) a * exp (-η * ℓ a) =
-      (∑ a, exp (-η * (L + ℓ) a)) / ∑ a, exp (-η * L a) := by
-    rw [Finset.sum_div]
-    refine Finset.sum_congr rfl fun a _ ↦ ?_
-    simp only [softmax_apply, Pi.neg_apply, Pi.smul_apply, smul_eq_mul, Pi.add_apply, mul_add,
-      neg_mul, exp_add]
-    ring
-  rw [mixLoss_def, hsum, hedgePotential_def, hedgePotential_def, log_div hZ'.ne' hZ.ne',
-    log_div hZ'.ne' hK.ne', log_div hZ.ne' hK.ne']
-  ring
+  let _ : MeasurableSpace α := ⊤
+  have := isProbabilityMeasure_weightedMeasure (uniform_mem_simplex α)
+  rw [mixLoss_eq_mixLoss_weightedMeasure (softmax_nonneg _), weightedMeasure_softmax,
+    Measure.mixLoss_gibbs Integrable.of_finite Integrable.of_finite,
+    hedgePotential_eq_mixLoss_weightedMeasure, hedgePotential_eq_mixLoss_weightedMeasure]
 
 /-- The potential is at most `L a + log K / η` for every expert `a`. -/
 lemma hedgePotential_le {η : ℝ} (hη : 0 < η) (L : α → ℝ) (a : α) :
@@ -327,32 +359,16 @@ lemma le_hedgePotential [Nonempty α] {η : ℝ} (hη : 0 < η) {L : α → ℝ}
   hedgePotential_eq_mixLoss η L ▸ le_mixLoss (uniform_mem_simplex α) hη hL
 
 /-- The potential is nonincreasing in the learning rate: for `0 < η' ≤ η`,
-`Φ_η(L) ≤ Φ_η'(L)`. This is the power mean inequality. -/
+`Φ_η(L) ≤ Φ_η'(L)`, since the mix loss is nondecreasing in the temperature `η⁻¹`
+(`MeasureTheory.Measure.mixLoss_le_mixLoss_of_le`). -/
 lemma hedgePotential_le_of_le [Nonempty α] {η η' : ℝ} (hη' : 0 < η') (hη : η' ≤ η)
     (L : α → ℝ) :
     hedgePotential η L ≤ hedgePotential η' L := by
-  have hη0 : 0 < η := hη'.trans_le hη
-  have hK : (0 : ℝ) < Fintype.card α := by exact_mod_cast Fintype.card_pos
-  set p := η / η' with hp
-  have hp1 : 1 ≤ p := by rw [hp, le_div_iff₀ hη', one_mul]; exact hη
-  -- the power mean inequality for the weights `1/K` and the values `exp (-η' L a)`
-  have hmean := Real.rpow_arith_mean_le_arith_mean_rpow univ (fun _ ↦ (Fintype.card α : ℝ)⁻¹)
-    (fun a ↦ exp (-η' * L a)) (fun _ _ ↦ inv_nonneg.2 hK.le)
-    (by simp [Finset.card_univ, hK.ne']) (fun _ _ ↦ (exp_pos _).le) hp1
-  have hpow (a : α) : exp (-η' * L a) ^ p = exp (-η * L a) := by
-    rw [← exp_mul, hp]
-    congr 1
-    field_simp
-  simp only [hpow, ← Finset.mul_sum] at hmean
-  have hpos' : 0 < (Fintype.card α : ℝ)⁻¹ * ∑ a, exp (-η' * L a) :=
-    mul_pos (inv_pos.2 hK) (Finset.sum_pos (fun a _ ↦ exp_pos _) univ_nonempty)
-  have hlog := log_le_log (rpow_pos_of_pos hpos' p) hmean
-  rw [log_rpow hpos'] at hlog
-  rw [hedgePotential_def, hedgePotential_def, div_eq_inv_mul, div_eq_inv_mul,
-    neg_inv_mul_le_iff hη0]
-  refine le_of_eq_of_le ?_ hlog
-  rw [hp]
-  field_simp
+  let _ : MeasurableSpace α := ⊤
+  have := isProbabilityMeasure_weightedMeasure (uniform_mem_simplex α)
+  rw [hedgePotential_eq_mixLoss_weightedMeasure, hedgePotential_eq_mixLoss_weightedMeasure]
+  exact Measure.mixLoss_le_mixLoss_of_le (inv_pos.2 (hη'.trans_le hη)) (inv_anti₀ hη' hη)
+    Integrable.of_finite
 
 /-- The potential of the zero cumulative loss vector is zero. -/
 @[simp]
