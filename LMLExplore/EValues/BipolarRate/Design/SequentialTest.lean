@@ -243,7 +243,7 @@ private lemma hasLaw_blockSeq_arrayMeasure [DecidableEq α] [Nonempty α] [Stand
         (MeasurableEquiv.curry ℕ (Σ a, Fin (r a)) 𝓧) ∘ (fun z q ↦ z (g q)) ∘
           (MeasurableEquiv.curry ℕ α 𝓧).symm := by
       ext x j p
-      rfl
+      simp [MeasurableEquiv.coe_curry, MeasurableEquiv.coe_curry_symm, Function.uncurry_def]
     rw [h_eq, ← Measure.map_map (MeasurableEquiv.measurable _) (by fun_prop),
       ← Measure.map_map (by fun_prop) (MeasurableEquiv.measurable _), Bandits.streamMeasure,
       Measure.infinitePi_map_curry_symm (fun (_ : ℕ) (a : α) ↦ ν a),
