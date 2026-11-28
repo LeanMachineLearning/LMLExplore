@@ -66,7 +66,9 @@ rests. Write `V t s = ⨆ a, Q t (s, a)` for the value estimates, `Δ t = Q t - 
   the σ-algebra of the first `t` samples.
 * `LMLExplore.ReinforcementLearning.syncQLearning_mem_Icc`,
   `LMLExplore.ReinforcementLearning.abs_syncQLearning_sub_optQValue_le`: the ranges of the
-  iterates and of their errors [LCCWC24, Lemma 4].
+  iterates and of their errors [LCCWC24, Lemma 4];
+  `LMLExplore.ReinforcementLearning.add_mul_div_one_sub_le`: for `γ < 1`, the range bound
+  `B = C / (1 - γ)` satisfies `C + γ * B ≤ B`.
 * `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue`: the error recursion
   [LCCWC24, (32)]; `LMLExplore.ReinforcementLearning.syncQLearning_succ_sub_optQValue_le`,
   `LMLExplore.ReinforcementLearning.le_syncQLearning_succ_sub_optQValue`: its upper and lower
@@ -229,6 +231,14 @@ theorem iSup_syncQLearning_mem_Icc [Nonempty 𝓐] {B C : ℝ}
     (⨆ a, syncQLearning r γ η Q₀ t ω (s, a)) ∈ Set.Icc 0 B :=
   ciSup_mem_Icc fun a ↦ syncQLearning_mem_Icc hη hr hQ₀ hB t ω (s, a)
 
+/-- For `γ < 1`, `C + γ (C / (1 - γ)) ≤ C / (1 - γ)` (with equality): `B = C / (1 - γ)` satisfies
+the hypothesis `C + γ * B ≤ B` of `syncQLearning_mem_Icc` and `iSup_syncQLearning_mem_Icc`. -/
+theorem add_mul_div_one_sub_le {C : ℝ} (hγ : γ < 1) : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
+  refine le_of_eq ?_
+  field_simp
+  ring
+
 /-! ### The error recursion -/
 
 section MDP
@@ -245,15 +255,9 @@ theorem abs_syncQLearning_sub_optQValue_le [Countable 𝓐] [Nonempty 𝓐] (hγ
     (hQ₀ : ∀ p, Q₀ p ∈ Set.Icc 0 (C / (1 - γ))) (t : ℕ) (ω : ℕ → 𝓢 × 𝓐 → 𝓢) (p : 𝓢 × 𝓐) :
     |syncQLearning (meanReward M.R) γ η Q₀ t ω p - M.optQValue γ p| ≤ C / (1 - γ) := by
   have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (NNReal.coe_lt_one.2 hγ)
-  have hRabs : ∀ p, ∀ᵐ x ∂(M.R p), |x| ≤ C := fun p ↦ (hR p).mono fun x hx ↦
-    abs_le.2 ⟨by linarith [hx.1, hx.2], hx.2⟩
-  have hr (q : 𝓢 × 𝓐) : meanReward M.R q ∈ Set.Icc 0 C :=
-    ⟨by rw [meanReward_def]; exact integral_nonneg_of_ae ((hR q).mono fun x hx ↦ hx.1),
-      (le_abs_self _).trans (abs_meanReward_le hRabs q)⟩
-  have hB : C + γ * (C / (1 - γ)) ≤ C / (1 - γ) := by
-    refine le_of_eq ?_
-    field_simp
-    ring
+  have hRabs (q : 𝓢 × 𝓐) := ae_abs_le_of_ae_mem_Icc (hR q)
+  have hr (q : 𝓢 × 𝓐) := meanReward_mem_Icc_of_ae_mem_Icc (hR q)
+  have hB := add_mul_div_one_sub_le (C := C) hγ
   have hQ := syncQLearning_mem_Icc hη hr hQ₀ hB t ω p
   have hQs := optQValue_nonneg hγ hRabs (fun q ↦ (hr q).1) p
   have hQs' := (le_abs_self _).trans (abs_optQValue_le hγ hRabs p)

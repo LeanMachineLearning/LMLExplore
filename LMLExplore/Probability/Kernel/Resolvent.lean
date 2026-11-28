@@ -106,6 +106,11 @@ equation of these objects.
 * `ProbabilityTheory.Kernel.integral_resolvent_le_of_add_le`,
   `ProbabilityTheory.Kernel.le_integral_resolvent_of_le_add`: comparison with sub- and
   supersolutions, `f + γ κ u ≤ u → R_γ f ≤ u` and `u ≤ f + γ κ u → u ≤ R_γ f`.
+* `ProbabilityTheory.Kernel.add_mul_integral_sqrt_le_sqrt`: if `w ≥ 0` is a supersolution for
+  `b ^ 2`, then `√(w / (1 - γ))` is a supersolution for `b`.
+* `ProbabilityTheory.Kernel.le_add_pow_mul_of_le_add_sum_mul_integral`: comparison of an averaged
+  recursive inequality along a sequence of Markov kernels `κ i` with a common supersolution, by
+  generations of `L` iterations.
 * `ProbabilityTheory.Kernel.integral_resolvent_sub_integral_resolvent`: the simulation identity
   with two rewards `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`.
 * `ProbabilityTheory.Kernel.abs_integral_resolvent_sub_integral_resolvent_le`:
@@ -470,6 +475,31 @@ theorem le_integral_resolvent_of_le_add (hγ : γ < 1) {f u : α → ℝ} {B B' 
     u x ≤ ∫ z, f z ∂(resolvent γ κ x) := by
   rw [← sub_nonneg, integral_resolvent_sub_eq_integral_resolvent hγ hf hfB hu huB]
   exact integral_nonneg fun z ↦ sub_nonneg.2 (h z)
+
+/-- **Square roots of supersolutions.** For `γ < 1`, if `w ≥ 0` satisfies
+`b ^ 2 + γ κ w ≤ w` at `x` for some `b`, then `√(w / (1 - γ))` satisfies
+`b + γ κ √(w / (1 - γ)) ≤ √(w / (1 - γ))` at `x`: a supersolution of `u = f + γ κ u` for `f = b ^ 2`
+gives one for `f = b`, at the price of the factor `(1 - γ)⁻¹` under the square root. -/
+theorem add_mul_integral_sqrt_le_sqrt (hγ : γ < 1) {w : α → ℝ} (hw : ∀ y, 0 ≤ w y) {x : α}
+    (hwi : Integrable w (κ x)) {b : ℝ} (h : b ^ 2 + γ * ∫ y, w y ∂(κ x) ≤ w x) :
+    b + γ * ∫ y, √(w y / (1 - γ)) ∂(κ x) ≤ √(w x / (1 - γ)) := by
+  have h1γ : (0 : ℝ) < 1 - γ := sub_pos.2 (by exact_mod_cast hγ)
+  -- Jensen's inequality for the square root bounds `κ √(w / (1 - γ))` by `√(κ w / (1 - γ))`
+  have hJ : ∫ y, √(w y / (1 - γ)) ∂(κ x) ≤ √((∫ y, w y ∂(κ x)) / (1 - γ)) := by
+    have := integral_sqrt_le_sqrt_measureReal_mul_integral (μ := κ x) (g := fun y ↦ w y / (1 - γ))
+      (.of_forall fun y ↦ div_nonneg (hw y) h1γ.le) (hwi.div_const _)
+    rwa [probReal_univ, one_mul, integral_div] at this
+  set a := ∫ y, w y ∂(κ x)
+  have ha : 0 ≤ a := integral_nonneg hw
+  set s := √(a / (1 - γ))
+  have hs : 0 ≤ s := Real.sqrt_nonneg _
+  have hs2 : s ^ 2 = a / (1 - γ) := Real.sq_sqrt (div_nonneg ha h1γ.le)
+  refine (add_le_add_right (mul_le_mul_of_nonneg_left hJ γ.coe_nonneg) b).trans ?_
+  -- `(b + γ s) ^ 2 ≤ (b ^ 2 + γ a) / (1 - γ)`, with equality defect `γ (b - (1 - γ) s) ^ 2`
+  refine Real.le_sqrt_of_sq_le ?_
+  rw [le_div_iff₀ h1γ]
+  have has : a = s ^ 2 * (1 - γ) := by rw [hs2, div_mul_cancel₀ _ h1γ.ne']
+  nlinarith [mul_nonneg γ.coe_nonneg (sq_nonneg (b - (1 - γ) * s)), γ.coe_nonneg]
 
 /-- **The simulation identity with two rewards**
 `R_γ(κ) f - R_γ(κ') f' = R_γ(κ') ((f - f') + γ (κ - κ') R_γ(κ) f)`: for Markov kernels `κ` and
@@ -849,6 +879,63 @@ theorem abs_integral_resolvent_sub_integral_resolvent_le_of_abs_sub_le (κ' : Ke
   exact le_three_mul_sqrt_of_le_mul_add hγ₀ hγ hC hm hε₀ hε hstep hnext hlast
 
 end Markov
+
+/-! ### Comparison with a common supersolution along a sequence of kernels -/
+
+/-- **Comparison with a common supersolution, by generations.** Let `L > 0`, let the functions
+`x k` satisfy the averaged recursive inequality
+`x k ≤ b + ∑_{k - L ≤ i < k} w k i γ κ i (x i)` for `m + L ≤ k ≤ t`, with nonnegative weights
+adding up to at most `1`, and let `u ≥ 0` be a common supersolution, `b + γ κ i u ≤ u` for
+`m ≤ i < t`. If `x k ≤ u + c` for `m ≤ k ≤ t`, with `c ≥ 0` and `γ ≥ 0`, then
+`x k ≤ u + γ ^ j c` for `m + j L ≤ k ≤ t`: each generation of `L` iterations contracts the excess
+over `u` by `γ`. -/
+theorem le_add_pow_mul_of_le_add_sum_mul_integral {κ : ℕ → Kernel α α}
+    [∀ i, IsMarkovKernel (κ i)] {x : ℕ → α → ℝ} {w : ℕ → ℕ → ℝ} {b u : α → ℝ} {γ c : ℝ}
+    {m L t : ℕ} (hγ : 0 ≤ γ) (hc : 0 ≤ c) (hu : ∀ y, 0 ≤ u y) (hL : 0 < L)
+    (hxi : ∀ i y, Integrable (x i) (κ i y)) (hui : ∀ i y, Integrable u (κ i y))
+    (hsup : ∀ i ∈ Finset.Ico m t, ∀ y, b y + γ * ∫ z, u z ∂(κ i y) ≤ u y)
+    (hw : ∀ k ∈ Finset.Icc (m + L) t, ∀ i ∈ Finset.Ico (k - L) k, 0 ≤ w k i)
+    (hw1 : ∀ k ∈ Finset.Icc (m + L) t, ∑ i ∈ Finset.Ico (k - L) k, w k i ≤ 1)
+    (hx : ∀ k ∈ Finset.Icc (m + L) t, ∀ y,
+      x k y ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)))
+    (hxc : ∀ k ∈ Finset.Icc m t, ∀ y, x k y ≤ u y + c) (j : ℕ) :
+    ∀ k ∈ Finset.Icc (m + j * L) t, ∀ y, x k y ≤ u y + γ ^ j * c := by
+  induction j with
+  | zero => simpa using hxc
+  | succ j ih =>
+    intro k hk y
+    obtain ⟨hk₁, hk₂⟩ := Finset.mem_Icc.1 hk
+    have hjL : j * L + L = (j + 1) * L := by ring
+    have hkL : k ∈ Finset.Icc (m + L) t := Finset.mem_Icc.2 ⟨by omega, hk₂⟩
+    -- the window of `k` lies in the previous generation
+    have hwin (i : ℕ) (hi : i ∈ Finset.Ico (k - L) k) :
+        i ∈ Finset.Icc (m + j * L) t ∧ i ∈ Finset.Ico m t := by
+      have := Finset.mem_Ico.1 hi
+      exact ⟨Finset.mem_Icc.2 ⟨by omega, by omega⟩, Finset.mem_Ico.2 ⟨by omega, by omega⟩⟩
+    -- `b ≤ u` at `y`, by the supersolution property at the last iteration of the window
+    have hbu : b y ≤ u y := by
+      have h₁ := hsup (k - 1) (hwin (k - 1) (Finset.mem_Ico.2 ⟨by omega, by omega⟩)).2 y
+      have h₂ : 0 ≤ γ * ∫ z, u z ∂(κ (k - 1) y) := mul_nonneg hγ (integral_nonneg hu)
+      linarith
+    calc x k y ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * (γ * ∫ z, x i z ∂(κ i y)) :=
+          hx k hkL y
+      _ ≤ b y + ∑ i ∈ Finset.Ico (k - L) k, w k i * ((u y - b y) + γ ^ (j + 1) * c) := by
+        gcongr with i hi
+        · exact hw k hkL i hi
+        · calc γ * ∫ z, x i z ∂(κ i y) ≤ γ * ∫ z, (u z + γ ^ j * c) ∂(κ i y) :=
+                mul_le_mul_of_nonneg_left (integral_mono (hxi i y)
+                  ((hui i y).add (integrable_const _)) fun z ↦ ih i (hwin i hi).1 z) hγ
+            _ = γ * ∫ z, u z ∂(κ i y) + γ ^ (j + 1) * c := by
+                rw [integral_add (hui i y) (integrable_const _), integral_const, probReal_univ,
+                  one_smul]
+                ring
+            _ ≤ (u y - b y) + γ ^ (j + 1) * c := by linarith [hsup i (hwin i hi).2 y]
+      _ = b y + (∑ i ∈ Finset.Ico (k - L) k, w k i) * ((u y - b y) + γ ^ (j + 1) * c) := by
+        rw [Finset.sum_mul]
+      _ ≤ b y + 1 * ((u y - b y) + γ ^ (j + 1) * c) := by
+        gcongr
+        exact hw1 k hkL
+      _ = u y + γ ^ (j + 1) * c := by ring
 
 end ProbabilityTheory.Kernel
 

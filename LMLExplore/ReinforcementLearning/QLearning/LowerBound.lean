@@ -26,7 +26,9 @@ probability, `Q* - Q t ≤ ρ 0 t C / (1 - γ) + 3 √(W ℓ) + 2 b ℓ`, with
 (`LMLExplore.ReinforcementLearning.tdNoiseVarBound`) along `P^π`, a bound `b` on the increments
 and a logarithmic factor `ℓ`. A union bound gives this bound at all the iterations of a finite
 set. The upper bound involves the kernels of the policies greedy for the iterates, which change
-with the iteration, and is not covered by this unrolling.
+with the iteration, and is not covered by this unrolling; it is proved in
+`LMLExplore.ReinforcementLearning.QLearning.UpperBound` by comparison with a supersolution common
+to these kernels.
 
 ## Main statements
 
