@@ -13,6 +13,7 @@ import LMLExplore.Data.EReal.Inv
 import LMLExplore.EValues.BipolarRate.Design.Algorithm
 import LMLExplore.EValues.BipolarRate.SequentialTest
 import LMLExplore.Identification.Basic
+import LMLExplore.SequentialLearning.Algorithms.OfSeq
 import LMLExplore.SequentialLearning.StoppedHistory
 
 /-!
@@ -179,10 +180,6 @@ private noncomputable def blockRound : ℕ × (Σ a, Fin (r a)) ≃ ℕ :=
 /-- The source observed at round `t` by the sampling in blocks of shape `r`. -/
 private noncomputable def blockSchedule (t : ℕ) : α := ((blockRound r).symm t).2.1
 
-/-- The sampling rule that samples the sources in blocks of shape `r`, whatever it observes. -/
-private noncomputable def blockAlg : Algorithm Unit α 𝓧 :=
-  Algorithm.deterministic (fun n _ ↦ blockSchedule r n) fun _ ↦ measurable_const
-
 /-- The sequence of the blocks of shape `r` of a sequence `Y` of observations: the entry `p` of
 the block `j` is the observation of the round `blockRound r (j, p)`. -/
 private noncomputable def blockSeq {Ω : Type*} (Y : ℕ → Ω → 𝓧) (ω : Ω) : ℕ → (Σ a, Fin (r a)) → 𝓧 :=
@@ -210,7 +207,8 @@ design `r`: the algorithm reads the entries of the i.i.d. table of observations 
 repetition. -/
 private lemma hasLaw_blockSeq_arrayMeasure [DecidableEq α] [Nonempty α] [StandardBorelSpace α]
     (ν : Kernel α 𝓧) [IsMarkovKernel ν] :
-    HasLaw (blockSeq r (Bandits.ArrayModel.reward (blockAlg r : Algorithm Unit α 𝓧)))
+    HasLaw (blockSeq r
+        (Bandits.ArrayModel.reward (Algorithm.ofSeq (blockSchedule r) : Algorithm Unit α 𝓧)))
       (Measure.infinitePi fun _ : ℕ ↦ designLaw (fun a ↦ ν a) r)
       (Bandits.ArrayModel.arrayMeasure ν) := by
   set s := blockSchedule r
@@ -258,13 +256,11 @@ private lemma hasLaw_blockSeq_arrayMeasure [DecidableEq α] [Nonempty α] [Stand
     Measurable.of_eval fun j ↦ Measurable.of_eval fun p ↦
       (measurable_pi_apply _).comp (measurable_pi_apply _)
   have hact := (LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit
-    (blockAlg r : Algorithm Unit α 𝓧) ν).action_ae_all_eq_deterministic
+    (Algorithm.ofSeq (blockSchedule r) : Algorithm Unit α 𝓧) ν).action_ofSeq_ae_all_eq
   refine ((⟨hmeas.aemeasurable, hlaw⟩ : HasLaw _ _ _).comp hsnd).congr ?_
   filter_upwards [hact] with ω hω
-  have hω' (n : ℕ) : Bandits.ArrayModel.action (blockAlg r : Algorithm Unit α 𝓧) n ω = s n :=
-    hω n
   ext j p
-  simp only [Function.comp_apply, blockSeq, Bandits.ArrayModel.reward_eq, hω', pullCount, g, c,
+  simp only [Function.comp_apply, blockSeq, Bandits.ArrayModel.reward_eq, hω, pullCount, g, c,
     blockSchedule_blockRound, s]
 
 /-- **The blocks are i.i.d.** Under the law of the run of the sampling in blocks of shape `r`
@@ -273,9 +269,11 @@ the design `r`. -/
 private lemma hasLaw_blockSeq_trajMeasure [Nonempty α] [StandardBorelSpace α] (ν : Kernel α 𝓧)
     [IsMarkovKernel ν] :
     HasLaw (blockSeq r IT.feedback) (Measure.infinitePi fun _ : ℕ ↦ designLaw (fun a ↦ ν a) r)
-      (trajMeasure (blockAlg r : Algorithm Unit α 𝓧) (Environment.bandit ν)) := by
+      (trajMeasure (Algorithm.ofSeq (blockSchedule r) : Algorithm Unit α 𝓧)
+        (Environment.bandit ν)) := by
   classical
-  have h := LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit (blockAlg r : Algorithm Unit α 𝓧) ν
+  have h := LMLExplore.Bandits.ArrayModel.isAlgEnvSeq_bandit
+    (Algorithm.ofSeq (blockSchedule r) : Algorithm Unit α 𝓧) ν
   have hm : Measurable (blockSeq r (IT.feedback (𝓞 := Unit) (𝓐 := α) (𝓨 := 𝓧))) :=
     Measurable.of_eval fun j ↦ Measurable.of_eval fun p ↦ IT.measurable_feedback _
   exact HasLaw.comp_of_hasLaw_comp hm.aemeasurable h.hasLaw_trajectory HasLaw.id
@@ -301,7 +299,8 @@ blocks at which the test `τ` of the sequence of the blocks stops. -/
 private noncomputable def blockTest [Nonempty 𝓓] (b₀ : (Σ a, Fin (r a)) → 𝓧)
     {τ : (ℕ → (Σ a, Fin (r a)) → 𝓧) → WithTop ℕ} (hτ : IsStoppingTime Filtration.piLT τ) :
     IdentAlg Unit α 𝓧 𝓓 :=
-  ofStop (blockAlg r) (fun n h ↦ ∃ k : ℕ, n = k * ∑ a, r a ∧ τ (padBlocks b₀ n h) = k)
+  ofStop (Algorithm.ofSeq (blockSchedule r))
+    (fun n h ↦ ∃ k : ℕ, n = k * ∑ a, r a ∧ τ (padBlocks b₀ n h) = k)
     (fun n ↦ by
       simp only [Set.ofPred_exists, Set.ofPred_and]
       exact MeasurableSet.iUnion fun k ↦ (MeasurableSet.const _).inter
