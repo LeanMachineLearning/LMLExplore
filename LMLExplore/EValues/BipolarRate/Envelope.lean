@@ -7,6 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Semicontinuity
 public import LMLExplore.MeasureTheory.Measure.TauEnvelope
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import LMLExplore.MeasureTheory.Measure.SetwiseConvergence
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
@@ -109,13 +110,9 @@ theorem maxEPower_le_tauEnvelope_klInf (Q : Measure 𝓧) [IsProbabilityMeasure 
       (fun _ ↦ ⟨N, hfN⟩) hε)
     refine le_tauNbhdInf_iff.2 fun R hR hRf ↦ le_klInf_iff.2 fun P hP ↦ ?_
     have := hS P hP
-    have hint : Integrable f R :=
-      .of_bound hfm.aestronglyMeasurable N (.of_forall fun x ↦ by
-        rw [Real.norm_eq_abs]; exact hfN x)
+    have hint : Integrable f R := LMLExplore.integrable_of_abs_le hfm hfN R
     have hexp : Integrable (fun x ↦ Real.exp (f x)) P :=
-      .of_bound (by fun_prop) (Real.exp N) (.of_forall fun x ↦ by
-        rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)]
-        exact Real.exp_le_exp.2 ((le_abs_self _).trans (hfN x)))
+      LMLExplore.integrable_exp_of_abs_le hfm hfN P
     -- `∫ exp f ∂P ≤ 1`, so its logarithm is nonpositive
     have hZ1 : ∫ x, Real.exp (f x) ∂P ≤ 1 := by
       have h := hfP P hP

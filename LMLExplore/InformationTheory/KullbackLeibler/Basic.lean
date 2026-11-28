@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.SpecialFunctions.BinaryEntropy
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
@@ -53,16 +54,6 @@ open scoped ENNReal NNReal
 namespace InformationTheory
 
 variable {α : Type*} {mα : MeasurableSpace α}
-
-/-- A bounded measurable function is integrable under a finite measure, and so is its
-exponential. -/
-private lemma integrable_and_integrable_exp {μ : Measure α} [IsFiniteMeasure μ] {f : α → ℝ}
-    (hf : Measurable f) {C : ℝ} (hC : ∀ x, |f x| ≤ C) :
-    Integrable f μ ∧ Integrable (fun x ↦ exp (f x)) μ :=
-  ⟨.of_bound hf.aestronglyMeasurable C (ae_of_all _ hC),
-    .of_bound hf.exp.aestronglyMeasurable (exp C) (ae_of_all _ fun x ↦ by
-      rw [norm_eq_abs, abs_of_pos (exp_pos _)]
-      exact exp_le_exp.2 (le_of_abs_le (hC x)))⟩
 
 /-- For `t ∈ [0, 1)`, `log ((1 - t) + t exp y)` is at least `log (1 - t)`. -/
 private lemma log_one_sub_le_log_one_sub_add_mul_exp {t : ℝ} (ht : 0 ≤ t) (ht' : t < 1) (y : ℝ) :
@@ -137,9 +128,9 @@ theorem mul_klDiv_le_klDiv_add_binEntropy {μ ν ξ : Measure α} [IsProbability
   set g : α → ℝ := fun x ↦ log (1 - t + t * exp (f x)) with hg
   have hg_meas : Measurable g := by fun_prop
   have hgC (x : α) : |g x| ≤ C - log (1 - t) := abs_log_one_sub_add_mul_exp_le ht ht' (hC x)
-  have hgν := (integrable_and_integrable_exp (μ := ν) hg_meas hgC).1
+  have hgν := LMLExplore.integrable_of_abs_le hg_meas hgC ν
   have hDV := TauCeti.ofReal_integral_sub_integral_exp_sub_one_le_klDiv hgν
-    (integrable_and_integrable_exp (μ := ξ) hg_meas hgC).2
+    (LMLExplore.integrable_exp_of_abs_le hg_meas hgC ξ)
   -- the exponential terms are proportional
   have h_exp : ∫ x, (exp (g x) - 1) ∂ξ = t * ∫ x, (exp (f x) - 1) ∂ξ := by
     rw [← integral_const_mul]
@@ -149,8 +140,8 @@ theorem mul_klDiv_le_klDiv_add_binEntropy {μ ν ξ : Measure α} [IsProbability
     ring
   -- `t • μ ≤ ν` compares the linear terms
   have h_lin := mul_integral_sub_binEntropy_le_integral h ht
-    (integrable_and_integrable_exp (μ := μ) hf hC).1
-    (integrable_and_integrable_exp (μ := μ) hg_meas hgC).1 hgν
+    (LMLExplore.integrable_of_abs_le hf hC μ)
+    (LMLExplore.integrable_of_abs_le hg_meas hgC μ) hgν
     (fun x ↦ log_one_sub_le_log_one_sub_add_mul_exp ht.le ht' (f x))
     (fun x ↦ log_add_le_log_one_sub_add_mul_exp ht ht'.le (f x))
   calc (t : ℝ≥0∞) * ENNReal.ofReal (∫ x, f x ∂μ - ∫ x, (exp (f x) - 1) ∂ξ)
