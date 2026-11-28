@@ -72,6 +72,9 @@ supported distributions, not a subset of `α → ℝ`.
   `w a c a ≤ (∑ b, (c b)⁻¹)⁻¹`, and the vector proportional to `c⁻¹`
   (`LMLExplore.inv_div_sum_inv_mem_simplex`) is the only one with `w a c a` at least this value
   for all `a`: it is the unique maximizer of `w ↦ min_a w a c a` on the simplex.
+* `LMLExplore.le_sum_ceil_mul_of_mem_simplex`, `LMLExplore.sum_ceil_mul_le_of_mem_simplex`: for
+  a vector `w` of the simplex, the rounded-up allocation `⌈m w⌉` of `m` samples has between `m`
+  and `m + k` samples in total, with `k` the cardinality of `α`.
 * `LMLExplore.sq_dotProduct_le_dotProduct_sq_of_mem_simplex`: Jensen's inequality for the square,
   `(w ⬝ᵥ v) ^ 2 ≤ w ⬝ᵥ v ^ 2` for every vector `w` of the simplex.
 * `LMLExplore.sum_sqrt_mul_one_sub_le_sqrt`: `∑ a, √(w a) * (1 - w a) ≤ √(k - 1)` for every
@@ -363,6 +366,27 @@ lemma sum_mul_pos_of_mem_simplex (hw : w ∈ simplex α) (hc : ∀ a, 0 < c a) :
   obtain ⟨a, -, ha⟩ := Finset.exists_ne_zero_of_sum_ne_zero (hw.2.trans_ne one_ne_zero)
   exact Finset.sum_pos' (fun b _ ↦ mul_nonneg (hw.1 b) (hc b).le)
     ⟨a, Finset.mem_univ a, mul_pos ((hw.1 a).lt_of_ne' ha) (hc a)⟩
+
+/-- For a vector `w` of the simplex, the rounded-up allocation `⌈m w⌉` of `m` samples has at least
+`m` samples in total. -/
+lemma le_sum_ceil_mul_of_mem_simplex (hw : w ∈ simplex α) (m : ℕ) :
+    m ≤ ∑ a, ⌈(m : ℝ) * w a⌉₊ := by
+  have h : (m : ℝ) ≤ ∑ a, (⌈(m : ℝ) * w a⌉₊ : ℝ) :=
+    calc (m : ℝ) = ∑ a, (m : ℝ) * w a := by rw [← Finset.mul_sum, hw.2, mul_one]
+    _ ≤ ∑ a, (⌈(m : ℝ) * w a⌉₊ : ℝ) := Finset.sum_le_sum fun a _ ↦ Nat.le_ceil _
+  exact_mod_cast h
+
+/-- For a vector `w` of the simplex, the rounded-up allocation `⌈m w⌉` of `m` samples has at most
+`m + k` samples in total, with `k` the cardinality of `α`. -/
+lemma sum_ceil_mul_le_of_mem_simplex (hw : w ∈ simplex α) (m : ℕ) :
+    ∑ a, ⌈(m : ℝ) * w a⌉₊ ≤ m + Fintype.card α := by
+  have h : ∑ a, (⌈(m : ℝ) * w a⌉₊ : ℝ) ≤ m + Fintype.card α :=
+    calc ∑ a, (⌈(m : ℝ) * w a⌉₊ : ℝ) ≤ ∑ a, ((m : ℝ) * w a + 1) := Finset.sum_le_sum fun a _ ↦
+          (Nat.ceil_lt_add_one (mul_nonneg (Nat.cast_nonneg _) (hw.1 a))).le
+    _ = m + Fintype.card α := by
+      rw [Finset.sum_add_distrib, ← Finset.mul_sum, hw.2, mul_one, Finset.sum_const,
+        Finset.card_univ, nsmul_eq_mul, mul_one]
+  exact_mod_cast h
 
 /-- **Jensen's inequality for the square on the simplex**: the square of an average `w ⬝ᵥ v` with
 weights `w` of the simplex is at most the average `w ⬝ᵥ v ^ 2` of the squares. -/

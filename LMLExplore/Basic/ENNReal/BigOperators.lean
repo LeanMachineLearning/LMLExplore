@@ -26,6 +26,8 @@ public import Mathlib.Basic.ENNReal.BigOperators
   the same affine form of the images in `ℝ≥0∞`.
 * `ENNReal.ofReal_sum_add_sum_ofReal_neg`: finitely many reals with a nonnegative sum have positive
   parts adding up to that sum plus their negative parts.
+* `ENNReal.mul_iInf_sum_mul_le_iInf_sum_mul`: an infimum `⨅ i ∈ S, ∑ a, w a * k i a` of weighted
+  sums is monotone and positively homogeneous in the weights `w`.
 * `ENNReal.one_sub_mul_le_one_sub_add_one_sub`: `1 - a * b ≤ (1 - a) + (1 - b)`, the union
   bound for two independent events.
 * `ENNReal.one_sub_prod_le_sum_one_sub`: `1 - ∏ i ∈ s, m i ≤ ∑ i ∈ s, (1 - m i)`, the union
@@ -88,6 +90,18 @@ lemma ofReal_sum_add_sum_ofReal_neg {ι : Type*} {s : Finset ι} {f : ι → ℝ
   refine congrArg ENNReal.ofReal (Finset.sum_congr rfl fun i _ ↦ ?_)
   rw [toReal_ofReal', toReal_ofReal']
   linarith [max_zero_sub_max_neg_zero_eq_self (f i)]
+
+/-- A bound `⨅ i ∈ S, ∑ a, w a * k i a` that is an infimum of weighted sums is monotone and
+positively homogeneous in the weights: if `c * w a ≤ r a` for all `a`, then `c` times the bound at
+`w` is at most the bound at `r`. -/
+lemma mul_iInf_sum_mul_le_iInf_sum_mul {ι α : Type*} [Fintype α] {S : Set ι}
+    {k : ι → α → ℝ≥0∞} {c : ℝ≥0∞} {w r : α → ℝ≥0∞} (h : ∀ a, c * w a ≤ r a) :
+    c * ⨅ i ∈ S, ∑ a, w a * k i a ≤ ⨅ i ∈ S, ∑ a, r a * k i a := by
+  refine le_iInf₂ fun i hi ↦ (mul_le_mul_right (iInf₂_le i hi) _).trans ?_
+  rw [Finset.mul_sum]
+  refine Finset.sum_le_sum fun a _ ↦ ?_
+  rw [← mul_assoc]
+  exact mul_le_mul_left (h a) _
 
 /-- One minus a product of two extended nonnegative reals is at most the sum of the numbers
 `1 - a` and `1 - b`: the union bound for two independent events of probabilities `1 - a` and
