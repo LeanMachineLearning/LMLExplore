@@ -32,7 +32,9 @@ comes from an exact identity: for every `Q` with `KL(Q, μ) < ∞` and `L` integ
 the change of reference from the prior to the Gibbs measure (Mathlib's
 `MeasureTheory.integral_llr_tilted_right`). The mix loss also telescopes: the increment
 `μ.mixLoss (L + ℓ) λ - μ.mixLoss L λ` is the mix loss of the next loss `ℓ` under the Gibbs
-measure of `L`, which is how the cumulative mix loss of an online algorithm is computed. Finally,
+measure of `L`, which is how the cumulative mix loss of an online algorithm is computed, and the
+Gibbs measures compose in the same way, so that the posterior after `ℓ` is the Gibbs measure of
+`L + ℓ`. Finally,
 the mix loss is nondecreasing in the temperature, by Jensen's inequality for `x ↦ x ^ p`,
 `p ≤ 1`, which handles temperatures that change over time.
 
@@ -62,6 +64,7 @@ The definitions take the prior as their first explicit argument and live in the 
   integrable.
 * `mixLoss_gibbs`: the telescoping identity
   `(μ.gibbs L λ).mixLoss ℓ λ = μ.mixLoss (L + ℓ) λ - μ.mixLoss L λ`.
+* `gibbs_gibbs`: the composition law `(μ.gibbs L λ).gibbs ℓ λ = μ.gibbs (L + ℓ) λ`.
 * `mixLoss_le_mixLoss_of_le`: the mix loss is nondecreasing in the temperature.
 * `le_mixLoss`, `mixLoss_le_integral`: the mix loss lies between a lower bound of the losses and
   their mean under the prior.
@@ -259,6 +262,16 @@ theorem mixLoss_gibbs [NeZero μ] (hexp : Integrable (fun θ ↦ exp (-L θ / la
     ring
   rw [mixLoss_def, gibbs_def, integral_exp_tilted, hsum,
     log_div (integral_exp_pos hexp').ne' (integral_exp_pos hexp).ne', mixLoss_def, mixLoss_def]
+  ring
+
+/-- **The Gibbs measures compose along cumulative losses**: the Gibbs measure of the next losses
+`ℓ` under the Gibbs measure of the cumulative losses `L` is the Gibbs measure of `L + ℓ`. -/
+theorem gibbs_gibbs (hexp : Integrable (fun θ ↦ exp (-L θ / lam)) μ) :
+    (μ.gibbs L lam).gibbs ℓ lam = μ.gibbs (L + ℓ) lam := by
+  rw [gibbs_def, gibbs_def, gibbs_def, tilted_tilted hexp]
+  congr 1
+  ext θ
+  simp only [Pi.add_apply]
   ring
 
 /-! ### Monotonicity in the temperature -/
