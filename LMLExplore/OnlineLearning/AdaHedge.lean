@@ -43,8 +43,9 @@ pure exploration games of [DKM19, Lemma 3].
 * `LMLExplore.OnlineLearning.adaHedgeGap y t`: the cumulative mixability gap `Δ_t` of AdaHedge
   after `t` rounds with the losses `y`.
 * `LMLExplore.OnlineLearning.adaHedge y t`: the weights played by AdaHedge at round `t`.
-* `LMLExplore.OnlineLearning.adaHedgeAlloc t g`: AdaHedge on the gains `g` of the rounds before
-  `t`, the allocation player of [DKM19, Lemma 3].
+* `LMLExplore.OnlineLearning.adaHedgeAlloc`: the online learner that plays at round `t` AdaHedge
+  on the opposite of the gains of the rounds before `t`, the allocation player of
+  [DKM19, Lemma 3].
 
 ## Main statements
 
