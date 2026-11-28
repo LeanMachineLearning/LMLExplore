@@ -9,13 +9,19 @@ public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.EValues.EProcess.Basic
 public import LMLExplore.Probability.Process.Filtration
 public import Mathlib.MeasureTheory.MeasurableSpace.CountablyGenerated
+public import Mathlib.Probability.Process.HittingTime
 public import Mathlib.Probability.ProductMeasure
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
 import LMLExplore.Analysis.SpecificLimits.Basic
+import LMLExplore.Data.EReal.Basic
 import LMLExplore.EValues.BipolarRate.AlmostSure
+import LMLExplore.EValues.BipolarRate.StoppingTime
 import LMLExplore.EValues.EProcess.Closure
+import LMLExplore.EValues.EProcess.LevelStoppingTime
 import LMLExplore.EValues.Null.PrefixBet
 import LMLExplore.MeasureTheory.MeasurableSpace.CountablyGenerated
+import LMLExplore.Probability.Independence.Wald
+import LMLExplore.Probability.Process.LevelCrossing
 import Mathlib.Algebra.Order.Floor.Semifield
 import Mathlib.MeasureTheory.Function.ConvergenceInMeasure
 import Mathlib.MeasureTheory.Measure.SeparableMeasure
@@ -39,6 +45,16 @@ optimal against all the alternatives dominated by `ρ` at once: a countable fami
 laws with a density with respect to a given σ-finite measure, or all laws on a countable space.
 Nothing is assumed on the null beyond its members being probability measures.
 
+The tests that threshold this e-process are at the rate too. The first time `τ α` at which `E`
+reaches `α⁻¹` is a sequential test of level `α`
+(`ProbabilityTheory.IsEProcess.isLevelStoppingTime_hittingAfter`), and for every probability
+measure `Q₁ ≪ ρ`, under the i.i.d. law of `Q₁`, `τ α / log (1/α)` tends to
+`1 / bipolarRate Q₁ S₁` as `α → 0`, almost surely and in expectation. No sequential test of level
+`α` makes fewer than `log (1/α) / bipolarRate Q₁ S₁` observations in expectation
+(`ProbabilityTheory.toENNReal_log_inv_div_bipolarRate_le_lintegral`), so these tests are
+first-order optimal at every alternative dominated by `ρ` at once. The limits are in `ℝ≥0∞`, with
+`1 / 0 = ∞` and `1 / ∞ = 0`, so they hold also where the bipolar rate is `0` or `∞`.
+
 The first step is a statement of its own: countably many bounded functions `g i` of blocks of
 `len i` observations, each the logarithm of an e-variable for the `len i`-sample null, determine
 the bipolar rate of every probability measure `Q ≪ ρ` as the supremum of their normalized means
@@ -51,10 +67,13 @@ the bipolar rate of every probability measure `Q ≪ ρ` as the supremum of thei
 * `ProbabilityTheory.exists_isEProcess_ae_tendsto_log_div_bipolarRate`: one nondecreasing
   e-process for the i.i.d. null grows at the bipolar rate of every alternative `Q₁ ≪ ρ`, almost
   surely.
+* `ProbabilityTheory.exists_isEProcess_tendsto_hittingAfter_div_log`: one nondecreasing e-process
+  for the i.i.d. null whose tests `τ α` have `τ α / log (1/α)` tending to `1 / bipolarRate Q₁ S₁`,
+  almost surely and in expectation, for every alternative `Q₁ ≪ ρ`.
 
 ## Implementation notes
 
-The proof has three steps.
+The proof of the growth has three steps.
 
 * **A countable family that determines the bipolar rate.** For `m` observations and `N : ℕ`,
   consider the measurable functions `f` of `m` observations with `|f| ≤ N` and
@@ -82,15 +101,35 @@ The proof has three steps.
   on the growth; the upper bound is
   `ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`.
 
-The statement is the theorem of [EVR26, Note 13] (`results/13-universal-eprocess.md` there). The
-note builds the e-process from the running maxima of the block products, passed through an
-adjuster, and Ville's inequality; the proof here uses the mixture over the number of blocks
-instead, which needs neither. The statement and its proof are adapted from
-`EValuesResearch/Results/UniversalEProcess.lean` (commit `a1002bc`) in the paper project
-`RemyDegenne/evalues_research`, rewritten on the API of LMLExplore. The statement of the first
-step, with the supremum and for nulls of measures of mass at most one, is adapted from
-`EValuesResearch/Results/UniversalTests.lean` (commit `83205cb`) in the same project, rewritten on
-the API of LMLExplore.
+The limits of the tests take each bound from a general result, except the last one.
+
+* **Almost surely.** Every family of nested tests of level `α` has
+  `liminf τ α / log (1/α) ≥ 1 / bipolarRate Q₁ S₁`
+  (`ProbabilityTheory.ae_inv_toENNReal_bipolarRate_le_liminf_div_log`), and the tests that
+  threshold a process growing at the rate have `limsup τ α / log (1/α) ≤ 1 / bipolarRate Q₁ S₁`
+  (`ProbabilityTheory.limsup_toENNReal_hittingAfter_div_log_le`).
+* **In expectation, from below.** Every test of level `α` makes at least
+  `log (1/α) / bipolarRate Q₁ S₁` observations in expectation
+  (`ProbabilityTheory.toENNReal_log_inv_div_bipolarRate_le_lintegral`).
+* **In expectation, from above.** For `0 < c < bipolarRate Q₁ S₁`, some member `g i` of the
+  family has `c * len i < ∫ g i ∂Q₁ ^ len i`; let `δ > 0` be half the margin. The weight of `k`
+  blocks costs at most `δ k` plus a constant in the logarithm, so the mixture reaches `α⁻¹` at the
+  latest at `len i` times the first time the random walk of the values of `g i - δ` on the blocks
+  reaches `log (1/α)` plus a constant. Its increments are bounded above and have mean
+  `∫ g i ∂Q₁ ^ len i - δ > c * len i`, and Wald's bound on first passage times
+  (`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`) gives
+  `limsup 𝔼[τ α] / log (1/α) ≤ 1 / c`.
+
+The statements on the e-process are the theorem of [EVR26, Note 13]
+(`results/13-universal-eprocess.md` there), which states the limits of the tests when
+`0 < bipolarRate Q₁ S₁ < ∞`. The note builds the e-process from the running maxima of the block
+products, passed through an adjuster, and Ville's inequality; the proof here uses the mixture over
+the number of blocks instead, which needs neither. The statement of the growth and its proof are
+adapted from `EValuesResearch/Results/UniversalEProcess.lean` (commit `a1002bc`) in the paper
+project `RemyDegenne/evalues_research`, rewritten on the API of LMLExplore. The statement of the
+first step, with the supremum and for nulls of measures of mass at most one, and the statement of
+the tests and its proof, are adapted from `EValuesResearch/Results/UniversalTests.lean` (commit
+`83205cb`) in the same project, rewritten on the API of LMLExplore.
 
 ## References
 
@@ -383,6 +422,28 @@ private lemma tendsto_add_log_coverWeight_div {s : ℕ → ℝ} {μ c : ℝ} {L 
   rw [Real.log_mul hc.ne' (coverWeight_pos (Nat.succ_pos _)).ne']
   field_simp
 
+/-- Each term of the mixture whose blocks are among the first `n` observations is at most the
+mixture at time `n`. -/
+private lemma blockMixtureTerm_le_blockMixture {i k n : ℕ} (h : k * len i ≤ n) (ω : ℕ → 𝓧) :
+    blockMixtureTerm len g i k ω ≤ blockMixture len g n ω :=
+  calc blockMixtureTerm len g i k ω
+  _ = if k * len i ≤ n then blockMixtureTerm len g i k ω else 0 := (ite_eq_left h).symm
+  _ ≤ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0 :=
+    le_tsum (fun k ↦ if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) k
+  _ ≤ blockMixture len g n ω :=
+    le_tsum (fun i ↦ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) i
+
+/-- The term of `k` blocks of `g i` is the exponential of the sum of `g i` over the blocks plus
+the logarithm of its weight. -/
+private lemma ofReal_exp_eq_blockMixtureTerm (i k : ℕ) (ω : ℕ → 𝓧) :
+    ENNReal.ofReal (Real.exp (∑ j ∈ Finset.range k, g i (seqBlock (len i) j ω) +
+        Real.log (2⁻¹ ^ (i + 1) * coverWeight (k + 1)))) = blockMixtureTerm len g i k ω := by
+  have hw := coverWeight_pos (Nat.succ_pos k)
+  simp only [blockMixtureTerm, seqBlockProd_ofReal_exp]
+  rw [Real.exp_add, Real.exp_log (mul_pos (by positivity) hw), mul_comm,
+    ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity)]
+  simp [ENNReal.ofReal_pow, ENNReal.ofReal_inv_of_pos, ENNReal.inv_pow, mul_assoc]
+
 /-- **Growth of the mixture.** Almost surely under the i.i.d. law of `Q`, the mixture grows at
 least at the rate `∫ g i ∂Q ^ len i / len i` of each member of the family, by the strong law of
 large numbers along the blocks. -/
@@ -399,22 +460,9 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
   -- the logarithm of the term of `n / len i` blocks of `g i`
   set r : ℕ → ℝ := fun n ↦ ∑ j ∈ Finset.range (n / len i), g i (seqBlock (len i) j ω) +
     Real.log (2⁻¹ ^ (i + 1) * coverWeight (n / len i + 1))
-  have hbound : ∀ n, ENNReal.ofReal (Real.exp (r n)) ≤ blockMixture len g n ω := by
-    intro n
-    have hw := coverWeight_pos (Nat.succ_pos (n / len i))
-    have hterm : ENNReal.ofReal (Real.exp (r n)) = blockMixtureTerm len g i (n / len i) ω := by
-      simp only [r, blockMixtureTerm, seqBlockProd_ofReal_exp]
-      rw [Real.exp_add, Real.exp_log (mul_pos (by positivity) hw), mul_comm,
-        ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity)]
-      simp [ENNReal.ofReal_pow, ENNReal.ofReal_inv_of_pos, ENNReal.inv_pow, mul_assoc]
-    rw [hterm]
-    calc blockMixtureTerm len g i (n / len i) ω
-    _ = if n / len i * len i ≤ n then blockMixtureTerm len g i (n / len i) ω else 0 :=
-      (ite_eq_left (Nat.div_mul_le_self n (len i))).symm
-    _ ≤ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0 :=
-      le_tsum (fun k ↦ if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) (n / len i)
-    _ ≤ blockMixture len g n ω :=
-      le_tsum (fun i ↦ ∑' k, if k * len i ≤ n then blockMixtureTerm len g i k ω else 0) i
+  have hbound (n : ℕ) : ENNReal.ofReal (Real.exp (r n)) ≤ blockMixture len g n ω :=
+    (ofReal_exp_eq_blockMixtureTerm i (n / len i) ω).trans_le
+      (blockMixtureTerm_le_blockMixture (Nat.div_mul_le_self n (len i)) ω)
   have hle : ∀ᶠ n : ℕ in atTop,
       ((r n / n : ℝ) : EReal) ≤ ENNReal.log (blockMixture len g n ω) / (n : EReal) := by
     refine Eventually.of_forall fun n ↦ ?_
@@ -431,6 +479,32 @@ private lemma le_liminf_log_blockMixture (Q : Measure 𝓧) [IsProbabilityMeasur
         ((continuous_coe_real_ereal.tendsto _).comp hlim).liminf_eq.symm
   _ ≤ liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
     liminf_le_liminf hle
+
+/-- **Growth of the mixture at the bipolar rate.** If the normalized means of the family have
+supremum the bipolar rate of `Q₁`, then almost surely under the i.i.d. law of `Q₁`,
+`(1/n) log` of the mixture tends to the bipolar rate: each member of the family bounds the
+`liminf` from below, and no e-process grows faster
+(`ProbabilityTheory.IsEProcess.ae_limsup_log_div_le_bipolarRate`). -/
+private lemma ae_tendsto_log_blockMixture_div (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P)
+    (hlen : ∀ i, 1 ≤ len i) (hg : ∀ i, Measurable (g i)) (hgC : ∀ i, ∃ C, ∀ x, |g i x| ≤ C)
+    (hge : ∀ i, IsEVar (fun x ↦ ENNReal.ofReal (Real.exp (g i x))) (sampleNull S₁ (len i)))
+    (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hsup : ⨆ i, (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) =
+      bipolarRate Q₁ S₁) :
+    ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+      Tendsto (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop
+        (𝓝 (bipolarRate Q₁ S₁)) := by
+  have hE := isEProcess_blockMixture (S₁ := S₁) hg hge
+  -- the lower bound, from each member of the family
+  have hlow : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ i,
+      (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) ≤
+        liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
+    ae_all_iff.2 fun i ↦ le_liminf_log_blockMixture Q₁ (hlen i) (hg i) (hgC i).choose_spec
+  -- the upper bound holds for every e-process
+  filter_upwards [hE.ae_limsup_log_div_le_bipolarRate Q₁ hS₁, hlow] with ω hωup hωlow
+  refine tendsto_of_le_liminf_of_limsup_le ?_ hωup
+  rw [← hsup]
+  exact iSup_le hωlow
 
 /-! ### The universal e-process -/
 
@@ -451,18 +525,215 @@ theorem exists_isEProcess_ae_tendsto_log_div_bipolarRate [MeasurableSpace.Counta
             (𝓝 (bipolarRate Q₁ S₁)) := by
   obtain ⟨len, g, hlen, hgm, hgb, hge, hsup⟩ :=
     exists_iSup_integral_div_eq_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) ρ
+  exact ⟨blockMixture len g, isEProcess_blockMixture hgm hge, monotone_blockMixture,
+    fun Q₁ _ hQ₁ρ ↦ ae_tendsto_log_blockMixture_div hS₁ hlen hgm hgb hge Q₁ (hsup Q₁ hQ₁ρ)⟩
+
+/-! ### The expected time of the tests -/
+
+/-- The logarithm of the weight `2⁻¹ ^ (i + 1) * coverWeight (k + 1)` of `k` blocks of `g i` is
+at least `-((i + 1) log 2 + 2 δ + 2 log (2 / δ)) - δ k`, for every `δ > 0`: the weight costs at
+most `δ` per block, up to a constant. -/
+private lemma neg_sub_le_log_weight {δ : ℝ} (hδ : 0 < δ) (i k : ℕ) :
+    -((i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))) - δ * k ≤
+      Real.log (2⁻¹ ^ (i + 1) * coverWeight (k + 1)) := by
+  have hw := coverWeight_pos (Nat.succ_pos k)
+  have hk1 : (0 : ℝ) < k + 1 := by positivity
+  have hk2 : (0 : ℝ) < k + 2 := by positivity
+  have hcw : coverWeight (k + 1) = (((k : ℝ) + 1) * ((k : ℝ) + 2))⁻¹ := by
+    rw [coverWeight_def, one_div]
+    push_cast
+    ring_nf
+  rw [Real.log_mul (by positivity) hw.ne', Real.log_pow, Real.log_inv, hcw, Real.log_inv,
+    Real.log_mul hk1.ne' hk2.ne']
+  have hA : Real.log (k + 1) ≤ Real.log (k + 2) := Real.log_le_log hk1 (by linarith)
+  have hB : Real.log (k + 2) = Real.log (δ * (k + 2) / 2) + Real.log (2 / δ) := by
+    rw [← Real.log_mul (by positivity) (by positivity)]
+    congr 1
+    field_simp
+  have hC : Real.log (δ * (k + 2) / 2) ≤ δ * (k + 2) / 2 - 1 :=
+    Real.log_le_sub_one_of_pos (by positivity)
+  push_cast
+  nlinarith
+
+/-- **The expected time of the tests, from one block bet.** Let `g i` be a member of the family
+with `c * len i < ∫ g i ∂Q₁ ^ len i`, for some `c > 0`. The first time `τ α` at which the mixture
+reaches `α⁻¹` satisfies `limsup_{α → 0} 𝔼[τ α] / log (1/α) ≤ 1 / c` under the i.i.d. law of
+`Q₁`. With `δ` half of the margin `∫ g i ∂Q₁ ^ len i - c * len i`, the mixture reaches `α⁻¹`
+at the latest at `len i` times the first time the random walk of the values of `g i - δ` on the
+blocks reaches `log (1/α)` plus a constant. This walk has increments bounded above and of mean
+`∫ g i ∂Q₁ ^ len i - δ`, and Wald's bound on first passage times concludes
+(`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`). -/
+private lemma limsup_lintegral_hittingAfter_blockMixture_div_log_le (Q₁ : Measure 𝓧)
+    [IsProbabilityMeasure Q₁] {i : ℕ} (hlen : 1 ≤ len i) (hg : Measurable (g i)) {C : ℝ}
+    (hgC : ∀ x, |g i x| ≤ C) {c : ℝ} (hc : 0 < c)
+    (hci : c * len i < ∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) :
+    limsup (fun α ↦ (∫⁻ ω, ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
+        ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) / (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0) ≤
+      ENNReal.ofReal c⁻¹ := by
+  set m := len i
+  set μ := ∫ x, g i x ∂Measure.pi (fun _ : Fin m ↦ Q₁)
+  set δ := (μ - c * m) / 2 with hδ
+  have hδ0 : 0 < δ := by
+    rw [hδ]
+    linarith
+  set a := μ - δ with ha
+  have hca : c * m < a := by
+    rw [ha, hδ]
+    linarith
+  have hm0 : (0 : ℝ) < m := by exact_mod_cast hlen
+  have ha0 : 0 < a := lt_of_le_of_lt (by positivity) hca
+  set A := (i + 1) * Real.log 2 + (2 * δ + 2 * Real.log (2 / δ))
+  -- the random walk of the values of `g i - δ` on the blocks
+  set Y : ℕ → (ℕ → 𝓧) → ℝ := fun j ω ↦ g i (seqBlock m j ω) - δ
+  have hYi : iIndepFun Y (Measure.infinitePi fun _ : ℕ ↦ Q₁) :=
+    (iIndepFun_seqBlock (fun _ : ℕ ↦ Q₁) m).comp (fun _ x ↦ g i x - δ)
+      (fun _ ↦ hg.sub_const δ)
+  have hYm : ∀ j, Measurable (Y j) := fun j ↦ (hg.comp (measurable_seqBlock m j)).sub_const δ
+  have hYa : ∀ j, a ≤ ∫ ω, Y j ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := by
+    intro j
+    have hint : Integrable (fun ω ↦ g i (seqBlock m j ω)) (Measure.infinitePi fun _ : ℕ ↦ Q₁) :=
+      .of_bound (hg.comp (measurable_seqBlock m j)).aestronglyMeasurable C
+        (ae_of_all _ fun ω ↦ by
+          rw [Real.norm_eq_abs]
+          exact hgC _)
+    -- the `j`-th block has the law `Q₁ ^ m`
+    have hmp := measurePreserving_seqBlock (fun _ : ℕ ↦ Q₁) m j
+    simp only [Y]
+    rw [integral_sub hint (integrable_const δ), ← integral_map
+      (measurable_seqBlock m j).aemeasurable (hmp.map_eq ▸ hg.aestronglyMeasurable), hmp.map_eq,
+      integral_const, probReal_univ, one_smul]
+  have hYC : ∀ j, ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), Y j ω ≤ C := fun j ↦
+    ae_of_all _ fun ω ↦ by
+      simp only [Y]
+      linarith [le_abs_self (g i (seqBlock m j ω)), hgC (seqBlock m j ω)]
+  refine ENNReal.limsup_div_toENNReal_log_inv_le (K := ENNReal.ofReal (m * (A + C) / a))
+    ENNReal.ofReal_ne_top fun α hα0 hα1 ↦ ?_
+  set L := (ENNReal.log α⁻¹).toReal with hL
+  have hlogtop : ENNReal.log α⁻¹ ≠ ⊤ := by simpa using hα0.ne'
+  have hLL : (ENNReal.log α⁻¹).toENNReal = ENNReal.ofReal L := EReal.toENNReal_of_ne_top hlogtop
+  have hL0 : 0 ≤ L := EReal.toReal_nonneg
+    (ENNReal.zero_lt_log_iff.2 (ENNReal.one_lt_inv.2 hα1)).le
+  -- the pathwise bound by the first time the walk reaches `L + A`
+  have hpath : ∀ ω, ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω) ≤
+      m * ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
+        (Set.Ici (L + A)) 0 ω) := by
+    intro ω
+    set N := hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω) (Set.Ici (L + A)) 0 ω
+      with hN
+    rcases eq_or_ne N ⊤ with hNt | hNt
+    · have h1 : ENat.toENNReal N = ⊤ := ENat.toENNReal_eq_top.2 hNt
+      rw [h1, ENNReal.mul_top (by positivity)]
+      exact le_top
+    obtain ⟨k, hk⟩ := WithTop.ne_top_iff_exists.1 hNt
+    have hmem := hittingAfter_mem_set_of_ne_top hNt
+    rw [← hN, ← hk] at hmem
+    replace hmem : L + A ≤ ∑ j ∈ Finset.range k, Y j ω := hmem
+    have hle : hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω ≤ (k * m : ℕ) := by
+      refine hittingAfter_le_of_mem (Nat.zero_le _) ?_
+      rw [Set.mem_Ici, ← ENNReal.log_le_log_iff]
+      refine (EReal.le_coe_toReal hlogtop).trans ?_
+      refine le_trans ?_ (ENNReal.log_le_log (blockMixtureTerm_le_blockMixture le_rfl ω))
+      rw [← ofReal_exp_eq_blockMixtureTerm, ENNReal.log_ofReal_exp, EReal.coe_le_coe_iff]
+      have hsum : ∑ j ∈ Finset.range k, Y j ω =
+          ∑ j ∈ Finset.range k, g i (seqBlock m j ω) - δ * k := by
+        simp only [Y, Finset.sum_sub_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+        ring
+      have hw := neg_sub_le_log_weight hδ0 i k
+      rw [hsum] at hmem
+      rw [← hL]
+      linarith
+    calc ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
+    _ ≤ ENat.toENNReal ((k * m : ℕ) : ℕ∞) := ENat.toENNReal_le.2 hle
+    _ = m * ENat.toENNReal N := by
+      have h2 : ENat.toENNReal N = k := by
+        rw [← hk]
+        exact ENat.toENNReal_coe k
+      rw [h2, ENat.toENNReal_coe]
+      push_cast
+      ring
+  have hwald := hYi.lintegral_hittingAfter_sum_le hYm ha0 hYa hYC (L + A)
+  calc ∫⁻ ω, ENat.toENNReal (hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0 ω)
+      ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)
+  _ ≤ ∫⁻ ω, m * ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
+        (Set.Ici (L + A)) 0 ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) := lintegral_mono hpath
+  _ = m * ∫⁻ ω, ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, Y j ω)
+        (Set.Ici (L + A)) 0 ω) ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁) :=
+    lintegral_const_mul' _ _ (ENNReal.natCast_ne_top m)
+  _ ≤ m * ENNReal.ofReal ((L + A + C) / a) := by gcongr
+  _ = ENNReal.ofReal (m * (A + C) / a + L * (m / a)) := by
+    rw [← ENNReal.ofReal_natCast, ← ENNReal.ofReal_mul (by positivity)]
+    congr 1
+    field_simp
+    ring
+  _ ≤ ENNReal.ofReal (m * (A + C) / a) + ENNReal.ofReal (L * (m / a)) := ENNReal.ofReal_add_le
+  _ ≤ ENNReal.ofReal (m * (A + C) / a) + (ENNReal.log α⁻¹).toENNReal * ENNReal.ofReal c⁻¹ := by
+    rw [hLL, ← ENNReal.ofReal_mul hL0]
+    gcongr
+    rw [div_le_iff₀ ha0, inv_mul_eq_div, le_div_iff₀ hc]
+    linarith
+
+/-! ### The tests at the bipolar rate -/
+
+/-- **Tests at the bipolar rate for every dominated alternative.** For a countably generated
+space, a null `S₁` of probability measures and an s-finite measure `ρ`, there is one e-process
+`E` for the i.i.d. laws of the members of `S₁`, in the filtration `Filtration.piLT` of the
+observations, nondecreasing in time, whose tests are at the rate of every alternative dominated by
+`ρ`. The first time `τ α = hittingAfter E (Set.Ici α⁻¹) 0` at which `E` reaches `α⁻¹` is a
+sequential test of level `α` (`IsEProcess.isLevelStoppingTime_hittingAfter`), and for every
+probability measure `Q₁ ≪ ρ`, under the i.i.d. law of `Q₁`, `τ α / log (1/α)` tends to
+`1 / bipolarRate Q₁ S₁` as `α → 0`, almost surely and in expectation. No sequential test of level
+`α` makes fewer than `log (1/α) / bipolarRate Q₁ S₁` observations in expectation
+(`toENNReal_log_inv_div_bipolarRate_le_lintegral`), so these tests are first-order optimal at
+every `Q₁ ≪ ρ` at once. This is the theorem of [EVR26, Note 13], which states the limits when
+`0 < bipolarRate Q₁ S₁ < ∞`; in `ℝ≥0∞`, with `1 / 0 = ∞` and `1 / ∞ = 0`, they hold at every
+`Q₁ ≪ ρ`. -/
+theorem exists_isEProcess_tendsto_hittingAfter_div_log [MeasurableSpace.CountablyGenerated 𝓧]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (ρ : Measure 𝓧) [SFinite ρ] :
+    ∃ E : ℕ → (ℕ → 𝓧) → ℝ≥0∞,
+      IsEProcess E (Filtration.piLT (X := fun _ : ℕ ↦ 𝓧)) (iidNull S₁) ∧ Monotone E ∧
+      ∀ (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁], Q₁ ≪ ρ →
+        (∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁),
+          Tendsto (fun α : ℝ≥0∞ ↦ ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω) /
+              (ENNReal.log α⁻¹).toENNReal) (𝓝[>] 0)
+            (𝓝 (bipolarRate Q₁ S₁).toENNReal⁻¹)) ∧
+        Tendsto (fun α : ℝ≥0∞ ↦
+            (∫⁻ ω, ENat.toENNReal (hittingAfter E (Set.Ici α⁻¹) 0 ω)
+              ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁)) / (ENNReal.log α⁻¹).toENNReal)
+          (𝓝[>] 0) (𝓝 (bipolarRate Q₁ S₁).toENNReal⁻¹) := by
+  obtain ⟨len, g, hlen, hgm, hgb, hge, hsup⟩ :=
+    exists_iSup_integral_div_eq_bipolarRate (fun P hP ↦ (hS₁ P hP).measure_univ.le) ρ
   have hE := isEProcess_blockMixture (S₁ := S₁) hgm hge
-  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ _ hQ₁ρ ↦ ?_⟩
-  -- the lower bound, from each member of the family
-  have hlow : ∀ᵐ ω ∂Measure.infinitePi (fun _ : ℕ ↦ Q₁), ∀ i,
-      (((∫ x, g i x ∂Measure.pi (fun _ : Fin (len i) ↦ Q₁)) / len i : ℝ) : EReal) ≤
-        liminf (fun n : ℕ ↦ ENNReal.log (blockMixture len g n ω) / (n : EReal)) atTop :=
-    ae_all_iff.2 fun i ↦
-      le_liminf_log_blockMixture Q₁ (hlen i) (hgm i) (hgb i).choose_spec
-  -- the upper bound holds for every e-process
-  filter_upwards [hE.ae_limsup_log_div_le_bipolarRate Q₁ hS₁, hlow] with ω hωup hωlow
-  refine tendsto_of_le_liminf_of_limsup_le ?_ hωup
-  rw [← hsup Q₁ hQ₁ρ]
-  exact iSup_le hωlow
+  refine ⟨blockMixture len g, hE, monotone_blockMixture, fun Q₁ _ hQ₁ρ ↦ ⟨?_, ?_⟩⟩
+  · -- almost surely: from below for every family of nested tests, from above by the growth
+    have hlow := ae_inv_toENNReal_bipolarRate_le_liminf_div_log Q₁ hS₁
+      (τ := fun α ↦ hittingAfter (blockMixture len g) (Set.Ici α⁻¹) 0) zero_lt_one
+      (fun α _ ↦ hE.isLevelStoppingTime_hittingAfter α)
+      (fun ω α _ β _ hαβ ↦ hittingAfter_apply_anti _ 0 ω
+        (Set.Ici_subset_Ici.2 (ENNReal.inv_le_inv.2 hαβ)))
+    filter_upwards [hlow, ae_tendsto_log_blockMixture_div hS₁ hlen hgm hgb hge Q₁
+      (hsup Q₁ hQ₁ρ)] with ω hωl hωg
+    exact tendsto_of_le_liminf_of_limsup_le hωl
+      (limsup_toENNReal_hittingAfter_div_log_le hωg.liminf_eq.ge)
+  refine tendsto_of_le_liminf_of_limsup_le ?_ ?_
+  · -- in expectation, from below: for every test of level `α`
+    refine le_liminf_of_le (by isBoundedDefault) ?_
+    filter_upwards [Ioo_mem_nhdsGT (zero_lt_one : (0 : ℝ≥0∞) < 1)] with α ⟨hα0, hα1⟩
+    have h := toENNReal_log_inv_div_bipolarRate_le_lintegral Q₁ hS₁
+      (hE.isLevelStoppingTime_hittingAfter α)
+    set B := (ENNReal.log α⁻¹).toENNReal
+    have hB0 : B ≠ 0 :=
+      EReal.toENNReal_ne_zero_iff.2 (ENNReal.zero_lt_log_iff.2 (ENNReal.one_lt_inv.2 hα1))
+    have hBtop : B ≠ ⊤ := by simpa [B] using hα0.ne'
+    calc (bipolarRate Q₁ S₁).toENNReal⁻¹
+    _ = B / (bipolarRate Q₁ S₁).toENNReal / B := by
+      rw [div_eq_mul_inv B, mul_comm B, ENNReal.mul_div_cancel_right hB0 hBtop]
+    _ ≤ _ := ENNReal.div_le_div_right h B
+  · -- in expectation, from above: for every rate `c` below the bipolar rate, by one block bet
+    refine EReal.le_inv_toENNReal_iff.2 fun c hc hcd ↦ ?_
+    rw [← hsup Q₁ hQ₁ρ] at hcd
+    obtain ⟨i, hi⟩ := lt_iSup_iff.1 hcd
+    rw [EReal.coe_lt_coe_iff, lt_div_iff₀ (by exact_mod_cast hlen i)] at hi
+    exact limsup_lintegral_hittingAfter_blockMixture_div_log_le Q₁ (hlen i) (hgm i)
+      (hgb i).choose_spec hc hi
 
 end ProbabilityTheory
