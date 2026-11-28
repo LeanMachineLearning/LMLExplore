@@ -556,7 +556,7 @@ theorem sum_gains_le_sum_sum_mul_add_of_adaHedge (j : ℐ)
         2 * OnlineLearning.adaHedgeGap (fun s ↦ -G.gainSeq O A Y ω j s) t := fun a ↦ by
     rw [halloc]
     exact OnlineLearning.hasRegretBound_adaHedgeAlloc.regret_le (fun _ _ ↦ trivial)
-      (mem_simplex_iff.2 ⟨fun b ↦ by by_cases hb : b = a <;> simp [hb], by simp⟩)
+      (single_mem_simplex a)
   have key := G.sum_gains_le_sum_sum_mul_add_of_regret O A Y ω j hw hUC hRk hRl a
   rwa [add_zero] at key
 
