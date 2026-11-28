@@ -8,7 +8,7 @@ module
 public import LMLExplore.EValues.BipolarRate.Basic
 public import LMLExplore.Topology.Semicontinuity.Sequences
 public import Mathlib.MeasureTheory.Measure.LevyProkhorovMetric
-import LMLExplore.EValues.BipolarRate.Semicontinuity
+import LMLExplore.EValues.BipolarRate.Envelope
 import LMLExplore.Topology.Semicontinuity.Berge
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 

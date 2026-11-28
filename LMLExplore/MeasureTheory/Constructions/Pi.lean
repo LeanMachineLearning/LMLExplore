@@ -19,7 +19,7 @@ import TauCeti.MeasureTheory.Measure.PiWithDensity
 
 /-!
 # Measures on products: monotonicity, laws of coordinatewise images, restricted factors, mixtures,
-bounds by lines, binds and fixed prefixes
+bounds by lines, binds, blocks and fixed prefixes
 
 The mass of a point under a product of finite measures is the product of the real masses of its
 coordinates, as an extended nonnegative real. The product of finite measures is monotone in its
@@ -71,6 +71,15 @@ it contains `ω`.
 
 A function of the images of the coordinates under measurable maps to finite types is measurable.
 
+The product of `n` copies of the product of `k` copies of a σ-finite measure is the product of
+`n * k` copies, through the measurable equivalence `MeasurableEquiv.piFinProdFin` that lists the
+blocks one after the other.
+
+## Main definitions
+
+* `MeasurableEquiv.piFinProdFin X n k`: `n` blocks of `k` terms of `X` as one tuple of `n * k`
+  terms.
+
 ## Main statements
 
 * `MeasureTheory.Measure.pi_singleton_eq_ofReal_prod`: the mass of a point under a product of
@@ -108,6 +117,8 @@ A function of the images of the coordinates under measurable maps to finite type
   `x ↦ Measure.pi fun i ↦ G i (x i)` gives `Measure.pi fun i ↦ (μ i).bind (G i)`.
 * `MeasureTheory.measurable_pi_comp_of_finite`: `fun e ↦ g fun i ↦ φ i (e i)` is measurable for
   measurable maps `φ i` to finite types.
+* `MeasureTheory.measurePreserving_piFinProdFin`: `MeasurableEquiv.piFinProdFin` carries the
+  product of `n` copies of the product of `k` copies of `μ` to the product of `n * k` copies.
 * `MeasureTheory.setLIntegral_eq_ite_of_ae_prefix`, `MeasureTheory.measure_eq_ite_of_ae_prefix`:
   under a measure that agrees almost surely with `ω` on the first `k` coordinates, the integral
   over, and the measure of, a set that only depends on these coordinates.
@@ -429,6 +440,48 @@ lemma measurable_pi_comp_of_finite {ι : Type*} [Countable ι] {Ω κ : ι → T
     (hφ : ∀ i, Measurable (φ i)) (g : (∀ i, κ i) → β) :
     Measurable fun e : ∀ i, Ω i ↦ g fun i ↦ φ i (e i) :=
   (measurable_of_finite g).comp (.of_eval fun i ↦ (hφ i).comp (measurable_pi_apply i))
+
+/-- `n` blocks of `k` terms, as one tuple of `n * k` terms: the term `j` of the block `i` is the
+term `finProdFinEquiv (i, j)`. -/
+def _root_.MeasurableEquiv.piFinProdFin (X : Type*) [MeasurableSpace X] (n k : ℕ) :
+    (Fin n → Fin k → X) ≃ᵐ (Fin (n * k) → X) :=
+  (MeasurableEquiv.curry (Fin n) (Fin k) X).symm.trans
+    (MeasurableEquiv.piCongrLeft (fun _ ↦ X) finProdFinEquiv)
+
+@[simp]
+lemma _root_.MeasurableEquiv.piFinProdFin_apply {X : Type*} [MeasurableSpace X] {n k : ℕ}
+    (x : Fin n → Fin k → X) (q : Fin (n * k)) :
+    MeasurableEquiv.piFinProdFin X n k x q =
+      x (finProdFinEquiv.symm q).1 (finProdFinEquiv.symm q).2 := by
+  obtain ⟨p, rfl⟩ := finProdFinEquiv.surjective q
+  simp [MeasurableEquiv.piFinProdFin, MeasurableEquiv.piCongrLeft, Equiv.piCongrLeft_apply_apply,
+    Function.uncurry]
+
+@[simp]
+lemma _root_.MeasurableEquiv.piFinProdFin_symm_apply {X : Type*} [MeasurableSpace X] {n k : ℕ}
+    (y : Fin (n * k) → X) (i : Fin n) (j : Fin k) :
+    (MeasurableEquiv.piFinProdFin X n k).symm y i j = y (finProdFinEquiv (i, j)) := by
+  simp [MeasurableEquiv.piFinProdFin, MeasurableEquiv.piCongrLeft]
+
+/-- `n` independent blocks of `k` independent terms of law `μ` are `n * k` independent terms of
+law `μ`: the product of `n` copies of the product of `k` copies of a σ-finite measure `μ` is
+carried by `MeasurableEquiv.piFinProdFin` to the product of `n * k` copies of `μ`. -/
+lemma measurePreserving_piFinProdFin {X : Type*} [MeasurableSpace X] (μ : Measure X)
+    [SigmaFinite μ] (n k : ℕ) :
+    MeasurePreserving (MeasurableEquiv.piFinProdFin X n k)
+      (Measure.pi fun _ : Fin n ↦ Measure.pi fun _ : Fin k ↦ μ) (Measure.pi fun _ ↦ μ) := by
+  refine ⟨(MeasurableEquiv.piFinProdFin X n k).measurable, (Measure.pi_eq fun s hs ↦ ?_).symm⟩
+  have hpre : MeasurableEquiv.piFinProdFin X n k ⁻¹' Set.univ.pi s =
+      Set.univ.pi fun i ↦ Set.univ.pi fun j ↦ s (finProdFinEquiv (i, j)) := by
+    ext x
+    simp only [Set.mem_preimage, Set.mem_pi, Set.mem_univ, true_implies,
+      MeasurableEquiv.piFinProdFin_apply]
+    refine ⟨fun h i j ↦ by simpa using h (finProdFinEquiv (i, j)), fun h q ↦ ?_⟩
+    have := h (finProdFinEquiv.symm q).1 (finProdFinEquiv.symm q).2
+    rwa [Prod.mk.eta, Equiv.apply_symm_apply] at this
+  rw [MeasurableEquiv.map_apply, hpre, Measure.pi_pi]
+  simp_rw [Measure.pi_pi]
+  rw [← Fintype.prod_prod_type', ← finProdFinEquiv.prod_comp]
 
 variable {β : Type*} [MeasurableSpace β] {μ : Measure (ℕ → β)} {k : ℕ} {ω : ℕ → β}
   {s : Set (ℕ → β)}

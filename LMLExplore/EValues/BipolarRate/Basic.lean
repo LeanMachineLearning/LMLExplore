@@ -12,6 +12,7 @@ public import Statlib.Divergence.KullbackLeibler.CondKL
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
 import LMLExplore.Analysis.SpecialFunctions.Log.ENNRealLog
+import LMLExplore.MeasureTheory.Constructions.Pi
 
 /-!
 # The optimal growth rate of e-variables against an i.i.d. null
@@ -59,6 +60,11 @@ else: no domination, convexity or compactness.
 * `ProbabilityTheory.maxLogGrowth_le_mul_klDiv`, `ProbabilityTheory.bipolarRate_le_klInf`:
   the bipolar rate is at most the smallest relative entropy from `Q₁` to the null
   [RR26, proof of Theorem 4.1].
+* `ProbabilityTheory.maxLogGrowth_pi_sampleNull`, `ProbabilityTheory.bipolarRate_pi_sampleNull`:
+  `n` observations of blocks of `k` observations are `n * k` observations, so the bipolar rate of
+  the blocks is `k` times the bipolar rate.
+* `ProbabilityTheory.klInf_pi_sampleNull`: the smallest relative entropy from `n ≠ 0`
+  observations to the `n`-sample null is `n` times the smallest relative entropy to the null.
 * `ProbabilityTheory.maxLogGrowth_singleton`: the growth of `n` observations against the simple
   null `{P}` of a measure of mass at most one is `n * klIntegral Q₁ P`.
 * `ProbabilityTheory.bipolarRate_singleton`: for a simple null `{P}`, the bipolar rate is
@@ -283,6 +289,46 @@ theorem tendsto_maxLogGrowth_div_bipolarRate (Q₁ : Measure 𝓧) [IsProbabilit
     (fun _ _ ↦ ne_bot_of_le_ne_bot EReal.zero_ne_bot (maxLogGrowth_nonneg _ hS₁ _))
     (maxLogGrowth_add_le Q₁ hS₁)
 
+/-- **Blocks.** For σ-finite measures, `n` observations of blocks of `k` observations are `n * k`
+observations: the largest expected logarithm of an `n`-sample e-variable for the `k`-fold
+products of the alternative and of the members of the null is `maxLogGrowth Q₁ S₁ (n * k)`. -/
+theorem maxLogGrowth_pi_sampleNull (Q₁ : Measure 𝓧) [SigmaFinite Q₁]
+    (hS₁ : ∀ P ∈ S₁, SigmaFinite P) (n k : ℕ) :
+    maxLogGrowth (Measure.pi fun _ : Fin k ↦ Q₁) (sampleNull S₁ k) n =
+      maxLogGrowth Q₁ S₁ (n * k) := by
+  rw [maxLogGrowth_def, maxLogGrowth_def, ← (MeasurableEquiv.piFinProdFin 𝓧 n k).maxEPower_map_eq,
+    (measurePreserving_piFinProdFin Q₁ n k).map_eq, sampleNull_def S₁ k,
+    sampleNull_def S₁ (n * k)]
+  congr 1
+  exact mapNull_sampleNull_image fun P hP ↦
+    have := hS₁ P hP
+    (measurePreserving_piFinProdFin P n k).map_eq
+
+/-- **The bipolar rate of blocks.** For a null of measures of mass at most one and `k ≠ 0`, the
+bipolar rate of the `k`-fold product of the alternative against the i.i.d. null of the `k`-fold
+products of the members of the null is `k` times the bipolar rate: the evidence of blocks of `k`
+observations grows `k` times faster per block. -/
+theorem bipolarRate_pi_sampleNull (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, P Set.univ ≤ 1) {k : ℕ} (hk : k ≠ 0) :
+    bipolarRate (Measure.pi fun _ : Fin k ↦ Q₁) (sampleNull S₁ k) = k * bipolarRate Q₁ S₁ := by
+  -- the rate of the blocks is the limit of `maxLogGrowth Q₁ S₁ (n * k) / n`
+  have h1 := tendsto_maxLogGrowth_div_bipolarRate (Measure.pi fun _ : Fin k ↦ Q₁)
+    (measure_univ_le_one_of_mem_sampleNull hS₁ k)
+  simp_rw [maxLogGrowth_pi_sampleNull Q₁ (fun P hP ↦
+    have : IsFiniteMeasure P := ⟨(hS₁ P hP).trans_lt ENNReal.one_lt_top⟩
+    inferInstance)] at h1
+  -- and `maxLogGrowth Q₁ S₁ (n * k) / (n * k)` tends to the bipolar rate
+  have hk' : Tendsto (fun n : ℕ ↦ n * k) atTop atTop :=
+    tendsto_atTop_atTop.2 fun b ↦ ⟨b, fun n hn ↦ hn.trans (Nat.le_mul_of_pos_right n
+      (Nat.pos_of_ne_zero hk))⟩
+  have h2 := EReal.Tendsto.const_mul (a := (k : EReal))
+    ((tendsto_maxLogGrowth_div_bipolarRate Q₁ hS₁).comp hk') (.inl (EReal.natCast_ne_bot k))
+    (.inl (EReal.natCast_ne_top k))
+  refine tendsto_nhds_unique h1 (h2.congr fun n ↦ ?_)
+  simp only [Function.comp_apply]
+  rw [mul_comm, EReal.mul_div_right, EReal.natCast_mul, EReal.mul_div_mul_cancel
+    (EReal.natCast_ne_bot k) (EReal.natCast_ne_top k) (by exact_mod_cast hk)]
+
 /-- The maximal expected logarithm of an `n`-sample e-variable is at most `n` times the relative
 entropy from `Q₁` to any member `P` of the null: this is its value for the null `{P}`, by
 `maxEPower_singleton_eq_klDiv` and the tensorization of the relative entropy
@@ -296,6 +342,26 @@ lemma maxLogGrowth_le_mul_klDiv (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁
   _ = n * (klDiv Q₁ P : EReal) := by
     rw [maxEPower_singleton_eq_klDiv, klDiv_pi_const]
     simp
+
+/-- The smallest relative entropy from `n ≠ 0` observations of law `Q₁` to the `n`-sample null of a
+null of probability measures is `n` times the smallest relative entropy from `Q₁` to the null, by
+the tensorization of the relative entropy. -/
+lemma klInf_pi_sampleNull (Q₁ : Measure 𝓧) [IsProbabilityMeasure Q₁]
+    (hS₁ : ∀ P ∈ S₁, IsProbabilityMeasure P) (hn : n ≠ 0) :
+    klInf (Measure.pi fun _ : Fin n ↦ Q₁) (sampleNull S₁ n) = n * klInf Q₁ S₁ := by
+  have hn' : (n : ℝ≥0∞) ≠ 0 := by exact_mod_cast hn
+  rw [klInf_eq_coe_iInf_klDiv fun μ hμ ↦ by
+      have := isProbabilityMeasure_of_mem_sampleNull hS₁ n μ hμ
+      simp [measure_univ],
+    klInf_eq_coe_iInf_klDiv fun P hP ↦ by have := hS₁ P hP; simp [measure_univ],
+    ← ENNReal.toEReal_natCast, ← EReal.coe_ennreal_mul, sampleNull_def, iInf_image,
+    ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
+  congr 1
+  refine iInf_congr fun P ↦ ?_
+  rw [ENNReal.mul_iInf_of_ne hn' (ENNReal.natCast_ne_top _)]
+  refine iInf_congr fun hP ↦ ?_
+  have := hS₁ P hP
+  rw [klDiv_pi_const, Fintype.card_fin]
 
 /-- For a probability measure `Q₁` and a measure `P` of mass at most one, the largest expected
 logarithm of an `n`-sample e-variable for the simple null `{P}` is `n * klIntegral Q₁ P`: the
