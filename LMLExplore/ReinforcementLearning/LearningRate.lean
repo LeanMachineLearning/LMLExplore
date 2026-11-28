@@ -144,6 +144,13 @@ theorem learningRateWeight_nonneg {R : Type*} [CommRing R] [PartialOrder R] [IsO
     0 ≤ learningRateWeight η t i :=
   mul_nonneg hi (prod_nonneg fun j hj ↦ sub_nonneg.2 (hη j hj))
 
+/-- The weights are at most the learning rate when the learning rates lie in `[0, 1]`. -/
+theorem learningRateWeight_le {R : Type*} [CommRing R] [PartialOrder R] [IsOrderedRing R]
+    {η : ℕ → R} {t i : ℕ} (hi : 0 ≤ η i) (hη : ∀ j ∈ Ioc i t, η j ∈ Set.Icc (0 : R) 1) :
+    learningRateWeight η t i ≤ η i :=
+  mul_le_of_le_one_right hi (prod_le_one₀ (fun j hj ↦ sub_nonneg.2 (hη j hj).2)
+    fun j hj ↦ sub_le_self _ (hη j hj).1)
+
 end Weight
 
 /-- Learning rates in `[0, 1]` from iteration `1` on are in `[0, 1]` at every iteration
