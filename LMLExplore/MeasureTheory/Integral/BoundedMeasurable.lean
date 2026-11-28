@@ -27,6 +27,8 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
   for a function `f : β → ℝ` with `|f| ≤ B`, the second one against a probability measure.
 * `LMLExplore.integrable_exp_of_abs_le`: for a measurable `f : β → ℝ` with `|f| ≤ B`, `exp ∘ f` is
   integrable for every finite measure.
+* `LMLExplore.abs_integral_mixture_sub_le`: mixing a measure `F` with `Q`, with weights `1 - ε`
+  and `ε`, brings its integral of `f` closer to that of `Q`.
 * `LMLExplore.integrable_integral_kernel_of_abs_le`: for a Markov kernel `κ`, the integral
   `a ↦ ∫ f d(κ a)` of a measurable `f` with `|f| ≤ B` is integrable for every finite measure.
 * `LMLExplore.integral_comp_eq_sum`: the integral of a function of a finite measurable partition
@@ -65,6 +67,28 @@ lemma abs_integral_le_of_abs_le {f : β → ℝ} {B : ℝ} {μ : Measure β} [Is
   simpa only [Real.norm_eq_abs, probReal_univ, mul_one] using
     norm_integral_le_of_norm_le_const (μ := μ) (f := f)
       (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+/-- Mixing a measure `F` with `Q`, with weights `1 - ε` and `ε` for `ε ≤ 1`, brings its integral
+of `f` closer to that of `Q`: if `|∫ f ∂F - ∫ f ∂Q| ≤ δ`, then
+`|∫ f ∂((1 - ε) F + ε Q) - ∫ f ∂Q| ≤ δ`. -/
+lemma abs_integral_mixture_sub_le {F Q : Measure β} {ε : ℝ≥0∞} (hε : ε ≤ 1) {f : β → ℝ}
+    (hfF : Integrable f F) (hfQ : Integrable f Q) {δ : ℝ} (h : |∫ x, f x ∂F - ∫ x, f x ∂Q| ≤ δ) :
+    |∫ x, f x ∂((1 - ε) • F + ε • Q) - ∫ x, f x ∂Q| ≤ δ := by
+  have hεt : ε ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top hε
+  rw [integral_add_measure (hfF.smul_measure (by simp)) (hfQ.smul_measure hεt),
+    integral_smul_measure, integral_smul_measure]
+  have hsum : (1 - ε).toReal + ε.toReal = 1 := by
+    rw [← ENNReal.toReal_add (by simp) hεt, tsub_add_cancel_of_le hε, ENNReal.toReal_one]
+  have h1 : 0 ≤ (1 - ε).toReal := ENNReal.toReal_nonneg
+  have h1' : (1 - ε).toReal ≤ 1 := by linarith [ENNReal.toReal_nonneg (a := ε)]
+  have heq : (1 - ε).toReal • (∫ x, f x ∂F) + ε.toReal • (∫ x, f x ∂Q) - ∫ x, f x ∂Q =
+      (1 - ε).toReal * (∫ x, f x ∂F - ∫ x, f x ∂Q) := by
+    rw [smul_eq_mul, smul_eq_mul]
+    linear_combination (∫ x, f x ∂Q) * hsum
+  rw [heq, abs_mul, abs_of_nonneg h1]
+  calc (1 - ε).toReal * |∫ x, f x ∂F - ∫ x, f x ∂Q|
+  _ ≤ 1 * δ := mul_le_mul h1' h (abs_nonneg _) zero_le_one
+  _ = δ := one_mul δ
 
 /-- For a Markov kernel `κ` and a measurable function `f` bounded by `B` in absolute value, the
 integral `a ↦ ∫ f d(κ a)` is integrable for every finite measure. -/

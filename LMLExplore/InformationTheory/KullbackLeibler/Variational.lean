@@ -8,6 +8,7 @@ module
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Statlib.ForMathlib.MeasureTheory.Integral.EReal.EIntegral
 import Statlib.EValues.RIPr
+import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
 # The Donsker–Varadhan inequality for the logarithm of a nonnegative function
@@ -22,10 +23,18 @@ The proof uses Statlib's variational form of the relative entropy, the largest e
 of an e-variable for the simple null `{ν}` (`ProbabilityTheory.maxUtility_singleton_eq_klDiv`):
 when `0 < ∫ f dν < ∞`, the function `f / ∫ f dν` is such an e-variable.
 
+Applied to the logarithm of the likelihood ratio on a finite set `F` of atoms charged by both
+laws, Tau Ceti's real form of the Donsker–Varadhan inequality
+(`TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv`) bounds the relative entropy from below
+by the contribution of these atoms: `∑_{j ∈ F} Q {j} log (Q {j} / P {j}) - log 2 ≤ KL(Q ‖ P)`.
+
 ## Main statements
 
 * `InformationTheory.eintegral_log_le_log_lintegral_add_klDiv`: for `μ ≪ ν`,
   `∫ᵉ log f dμ ≤ log (∫⁻ f dν) + klDiv μ ν`.
+* `InformationTheory.ofReal_sum_mul_log_sub_log_two_le_klDiv`: for probability measures `Q` and
+  `P` and a finite set `F` of points charged by both,
+  `∑_{j ∈ F} Q {j} log (Q {j} / P {j}) - log 2 ≤ KL(Q ‖ P)`.
 
 ## Implementation notes
 
@@ -92,5 +101,70 @@ theorem eintegral_log_le_log_lintegral_add_klDiv {μ ν : Measure α} [IsProbabi
       (by simpa [hc] using h0), hc]
   _ ≤ klDiv μ ν + ENNReal.log c := by gcongr
   _ = ENNReal.log c + klDiv μ ν := add_comm _ _
+
+/-- **The Donsker–Varadhan bound on a finite block of atoms.** For probability measures `Q` and
+`P` on a measurable space with measurable singletons and a finite set `F` of points charged by both,
+`∑_{j ∈ F} Q {j} log (Q {j} / P {j}) - log 2 ≤ KL(Q ‖ P)`. -/
+theorem ofReal_sum_mul_log_sub_log_two_le_klDiv [MeasurableSingletonClass α]
+    (Q P : Measure α) [IsProbabilityMeasure Q] [IsProbabilityMeasure P] (F : Finset α)
+    (hQ : ∀ j ∈ F, 0 < Q.real {j}) (hP : ∀ j ∈ F, 0 < P.real {j}) :
+    ENNReal.ofReal (∑ j ∈ F, Q.real {j} * Real.log (Q.real {j} / P.real {j}) - Real.log 2) ≤
+      klDiv Q P := by
+  classical
+  set q : α → ℝ := fun j ↦ Q.real {j} with hq_def
+  set p : α → ℝ := fun j ↦ P.real {j} with hp_def
+  -- the logarithm of the likelihood ratio on the points of `F`
+  set f : α → ℝ := fun x ↦ ∑ j ∈ F, ({j} : Set α).indicator (fun _ ↦ Real.log (q j / p j)) x
+    with hf_def
+  have hsingle (c : α → ℝ) (x : α) :
+      ∑ j ∈ F, ({j} : Set α).indicator (fun _ ↦ c j) x = if x ∈ F then c x else 0 := by
+    split_ifs with hx
+    · rw [Finset.sum_eq_single x (fun j _ hj ↦ Set.indicator_of_notMem
+        (by simpa using Ne.symm hj) _) (fun h ↦ absurd hx h)]
+      simp
+    · exact Finset.sum_eq_zero fun j hj ↦ Set.indicator_of_notMem
+        (by rintro rfl; exact hx hj) _
+  have hint_ind (μ : Measure α) [IsFiniteMeasure μ] (c : α → ℝ) :
+      Integrable (fun x ↦ ∑ j ∈ F, ({j} : Set α).indicator (fun _ ↦ c j) x) μ :=
+    integrable_finsetSum _ fun j _ ↦ (integrable_const _).indicator (measurableSet_singleton j)
+  have hexpf (x : α) : Real.exp (f x) =
+      1 + ∑ j ∈ F, ({j} : Set α).indicator (fun _ ↦ q j / p j - 1) x := by
+    simp only [hf_def]
+    rw [hsingle, hsingle]
+    split_ifs with hx
+    · rw [Real.exp_log (div_pos (hQ x hx) (hP x hx))]; ring
+    · simp
+  have hexpi : Integrable (fun x ↦ Real.exp (f x)) P := by
+    simp_rw [hexpf]
+    exact (integrable_const 1).add (hint_ind _ _)
+  have hDV := TauCeti.ofReal_integral_sub_log_integral_exp_le_klDiv (μ := Q) (ν := P)
+    (hint_ind _ _) hexpi
+  have hIf : ∫ x, f x ∂Q = ∑ j ∈ F, q j * Real.log (q j / p j) := by
+    rw [hf_def, integral_finsetSum _ fun j _ ↦
+      (integrable_const _).indicator (measurableSet_singleton j)]
+    exact Finset.sum_congr rfl fun j _ ↦ by
+      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul]
+  have hIe : ∫ x, Real.exp (f x) ∂P ≤ 2 := by
+    simp_rw [hexpf]
+    rw [integral_add (integrable_const 1) (hint_ind _ _), integral_const, probReal_univ,
+      one_smul, integral_finsetSum _ fun j _ ↦
+        (integrable_const _).indicator (measurableSet_singleton j)]
+    have hsum : ∑ j ∈ F, ∫ x, ({j} : Set α).indicator (fun _ ↦ q j / p j - 1) x ∂P
+        ≤ ∑ j ∈ F, Q.real {j} := by
+      refine Finset.sum_le_sum fun j hj ↦ ?_
+      rw [integral_indicator_const _ (measurableSet_singleton j), smul_eq_mul, mul_sub,
+        mul_div_cancel₀ _ (hP j hj).ne', mul_one]
+      linarith [hP j hj]
+    have hF : ∑ j ∈ F, Q.real {j} ≤ 1 := by
+      rw [← measureReal_biUnion_finset (fun i _ j _ hij ↦ Set.disjoint_singleton.2 hij)
+        (fun j _ ↦ measurableSet_singleton j)]
+      exact measureReal_le_one
+    linarith
+  have hIe0 : 0 < ∫ x, Real.exp (f x) ∂P := integral_exp_pos hexpi
+  refine le_trans (ENNReal.ofReal_le_ofReal ?_) hDV
+  rw [hIf]
+  have := Real.log_le_log hIe0 hIe
+  linarith
+
 
 end InformationTheory

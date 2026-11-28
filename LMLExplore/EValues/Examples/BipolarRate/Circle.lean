@@ -11,6 +11,7 @@ public import Mathlib.Probability.UniformOn
 import LMLExplore.EValues.EffectiveSet.Basic
 import LMLExplore.EValues.Utility.Basic
 import LMLExplore.InformationTheory.KullbackLeibler.Mixture
+import LMLExplore.MeasureTheory.Group.AddCircle
 import LMLExplore.MeasureTheory.Integral.IntervalIntegral.Periodic
 import Statlib.ForMathlib.MeasureTheory.Constructions.Pi
 import TauCeti.MeasureTheory.Measure.Haar.UnitAddTorus
@@ -199,23 +200,11 @@ private lemma zmultiples_subset_ratCircle (N : ℕ) :
   push_cast
   ring
 
-/-- The coset `x₀ + (1 / N) ℤ` of the circle is finite. -/
-private lemma finite_coset (x₀ : UnitAddCircle) (N : ℕ) :
-    {x | x - x₀ ∈ AddSubgroup.zmultiples (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)}.Finite := by
-  have h : IsOfFinAddOrder (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle) := by
-    rcases eq_or_ne N 0 with rfl | hN
-    · simp
-    refine isOfFinAddOrder_iff_nsmul_eq_zero.2 ⟨N, Nat.pos_of_ne_zero hN, ?_⟩
-    rw [← AddCircle.coe_nsmul, nsmul_eq_mul, mul_inv_cancel₀ (Nat.cast_ne_zero.2 hN)]
-    exact AddCircle.coe_period 1
-  have := h.finite_zmultiples
-  exact (Set.toFinite _).preimage (sub_left_injective.injOn)
-
 /-- The members of the coset null are probability measures. -/
-private lemma isProbabilityMeasure_coset_mixture (hε : ε ≤ 1) (x₀ : UnitAddCircle) (N : ℕ) :
+lemma isProbabilityMeasure_coset_mixture (hε : ε ≤ 1) (x₀ : UnitAddCircle) (N : ℕ) :
     IsProbabilityMeasure ((1 - ε) • uniformOn {x | x - x₀ ∈ AddSubgroup.zmultiples
       (((N : ℝ)⁻¹ : ℝ) : UnitAddCircle)} + ε • volume) := by
-  have := isProbabilityMeasure_uniformOn (finite_coset x₀ N) ⟨x₀, by simp⟩
+  have := isProbabilityMeasure_uniformOn (UnitAddCircle.finite_coset x₀ N) ⟨x₀, by simp⟩
   exact ⟨by simp [tsub_add_cancel_of_le hε]⟩
 
 /-- For `N = 1`, the coset `x₀ + ℤ` of the circle is the point `x₀`. -/
@@ -268,7 +257,7 @@ theorem klInf_coset_mixtures (hε : ε ≤ 1) :
       (x₀ : UnitAddCircle) (N : ℕ)} = ENNReal.log ε⁻¹ := by
   refine klInf_mixture_of_mutuallySingular ⟨_, 0, 0, rfl⟩ ?_ hε
   rintro _ ⟨x₀, N, rfl⟩
-  have hfin := finite_coset x₀ N
+  have hfin := UnitAddCircle.finite_coset x₀ N
   refine ⟨_, isProbabilityMeasure_uniformOn hfin ⟨x₀, by simp⟩,
     ⟨_, hfin.measurableSet.compl, ?_, ?_⟩, rfl⟩
   · exact (uniformOn_eq_zero_iff hfin).2 (Set.inter_compl_self _)
@@ -293,7 +282,8 @@ theorem bipolarRate_coset_mixtures (hε : ε ≤ 1) :
       fun a ha b hb ↦ zmultiples_subset_ratCircle N
         (by simpa using sub_mem (Set.mem_ofPred.1 ha) (Set.mem_ofPred.1 hb))⟩
     simp only [add_apply, smul_apply, smul_eq_mul,
-      (uniformOn_eq_zero_iff (finite_coset x₀ N)).2 (Set.inter_compl_self _), mul_zero, zero_add]
+      (uniformOn_eq_zero_iff (UnitAddCircle.finite_coset x₀ N)).2 (Set.inter_compl_self _),
+      mul_zero, zero_add]
     exact mul_le_of_le_one_right' prob_le_one
   exact le_antisymm ((bipolarRate_le_klInf volume hS).trans_eq
     (klInf_coset_mixtures hε))
