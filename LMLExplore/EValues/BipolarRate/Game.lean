@@ -7,7 +7,7 @@ module
 
 public import LMLExplore.EValues.BipolarRate.Basic
 import LMLExplore.EValues.EVariable
-import Mathlib.Probability.Moments.Basic
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
@@ -118,8 +118,7 @@ theorem iSup_iInf_betPayoff_eq_maxEPower (Q : Measure Ω) [IsProbabilityMeasure 
     | bot => exact bot_le
     | top => exact absurd hc not_top_lt
     | coe c =>
-      have hgQ : Integrable g Q := .of_bound hg.aestronglyMeasurable C (.of_forall fun x ↦ by
-        rw [Real.norm_eq_abs]; exact hC x)
+      have hgQ : Integrable g Q := LMLExplore.integrable_of_abs_le hg hC Q
       set a := ∫ x, g x ∂Q with ha
       set X : Ω → ℝ≥0∞ := fun x ↦ ENNReal.ofReal (Real.exp (g x - a + c)) with hX_def
       have heq (x : Ω) : Real.exp (g x - a + c) = Real.exp (g x) * Real.exp (c - a) := by
@@ -127,9 +126,8 @@ theorem iSup_iInf_betPayoff_eq_maxEPower (Q : Measure Ω) [IsProbabilityMeasure 
       have hX : IsEVar X T := by
         refine ⟨by fun_prop, fun P hP ↦ ?_⟩
         have : IsFiniteMeasure P := ⟨(hT P hP).trans_lt ENNReal.one_lt_top⟩
-        have hexp : Integrable (fun x ↦ Real.exp (g x)) P := by
-          simpa using integrable_exp_mul_of_le 1 C zero_le_one hg.aemeasurable
-            (.of_forall fun x ↦ le_of_abs_le (hC x))
+        have hexp : Integrable (fun x ↦ Real.exp (g x)) P :=
+          LMLExplore.integrable_exp_of_abs_le hg hC P
         rw [← ofReal_integral_eq_lintegral_ofReal (by simp_rw [heq]; exact hexp.mul_const _)
           (.of_forall fun x ↦ (Real.exp_pos _).le), ENNReal.ofReal_le_one]
         simp_rw [heq]

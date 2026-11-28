@@ -9,10 +9,12 @@ public import LMLExplore.EValues.Null.Basic
 public import Statlib.EValues.Product
 public import Statlib.EValues.RIPr
 import LMLExplore.EValues.DPI
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import Mathlib.InformationTheory.KullbackLeibler.DataProcessing
 import Statlib.Divergence.KullbackLeibler.CondKL
 import Statlib.ForMathlib.InformationTheory.KullbackLeibler.EIntegral
 import TauCeti.Data.EReal.Operations
+import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
 # The smallest relative entropy to a null and the largest e-power
@@ -53,6 +55,9 @@ the same project.
   `ProbabilityTheory.maxEPower_nonneg`: nonnegativity when the members of the null have mass at
   most that of `Q` (at most one, for `maxEPower`).
 * `ProbabilityTheory.klIntegral_map_le`: data processing for `klIntegral` along a measurable map.
+* `ProbabilityTheory.klIntegral_eq_iSup_integral_sub_integral_exp_add`: the variational formula for
+  `klIntegral`, on finite measures, and `ProbabilityTheory.klIntegral_anti_right`: the
+  antitonicity of `klIntegral` in its second argument.
 * `ProbabilityTheory.klInf_eq_iInf_klDiv`: for a null whose members have the mass of `Q`, `klInf`
   is the smallest `klDiv`.
 * `ProbabilityTheory.klInf_pi_sampleNull`: the smallest relative entropy from `n ≠ 0`
@@ -163,6 +168,85 @@ theorem klIntegral_map_le {g : Ω → Ω'} (hg : Measurable g) :
   rw [klIntegral_eq_klDiv_add_sub, klIntegral_eq_klDiv_add_sub, hreal, hreal]
   exact EReal.sub_le_sub (add_le_add_left (EReal.coe_ennreal_le_coe_ennreal_iff.2
     (klDiv_map_le μ ν hg)) _) le_rfl
+
+/-- **The variational lower bound for `klIntegral`**: for finite measures `μ` and `ν` and a
+function `f` integrable under `μ` with `exp ∘ f` integrable under `ν`,
+`∫ f dμ - ∫ exp f dν + μ univ ≤ klIntegral μ ν`. It is Tau Ceti's lower bound for `klDiv`
+(`TauCeti.ofReal_integral_sub_integral_exp_sub_one_le_klDiv`), corrected by the masses. -/
+theorem integral_sub_integral_exp_add_le_klIntegral {f : Ω → ℝ} (hf : Integrable f μ)
+    (hef : Integrable (fun x ↦ Real.exp (f x)) ν) :
+    ((∫ x, f x ∂μ - ∫ x, Real.exp (f x) ∂ν + μ.real univ : ℝ) : EReal) ≤ klIntegral μ ν := by
+  have h := TauCeti.ofReal_integral_sub_integral_exp_sub_one_le_klDiv hf hef
+  rw [integral_sub hef (integrable_const 1), integral_const, smul_eq_mul, mul_one] at h
+  rw [klIntegral_eq_klDiv_add_sub]
+  rcases eq_or_ne (klDiv μ ν) ∞ with hK | hK
+  · rw [hK, EReal.coe_ennreal_top, EReal.top_add_coe, EReal.top_sub_coe]
+    exact le_top
+  rw [← ENNReal.ofReal_toReal hK, ENNReal.ofReal_le_ofReal_iff ENNReal.toReal_nonneg] at h
+  rw [← ENNReal.ofReal_toReal hK, EReal.coe_ennreal_ofReal, max_eq_left ENNReal.toReal_nonneg,
+    ← EReal.coe_add, ← EReal.coe_sub, EReal.coe_le_coe_iff]
+  linarith
+
+variable (μ ν) in
+/-- **The variational formula for `klIntegral`**: for finite measures `μ` and `ν`,
+`klIntegral μ ν` is the supremum of `∫ f dμ - ∫ exp f dν + μ univ` over the bounded measurable
+functions `f`. It is Tau Ceti's variational formula for `klDiv`
+(`TauCeti.klDiv_eq_iSup_integral_sub_integral_exp_sub_one`), corrected by the masses. -/
+theorem klIntegral_eq_iSup_integral_sub_integral_exp_add :
+    klIntegral μ ν = ⨆ (f : Ω → ℝ) (_ : Measurable f) (_ : ∃ C, ∀ x, |f x| ≤ C),
+      ((∫ x, f x ∂μ - ∫ x, Real.exp (f x) ∂ν + μ.real univ : ℝ) : EReal) := by
+  refine le_antisymm ?_ (iSup₂_le fun f hf ↦ iSup_le fun ⟨C, hC⟩ ↦
+    integral_sub_integral_exp_add_le_klIntegral (LMLExplore.integrable_of_abs_le hf hC μ)
+      (LMLExplore.integrable_exp_of_abs_le hf hC _))
+  rw [klIntegral_eq_klDiv_add_sub, TauCeti.klDiv_eq_iSup_integral_sub_integral_exp_sub_one]
+  set Y := ⨆ (f : Ω → ℝ) (_ : Measurable f) (_ : ∃ C, ∀ x, |f x| ≤ C),
+    ENNReal.ofReal (∫ x, f x ∂μ - ∫ x, (Real.exp (f x) - 1) ∂ν) with hY
+  refine le_of_forall_lt_imp_le_of_dense fun c hc ↦ ?_
+  induction c using EReal.rec with
+  | bot => exact bot_le
+  | top => exact absurd hc not_top_lt
+  | coe t =>
+    obtain ⟨g, hg, N, hgN, htg⟩ : ∃ g : Ω → ℝ, Measurable g ∧ ∃ N, (∀ x, |g x| ≤ N) ∧
+        t < ∫ x, g x ∂μ - ∫ x, Real.exp (g x) ∂ν + μ.real univ := by
+      by_cases ht : t - μ.real univ + ν.real univ < 0
+      · refine ⟨fun _ ↦ 0, measurable_const, 0, fun _ ↦ by simp, ?_⟩
+        simp only [integral_zero, Real.exp_zero, integral_const, smul_eq_mul, mul_one]
+        linarith
+      replace ht := not_lt.1 ht
+      have hlt : ENNReal.ofReal (t - μ.real univ + ν.real univ) < Y := by
+        rcases eq_or_ne Y ⊤ with hYt | hYt
+        · rw [hYt]
+          exact ENNReal.ofReal_lt_top
+        rw [ENNReal.ofReal_lt_iff_lt_toReal ht hYt]
+        rw [← EReal.coe_ennreal_toReal hYt] at hc
+        have hc' : ((t : ℝ) : EReal) < ((Y.toReal + μ.real univ - ν.real univ : ℝ) : EReal) := by
+          rw [EReal.coe_sub, EReal.coe_add]
+          exact hc
+        rw [EReal.coe_lt_coe_iff] at hc'
+        linarith
+      obtain ⟨f, hlt₁⟩ := lt_iSup_iff.1 hlt
+      obtain ⟨hf, hlt₂⟩ := lt_iSup_iff.1 hlt₁
+      obtain ⟨⟨C, hC⟩, hlt₃⟩ := lt_iSup_iff.1 hlt₂
+      refine ⟨f, hf, C, hC, ?_⟩
+      have h := (ENNReal.ofReal_lt_ofReal_iff_of_nonneg ht).1 hlt₃
+      rw [integral_sub (LMLExplore.integrable_exp_of_abs_le hf hC _) (integrable_const 1),
+        integral_const, smul_eq_mul, mul_one] at h
+      linarith
+    exact (EReal.coe_le_coe_iff.2 htg.le).trans
+      (le_iSup₂_of_le g hg (le_iSup_of_le ⟨N, hgN⟩ le_rfl))
+
+omit [IsFiniteMeasure ν] in
+/-- `klIntegral μ ν` is antitone in `ν`, on finite measures: a larger reference measure gives a
+smaller divergence. -/
+theorem klIntegral_anti_right {ν' : Measure Ω} [IsFiniteMeasure ν'] (h : ν ≤ ν') :
+    klIntegral μ ν' ≤ klIntegral μ ν := by
+  have : IsFiniteMeasure ν := isFiniteMeasure_of_le ν' h
+  rw [klIntegral_eq_iSup_integral_sub_integral_exp_add,
+    klIntegral_eq_iSup_integral_sub_integral_exp_add]
+  refine iSup₂_mono fun f hf ↦ iSup_mono fun ⟨C, hC⟩ ↦ EReal.coe_le_coe_iff.2 ?_
+  have := integral_mono_measure h (ae_of_all _ fun x ↦ (Real.exp_pos (f x)).le)
+    (LMLExplore.integrable_exp_of_abs_le hf hC _)
+  linarith
 
 end KLIntegral
 

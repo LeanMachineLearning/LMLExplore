@@ -7,6 +7,7 @@ module
 
 public import Mathlib.InformationTheory.KullbackLeibler.Basic
 public import Mathlib.MeasureTheory.Measure.GiryMonad
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 import TauCeti.MeasureTheory.Integral.Bind
 import TauCeti.MeasureTheory.Integral.Bochner.Basic
@@ -70,13 +71,11 @@ theorem klDiv_bind_le_lintegral {μ : Measure β} [IsFiniteMeasure μ] {π : Mea
     refine ae_lt_top' ((Measure.measurable_coe .univ).comp_aemeasurable hκ) ?_
     rw [← Measure.bind_apply .univ hκ]
     exact measure_ne_top _ _
-  -- `f`, `exp ∘ f` and `exp ∘ f - 1` are bounded
-  have hexp (x : β) : Real.exp (f x) ≤ Real.exp C := Real.exp_le_exp.2 (le_of_abs_le (hC x))
+  -- `f`, `exp ∘ f` and `exp ∘ f - 1` are integrable for every finite measure
   have hfi (ρ : Measure β) [IsFiniteMeasure ρ] : Integrable f ρ :=
-    .of_bound hf.aestronglyMeasurable C (ae_of_all _ hC)
+    LMLExplore.integrable_of_abs_le hf hC ρ
   have hefi (ρ : Measure β) [IsFiniteMeasure ρ] : Integrable (fun x ↦ Real.exp (f x)) ρ :=
-    .of_bound (Real.measurable_exp.comp hf).aestronglyMeasurable (Real.exp C)
-      (ae_of_all _ fun x ↦ by rw [Real.norm_of_nonneg (Real.exp_pos _).le]; exact hexp x)
+    LMLExplore.integrable_exp_of_abs_le hf hC ρ
   have hgi (ρ : Measure β) [IsFiniteMeasure ρ] :
       Integrable (fun x ↦ Real.exp (f x) - 1) ρ :=
     (hefi ρ).sub (integrable_const 1)

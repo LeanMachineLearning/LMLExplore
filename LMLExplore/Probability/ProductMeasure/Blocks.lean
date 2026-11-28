@@ -7,9 +7,11 @@ module
 
 public import LMLExplore.MeasureTheory.MeasurableSpace.Constructions
 public import Mathlib.Probability.Independence.InfinitePi
+public import Mathlib.Probability.Process.HittingTime
 public import Mathlib.Probability.ProductMeasure
 public import TauCeti.Probability.Process.PathLaw.Shift
 import LMLExplore.Analysis.SpecificLimits.Basic
+import LMLExplore.Probability.Independence.Wald
 import LMLExplore.Probability.ProductMeasure
 import Mathlib.Probability.Independence.Integration
 import TauCeti.Probability.StrongLaw
@@ -28,8 +30,8 @@ independent, the block `j` with the law `Measure.pi fun i : Fin m ↦ μ (j * m 
 the blocks is the currying of the reindexing `(j, i) ↦ j * m + i` of the terms, which is
 injective. Under the i.i.d. law `Measure.infinitePi fun _ ↦ P` of a probability measure `P`, the
 blocks are therefore i.i.d. with law the `m`-fold product `Measure.pi fun _ ↦ P`, the expectation
-of a product over `k` blocks is the `k`-th power of the expectation of one factor, and the strong
-law of large numbers holds along the blocks.
+of a product over `k` blocks is the `k`-th power of the expectation of one factor, the strong law
+of large numbers holds along the blocks, and so does Wald's bound on first passage times.
 
 ## Main definitions
 
@@ -40,7 +42,8 @@ law of large numbers holds along the blocks.
 
 * `MeasureTheory.measurePreserving_seqBlock_infinitePi`: the blocks of `m` terms of an independent
   sequence form an independent sequence, of the `m`-fold products of the laws of their terms.
-* `MeasureTheory.measurePreserving_seqBlock`: the law of one block.
+* `MeasureTheory.measurePreserving_seqBlock`: the law of one block;
+  `MeasureTheory.integral_comp_seqBlock`: the integral of a function of one block.
 * `ProbabilityTheory.iIndepFun_seqBlock`: the blocks are independent.
 * `ProbabilityTheory.lintegral_seqBlockProd`: the expectation of a product over `k` blocks is the
   product of the expectations of its factors; `ProbabilityTheory.lintegral_seqBlockProd_const`:
@@ -48,6 +51,8 @@ law of large numbers holds along the blocks.
 * `ProbabilityTheory.strong_law_ae_seqBlock`, `ProbabilityTheory.strong_law_ae_seqBlock_nat_div`:
   the strong law of large numbers along the blocks, averaged over the blocks and over the
   observations.
+* `ProbabilityTheory.lintegral_hittingAfter_sum_seqBlock_le`: Wald's bound on the expected number
+  of blocks over which the sum of a function bounded above reaches a level.
 
 ## Implementation notes
 
@@ -193,6 +198,17 @@ theorem measurePreserving_seqBlock (μ : ℕ → Measure 𝓧) [∀ i, IsProbabi
       (Measure.pi fun i : Fin m ↦ μ (j * m + i)) :=
   (measurePreserving_eval_infinitePi _ j).comp (measurePreserving_seqBlock_infinitePi μ m)
 
+/-- Under the product `Measure.infinitePi μ` of probability measures, the integral of a function
+of the `j`-th block of `m` terms is its integral under the law
+`Measure.pi fun i : Fin m ↦ μ (j * m + i)` of the block. -/
+theorem integral_comp_seqBlock {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    (μ : ℕ → Measure 𝓧) [∀ i, IsProbabilityMeasure (μ i)] (m j : ℕ) {f : (Fin m → 𝓧) → E}
+    (hf : AEStronglyMeasurable f (Measure.pi fun i : Fin m ↦ μ (j * m + i))) :
+    ∫ ω, f (seqBlock m j ω) ∂Measure.infinitePi μ =
+      ∫ x, f x ∂Measure.pi fun i : Fin m ↦ μ (j * m + i) := by
+  rw [← (measurePreserving_seqBlock μ m j).map_eq] at hf ⊢
+  exact (integral_map (measurable_seqBlock m j).aemeasurable hf).symm
+
 end MeasureTheory
 
 namespace ProbabilityTheory
@@ -228,6 +244,24 @@ theorem lintegral_seqBlockProd_const (P : Measure 𝓧) [IsProbabilityMeasure P]
     ∫⁻ ω, seqBlockProd m V k ω ∂Measure.infinitePi (fun _ : ℕ ↦ P) =
       (∫⁻ x, V x ∂Measure.pi fun _ : Fin m ↦ P) ^ k := by
   rw [lintegral_seqBlockProd _ hV, Finset.prod_const, Finset.card_range]
+
+/-- **Wald's bound along blocks.** Let `v` be a measurable function of `m` terms, bounded above by
+`C`, whose means under the laws `Measure.pi fun i ↦ μ (j * m + i)` of the blocks are at least
+`a > 0`. Under the product `Measure.infinitePi μ` of probability measures, the first time at which
+the sum of the values of `v` over the blocks of `m` terms reaches `b` has expectation at most
+`(b + C) / a`: the values of `v` on the blocks are independent
+(`ProbabilityTheory.iIndepFun.lintegral_hittingAfter_sum_le`). -/
+theorem lintegral_hittingAfter_sum_seqBlock_le (μ : ℕ → Measure 𝓧)
+    [∀ i, IsProbabilityMeasure (μ i)] {m : ℕ} {v : (Fin m → 𝓧) → ℝ} (hv : Measurable v)
+    {C : ℝ} (hvC : ∀ x, v x ≤ C) {a : ℝ} (ha : 0 < a)
+    (hva : ∀ j, a ≤ ∫ x, v x ∂Measure.pi fun i : Fin m ↦ μ (j * m + i)) (b : ℝ) :
+    ∫⁻ ω, ENat.toENNReal (hittingAfter (fun k ω ↦ ∑ j ∈ Finset.range k, v (seqBlock m j ω))
+        (Set.Ici b) 0 ω) ∂Measure.infinitePi μ ≤
+      ENNReal.ofReal ((b + C) / a) :=
+  ((iIndepFun_seqBlock μ m).comp (fun _ ↦ v) fun _ ↦ hv).lintegral_hittingAfter_sum_le
+    (fun j ↦ hv.comp (measurable_seqBlock m j)) ha
+    (fun j ↦ (hva j).trans_eq (integral_comp_seqBlock μ m j hv.aestronglyMeasurable).symm)
+    (fun _ ↦ ae_of_all _ fun _ ↦ hvC _) b
 
 section StrongLaw
 

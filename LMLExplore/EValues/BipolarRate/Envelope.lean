@@ -8,8 +8,8 @@ module
 public import LMLExplore.EValues.BipolarRate.Semicontinuity
 public import LMLExplore.MeasureTheory.Measure.TauEnvelope
 import LMLExplore.EValues.BipolarRate.Game
+import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
 import LMLExplore.MeasureTheory.Measure.SetwiseConvergence
-import Mathlib.Probability.Moments.Basic
 import TauCeti.InformationTheory.KullbackLeibler.Variational
 
 /-!
@@ -111,12 +111,9 @@ theorem maxEPower_le_tauEnvelope_klInf (Q : Measure 𝓧) [IsProbabilityMeasure 
       (fun _ ↦ ⟨N, hfN⟩) hε)
     refine le_tauNbhdInf_iff.2 fun R hR hRf ↦ le_klInf_iff.2 fun P hP ↦ ?_
     have := hS P hP
-    have hint : Integrable f R :=
-      .of_bound hfm.aestronglyMeasurable N (.of_forall fun x ↦ by
-        rw [Real.norm_eq_abs]; exact hfN x)
-    have hexp : Integrable (fun x ↦ Real.exp (f x)) P := by
-      simpa using integrable_exp_mul_of_le 1 N zero_le_one hfm.aemeasurable
-        (.of_forall fun x ↦ le_of_abs_le (hfN x))
+    have hint : Integrable f R := LMLExplore.integrable_of_abs_le hfm hfN R
+    have hexp : Integrable (fun x ↦ Real.exp (f x)) P :=
+      LMLExplore.integrable_exp_of_abs_le hfm hfN P
     -- `exp f` has mean at most one under `P`, so the bet `exp f` pays at least `∫ f ∂R`
     have hpay := integral_le_betPayoff R hfm.aemeasurable (hfP P hP)
     have hRf0 := abs_le.1 (hRf 0)

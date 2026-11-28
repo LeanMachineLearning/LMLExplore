@@ -6,6 +6,7 @@ Authors: LMLExplore contributors
 module
 
 public import Mathlib.Probability.ProductMeasure
+public import Mathlib.Probability.StrongLaw
 import TauCeti.Probability.Independence.InfinitePi
 import TauCeti.Probability.StrongLaw
 
@@ -18,11 +19,17 @@ strong laws `TauCeti.Probability.strong_law_ae_infinitePi` (finite mean) and
 them. Combined, they give that the averages of `ψ + χ` along the coordinates tend to `+∞` when `ψ`
 is integrable and `χ` has a positive part of infinite mean and a negative part of finite mean.
 
+The file also complements Mathlib's truncations `ProbabilityTheory.truncation f A`, which zero
+out the values of `f` outside `(-A, A]` in the proof of the strong law: an integrable function is
+the limit of its truncations in `L¹`.
+
 ## Main statements
 
 * `ProbabilityTheory.ae_tendsto_average_add_atTop_infinitePi`: if `ψ` is integrable and `χ` is
   measurable, with a negative part of finite mean and a positive part of infinite mean, then
   almost surely the averages of `ψ (x i) + χ (x i)` tend to `+∞`.
+* `ProbabilityTheory.tendsto_integral_abs_sub_truncation`: for an integrable `f`,
+  `∫ |f - truncation f A| → 0` as `A → ∞`.
 -/
 
 public section
@@ -55,5 +62,21 @@ theorem ae_tendsto_average_add_atTop_infinitePi {α : Type*} [MeasurableSpace α
   simp_rw [smul_eq_mul] at hψx
   simp_rw [Finset.sum_add_distrib, mul_add]
   exact hψx.add_atTop (by simpa only [div_eq_inv_mul] using hχx)
+
+/-- The truncations of an integrable function tend to it in `L¹`: `∫ |f - truncation f A| → 0`
+as `A → ∞`, by dominated convergence (compare `tendsto_integral_truncation`). -/
+theorem tendsto_integral_abs_sub_truncation {α : Type*} {m : MeasurableSpace α} {μ : Measure α}
+    {f : α → ℝ} (hf : Integrable f μ) :
+    Tendsto (fun A ↦ ∫ x, |f x - truncation f A x| ∂μ) atTop (𝓝 0) := by
+  have h := tendsto_integral_filter_of_dominated_convergence (l := atTop) (μ := μ)
+    (F := fun A x ↦ |f x - truncation f A x|) (f := fun _ ↦ 0) (fun x ↦ 2 * |f x|)
+    (Eventually.of_forall fun A ↦ (hf.aestronglyMeasurable.sub
+      hf.aestronglyMeasurable.truncation).norm)
+    (Eventually.of_forall fun A ↦ ae_of_all _ fun x ↦ by
+      rw [Real.norm_eq_abs, abs_abs, two_mul]
+      exact (abs_sub _ _).trans (add_le_add_right (abs_truncation_le_abs_self f A x) _))
+    (hf.abs.const_mul 2) (ae_of_all _ fun x ↦ tendsto_const_nhds.congr'
+      ((eventually_gt_atTop |f x|).mono fun A hA ↦ by simp [truncation_eq_self hA]))
+  simpa using h
 
 end ProbabilityTheory
