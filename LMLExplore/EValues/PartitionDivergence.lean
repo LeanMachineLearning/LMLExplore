@@ -9,7 +9,6 @@ public import LMLExplore.MeasureTheory.Measure.AddContent.YosidaHewitt
 public import Statlib.EValues.RIPr
 import LMLExplore.EValues.KLInf
 import LMLExplore.MeasureTheory.Integral.BoundedMeasurable
-import Mathlib.MeasureTheory.Function.Floor
 import TauCeti.MeasureTheory.SetAlgebra
 
 /-!
@@ -156,45 +155,6 @@ theorem partitionDivergence_le_klIntegral (R : Measure Ω) [IsFiniteMeasure R] {
 
 /-! ### Finite measurable partitions -/
 
-/-- The masses of a finite measure on the traces in a set `C` of the cells of a finite measurable
-partition sum to the mass of `C`. -/
-private lemma sum_measureReal_preimage_singleton_inter (μ : Measure Ω) [IsFiniteMeasure μ]
-    {π : Ω → Fin k} (hπ : Measurable π) (C : Set Ω) :
-    ∑ j, μ.real (π ⁻¹' {j} ∩ C) = μ.real C := by
-  have := sum_measureReal_preimage_singleton (μ := μ.restrict C) Finset.univ (f := π)
-    (fun j _ ↦ hπ (measurableSet_singleton j))
-  simpa only [Finset.coe_univ, preimage_univ, measureReal_restrict_apply
-    (hπ (measurableSet_singleton _)), measureReal_restrict_apply MeasurableSet.univ,
-    univ_inter] using this
-
-/-- The masses of an additive content of finite mass on the traces in a measurable set `C` of the
-cells of a finite measurable partition sum to the mass of `C`. -/
-private lemma sum_toReal_addContent_preimage_singleton_inter
-    {m : AddContent ℝ≥0∞ {s : Set Ω | MeasurableSet s}} (hm : m univ ≠ ∞) {π : Ω → Fin k}
-    (hπ : Measurable π) {C : Set Ω} (hC : MeasurableSet C) :
-    ∑ j, (m (π ⁻¹' {j} ∩ C)).toReal = (m C).toReal := by
-  have hU : ⋃ j ∈ (Finset.univ : Finset (Fin k)), π ⁻¹' {j} ∩ C = C := by
-    ext x
-    simp
-  have hdisj : ((Finset.univ : Finset (Fin k)) : Set (Fin k)).PairwiseDisjoint
-      fun j ↦ π ⁻¹' {j} ∩ C := fun i _ j _ hij ↦
-    ((Set.disjoint_singleton.2 hij).preimage π).mono inter_subset_left inter_subset_left
-  have hb := addContent_biUnion_eq (m := m) isSetRing_measurableSet
-    (fun j _ ↦ (hπ (measurableSet_singleton j)).inter hC) hdisj
-  rw [hU] at hb
-  rw [← ENNReal.toReal_sum fun j _ ↦ AddContent.apply_ne_top_of_univ_ne_top hm
-    ((hπ (measurableSet_singleton j)).inter hC), ← hb]
-
-/-- The integral of a function of a finite measurable partition `π` is the sum over the cells of
-its values times their masses. -/
-private lemma integral_comp_eq_sum (μ : Measure Ω) [IsFiniteMeasure μ] {π : Ω → Fin k}
-    (hπ : Measurable π) (F : Fin k → ℝ) :
-    ∫ x, F (π x) ∂μ = ∑ j, F j * μ.real (π ⁻¹' {j}) := by
-  rw [← integral_map hπ.aemeasurable (measurable_of_finite F).aestronglyMeasurable,
-    integral_fintype Integrable.of_finite]
-  refine Finset.sum_congr rfl fun j _ ↦ ?_
-  rw [map_measureReal_apply hπ (measurableSet_singleton j), smul_eq_mul, mul_comm]
-
 open Classical in
 /-- The refinement of a finite partition `π` by a set `E`: the last cell is `E`, and the other
 cells are those of `π` outside `E`. -/
@@ -224,64 +184,6 @@ private lemma refineBy_preimage_last (π : Ω → Fin k) (E : Set Ω) :
   by_cases hx : x ∈ E
   · simp [refineBy, hx]
   · simp [refineBy, hx, (Fin.castSucc_lt_last _).ne]
-
-/-- A measurable function `g` with `|g| ≤ N` is, up to `δ > 0`, a step function on a finite
-measurable partition: there are a measurable `π : Ω → Fin n` and values `h` with
-`g - δ ≤ h ∘ π ≤ g` and `|h| ≤ N + δ`. -/
-private lemma exists_measurable_fin_step_le {g : Ω → ℝ} (hg : Measurable g) {N : ℝ}
-    (hgN : ∀ x, |g x| ≤ N) {δ : ℝ} (hδ0 : 0 < δ) :
-    ∃ (n : ℕ) (π : Ω → Fin n) (h : Fin n → ℝ), Measurable π ∧
-      (∀ x, g x - δ ≤ h (π x) ∧ h (π x) ≤ g x) ∧ ∀ j, |h j| ≤ N + δ := by
-  -- the step function `g'` below `g`, at distance at most `δ`
-  set g' : Ω → ℝ := fun x ↦ δ * ⌊g x / δ⌋ with hg'
-  have hgf (x : Ω) : g' x ≤ g x := by
-    have h := Int.floor_le (g x / δ)
-    calc g' x = δ * ⌊g x / δ⌋ := rfl
-      _ ≤ δ * (g x / δ) := by gcongr
-      _ = g x := by field_simp
-  have hfg (x : Ω) : g x - δ ≤ g' x := by
-    have h := Int.lt_floor_add_one (g x / δ)
-    have h' : g x / δ - 1 ≤ ⌊g x / δ⌋ := by linarith
-    calc g x - δ = δ * (g x / δ - 1) := by field_simp
-      _ ≤ δ * ⌊g x / δ⌋ := by gcongr
-      _ = g' x := rfl
-  have hg'm : Measurable g' := measurable_const.mul
-    (measurable_from_top.comp (Int.measurable_floor.comp (hg.div_const δ)))
-  have hg'N (x : Ω) : |g' x| ≤ N + δ := by
-    rw [abs_le]
-    have := abs_le.1 (hgN x)
-    exact ⟨by linarith [hfg x], by linarith [hgf x]⟩
-  -- the range of `g'` is finite
-  have hrange : (Set.range g').Finite := by
-    have hsub : Set.range g' ⊆ (fun z : ℤ ↦ δ * z) '' Set.Icc ⌊-N / δ⌋ ⌊N / δ⌋ := by
-      rintro _ ⟨x, rfl⟩
-      refine ⟨⌊g x / δ⌋, ⟨Int.floor_mono ?_, Int.floor_mono ?_⟩, rfl⟩
-      · exact div_le_div_of_nonneg_right (abs_le.1 (hgN x)).1 hδ0.le
-      · exact div_le_div_of_nonneg_right (abs_le.1 (hgN x)).2 hδ0.le
-    exact ((Set.finite_Icc _ _).image _).subset hsub
-  -- `g'` is a function of a finite measurable partition `π`
-  have := hrange.fintype
-  set e := Fintype.equivFin (Set.range g')
-  set π : Ω → Fin (Fintype.card (Set.range g')) := fun x ↦ e ⟨g' x, x, rfl⟩ with hπ
-  set h : Fin (Fintype.card (Set.range g')) → ℝ := fun j ↦ (e.symm j : Set.range g') with hh
-  have hgπ (x : Ω) : h (π x) = g' x := by simp [hh, hπ]
-  have hπm : Measurable π := by
-    refine measurable_to_countable' fun i ↦ ?_
-    have hi : π ⁻¹' {i} = g' ⁻¹' {((e.symm i : Set.range g') : ℝ)} := by
-      ext x
-      simp only [Set.mem_preimage, Set.mem_singleton_iff]
-      constructor
-      · rintro rfl
-        exact (hgπ x).symm
-      · intro hx
-        rw [hπ, ← e.eq_symm_apply]
-        exact Subtype.ext hx
-    rw [hi]
-    exact hg'm (measurableSet_singleton _)
-  refine ⟨_, π, h, hπm, fun x ↦ hgπ x ▸ ⟨hfg x, hgf x⟩, fun j ↦ ?_⟩
-  obtain ⟨x, hx⟩ := (e.symm j).property
-  rw [show h j = g' x from hx.symm]
-  exact hg'N x
 
 /-- The choice of constants for the bound on a finite partition: for `c, N ≥ 0` and `η > 0`,
 there are `M ≥ 0` and `ε > 0` with `exp (-M) c ≤ η / 2`, and `(N + M) a + exp N p ≤ η / 2`
@@ -383,7 +285,8 @@ private lemma sum_sub_sum_exp_add_sub_le_partitionDivergence (R : Measure Ω) [I
       calc ∑ j, h j * R.real (π ⁻¹' {j} ∩ E) ≤ ∑ j, N * R.real (π ⁻¹' {j} ∩ E) :=
             Finset.sum_le_sum fun j _ ↦
               mul_le_mul_of_nonneg_right ((le_abs_self _).trans (hhN j)) measureReal_nonneg
-        _ = N * aE := by rw [← Finset.mul_sum, sum_measureReal_preimage_singleton_inter R hπ E]
+        _ = N * aE := by
+          rw [← Finset.mul_sum, LMLExplore.sum_measureReal_preimage_singleton_inter R hπ E]
     calc ∑ j, h j * R.real (π ⁻¹' {j})
         = ∑ j, h j * R.real (π ⁻¹' {j} ∩ Eᶜ) + ∑ j, h j * R.real (π ⁻¹' {j} ∩ E) := by
           rw [← Finset.sum_add_distrib]
@@ -413,7 +316,7 @@ private lemma sum_sub_sum_exp_add_sub_le_partitionDivergence (R : Measure Ω) [I
       _ = _ := by
           rw [Finset.sum_add_distrib, ← Finset.mul_sum, Finset.sum_sub_distrib,
             sum_toReal_addContent_preimage_singleton_inter hm hπ hE.compl,
-            sum_measureReal_preimage_singleton_inter μc hπ Eᶜ]
+            LMLExplore.sum_measureReal_preimage_singleton_inter μc hπ Eᶜ]
   have hb3 : Real.exp (-M) * (m E).toReal ≤ η / 2 :=
     (mul_le_mul_of_nonneg_left (ENNReal.toReal_mono hm
       (addContent_mono isSetRing_measurableSet.isSetSemiring hE .univ (subset_univ E)))
@@ -442,7 +345,7 @@ private lemma integral_sub_integral_exp_add_le_partitionDivergence (R : Measure 
       rw [hδ, ← mul_div_assoc, div_le_div_iff₀ (by linarith) (by norm_num)]
       nlinarith
     -- approximate `g` from below by a step function `h ∘ π`
-    obtain ⟨n, π, h, hπm, hgh, hhN⟩ := exists_measurable_fin_step_le hg hgN hδ0
+    obtain ⟨n, π, h, hπm, hgh, hhN⟩ := LMLExplore.exists_measurable_fin_step_le hg hgN hδ0
     have hhπm : Measurable fun x ↦ h (π x) := (measurable_of_finite h).comp hπm
     have h1 : ∫ x, g x ∂R ≤ ∑ j, h j * R.real (π ⁻¹' {j}) + R.real univ * δ := by
       have hmono : ∫ x, g x ∂R ≤ ∫ x, (h (π x) + δ) ∂R :=
@@ -450,10 +353,11 @@ private lemma integral_sub_integral_exp_add_le_partitionDivergence (R : Measure 
           ((LMLExplore.integrable_of_abs_le hhπm (fun x ↦ hhN (π x)) R).add (integrable_const δ))
           (fun x ↦ by linarith [(hgh x).1])
       rw [integral_add (LMLExplore.integrable_of_abs_le hhπm (fun x ↦ hhN (π x)) R)
-        (integrable_const _), integral_const, smul_eq_mul, integral_comp_eq_sum R hπm h] at hmono
+        (integrable_const _), integral_const, smul_eq_mul,
+        LMLExplore.integral_comp_eq_sum R hπm h] at hmono
       linarith
     have h2 : ∑ j, Real.exp (h j) * μc.real (π ⁻¹' {j}) ≤ ∫ x, Real.exp (g x) ∂μc := by
-      rw [← integral_comp_eq_sum μc hπm fun j ↦ Real.exp (h j)]
+      rw [← LMLExplore.integral_comp_eq_sum μc hπm fun j ↦ Real.exp (h j)]
       exact integral_mono (LMLExplore.integrable_exp_of_abs_le hhπm (fun x ↦ hhN (π x)) μc)
         (LMLExplore.integrable_exp_of_abs_le hg hgN μc) fun x ↦ Real.exp_le_exp.2 (hgh x).2
     have hstep := sum_sub_sum_exp_add_sub_le_partitionDivergence R hm hπm h

@@ -47,6 +47,9 @@ An additive content dominated by a finite measure is countably additive, since i
   countably additive part is monotone, and a measure is its own countably additive part.
 * `MeasureTheory.AddContent.apply_ne_top_of_univ_ne_top`: an additive content of finite mass is
   finite on the measurable sets.
+* `MeasureTheory.sum_toReal_addContent_preimage_singleton_inter`: the masses of such a content on
+  the traces in a measurable set `C` of the cells of a finite measurable partition sum to its mass
+  on `C`.
 * `MeasureTheory.countablyAdditivePart_fun_sub_countablyAdditivePart_self_eq_zero`: the remainder
   `m - m_c` is purely finitely additive.
 * `MeasureTheory.eq_countablyAdditivePart`, `MeasureTheory.apply_eq_sub_countablyAdditivePart`: the
@@ -60,9 +63,11 @@ Purely finitely additive set functions have no definition of their own: `ν` is 
 `countablyAdditivePart ν = 0` (`MeasureTheory.countablyAdditivePart_eq_zero_iff`). The countably
 additive part is defined for every set function, so that purely finitely additive set functions
 need no separate definition, and its properties are stated for additive contents on the measurable
-sets. The countable additivity of
-a dominated content is Mathlib's `MeasureTheory.addContent_iUnion_eq_sum_of_tendsto_zero`, the form
-in `ℝ≥0∞` of Mathlib's `MeasureTheory.VectorMeasure.of_additive_of_le_measure`.
+sets. The countable additivity of a dominated content
+(`MeasureTheory.addContent_iUnion_eq_tsum_of_le_measure`) is derived from Mathlib's
+`MeasureTheory.addContent_iUnion_eq_sum_of_tendsto_zero`, since domination by a finite measure
+gives continuity at `∅`. It is the `ℝ≥0∞` analogue of Mathlib's
+`MeasureTheory.VectorMeasure.of_additive_of_le_measure`.
 
 The statements and proofs are adapted from
 `EValuesResearch/ForLMLExplore/MeasureTheory/Measure/FinitelyAdditive.lean` (commit `83205cb`) in
@@ -190,6 +195,23 @@ theorem AddContent.apply_ne_top_of_univ_ne_top (hm : m univ ≠ ∞) {s : Set α
     (hs : MeasurableSet s) : m s ≠ ∞ :=
   ne_top_of_le_ne_top hm
     (addContent_mono isSetRing_measurableSet.isSetSemiring hs .univ (subset_univ s))
+
+/-- The masses of an additive content of finite mass on the traces in a measurable set `C` of the
+cells of a finite measurable partition sum to the mass of `C`. -/
+theorem sum_toReal_addContent_preimage_singleton_inter (hm : m univ ≠ ∞) {k : ℕ}
+    {π : α → Fin k} (hπ : Measurable π) {C : Set α} (hC : MeasurableSet C) :
+    ∑ j, (m (π ⁻¹' {j} ∩ C)).toReal = (m C).toReal := by
+  have hU : ⋃ j ∈ (Finset.univ : Finset (Fin k)), π ⁻¹' {j} ∩ C = C := by
+    ext x
+    simp
+  have hdisj : ((Finset.univ : Finset (Fin k)) : Set (Fin k)).PairwiseDisjoint
+      fun j ↦ π ⁻¹' {j} ∩ C := fun i _ j _ hij ↦
+    ((Set.disjoint_singleton.2 hij).preimage π).mono inter_subset_left inter_subset_left
+  have hb := addContent_biUnion_eq (m := m) isSetRing_measurableSet
+    (fun j _ ↦ (hπ (measurableSet_singleton j)).inter hC) hdisj
+  rw [hU] at hb
+  rw [← ENNReal.toReal_sum fun j _ ↦ AddContent.apply_ne_top_of_univ_ne_top hm
+    ((hπ (measurableSet_singleton j)).inter hC), ← hb]
 
 /-- For an additive content of finite mass, the remainder `m - m_c` after its countably additive
 part is additive on the measurable sets. -/

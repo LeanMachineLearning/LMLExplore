@@ -10,6 +10,7 @@ public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.MeasureTheory.Integral.IntegrableOn
 public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 public import Mathlib.Probability.Kernel.MeasurableIntegral
+import Mathlib.MeasureTheory.Function.Floor
 
 /-!
 # Integrals of bounded measurable functions
@@ -28,6 +29,10 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
   integrable for every finite measure.
 * `LMLExplore.integrable_integral_kernel_of_abs_le`: for a Markov kernel `κ`, the integral
   `a ↦ ∫ f d(κ a)` of a measurable `f` with `|f| ≤ B` is integrable for every finite measure.
+* `LMLExplore.sum_measureReal_preimage_singleton_inter`, `LMLExplore.integral_comp_eq_sum`: the
+  masses and integrals over the cells of a finite measurable partition `π : β → Fin k`.
+* `LMLExplore.exists_measurable_fin_step_le`: a measurable `g` with `|g| ≤ N` is, within `δ > 0`,
+  approximated from below by a step function on a finite measurable partition.
 -/
 
 public section
@@ -68,6 +73,87 @@ lemma integrable_integral_kernel_of_abs_le {α : Type*} [MeasurableSpace α] {f 
     (μ : Measure α) [IsFiniteMeasure μ] : Integrable (fun a ↦ ∫ x, f x ∂(κ a)) μ :=
   integrable_of_abs_le (hf.stronglyMeasurable.integral_kernel (κ := κ)).measurable
     (fun _ ↦ abs_integral_le_of_abs_le hfB) μ
+
+/-! ### Finite measurable partitions -/
+
+/-- The masses of a finite measure on the traces in a set `C` of the cells of a finite measurable
+partition sum to the mass of `C`. -/
+lemma sum_measureReal_preimage_singleton_inter (μ : Measure β) [IsFiniteMeasure μ]
+    {k : ℕ} {π : β → Fin k} (hπ : Measurable π) (C : Set β) :
+    ∑ j, μ.real (π ⁻¹' {j} ∩ C) = μ.real C := by
+  have := sum_measureReal_preimage_singleton (μ := μ.restrict C) Finset.univ (f := π)
+    (fun j _ ↦ hπ (measurableSet_singleton j))
+  simpa only [Finset.coe_univ, preimage_univ, measureReal_restrict_apply
+    (hπ (measurableSet_singleton _)), measureReal_restrict_apply MeasurableSet.univ,
+    univ_inter] using this
+
+/-- The integral of a function of a finite measurable partition `π` is the sum over the cells of
+its values times their masses. -/
+lemma integral_comp_eq_sum (μ : Measure β) [IsFiniteMeasure μ] {k : ℕ} {π : β → Fin k}
+    (hπ : Measurable π) (F : Fin k → ℝ) :
+    ∫ x, F (π x) ∂μ = ∑ j, F j * μ.real (π ⁻¹' {j}) := by
+  rw [← integral_map hπ.aemeasurable (measurable_of_finite F).aestronglyMeasurable,
+    integral_fintype Integrable.of_finite]
+  refine Finset.sum_congr rfl fun j _ ↦ ?_
+  rw [map_measureReal_apply hπ (measurableSet_singleton j), smul_eq_mul, mul_comm]
+
+/-- A measurable function `g` with `|g| ≤ N` is, up to `δ > 0`, a step function on a finite
+measurable partition: there are a measurable `π : β → Fin n` and values `h` with
+`g - δ ≤ h ∘ π ≤ g` and `|h| ≤ N + δ`. -/
+lemma exists_measurable_fin_step_le {g : β → ℝ} (hg : Measurable g) {N : ℝ}
+    (hgN : ∀ x, |g x| ≤ N) {δ : ℝ} (hδ0 : 0 < δ) :
+    ∃ (n : ℕ) (π : β → Fin n) (h : Fin n → ℝ), Measurable π ∧
+      (∀ x, g x - δ ≤ h (π x) ∧ h (π x) ≤ g x) ∧ ∀ j, |h j| ≤ N + δ := by
+  -- the step function `g'` below `g`, at distance at most `δ`
+  set g' : β → ℝ := fun x ↦ δ * ⌊g x / δ⌋ with hg'
+  have hgf (x : β) : g' x ≤ g x := by
+    have h := Int.floor_le (g x / δ)
+    calc g' x = δ * ⌊g x / δ⌋ := rfl
+      _ ≤ δ * (g x / δ) := by gcongr
+      _ = g x := by field_simp
+  have hfg (x : β) : g x - δ ≤ g' x := by
+    have h := Int.lt_floor_add_one (g x / δ)
+    have h' : g x / δ - 1 ≤ ⌊g x / δ⌋ := by linarith
+    calc g x - δ = δ * (g x / δ - 1) := by field_simp
+      _ ≤ δ * ⌊g x / δ⌋ := by gcongr
+      _ = g' x := rfl
+  have hg'm : Measurable g' := measurable_const.mul
+    (measurable_from_top.comp (Int.measurable_floor.comp (hg.div_const δ)))
+  have hg'N (x : β) : |g' x| ≤ N + δ := by
+    rw [abs_le]
+    have := abs_le.1 (hgN x)
+    exact ⟨by linarith [hfg x], by linarith [hgf x]⟩
+  -- the range of `g'` is finite
+  have hrange : (Set.range g').Finite := by
+    have hsub : Set.range g' ⊆ (fun z : ℤ ↦ δ * z) '' Set.Icc ⌊-N / δ⌋ ⌊N / δ⌋ := by
+      rintro _ ⟨x, rfl⟩
+      refine ⟨⌊g x / δ⌋, ⟨Int.floor_mono ?_, Int.floor_mono ?_⟩, rfl⟩
+      · exact div_le_div_of_nonneg_right (abs_le.1 (hgN x)).1 hδ0.le
+      · exact div_le_div_of_nonneg_right (abs_le.1 (hgN x)).2 hδ0.le
+    exact ((Set.finite_Icc _ _).image _).subset hsub
+  -- `g'` is a function of a finite measurable partition `π`
+  have := hrange.fintype
+  set e := Fintype.equivFin (Set.range g')
+  set π : β → Fin (Fintype.card (Set.range g')) := fun x ↦ e ⟨g' x, x, rfl⟩ with hπ
+  set h : Fin (Fintype.card (Set.range g')) → ℝ := fun j ↦ (e.symm j : Set.range g') with hh
+  have hgπ (x : β) : h (π x) = g' x := by simp [hh, hπ]
+  have hπm : Measurable π := by
+    refine measurable_to_countable' fun i ↦ ?_
+    have hi : π ⁻¹' {i} = g' ⁻¹' {((e.symm i : Set.range g') : ℝ)} := by
+      ext x
+      simp only [Set.mem_preimage, Set.mem_singleton_iff]
+      constructor
+      · rintro rfl
+        exact (hgπ x).symm
+      · intro hx
+        rw [hπ, ← e.eq_symm_apply]
+        exact Subtype.ext hx
+    rw [hi]
+    exact hg'm (measurableSet_singleton _)
+  refine ⟨_, π, h, hπm, fun x ↦ hgπ x ▸ ⟨hfg x, hgf x⟩, fun j ↦ ?_⟩
+  obtain ⟨x, hx⟩ := (e.symm j).property
+  rw [show h j = g' x from hx.symm]
+  exact hg'N x
 
 namespace boundedMeasurable
 
