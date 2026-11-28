@@ -8,6 +8,7 @@ module
 public import LMLExplore.Analysis.Normed.Lp.Measurable
 public import Mathlib.MeasureTheory.Integral.Bochner.Basic
 public import Mathlib.MeasureTheory.Integral.IntegrableOn
+public import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 public import Mathlib.Probability.Kernel.MeasurableIntegral
 
 /-!
@@ -23,6 +24,8 @@ finite measure `μ`, and its integral is bounded in absolute value by `‖f‖ *
 * `LMLExplore.boundedMeasurable.abs_integral_le`: `|∫ y, f y ∂μ| ≤ ‖f‖ * μ.real univ`.
 * `LMLExplore.integrable_of_abs_le`, `LMLExplore.abs_integral_le_of_abs_le`: the same statements
   for a function `f : β → ℝ` with `|f| ≤ B`, the second one against a probability measure.
+* `LMLExplore.integrable_exp_of_abs_le`: for a measurable `f : β → ℝ` with `|f| ≤ B`, `exp ∘ f` is
+  integrable for every finite measure.
 * `LMLExplore.integrable_integral_kernel_of_abs_le`: for a Markov kernel `κ`, the integral
   `a ↦ ∫ f d(κ a)` of a measurable `f` with `|f| ≤ B` is integrable for every finite measure.
 -/
@@ -41,6 +44,14 @@ measure. -/
 lemma integrable_of_abs_le {f : β → ℝ} {B : ℝ} (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B)
     (μ : Measure β) [IsFiniteMeasure μ] : Integrable f μ :=
   .of_bound hf.aestronglyMeasurable B (.of_forall fun x ↦ (Real.norm_eq_abs _).trans_le (hfB x))
+
+/-- The exponential of a measurable function bounded by `B` in absolute value is integrable for
+every finite measure. -/
+lemma integrable_exp_of_abs_le {f : β → ℝ} {B : ℝ} (hf : Measurable f) (hfB : ∀ x, |f x| ≤ B)
+    (μ : Measure β) [IsFiniteMeasure μ] : Integrable (fun x ↦ Real.exp (f x)) μ :=
+  .of_bound hf.exp.aestronglyMeasurable (Real.exp B) (.of_forall fun x ↦ by
+    rw [Real.norm_eq_abs, abs_of_pos (Real.exp_pos _)]
+    exact Real.exp_le_exp.2 (le_of_abs_le (hfB x)))
 
 /-- The integral against a probability measure of a function bounded by `B` in absolute value is
 bounded by `B` in absolute value. -/
